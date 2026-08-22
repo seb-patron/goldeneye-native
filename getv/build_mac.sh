@@ -215,12 +215,21 @@ run_batch() {
             fi' _ {})"
   echo "$res" | grep '^FAIL ' | sed 's/^FAIL /  mac FAILED: /'
   echo "$label: $(echo "$res" | grep -c '^OK ') built, $(echo "$res" | grep -c '^FAIL ') failed"
+  # Record what this batch is entitled to put in the archive. cmd_app archives every .o it
+  # finds on disk, so an object whose source has left the build -- excluded by name, deleted,
+  # renamed -- would otherwise be linked forever. That is not hypothetical: excluding
+  # assets/obseg/setup/{e,j} left sixteen PAL and Japanese setup objects in the archive, and
+  # the binary went on resolving seven levels to PAL data through them.
+  echo "$res" | sed -n 's|^OK ||p' \
+    | sed -e 's|\.c$||' -e 'y|/|_|' -e "s|^|$BUILD/obj/|" -e 's|$|.o|' >> "$BUILD/objects.txt"
 }
 
 cmd_lib() {
   require_decomp
   require_thirdparty
   mkdir -p "$BUILD/obj"
+  # Fresh manifest per full compile; run_batch appends to it.
+  : > "$BUILD/objects.txt"
   local CFLAGS; mac_cflags
 
   (cd "$DECOMP" && { find src -name '*.c' \
@@ -297,13 +306,53 @@ cmd_app() {
   done
 
   rm -f "$BUILD/libge.a"
+  # Choose members rather than sweeping the directory. Objects accumulate: one whose source
+  # has left the build -- excluded by name, deleted, renamed -- stays on disk and would keep
+  # satisfying the link forever. That is not hypothetical. Excluding assets/obseg/setup/{e,j}
+  # left sixteen PAL and Japanese setup objects behind, and the binary went on resolving
+  # seven levels to PAL data through them while reporting the correct new counts.
+  #
+  # run_batch records what it compiled in objects.txt. The port layer is built outside it and
+  # is recognised by its port_ prefix. Anything else on disk is an orphan and is left out of
+  # the archive -- not deleted, because a wrong exclusion here should cost a rebuild, not
+  # someone's build directory.
   local -a members=()
-  for f in "$BUILD"/obj/*.o; do
-    case "$f" in
-      *"/port_ge_tvos_main.o"|*"/port_ge_mac_main.o") continue ;;
-    esac
-    members+=("$f")
-  done
+  local f orphans=0 manifest="$BUILD/objects.txt"
+  if [ -s "$manifest" ]; then
+    # Match in one pass. The obvious per-file form,
+    #     printf '%s\n' "$keep" | grep -qxF "$f"
+    # is wrong under the `set -o pipefail` above: grep -q exits at the first hit, printf
+    # dies of SIGPIPE, and the pipeline reports 141 -- a failure -- for exactly the files
+    # that DID match. It silently dropped about a third of the archive.
+    local disklist="$BUILD/.objects.disk" keeplist="$BUILD/.objects.keep"
+    : > "$disklist"
+    for f in "$BUILD"/obj/*.o; do
+      case "$f" in
+        *"/port_ge_tvos_main.o"|*"/port_ge_mac_main.o") continue ;;
+        *"/port_"*) members+=("$f"); continue ;;
+      esac
+      printf '%s\n' "$f" >> "$disklist"
+    done
+    sort -u "$manifest" > "$keeplist"
+    local total matched=0
+    total=$(wc -l < "$disklist" | tr -d ' ')
+    while IFS= read -r f; do
+      members+=("$f"); matched=$((matched + 1))
+    done < <(grep -xFf "$keeplist" "$disklist" || true)
+    orphans=$((total - matched))
+    rm -f "$disklist" "$keeplist"
+    if [ "$orphans" -gt 0 ]; then
+      echo "mac excluded $orphans orphaned object(s) whose source left the build"
+    fi
+  else
+    echo "mac note: no object manifest; archiving every object found -- run './build_mac.sh lib'"
+    for f in "$BUILD"/obj/*.o; do
+      case "$f" in
+        *"/port_ge_tvos_main.o"|*"/port_ge_mac_main.o") continue ;;
+      esac
+      members+=("$f")
+    done
+  fi
   ar rcs "$BUILD/libge.a" "${members[@]}" || return 1
   echo "mac libge.a: $(du -h "$BUILD/libge.a" | cut -f1), ${#members[@]} members"
 

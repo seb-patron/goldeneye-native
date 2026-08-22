@@ -14,6 +14,7 @@ import io
 import os
 import re
 import subprocess
+import sys
 
 OUT = 'src/ge_port_decls.h'
 
@@ -117,6 +118,22 @@ def write(hdrs, protos):
 
 
 def main():
+    # This regenerates OUT from scratch. 0001-source.patch installs a curated version of
+    # the same header, and regenerating over it silently reverts hand-made corrections --
+    # most damagingly the five-argument s32 sub_GAME_7F0B7F84, which the patch changed from
+    # the upstream four-argument void form. Reverting it stops src/game/bg.c compiling and
+    # the link then fails with about thirty undefined bg* symbols, none of which name this
+    # header. That cost a full clean-build cycle to diagnose once; refuse by default.
+    if os.path.exists(OUT) and '--force' not in sys.argv:
+        with io.open(OUT, encoding='utf-8', errors='surrogateescape') as fh:
+            existing = fh.read()
+        if 'sub_GAME_7F0B7F84(s32 value' in existing:
+            sys.exit(
+                "%s already holds the curated header from 0001-source.patch.\n"
+                "Regenerating would revert it and break src/game/bg.c. This tool is for\n"
+                "adding declarations during development, not a build step -- see\n"
+                "docs/SETUP.md section 3.5. Pass --force if you really mean to.\n" % OUT)
+
     names = undeclared_names()
     print('implicitly-declared functions found: %d' % len(names))
     protos = sorted(extract(names).values())

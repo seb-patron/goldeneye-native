@@ -191,6 +191,7 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 | | |
 |---|---|
 | [`docs/SETUP.md`](docs/SETUP.md) | The build guide. Start here. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | The four things specific to this project: no game data, the patch workflow, measuring, provenance. |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Every configuration key, and the reserved ones that are inert. |
 | [`docs/CHEATS.md`](docs/CHEATS.md) | The game's own cheat system, exposed by name. |
 | [`docs/MODDING.md`](docs/MODDING.md) | How the tree is arranged and where the seams are. |

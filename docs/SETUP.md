@@ -420,12 +420,12 @@ python3 scripts/generate_prop_model_c.py
 python3 ../../tools/gen_obseg_blobs.py
 python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
 bash  scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
+python3 ../../tools/gen_images_segment.py
 python3 ../../tools/fix_asset_switchnodes.py
 python3 ../../tools/gen_anim_blobs.py
 python3 ../../tools/gen_audio_segment.py
 python3 ../../tools/gen_asset_fileview.py
 python3 tools/gen_propdef_layout.py
-python3 ../../tools/gen_port_decls.py
 ```
 
 Notes on the ones that are easy to get wrong:
@@ -433,8 +433,18 @@ Notes on the ones that are easy to get wrong:
 - `gen_anim_blobs.py` writes `assets/ge_animation_offsets.h`. Without it `src/game/model.c`
   and everything that includes `initanitable.h` fail with a missing header.
 - `gen_asset_fileview.py` writes `src/ge_asset_fileview.h`. Without it `model.c` fails.
-- `gen_port_decls.py` is iterative and may print "did not converge" on its first run. Run it
-  again until it stops saying so; two or three passes is normal.
+- `gen_port_decls.py` is **not** part of this sequence, despite what its name suggests. It
+  regenerates `src/ge_port_decls.h` from scratch, and `0001-source.patch` already ships a
+  curated version of that header. Running it discards the curated one and reinstates the
+  upstream prototype for `sub_GAME_7F0B7F84`, which the patch changed from four arguments
+  returning `void` to five returning `s32`. The result is that `src/game/bg.c` no longer
+  compiles and the link fails with about thirty undefined `bg*` symbols, none of which
+  mention the header. It is a development tool for when new code needs new declarations;
+  it is not a build step.
+- `gen_images_segment.py` converts `assets/images/combined/combined.bin` into a C array.
+  Upstream turns that file into an object with `ld -r -b binary`, which is a GNU extension
+  that Mach-O has no equivalent for, so the bytes are emitted as C instead. It must run
+  after `combine_images_named.sh`, which is what produces its input.
 - `tools/gen_propdef_layout.py` lives in the decomp, not in this repository, and is created
   by `0001-source.patch`. It will not exist until that patch is applied.
 - `enable_bg_extraction.py` must run **before** extraction, not after. The decomp ships 25 of the
@@ -1092,6 +1102,37 @@ tools/extractor/extractor baserom.u.z64 scripts/filelist.u.csv
 Re-extracting is safe and idempotent: every row is a byte range copied out of the ROM, so files
 that already exist are rewritten with identical contents.
 
+**Related symptom** — `mac game: 166 built, 2 failed`, the second failure being
+`src/game/bg.c`, and a link failure listing around thirty undefined symbols that all begin
+`bg`:
+
+```
+mac FAILED: src/game/bg.c
+mac FAILED: src/tlb_manage.c
+Undefined symbols for architecture arm64:
+  "_bgCopyVisibleRoomsToList", referenced from: ...
+```
+
+**Cause** — `gen_port_decls.py` was run as part of section 3.5. It regenerates
+`src/ge_port_decls.h`, discarding the curated copy that `0001-source.patch` installs, and
+reinstates the upstream four-argument `void sub_GAME_7F0B7F84(...)` prototype where the patch
+uses five arguments returning `s32`. `bg.c` then fails on a conflicting declaration, and every
+symbol it defines goes undefined. Nothing in the error mentions the header.
+
+**Fix** — restore the patched header and rebuild:
+
+```bash
+cd vendor/ge-decomp
+rm -f src/ge_port_decls.h
+git apply --include='src/ge_port_decls.h' ../../getv/patches/0001-source.patch
+```
+
+**Related symptom** — `mac assets: 744 built, 0 failed` instead of 746, with undefined
+`gePortObsegSize` or `ge_images_segment`. Two generated sources are missing:
+`assets/obseg/ge_obseg_sizes.c`, written by `gen_obseg_blobs.py`, and
+`assets/images/ge_images_segment.c`, written by `gen_images_segment.py`. Both are in the
+section 3.5 sequence; re-run whichever was skipped.
+
 ### 7.3 SDL2 problems
 
 **Symptom A — no SDL2 source.**
@@ -1181,6 +1222,34 @@ nothing built -- run './build_mac.sh lib'
 ```
 
 You ran `app` with no `build-mac/obj` directory at all.
+
+**Symptom C — orphaned objects**
+
+```
+mac excluded 16 orphaned object(s) whose source left the build
+```
+
+Not an error. Objects accumulate in `build-mac/obj`, and one whose source has since left the
+build — excluded by name, deleted, renamed — would otherwise stay in `libge.a` and keep
+satisfying the link forever. `run_batch` records what it compiled in `build-mac/objects.txt`;
+anything on disk that is neither in that manifest nor part of the port layer is left out of the
+archive. The files are not deleted, so a wrong exclusion costs a rebuild rather than your build
+directory.
+
+The failure this prevents is invisible, which is why it is worth understanding. When
+`assets/obseg/setup/{e,j}` were excluded from the build, their sixteen objects stayed in the
+archive and the binary went on resolving seven levels to PAL setup data through them — a build
+reporting the correct new counts while linking the old data. A large count here, or any count on
+a build where you changed nothing, means `obj` has drifted; deleting `build-mac/` and running
+`lib` again is always safe.
+
+```
+mac note: no object manifest; archiving every object found -- run './build_mac.sh lib'
+```
+
+Also not an error. `build-mac/objects.txt` is absent, which happens on an `app` run against a
+build directory created before manifests existed. Every object found is archived for that run
+only, exactly as the build behaved previously.
 
 **Symptom C**
 

@@ -84,75 +84,68 @@ only the platform layer that source is compiled against.
 
 ---
 
-## 2. Four things to settle before the first push
+## 2. Four things settled before the first push
 
-None of these is game data. All four are stated here rather than buried, because each is a
-decision a maintainer should make deliberately rather than discover after publication.
+None of these was game data. All four were questions a maintainer should decide deliberately
+rather than discover after publication, so each is recorded here with what was actually done.
 
-### 2.1 The app icon and top-shelf artwork
+### 2.1 The app icon and top-shelf artwork — removed
 
-Fifteen tracked PNGs under
-`getv/Sources/Assets.xcassets/App Icon & Top Shelf Image.brandassets/` render the **"GoldenEye"
-wordmark and the 007 gun logo**. They were inspected directly, not inferred from filenames.
+Fifteen PNGs under `getv/Sources/Assets.xcassets/App Icon & Top Shelf Image.brandassets/`
+rendered the **"GoldenEye" wordmark and the 007 gun logo**. They were inspected directly, not
+inferred from filenames.
 
-These are not extracted from the ROM. They are also not original work by this project, they
-carry no provenance metadata, and the marks they reproduce belong to third parties — the 007
-logo and the James Bond marks to Danjaq LLC and MGM, and the GoldenEye 007 game branding to
-Nintendo and Rare. They are tracked in git and would ship with the source release.
+They were not extracted from the ROM, but neither were they original work by this project: they
+carried no provenance metadata, and the marks they reproduce belong to third parties — the 007
+logo and the James Bond marks to Danjaq LLC and MGM, the GoldenEye 007 game branding to Nintendo
+and Rare. They are not required to build or run anything.
 
-They are not required to build or run anything. Replacing them with original artwork, or
-removing the asset catalogue from the release, removes the question entirely.
+They are no longer tracked. `.gitignore` blocks `**/*.xcassets/**` and `**/*.brandassets/**`, and
+no commit in the published history contains them. Anyone building the tvOS target supplies their
+own artwork.
 
-### 2.2 SDL2 and Xcode build caches in git history
+### 2.2 SDL2 and Xcode build caches — not in the published history
 
-The first seven commits vendored the full **SDL2 2.30.9** source tree, its tvOS CMake build
-directory (including a 2.8 MB `libSDL2.a` and several hundred `.o` files) and 1.2 MB of Xcode
-SDK stat caches under `tvos/build-device/`. Commit `51e2205` untracked them and `.gitignore` now
-blocks `deps/` and `build/`, **but they remain in the history.**
+An earlier local history vendored the full **SDL2 2.30.9** source tree, its tvOS CMake build
+directory (a 2.8 MB `libSDL2.a` and several hundred `.o` files) and 1.2 MB of Xcode SDK stat
+caches, along with the project's internal development notes.
 
-SDL2 is under the zlib licence, which permits redistribution in source form with the notice
-intact, so this is a repository-hygiene and download-size matter rather than a licence problem.
-It is recorded here so nobody is surprised by a clone that is much larger than the working tree.
+The published history is a fresh one and contains none of it. `deps/SDL2`, `libSDL2.a`,
+`tvos/build-device`, and the internal notes each appear in zero commits; the whole `.git`
+directory is about 4 MB. `.gitignore` blocks `deps/`, `build/` and the notes so they cannot
+return.
 
-The same applies to the internal development notes: they are present in seven historical commits and are now
-gitignored as an internal working document. Removing it from the tip does not remove it from
-history.
+SDL2 is under the zlib licence, which permits source redistribution with the notice intact, so
+this was repository hygiene and clone size rather than a licence problem. It is recorded because
+the earlier state was described publicly and the record should not be left half-told.
 
-### 2.3 Absolute local paths in tracked build files
+### 2.3 Absolute local paths and personal identifiers — parameterised
 
-Four tracked files hardcode absolute paths under an absolute home-directory path, all pointing at a
-hand-built tvOS SDL2 at `~/.n64tvos/sdl2-tvos`:
+Several tracked build files hardcoded an absolute home-directory path to a hand-built tvOS SDL2,
+an Apple Developer Team ID, and one specific Apple TV's device identifier. None was a credential,
+but all were personal identifiers that would have shipped, and the paths broke on every other
+checkout.
 
-- `getv/build.sh:190-191` and `sm64tv/build.sh:18`
-- `getv/project.yml:56-57,71-72` and `sm64tv/project.yml:60-61`
+All are now variables with sensible defaults:
 
-These break on every other checkout. The two tracked symlinks that had the same problem have
-already been made relative; these four have not. Three tracked files also carry an Apple
-Developer Team ID (a hardcoded `DEVELOPMENT_TEAM` value in `getv/project.yml:52`,
-`sm64tv/project.yml:51`, `tvos/project.yml:59`) and two carry a specific Apple TV's device
-identifier (`getv/build.sh:236`, `tvos/build.sh:26`). None of those is a credential, but all
-five are personal identifiers that would ship in the release.
+- `${N64TVOS_PREFIX:-$HOME/.n64tvos}` in `getv/build.sh`, `getv/bt_build_sim.sh` and
+  `getv/build_mac.sh`
+- `${DEVELOPMENT_TEAM}` in `getv/project.yml`
+- `$DEV_DEVICECTL` in `getv/build.sh`
 
-Note that all six files relate to the tvOS targets, which the README already describes as on
-hold and bit-rotted.
+The two tracked symlinks that had the same problem were made relative. `sm64tv/` and `tvos/` are
+no longer tracked at all.
 
-### 2.4 Nothing has been published yet
+### 2.4 The repository is now published
 
-This matters for both of the above. At the time of writing the repository has **19 local
-commits** and they have not reached any public host:
+It is at `https://github.com/SegfaultEvan/goldeneye-native`, which is also what `origin` resolves
+to. The earlier mismatch between the configured remote and the intended release repository has
+been reconciled.
 
-- `git remote -v` names `origin` as `https://github.com/SegfaultEvan/goldeneye-native.git`.
-  `git ls-remote origin` fails and the GitHub API returns 404 for that path under both
-  authenticated accounts, so that remote does not resolve.
-- The repository that appears intended for the release, `SegfaultEvan/goldeneye-native`
-  (public, created 2026-08-21), is **empty** — the API reports size 0 and
-  `GET /repos/.../commits` returns *"Git Repository is empty."*
-
-So the contents of history are still entirely a local matter. Once a push happens they are not.
-Any decision to rewrite history — to drop the vendored SDL2 tree, the build caches or
-the internal development notes — is cheap now and expensive later. **Nothing has been rewritten, and nothing should
-be without an explicit decision to do so.** Note also that the configured `origin` is not the
-repository the release appears to be aimed at; that should be reconciled before the first push.
+That changes the cost of everything above. While the history was local, rewriting it was cheap;
+now it is not. The history was therefore made clean *before* the first push rather than after, and
+the checks in 2.1 through 2.3 are the record of that. **Nothing should be rewritten now without an
+explicit decision**, because anyone who has already cloned holds the old objects regardless.
 
 ---
 

@@ -1,0 +1,40 @@
+name: Gameplay or rendering bug
+description: The game builds and runs, but something is wrong in it.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [docs/ROADMAP.md](../blob/main/docs/ROADMAP.md) first — several known issues are
+        listed there, and a few things that look like bugs are faithful to the original.
+
+        **Do not attach a ROM or anything extracted from one.** Screenshots of the running game
+        are fine and are usually the fastest way to explain a rendering problem.
+  - type: input
+    id: stage
+    attributes:
+      label: Level
+      description: The name, and the `GETV_STAGE` value if you booted straight into it.
+      placeholder: "Cradle (GETV_STAGE=41)"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what should happen instead
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reach it
+      description: Every step from launching the binary. Include any `GETV_*` variables you set.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: macOS version and Mac model
+    validations:
+      required: true

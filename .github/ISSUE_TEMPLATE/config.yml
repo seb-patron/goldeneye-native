@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup guide
+    url: https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/SETUP.md
+    about: Every prerequisite and every command, with a troubleshooting section covering the common failures.
+  - name: Where the game data comes from
+    url: https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md
+    about: Why no game data ships here, and what you have to supply yourself.
