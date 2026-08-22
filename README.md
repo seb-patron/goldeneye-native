@@ -91,22 +91,14 @@ a tree that fails to compile or silently misbehaves.
 
 ![Two-player split screen with a radar in each pane](docs/images/screenshot-02.jpg)
 
-Two-player split screen. Each pane renders independently and carries its own radar.
 
 ![First person with the PP7 drawn and the ammo counter reading 7 | 93](docs/images/screenshot-03.jpg)
 
-First person, PP7 drawn, ammo counter reading 7 in the magazine and 93 in reserve. The carved
-stonework behind is level geometry, not a backdrop.
 
 ![An outdoor stage at night: snow-covered rock, a truck, a glass-walled guard post](docs/images/screenshot-04.jpg)
 
-An outdoor stage at night. Gradient sky with cloud banding, snow-covered rock at distance, a
-truck, hazard-striped kerbing and a glass-walled guard post.
 
 ![Split screen in a concrete interior with weapons and armour on the floor](docs/images/screenshot-05.jpg)
-
-Split screen again, in a concrete interior. Dropped weapons and body armour lie on the floor as
-world props; the two players are in different rooms.
 
 ## Build
 
