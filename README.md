@@ -11,6 +11,10 @@ supported; nothing in the build scripts targets them yet. A tvOS target exists i
 (`getv/build.sh`, `getv/build_sim.sh`) but is on hold and has bit-rotted, so treat it as
 unbuildable until stated otherwise.
 
+**[`docs/SETUP.md`](docs/SETUP.md) is the step-by-step build guide** — every prerequisite, every
+command, the expected output of each one, and a troubleshooting section. Start there if you have
+not built this before. What follows is the summary.
+
 ## Bring your own ROM
 
 **No ROM, no extracted assets and no game data are distributed with this repository, and none
@@ -38,18 +42,27 @@ it is byte-swapped and must be converted to native big-endian first.
 
 - macOS 13 or later on Apple silicon. The build targets `arm64-apple-macos13.0`.
 - Xcode Command Line Tools (`xcode-select --install`) — supplies `clang`, `xcrun` and the macOS SDK.
-- **bash 4 or newer on `PATH`.** The parallel compile step uses `mapfile`, which the `/bin/bash`
-  3.2 that ships with macOS does not have. `brew install bash` and make sure `/usr/local/bin` or
-  `/opt/homebrew/bin` precedes `/bin` on your `PATH`.
+- **bash 3.2 — the `/bin/bash` macOS already ships.** No newer bash is needed. The parallel
+  compile step used to use `mapfile`, a bash 4 builtin; it is now a portable
+  `while IFS= read -r` loop, and a full build has been verified under stock 3.2.
 - CMake, for building SDL2.
 - Python 3, for the asset generation scripts.
-- SDL2 2.30.9 source in `deps/SDL2-2.30.9`. It is built from source rather than taken from
+- SDL2 2.30.9 source in `deps/SDL2-2.30.9`. **`deps/` is gitignored, so a fresh clone does not
+  have it** — supply the 2.30.9 source release yourself. It is built from source rather than taken from
   Homebrew because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link into
   an arm64 binary. `build_mac.sh sdl` compiles it for arm64 and installs it to
   `~/.n64tvos/sdl2-mac` — deliberately outside the repository, because the repository path
   contains a space and that has broken header search paths here before.
 
 ## Preparing the source tree
+
+Fifteen third-party port-layer files — the Fast3D renderer and the audio mixer — are not in this
+repository either. Fetch them from their pinned upstream commit before anything else, or the build
+stops at a preflight check. See [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md).
+
+```bash
+tools/fetch-thirdparty.sh fetch
+```
 
 `vendor/` is not tracked. Clone the decompilation into place, apply this port's changes, and
 extract the assets from your ROM.
@@ -93,16 +106,18 @@ cd getv
 - `run` launches the linked binary, forwarding any arguments.
 - `env` prints the resolved SDK, SDL prefix, target triple and output paths.
 
-A full build takes about five minutes; incremental `port` builds take seconds. Compilation is
+There is no incremental check — every `lib` is a full recompile of all 992 objects. Measured at
+21 s wall for `all` on an Apple M1 with warm caches; `port` alone is about 23 s. Compilation is
 parallel; `GETV_JOBS` caps the job count and defaults to 6.
 
 Expected output from `./build_mac.sh all`:
 
 ```
-mac game 167 built, 1 failed
+  mac FAILED: src/tlb_manage.c
+mac game: 167 built, 1 failed
 mac assets: 762 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 22 built, 0 failed
+mac port layer: 23 built, 0 failed
 ```
 
 **The one failure is expected.** `src/tlb_manage.c` programs the N64's MIPS 4300 translation

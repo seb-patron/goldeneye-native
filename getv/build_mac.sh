@@ -83,8 +83,24 @@ cmd_sdl() {
 # repository -- see docs/THIRD_PARTY.md. Without them the compile fails with a long list
 # of missing headers and nothing that points at the cause, so check once and say so.
 require_thirdparty() {
-  if [ ! -f "$HERE/port/fast3d/gfx_pc.c" ]; then
-    echo "error: third-party port sources are missing." >&2
+  # Check every file the fetch is responsible for, not just one. A partial or
+  # interrupted fetch otherwise passes this gate and fails later as a confusing
+  # pile of missing-header errors.
+  local missing=0 f
+  for f in \
+    port/fast3d/gfx_cc.c port/fast3d/gfx_cc.h \
+    port/fast3d/gfx_opengl.c port/fast3d/gfx_opengl.h \
+    port/fast3d/gfx_pc.c port/fast3d/gfx_pc.h \
+    port/fast3d/gfx_rendering_api.h port/fast3d/gfx_screen_config.h \
+    port/fast3d/gfx_sdl.h port/fast3d/gfx_sdl2.c \
+    port/fast3d/gfx_window_manager_api.h \
+    port/audio/ge_mixer.c port/audio/ge_mixer.h \
+    port/configfile.h port/fs/fs.h
+  do
+    [ -f "$HERE/$f" ] || { echo "  missing: $f" >&2; missing=$((missing+1)); }
+  done
+  if [ "$missing" -gt 0 ]; then
+    echo "error: $missing third-party port source(s) missing." >&2
     echo "       run tools/fetch-thirdparty.sh fetch   (see docs/THIRD_PARTY.md)" >&2
     exit 1
   fi

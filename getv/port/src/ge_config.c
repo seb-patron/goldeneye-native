@@ -49,6 +49,7 @@
  */
 
 #include <stdio.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -836,7 +837,7 @@ static int locate(const char *argv0, const char *cliPath)
     /* Search step 4: the per-user config directory. On macOS this is exactly the
      * "$HOME/Library/Application Support/GoldenEye/goldeneye.cfg" this function used
      * to build by hand; see getv/port/src/port_paths.c for the other hosts. */
- if (gePortUserDataDir("Goldeneye-Native", "GoldenEye", dir, sizeof dir) == 0) {
+ if (gePortUserDataDir("Goldeneye-Native", "Goldeneye-Native", dir, sizeof dir) == 0) {
  snprintf(buf, sizeof buf, "%s/" GE_CFG_BASENAME, dir);
  if (try_path(buf)) { return 1; }
     }
@@ -1071,7 +1072,7 @@ static int write_default(const char *path)
  char buf[1024];
  FILE *f;
  if (path == NULL || *path == '\0') {
- if (gePortUserDataDir("Goldeneye-Native", "GoldenEye", buf, sizeof buf) != 0) {
+ if (gePortUserDataDir("Goldeneye-Native", "Goldeneye-Native", buf, sizeof buf) != 0) {
  printf("[getv][config] no $HOME\n"); return 1;
         }
         /* Created in-process rather than by shelling out to `mkdir -p`, which would be
@@ -1126,6 +1127,27 @@ int geConfigInit(int argc, char **argv)
      * --write-config fall through and boot the game while a failed one exited cleanly,
      * i.e. exactly backwards. Map both onto the explicit stop sentinel. */
  if (doWrite) { return write_default(writePath) == 0 ? GE_CONFIG_STOP : 1; }
+
+    /* Earlier builds wrote the config to a directory named "GoldenEye" while saves went
+     * to "Goldeneye-Native". The two are unified now, but an existing install has a tuned
+     * config under the old name; adopt it rather than presenting a fresh one. Nothing is
+     * copied or deleted -- the file keeps working where it is. */
+    if (cliPath == NULL) {
+        const char *home = getenv("HOME");
+        if (home != NULL && *home != '\0') {
+            static char oldp[1024];
+            char newp[1024];
+            struct stat st;
+            snprintf(oldp, sizeof oldp,
+                     "%s/Library/Application Support/GoldenEye/" GE_CFG_BASENAME, home);
+            snprintf(newp, sizeof newp,
+                     "%s/Library/Application Support/Goldeneye-Native/" GE_CFG_BASENAME, home);
+            if (stat(oldp, &st) == 0 && stat(newp, &st) != 0) {
+                printf("[getv][config] using the pre-rename config: %s\n", oldp);
+                cliPath = oldp;
+            }
+        }
+    }
 
     /* Pass 2 — the file, with overwrite=0 so the environment always wins. */
  if (locate(argc > 0 ? argv[0] : NULL, cliPath)) {
