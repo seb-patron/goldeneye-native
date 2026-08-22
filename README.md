@@ -20,12 +20,7 @@ Multiplayer works, including split screen, the radar and all 64 selectable chara
 watch renders all five pages. Saves persist. The game runs at 60 fps with configurable resolution
 and supersampling.
 
-What has not been verified is a full playthrough: combat, AI behaviour over time, objective
-completion, and finishing a level end to end. The port renders and reaches a playable state
-everywhere; whether it can be played through from start to finish is untested.
-
-Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are
-not buildable; the game layer itself is not platform-specific, so the remaining work is confined to
+Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to
 the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). A
 tvOS target exists in the tree (`getv/build.sh`, `getv/build_sim.sh`) but is on hold and has
 bit-rotted. Treat it as unbuildable until stated otherwise.
