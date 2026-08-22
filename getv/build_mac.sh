@@ -239,7 +239,19 @@ cmd_lib() {
            find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' | sort) \
     | run_batch "mac game" "${CFLAGS[@]}"
 
-  (cd "$DECOMP" && find assets -name '*.c' ! -name '*.inc.c' | sort) | run_batch "mac assets" "${CFLAGS[@]}"
+  # setup/e and setup/j are the PAL and Japanese setup tables. They hold the same eight
+  # filenames as setup/u, and uniquify_asset_symbols.py namespaces by file stem, so seven of
+  # the eight end up defining identical globals in all three directories -- UsetupcradZ_padlist
+  # and so on. Compiling all three lets the linker bind CRADLE, SILO, DESTRUCTION, JUNGLE,
+  # TRAIN, STATUE and the multiplayer ARCHIVES to whichever copy it saw first, which is
+  # alphabetically e/, the PAL data, in a VERSION_US build. The same applies to the top-level
+  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is deliberately left
+  # unprefixed. Nothing outside those two directories references their symbols and
+  # file_resource_table.inc.c asks for the bare name, so a US build simply must not compile
+  # them. Namespacing them instead would keep seven dead translation units in the binary.
+  (cd "$DECOMP" && find assets -name '*.c' ! -name '*.inc.c' \
+      ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' | sort) \
+    | run_batch "mac assets" "${CFLAGS[@]}"
 
   # -DNDEBUG is passed to the mixer only, exactly as the tvOS builds do. Do not widen it:
   # SUPPORT_CHECK in gfx_pc.c is an assert() and is deliberately armed.

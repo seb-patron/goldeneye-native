@@ -292,13 +292,22 @@ decompilation, which is cloned into `vendor/ge-decomp` — also gitignored, also
 ```bash
 git clone https://github.com/n64decomp/007 vendor/ge-decomp
 cd vendor/ge-decomp
-git apply ../../getv/patches/0001-getv-port.patch
+git apply ../../getv/patches/0001-source.patch
 ```
 
-`0001-getv-port.patch` is roughly 374 KB and touches about 95 files, overwhelmingly under
-`src/game/`, plus a handful in `src/libultra/`, `include/PR/` and `assets/font*`. It does not touch
-`scripts/` and it does not touch the generated asset directories — those are produced from your
-ROM in section 3.
+The port's changes to the decompilation are split across two patches, because one of them has to
+be applied *after* the assets exist:
+
+- **`0001-source.patch`** — this one, applied now. Roughly 1.4 MB across 140 files: 131 under
+  `src/`, eight under `include/`, and one new generator under `tools/`. It touches no asset paths
+  at all, and it does not touch `scripts/`. It also creates five files that do not exist upstream,
+  including `tools/gen_propdef_layout.py`, which section 3.5 calls.
+- **`0002-assets.patch`** — 212 KB across eight generated asset files. It cannot be applied yet,
+  because the files it patches do not exist until you generate them from your ROM. Section 3.5
+  applies it at the correct point.
+
+Applying `0002-assets.patch` here will fail, and that failure is expected rather than a problem
+with your checkout.
 
 Do not continue past this point until you have the ROM in place. Return to the repository root:
 
@@ -314,7 +323,7 @@ cd ../..
 will be.** This is not a licensing formality that a mirror somewhere quietly works around: the
 build genuinely has nothing to compile without it. The decompilation is a description of the
 game's code, and every texture, model, animation, sound bank and level layout is read out of your
-cartridge dump at build time and emitted as C. Roughly 762 of the translation units this build
+cartridge dump at build time and emitted as C. Roughly 746 of the translation units this build
 compiles are generated that way.
 
 You need your own legal copy of the **NTSC (US)** cartridge, dumped to a file.
@@ -435,28 +444,94 @@ Notes on the ones that are easy to get wrong:
   time and nothing earlier in the build hints at why. The offsets and sizes in those rows are
   correct; only the flag is wrong. Running it a second time is harmless.
 
-#### Known gap: `uniquify_asset_symbols.py`
+### 3.6 Namespace the asset symbols
 
-`tools/uniquify_asset_symbols.py` renames asset symbols so that two levels cannot bind to
-each other's data at link time. **Its correct invocation is not recorded, and a clean build
-does not currently link without it.**
+Getools emits every asset as plain C with generic global names — `tile_0`, `padlist`, `intro`,
+`ai_0`, `footer` — and emits the *same* names in every level's file. Linked together, all 29 stan
+files and all 50 setup files define the same symbols, so an internal reference such as
 
-What is known:
+```c
+StandFileHeader Tbg_dam_all_p_stanZ = { NULL, &tile_0, ... };
+```
 
-- Running it as `python3 ../../tools/uniquify_asset_symbols.py assets --recurse` produces
-  symbol names that do not match what `assets/obseg/file_resource_table.inc.c` references,
-  so the link fails with undefined character-model symbols (`CcommguardZ`, `CdjbondZ`, and
-  others).
-- Run over `assets/font`, it double-prefixes an already-prefixed symbol
-  (`font_fontBankGothic_fontBankGothic_kerning`) while leaving the uses alone, which breaks
-  the two font translation units. Apply `0002-assets.patch` after it, not before.
-- The prefixes observed in a known-good tree are inconsistent between directories
-  (`UsetupcradZ_` under `setup/u`, `commguard_Model_` under `chr/`), which suggests it is
-  meant to be run per directory with different arguments rather than once with `--recurse`.
+binds to whichever object the linker happened to pick, which is alphabetically the first. Before
+this pass existed, the Dam's stan header resolved to Tbg_ame's `tile_0` and the Dam's pad list
+resolved to a 62-entry list belonging to another level — the Dam has 368. Every level was running
+on some other level's data.
 
-Everything compiles from a clean checkout: 167 of 168 game sources, 760 of 760 assets, 40 of
-40 audio, 23 of 23 port-layer. The link is the only remaining step that has not been
-reproduced from scratch.
+`tools/uniquify_asset_symbols.py` fixes that by giving each translation unit its own prefix. Run it
+from inside `vendor/ge-decomp`, once per directory:
+
+```bash
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/chr   --recurse
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/gun   --recurse
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/prop  --recurse
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup/u
+```
+
+Then, and only then, apply the second patch:
+
+```bash
+git apply ../../getv/patches/0002-assets.patch
+```
+
+Why it is five invocations rather than one:
+
+- **`chr`, `gun` and `prop` need `--recurse`.** Their models are laid out as
+  `<dir>/<name>/Model.c` — 340 props all defining `ModelNode_0x048`, each its own translation
+  unit. A flat glob finds only `.inc.c` files, which the tool deliberately skips, so it prints
+  nothing at all and still exits 0. With `--recurse` the subdirectory supplies the prefix, giving
+  `commguard_Model_` and `desk_lamp2_Model_`.
+- **`setup` must not be recursed.** Its 30 level setups sit flat in the directory and take the
+  file stem as prefix (`UsetupdamZ_`).
+- **`setup/u` is passed directly**, which makes `parent == basename(dir)` and collapses the prefix
+  to the bare stem — the same scheme as the flat files, which is what the rest of the tree expects.
+- **Never run `assets --recurse`.** It prefixes the symbols in `ge_obseg_blobs.c` as well, so they
+  no longer match what `assets/obseg/file_resource_table.inc.c` references, and the link fails on
+  undefined character models (`CcommguardZ`, `CdjbondZ` and others).
+- **`0002-assets.patch` goes on afterwards.** Run over `assets/font` the tool double-prefixes an
+  already-prefixed symbol (`font_fontBankGothic_fontBankGothic_kerning`) while leaving the uses
+  alone, which breaks both font translation units. The patch carries the corrected files.
+
+`--dry-run` works as a regression gate — it exits non-zero if anything is still left to rename:
+
+```bash
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup --dry-run
+```
+
+Four of the five invocations come back clean. `setup/u` is the exception: once
+`0002-assets.patch` is applied it always reports `1 file(s) still need namespacing` and exits 1,
+naming `UsetuplenZ.c`. That is expected. The patch supplies that file with a `u_UsetuplenZ_`
+prefix, while the direct-directory invocation expects the bare `UsetuplenZ_`, so the tool sees a
+prefix it did not produce and offers to add its own on top.
+
+**Do not act on it.** Re-running the tool over `setup/u` after applying the patch rewrites those
+17 symbols a second time and breaks the file. Run the namespacing pass first, apply the patch
+second, and treat that single report as the known steady state.
+
+One caveat worth knowing, because it fails silently. The tool reads a file's globals by compiling
+it and running `nm`, so a file that does not compile is left colliding, and reports as one `SKIP`
+line among hundreds of `ok` lines. That is how all three `setup/{u,j,e}/UsetuplenZ.c` kept a bare
+`propDefs` long after every other setup file had been namespaced, leaving ARCHIVES and CUBA sharing
+one propDef stream that ARCHIVES then walked off the end of. Skips are printed again as a block at
+the end and the tool exits non-zero; do not ignore that.
+
+#### The PAL and Japanese setup tables are not built
+
+`assets/obseg/setup/e` and `assets/obseg/setup/j` hold the same eight filenames as `setup/u`. The
+prefix scheme above is per file stem, so seven of the eight end up defining identical globals in
+all three directories — `UsetupcradZ_padlist` and so on. Compiling all three would let the linker
+bind Cradle, Silo, Jungle, Train, Statue Park, `UsetupdestZ` and the multiplayer Archives to
+whichever copy it saw first, alphabetically `e/`, the PAL data, in a `VERSION_US` build. The PAL
+files are not merely a different encoding of the same tables — all seven differ from their US
+counterparts and every one of them is larger.
+
+The build therefore excludes both directories (`build_mac.sh`, the `mac assets` find). Nothing
+outside them references their symbols and `file_resource_table.inc.c` asks for the bare name, so
+excluding them is the whole fix. It also resolves the related case the tool cannot: the top-level
+`stagesetup UsetuplenZ`, which the engine looks up by name and which is therefore deliberately left
+unprefixed in all three directories.
 
 ## 4. Building
 
@@ -538,7 +613,7 @@ Expected output:
 ```
   mac FAILED: src/tlb_manage.c
 mac game: 167 built, 1 failed
-mac assets: 762 built, 0 failed
+mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
 mac port layer: 23 built, 0 failed
 ```
@@ -584,7 +659,9 @@ cd ../vendor/ge-decomp
   find src/libultra/gu -name '*.c'; } \
   | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' \
   | wc -l          # 168 = 167 built + 1 failed
-find assets -name '*.c' ! -name '*.inc.c' | wc -l              # 762
+find assets -name '*.c' ! -name '*.inc.c' \
+      ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' \
+    | wc -l                                                      # 746
 find src/libultra/audio src/libultrare/audio -name '*.c' | wc -l  # 40
 cd ../../getv
 ```
@@ -664,7 +741,7 @@ The normal full build. Complete expected output:
 ```
   mac FAILED: src/tlb_manage.c
 mac game: 167 built, 1 failed
-mac assets: 762 built, 0 failed
+mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
 mac port layer: 23 built, 0 failed
 mac libge.a:  32M, 990 members
@@ -984,7 +1061,7 @@ reports 167. The decompilation was cloned but the ROM extraction and asset gener
 never run, so `assets/**/*.c` does not exist yet.
 
 **Related symptom** — `mac assets:` reports a large number of failures rather than
-`762 built, 0 failed`, and the named files are under `assets/obseg/{chr,prop,gun}/`. That is
+`746 built, 0 failed`, and the named files are under `assets/obseg/{chr,prop,gun}/`. That is
 `tools/fix_asset_switchnodes.py` not having been run: the script's own header records **156 asset
 translation units** (68 chr, 61 prop, 27 gun) dying on `(u32)&ModelNode_…` initialisers, which are
 not compile-time constant expressions on a 64-bit target. See 3.5. (The exact failing count was

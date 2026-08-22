@@ -27,12 +27,25 @@ tools/                     Python generators (prototypes, link stubs, asset blob
 ```
 
 `vendor/` is gitignored, so every change the port makes to the decompilation lives in
-`getv/patches/0001-getv-port.patch` and nowhere else. Re-cloning the decomp discards your work
-unless the patch is re-applied. Refresh the patch before any commit that touches game code:
+`getv/patches/` and nowhere else. Re-cloning the decomp discards your work unless the patches are
+re-applied.
+
+They are split by *when* they can be applied, not by subject. `0001-source.patch` covers `src/`,
+`include/` and `tools/`, and goes on immediately after cloning. `0002-assets.patch` covers eight
+generated asset files, which do not exist until the ROM has been extracted, so it goes on at the
+end of the asset pipeline. Keeping the split means regenerating each one over its own paths:
 
 ```bash
-git -C vendor/ge-decomp diff > getv/patches/0001-getv-port.patch
+cd vendor/ge-decomp
+git diff -- src include tools > ../../getv/patches/0001-source.patch
+git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c \
+            assets/font/fontBankGothic.c assets/font/fontZurichBold.c \
+            assets/obseg/setup/e/UsetuplenZ.c assets/obseg/setup/j/UsetuplenZ.c \
+            assets/obseg/setup/u/UsetuplenZ.c > ../../getv/patches/0002-assets.patch
 ```
+
+Regenerating `0001` with a bare `git diff` instead will sweep the entire extracted asset tree into
+it — several hundred megabytes of ROM-derived data, which must never be committed.
 
 Generated, ROM-derived data is deliberately excluded from the patch — the audio segment, the
 object-segment blobs, animation blobs, the images segment, per-model `Model.c` files. Regenerate

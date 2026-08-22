@@ -34,7 +34,7 @@ EON Productions.
 **No ROM, no extracted assets and no game data are distributed with this repository, and none
 ever will be.** You need your own legal copy of the NTSC (US) cartridge, dumped to a file. This is
 not a licensing formality that a mirror quietly works around: every texture, model, animation,
-sound bank and level layout is read out of your dump at build time and emitted as C. Roughly 762
+sound bank and level layout is read out of your dump at build time and emitted as C. Roughly 746
 of the translation units this build compiles are generated that way.
 
 | Property | Value |
@@ -72,8 +72,8 @@ stock `/bin/bash` 3.2. Nothing newer is needed.
 ```bash
 tools/fetch-thirdparty.sh fetch                                       # the fifteen files
 git clone https://github.com/n64decomp/007 vendor/ge-decomp           # the game's C source
-# then: apply getv/patches/0001-getv-port.patch, place your ROM, and generate the asset
-# sources from it — docs/SETUP.md sections 2.4 and 3
+# then: apply getv/patches/0001-source.patch, place your ROM, generate the asset sources
+# from it, and apply getv/patches/0002-assets.patch — docs/SETUP.md sections 2.4 and 3
 cd getv && ./build_mac.sh sdl && ./build_mac.sh all && ./build_mac.sh run
 ```
 
@@ -119,7 +119,7 @@ Expected output from `./build_mac.sh all`:
 ```
   mac FAILED: src/tlb_manage.c
 mac game: 167 built, 1 failed
-mac assets: 762 built, 0 failed
+mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
 mac port layer: 23 built, 0 failed
 ```

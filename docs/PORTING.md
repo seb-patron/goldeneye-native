@@ -360,7 +360,7 @@ Any change made for portability must leave these unchanged
 
 ```
 mac game:        167 built, 1 failed     (src/tlb_manage.c is N64 TLB hardware, expected)
-mac assets:      762 built, 0 failed
+mac assets:      746 built, 0 failed
 mac audio:        40 built, 0 failed
 mac port layer:   23 built, 0 failed
 ```
