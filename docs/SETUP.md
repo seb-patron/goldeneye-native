@@ -403,6 +403,7 @@ established by building from a clean checkout.
 
 ```bash
 cd vendor/ge-decomp
+python3 ../../tools/enable_bg_extraction.py
 bash scripts/extract_baserom.u.sh
 python3 scripts/generate_chr_c.py
 python3 scripts/generate_gun_c.py
@@ -427,6 +428,12 @@ Notes on the ones that are easy to get wrong:
   again until it stops saying so; two or three passes is normal.
 - `tools/gen_propdef_layout.py` lives in the decomp, not in this repository, and is created
   by `0001-source.patch`. It will not exist until that patch is applied.
+- `enable_bg_extraction.py` must run **before** extraction, not after. The decomp ships 25 of the
+  34 `assets/obseg/bg/*.bin` rows in `scripts/filelist.u.csv` with their extract flag set to `0`,
+  because upstream builds those backgrounds from checked-in `.c` files and never needs the raw
+  blobs. This port compiles the blobs, so skipping them produces 25 undefined symbols at link
+  time and nothing earlier in the build hints at why. The offsets and sizes in those rows are
+  correct; only the flag is wrong. Running it a second time is harmless.
 
 #### Known gap: `uniquify_asset_symbols.py`
 
@@ -982,6 +989,31 @@ never run, so `assets/**/*.c` does not exist yet.
 translation units** (68 chr, 61 prop, 27 gun) dying on `(u32)&ModelNode_…` initialisers, which are
 not compile-time constant expressions on a 64-bit target. See 3.5. (The exact failing count was
 not reproduced here — the tree used to write this guide was already converted.)
+
+**Related symptom** — every compile stage succeeds, the counters look healthy, and the build dies
+only at the link with around 25 undefined symbols, all of them background blobs:
+
+```
+Undefined symbols for architecture arm64:
+  "_bg_sev_all_p", referenced from: ...
+  "_bg_silo_all_p", referenced from: ...
+```
+
+**Cause** — `tools/enable_bg_extraction.py` was not run before `scripts/extract_baserom.u.sh`.
+The decomp ships 25 of the 34 `assets/obseg/bg/*.bin` rows in `scripts/filelist.u.csv` with the
+extract flag set to `0`, so the extractor skips them and those `.bin` files are never written.
+Nothing earlier in the build complains, because nothing earlier needs them.
+
+**Fix** — run it and re-extract:
+
+```bash
+cd vendor/ge-decomp
+python3 ../../tools/enable_bg_extraction.py
+tools/extractor/extractor baserom.u.z64 scripts/filelist.u.csv
+```
+
+Re-extracting is safe and idempotent: every row is a byte range copied out of the ROM, so files
+that already exist are rewritten with identical contents.
 
 ### 7.3 SDL2 problems
 
