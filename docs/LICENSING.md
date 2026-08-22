@@ -141,7 +141,7 @@ hold and bit-rotted.
 This matters for both of the above. At the time of writing the repository has **19 local
 commits** and they have not reached any public host:
 
-- `git remote -v` names `origin` as `https://github.com/evanthomasking/goldeneye-native.git`.
+- `git remote -v` names `origin` as `https://github.com/SegfaultEvan/goldeneye-native.git`.
   `git ls-remote origin` fails and the GitHub API returns 404 for that path under both
   authenticated accounts, so that remote does not resolve.
 - The repository that appears intended for the release, `SegfaultEvan/goldeneye-native`

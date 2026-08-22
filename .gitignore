@@ -59,14 +59,14 @@ sm64tv/SM64TV.xcodeproj/
 sm64tv/Sources/Info.plist
 
 # GoldenEye tvOS app — same shape as the two above.
-# ⚠️ build-generic/ is NOT covered by the bare `build/` rule above (that only matches a
+# build-generic/ is NOT covered by the bare `build/` rule above (that only matches a
 # path component named exactly "build"), and it holds Xcode module + SDK stat caches
 # worth megabytes. It was about to be committed.
 getv/Goldeneye-Native.xcodeproj/
 getv/Sources/Info.plist
 getv/build-generic/
 
-# 🔴 Per-agent build slots and the native macOS build. These hold OBJECT FILES COMPILED
+# Per-slot build directories and the native macOS build. These hold OBJECT FILES COMPILED
 # FROM EXTRACTED ROM ASSETS (assets/**.c) and a ~40 MB linked binary with the whole game
 # baked in -- i.e. derived game data, which must NEVER be committed. The bare `build/`
 # rule above matches only a path component named exactly "build", so none of these were
@@ -74,7 +74,7 @@ getv/build-generic/
 getv/build-mac/
 getv/build-sim-*/
 
-# 🔴 CRITICAL, ADDED 2026-08-22 BEFORE FIRST PUBLIC PUSH.
+# CRITICAL, ADDED 2026-08-22 BEFORE FIRST PUBLIC PUSH.
 # The two rules above were written when there was ONE mac build dir. Parallel development
 # created twenty-plus per-slot dirs (build-mac-anim/, build-mac-audit/, build-mac-final/,
 # build-mac-play/, ...) and NONE of them matched. Measured at the time of writing:
@@ -100,13 +100,13 @@ getv/scratchpad/
 *.a
 *.dSYM/
 
-# 🔴 Frame captures are DERIVED FROM THE ROM'S ART ASSETS. Same rule as the ROM itself.
+# Frame captures are DERIVED FROM THE ROM'S ART ASSETS. Same rule as the ROM itself.
 # getv_shot.bmp is written by GETV_SHOTFRAME and lands in the working directory.
 *.bmp
 getv/getv_shot.*
 getv_shot.*
 
-# 🔴 base.zip is SM64 game data. An earlier bare `base.zip` rule did not match it at a
+# base.zip is SM64 game data. An earlier bare `base.zip` rule did not match it at a
 # nested path -- anchor it properly. Same class of miss as the build-slot dirs above:
 # a rule that was correct when written and silently stopped covering the tree.
 **/base.zip
@@ -165,3 +165,16 @@ tvos/
 # Xcode projects are xcodegen output, generated from getv/project.yml. 28 per-target
 # variants accumulate during development; none of them belong in the repository.
 *.xcodeproj/
+
+# Per-slot build scripts. build_mac.sh is the build; copies of it with a different
+# BUILD= directory are created during parallel development and are not part of the
+# project. build_mac.sh itself is tracked.
+getv/build_mac_*.sh
+getv/build_sim_*.sh
+
+# Screenshots used in the documentation. These are the one deliberate exception to the
+# no-game-data rule: they are captures of the running port, included because a port with
+# no screenshots is not a credible port. They are not assets and nothing reads them.
+!docs/images/
+!docs/images/*.png
+!docs/images/*.jpg

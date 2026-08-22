@@ -5,7 +5,7 @@
 That is the same arrangement the Perfect Dark port uses (`tvos/patches/`), and the same
 warning applies here:
 
-> ⚠️ **Re-cloning `vendor/` loses the work unless the patch is re-applied.**
+> **Re-cloning `vendor/` loses the work unless the patch is re-applied.**
 
 `0001-getv-port.patch` is a plain `git diff` of `vendor/ge-decomp` — 98 tracked files.
 

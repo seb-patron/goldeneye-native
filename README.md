@@ -6,109 +6,135 @@ the host with clang; a platform layer supplies windowing, input, audio and a Fas
 renderer on top of SDL2 and OpenGL. There is no MIPS interpreter, no dynamic recompiler and no
 static recompilation step — the binary is the game, built as ordinary C.
 
-Today it builds and plays on **macOS on Apple silicon (arm64)**. Windows and Linux are not
-supported; nothing in the build scripts targets them yet. A tvOS target exists in the tree
-(`getv/build.sh`, `getv/build_sim.sh`) but is on hold and has bit-rotted, so treat it as
-unbuildable until stated otherwise.
+![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
-**[`docs/SETUP.md`](docs/SETUP.md) is the step-by-step build guide** — every prerequisite, every
-command, the expected output of each one, and a troubleshooting section. Start there if you have
-not built this before. What follows is the summary.
+## What works
+
+All 26 loadable stages boot, reach gameplay, render and exit cleanly. That was verified across 78
+headless runs against a single frozen binary, three runs per stage. There are no known crashes,
+hangs, or stages that fail to start. Eleven further stage ids have no data in the ROM at all —
+nine were cut during development, and Citadel has a background file but no setup file, so it can
+never load. That is data absence, not a port defect.
+
+Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
+watch renders all five pages. Saves persist. The game runs at 60 fps with configurable resolution
+and supersampling.
+
+What has not been verified is a full playthrough: combat, AI behaviour over time, objective
+completion, and finishing a level end to end. The port renders and reaches a playable state
+everywhere; whether it can be played through from start to finish is untested.
+
+Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are
+not buildable; the game layer itself is not platform-specific, so the remaining work is confined to
+the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). A
+tvOS target exists in the tree (`getv/build.sh`, `getv/build_sim.sh`) but is on hold and has
+bit-rotted. Treat it as unbuildable until stated otherwise.
+
+## What this is not
+
+Not an emulator: no MIPS interpreter and no dynamic recompiler. Not static recompilation: no
+generated C, no ELF input, no recompiler tooling. Not a fork of the Xbox 360 XBLA remaster.
+
+This project is not affiliated with, endorsed by, or connected to Nintendo, Rare, MGM, Danjaq or
+EON Productions.
 
 ## Bring your own ROM
 
 **No ROM, no extracted assets and no game data are distributed with this repository, and none
-ever will be.** You need your own legal copy of the NTSC (US) cartridge, dumped to a file.
+ever will be.** You need your own legal copy of the NTSC (US) cartridge, dumped to a file. This is
+not a licensing formality that a mirror quietly works around: every texture, model, animation,
+sound bank and level layout is read out of your dump at build time and emitted as C. Roughly 762
+of the translation units this build compiles are generated that way.
 
-The build reads the ROM through the decompilation's own extraction scripts, which expect it at
-the root of the decomp checkout under a fixed name:
+| Property | Value |
+|---|---|
+| Size | 12,582,912 bytes exactly |
+| Byte order | Big-endian `z64` |
+| Header magic | `80371240` |
+| Internal name | `GOLDENEYE` |
+| SHA-1 | `abe01e4aeb033b6c0836819f549c791b26cfde83` |
 
-```
-vendor/ge-decomp/baserom.u.z64
-```
+That SHA-1 is the value in `ge007.u.sha1` in the decompilation, so a dump with that hash is
+byte-identical to what a correct US build must produce. If your dump has a `.n64` or `.v64`
+extension, or a header of `37804012`, it is byte-swapped and must be converted to native
+big-endian first.
 
-The convention used here is to keep dumps in `roms/` at the repository root and symlink one into
-place. `.gitignore` blocks `roms/`, every `*.z64` / `*.n64` / `*.v64` / `*.elf`, all `getv/build-*`
+The build reads the ROM through the decompilation's own extraction scripts, which expect it at the
+root of the decomp checkout under a fixed name, `vendor/ge-decomp/baserom.u.z64`. The convention
+used here is to keep dumps in `roms/` at the repository root and symlink one into place.
+`.gitignore` blocks `roms/`, every `*.z64` / `*.n64` / `*.v64` / `*.elf`, all `getv/build-*`
 directories (they contain object files compiled from extracted ROM data), `*.bmp` frame captures,
-and `vendor/` itself. Do not defeat those rules.
+and `vendor/` and `deps/` themselves. Do not defeat those rules.
 
-What is verified: the expected US ROM is 12,582,912 bytes, big-endian z64 (magic `80371240`,
-internal name `GOLDENEYE`), SHA-1 `abe01e4aeb033b6c0836819f549c791b26cfde83`. That value matches
-`ge007.u.sha1` in the decompilation, so a ROM with that hash is byte-identical to what a correct
-US build must produce. If your dump has a `.n64` or `.v64` extension, or a header of `37804012`,
-it is byte-swapped and must be converted to native big-endian first.
+Two further things are absent from a fresh clone for related reasons. Fifteen third-party
+port-layer files — the Fast3D renderer and the audio mixer, inherited from sm64ex — are fetched
+from a pinned upstream commit by `tools/fetch-thirdparty.sh`, because their redistribution terms
+are unresolved. The SDL2 2.30.9 source tree is supplied by you in `deps/SDL2-2.30.9`, and built
+from source, because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link
+into an arm64 binary.
 
-## Prerequisites
+## Quick start
 
-- macOS 13 or later on Apple silicon. The build targets `arm64-apple-macos13.0`.
-- Xcode Command Line Tools (`xcode-select --install`) — supplies `clang`, `xcrun` and the macOS SDK.
-- **bash 3.2 — the `/bin/bash` macOS already ships.** No newer bash is needed. The parallel
-  compile step used to use `mapfile`, a bash 4 builtin; it is now a portable
-  `while IFS= read -r` loop, and a full build has been verified under stock 3.2.
-- CMake, for building SDL2.
-- Python 3, for the asset generation scripts.
-- SDL2 2.30.9 source in `deps/SDL2-2.30.9`. **`deps/` is gitignored, so a fresh clone does not
-  have it** — supply the 2.30.9 source release yourself. It is built from source rather than taken from
-  Homebrew because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link into
-  an arm64 binary. `build_mac.sh sdl` compiles it for arm64 and installs it to
-  `~/.n64tvos/sdl2-mac` — deliberately outside the repository, because the repository path
-  contains a space and that has broken header search paths here before.
-
-## Preparing the source tree
-
-Fifteen third-party port-layer files — the Fast3D renderer and the audio mixer — are not in this
-repository either. Fetch them from their pinned upstream commit before anything else, or the build
-stops at a preflight check. See [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md).
+Prerequisites: macOS 13+ on Apple silicon, Xcode Command Line Tools, CMake, Python 3, and the
+stock `/bin/bash` 3.2. Nothing newer is needed.
 
 ```bash
-tools/fetch-thirdparty.sh fetch
+tools/fetch-thirdparty.sh fetch                                       # the fifteen files
+git clone https://github.com/n64decomp/007 vendor/ge-decomp           # the game's C source
+# then: apply getv/patches/0001-getv-port.patch, place your ROM, and generate the asset
+# sources from it — docs/SETUP.md sections 2.4 and 3
+cd getv && ./build_mac.sh sdl && ./build_mac.sh all && ./build_mac.sh run
 ```
 
-`vendor/` is not tracked. Clone the decompilation into place, apply this port's changes, and
-extract the assets from your ROM.
+**[`docs/SETUP.md`](docs/SETUP.md) is the step-by-step guide** — every prerequisite, every command,
+the expected output of each one, and a troubleshooting section. Read it if you have not built this
+before. The asset-generation step is the one that cannot be shortened: it is a sequence of
+extraction and code-generation passes, not the one line above, and skipping any of them produces
+a tree that fails to compile or silently misbehaves.
 
-```bash
-git clone https://github.com/n64decomp/007 vendor/ge-decomp
-cd vendor/ge-decomp
-git apply ../../getv/patches/0001-getv-port.patch
-ln -sf ../../roms/ge007.u.z64 baserom.u.z64
-```
+## Screenshots
 
-Then generate the asset sources. This needs neither Docker nor the IDO toolchain:
+![Two-player split screen with a radar in each pane](docs/images/screenshot-02.jpg)
 
-```bash
-cd vendor/ge-decomp
-bash scripts/extract_baserom.u.sh
-python3 scripts/generate_chr_c.py
-python3 scripts/generate_gun_c.py
-python3 scripts/generate_prop_model_c.py
-python3 ../../tools/gen_obseg_blobs.py
-python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
-bash scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
-```
+Two-player split screen. Each pane renders independently and carries its own radar.
 
-Everything these produce is derived from your ROM. It stays untracked.
+![First person with the PP7 drawn and the ammo counter reading 7 | 93](docs/images/screenshot-03.jpg)
+
+First person, PP7 drawn, ammo counter reading 7 in the magazine and 93 in reserve. The carved
+stonework behind is level geometry, not a backdrop.
+
+![An outdoor stage at night: snow-covered rock, a truck, a glass-walled guard post](docs/images/screenshot-04.jpg)
+
+An outdoor stage at night. Gradient sky with cloud banding, snow-covered rock at distance, a
+truck, hazard-striped kerbing and a glass-walled guard post.
+
+![Split screen in a concrete interior with weapons and armour on the floor](docs/images/screenshot-05.jpg)
+
+Split screen again, in a concrete interior. Dropped weapons and body armour lie on the floor as
+world props; the two players are in different rooms.
+
+![The port layer open in an editor: getv/port/fast3d/gfx_opengl.c](docs/images/screenshot-06.jpg)
+
+`getv/port/fast3d/gfx_opengl.c` in an editor. The platform layer is ordinary C, compiled by clang
+and steppable in a debugger like any other native program.
 
 ## Build
 
 `getv/build_mac.sh` takes one of `sdl`, `lib`, `port`, `app`, `all`, `run` or `env`.
 
-```bash
-cd getv
-./build_mac.sh sdl     # once: build SDL2 2.30.9 for arm64 into ~/.n64tvos/sdl2-mac
-./build_mac.sh all     # compile everything, then link
-```
-
+- `sdl` builds SDL2 2.30.9 for arm64 into `~/.n64tvos/sdl2-mac` — deliberately outside the
+  repository, because the repository path contains a space and that has broken header search
+  paths here before. Once per machine.
 - `lib` compiles the game, assets, audio and platform layer into `build-mac/obj`.
-- `port` recompiles only `getv/port/**` and the two harness objects. Takes seconds.
+- `port` recompiles only `getv/port/**` and the two harness objects. About 23 s.
 - `app` archives the objects into `build-mac/libge.a` and links `build-mac/goldeneye`.
 - `all` is `lib` followed by `app`.
 - `run` launches the linked binary, forwarding any arguments.
 - `env` prints the resolved SDK, SDL prefix, target triple and output paths.
 
 There is no incremental check — every `lib` is a full recompile of all 992 objects. Measured at
-21 s wall for `all` on an Apple M1 with warm caches; `port` alone is about 23 s. Compilation is
-parallel; `GETV_JOBS` caps the job count and defaults to 6.
+21 s wall for `all` on an Apple M1 with warm caches. Compilation is parallel; `GETV_JOBS` caps the
+job count and defaults to 6.
 
 Expected output from `./build_mac.sh all`:
 
@@ -120,11 +146,12 @@ mac audio: 40 built, 0 failed
 mac port layer: 23 built, 0 failed
 ```
 
-**The one failure is expected.** `src/tlb_manage.c` programs the N64's MIPS 4300 translation
+**The one failure is expected.** `src/tlb_manage.c` programs the N64's MIPS R4300 translation
 lookaside buffer. There is no TLB to program here and nothing links against it, so it is left to
 fail rather than being papered over. Seven further N64-hardware and SGI-dev-host files
 (`usb.c`, `rmon.c`, `sched.c`, `ramrom.c`, `init.c`, `indy_comms.c`, `indy_commands.c`) are
-excluded by name in the build script for the same reason.
+excluded by name in the build script for the same reason. Any second name in a `mac FAILED:` line
+is a real problem.
 
 ## Run
 
@@ -134,50 +161,102 @@ excluded by name in the build script for the same reason.
 
 Keyboard is bound to controller port 0 by default: WASD to move, arrow keys to look, Space or
 Left Ctrl to fire, E or Return to use, Q to aim, Z and X for the shoulder buttons, Tab to pause,
-IJKL for the d-pad. A connected gamepad works alongside it — whichever input is held wins, so
-plugging in a pad never degrades the keyboard and vice versa.
+IJKL for the d-pad, F11 for fullscreen. A connected gamepad works alongside it — whichever input
+is held wins, so plugging in a pad never degrades the keyboard and vice versa.
 
-On first run, with no configuration file present anywhere, the game writes a commented template
-to `~/Library/Application Support/GoldenEye/goldeneye.cfg` and immediately reads it back. This is
-not a convenience: several of the port's tuned defaults (notably `invert_look`) only exist in
-that template, and a default that lives in a file nobody has generated is not a default. Edit
-that file to taste.
+## Configuration
 
-Save data is separate, and lands in `~/Library/Application Support/Goldeneye-Native/eeprom.bin`.
+On first run, with no configuration file present anywhere, the game writes a commented template to
+`~/Library/Application Support/GoldenEye/goldeneye.cfg` and immediately reads it back. This is not
+a convenience: several of the port's tuned defaults — `invert_look` being the case in point — only
+exist in that template, and a default that lives in a file nobody has generated is not a default.
+Edit that file to taste, or regenerate it with `--write-config`.
+
+Save data is separate, and lands in
+`~/Library/Application Support/Goldeneye-Native/eeprom.bin`. It is 512 bytes: GoldenEye saves to
+the cartridge's serial EEPROM, and writes are atomic.
+
+A few keys worth knowing:
+
+| Key | Values | Default |
+|---|---|---|
+| `resolution` | `WIDTHxHEIGHT`, `fullscreen`, `native` | `1280x960` |
+| `supersample` | `1`, `2` | `1` |
+| `filtering` | `point`, `bilinear`, `three-point` | `three-point` |
+| `framerate` | `30`, `50`, `60`, `off` | `60` |
+| `controls` | any of Rare's eight styles, by number or name | `2.2 galore` |
+| `roster` | `8`, `64` | `8` |
 
 Every setting is documented in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). The named cheat
 system is in [`docs/CHEATS.md`](docs/CHEATS.md). If you want to change the game rather than play
-it, start at [`docs/MODDING.md`](docs/MODDING.md).
+it, start at [`docs/MODDING.md`](docs/MODDING.md); the roughly 250 `GETV_*` environment gates are
+the practical extension surface, and each defaults to preserving stock behaviour.
+
+## Layout
+
+```
+getv/port/        platform layer: renderer, audio, input, config, saves, paths
+getv/patches/     this port's changes to the decompilation and to the fetched sources
+getv/build_mac.sh the macOS build
+getv/tools/       measurement harnesses
+tools/            asset generation, and the third-party fetcher
+docs/             documentation
+vendor/           decompilation and fetched upstream sources   (untracked)
+deps/             SDL2 source                                  (untracked)
+roms/             your ROM                                     (untracked)
+```
+
+Everything not listed as tracked is fetched, cloned, or derived from your ROM.
+
+## Documentation
+
+| | |
+|---|---|
+| [`docs/SETUP.md`](docs/SETUP.md) | The build guide. Start here. |
+| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Every configuration key, and the reserved ones that are inert. |
+| [`docs/CHEATS.md`](docs/CHEATS.md) | The game's own cheat system, exposed by name. |
+| [`docs/MODDING.md`](docs/MODDING.md) | How the tree is arranged and where the seams are. |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Current state, known issues, planned work. |
+| [`docs/PORTING.md`](docs/PORTING.md) | What Windows and Linux would take, per file. |
+| [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) | The fifteen fetched files: what, whence, and why not vendored. |
+| [`docs/LICENSING.md`](docs/LICENSING.md) | Where every part came from and which terms are settled. |
+| [`docs/ASSET_LOADING.md`](docs/ASSET_LOADING.md) | Level asset loading: map, holes, plan. |
+| [`docs/PERFECT_DARK.md`](docs/PERFECT_DARK.md) | What the MIT-licensed Perfect Dark port offers this one. |
+| [`getv/port/PROVENANCE.md`](getv/port/PROVENANCE.md) | Per-directory origin of the platform layer. |
 
 ## Known issues
 
-All 26 real stages load, reach first-person and render. Eleven further stage ids have no data in
-the ROM at all — nine were cut during development, and Citadel has a background file but no setup
-file, so it can never load. That is data absence, not a port defect.
-
-Open problems, in rough order of how much they will bother you:
-
-- **Level props and characters are untextured.** The pass that expands the game's `G_NOOP`
-  texture placeholders reaches menu and title models but not level-loaded ones. This is the most
-  visible remaining defect.
-- **The scene is too dark.** Rock surfaces measure a mean around 17 against retail's mid-grey.
-- **Menu polish.** Teal film strips, a split Brosnan portrait, unselected names that are hard to
-  read, and an empty primary-objectives list.
+- **Depot ground colour.** The ground renders saturated blue-cyan where it should be near-neutral
+  dark asphalt. Texel pattern, palette indices, palette offset, palette contents and vertex shade
+  have all been measured correct, so the colour is introduced after the texel fetch.
+- **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
+  emits more commands than any other stage's, so the path is active.
+- **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
+  the file select screen, so the asset and its decode path are sound.
+- **Select File background.** Renders flat black; the original has a faint circular watermark
+  behind the folders.
+- **Three unresolved colourings** — Surface 2 fog density, Cradle sky gradient, Facility vent
+  colour. No reference captures exist for them, so they are neither confirmed correct nor
+  confirmed defects.
 - **No framerate above 60.** The game integrates fire rates, physics, animation and the mission
-  clock once per rendered frame, so raising the render rate raises the game speed with it. Real
-  high-refresh support needs the simulation decoupled from presentation, which this build does not
-  do. Values above 60 are rejected by the configuration layer for that reason.
+  clock once per rendered frame, so raising the render rate raises the game speed with it. Values
+  above 60 are rejected by the configuration layer for that reason.
 - **Multiplayer edge cases.** Score caps are not enforced on the headless path, and `num_shots`
   disagrees with the fire path.
-- **Windows, Linux and tvOS.** Not built, not tested.
+- **Keyboard and mouse.** Mouse look is not supported.
 
-`docs/ROADMAP.md` carries the detailed open list.
+[`docs/ROADMAP.md`](docs/ROADMAP.md) carries the full list and the planned work.
 
 ## Provenance and licensing
 
+[`LICENSE`](LICENSE) is MIT, and it covers the original work here: the platform layer under
+`getv/port/` excluding the fetched third-party sources, the build scripts, `tools/`, and the
+documentation. It does not and cannot cover anything else. [`NOTICE`](NOTICE) states the scope
+precisely.
+
 Read [`getv/port/PROVENANCE.md`](getv/port/PROVENANCE.md) before redistributing anything. It
-records, per directory, where the platform layer's code came from — in particular that the
-license status of `getv/port/fast3d/`, which descends from sm64ex's copy of
+records, per directory, where the platform layer's code came from — in particular that the license
+status of `getv/port/fast3d/`, which descends from sm64ex's copy of
 `Emill/n64-fast3d-engine`, is **unresolved**. The notice sm64ex ships is the pre-2021 form, whose
 second condition bans binary redistribution outright. Do not assume it is MIT.
 
@@ -197,5 +276,4 @@ decompilation project. The renderer and audio mixer descend from
 [Emill/n64-fast3d-engine](https://github.com/Emill/n64-fast3d-engine); neither is redistributed
 here. See [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) and [`NOTICE`](NOTICE).
 
-GoldenEye 007 was made by Rare. This project is not affiliated with Nintendo, Rare, MGM, Danjaq
-or EON Productions.
+GoldenEye 007 was made by Rare.

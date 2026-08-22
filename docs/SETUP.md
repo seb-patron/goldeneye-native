@@ -159,7 +159,7 @@ git clone https://github.com/SegfaultEvan/goldeneye-native.git
 cd goldeneye-native
 ```
 
-At this point `git ls-files | wc -l` reports about 117 files. That is the whole tracked tree: the
+At this point `git ls-files | wc -l` reports about 83 files. That is the whole tracked tree: the
 port layer's own code, the patches, the documentation and the tooling. It is not a build tree.
 
 ### 2.2 Fetch the third-party port-layer sources

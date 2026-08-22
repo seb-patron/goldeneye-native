@@ -28,9 +28,9 @@ the single most important thing to internalise:
 
 | kind | on the N64 | in this build | status |
 |---|---|---|---|
-| **stan** (collision tiles) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/stan/*.c`, 29 files, all compile, all link | ✅ effectively ready |
+| **stan** (collision tiles) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/stan/*.c`, 29 files, all compile, all link | effectively ready |
 | **setup** (objects/AI/pads) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/setup/*.c` (+ `e/ j/ u/` variants), 50 objects built, 2 TUs fail | 🟡 nearly ready, 2 gaps + a variant-selection hazard |
-| **bg** (room geometry) | raw segment DMA'd + per-room 1172 chunks | **decompiled C with real pointers, NOT LINKED AT ALL, and structurally incompatible with the loader** | 🔴 the real work |
+| **bg** (room geometry) | raw segment DMA'd + per-room 1172 chunks | **decompiled C with real pointers, NOT LINKED AT ALL, and structurally incompatible with the loader** | the real work |
 
 The 1172 decompressor is **not on the stan or setup path at all** in this build, and is
 only on the bg path for per-room chunks (§3.4).
@@ -63,7 +63,7 @@ lv.c:341  lvlStageLoad(stage)
    |     |      ob.c:150/206  fileGetIndex(name) -> file_resource_table[] index
    |     |                    romCopy(target, &fileentry->hw_address[offset], len)
    |     |                    port_assets.c:123 romCopy = memcpy + range guard
-   |     |      GUARDED BY  `if (rom_size != 0)`  -- 🔴 rom_size is 0 for every bg
+   |     |      GUARDED BY  `if (rom_size != 0)`  -- rom_size is 0 for every bg
    |     |                  file (see §3.2), so THIS CALL IS A SILENT NO-OP
    |     |
    |     +-- bg.c:829  ptr_bgdata_room_fileposition_list =
@@ -74,9 +74,9 @@ lv.c:341  lvlStageLoad(stage)
    |     |
    |     +-- bg.c:836  gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4)   ----- STAN
    |     |      ob.c:196  -> fileIndexLoadToBank(fileGetIndex(name), ...)
-   |     |      ob.c:233  🔑 GE_PORT_NATIVE shortcut: gePortObsegSize(hw)==0
+   |     |      ob.c:233  GE_PORT_NATIVE shortcut: gePortObsegSize(hw)==0
    |     |                => "this is native linked C data", return hw_address
-   |     |                   directly, skip allocate + inflate.  ✅ CORRECT for stan
+   |     |                   directly, skip allocate + inflate.  CORRECT for stan
    |     +-- bg.c:838  stanDetermineEOF(gptr_stan, 0, gptr_stan)   stan.c:3097
    |     +-- bg.c:839  stanLoadFile(gptr_stan)                     stan.c:476
    |     |                 -> stanBuildRoomData()                  stan.c:246
@@ -88,11 +88,11 @@ lv.c:341  lvlStageLoad(stage)
    +-- lv.c:521  init_guards()
    +-- lv.c:523  proplvreset2(stage)   prop.c:1216   -------------- SETUP
    |     |
-   |     +-- prop.c:1239  setup_text_pointers[stageId]        🔴 STUB (NULL object)
+   |     +-- prop.c:1239  setup_text_pointers[stageId]        STUB (NULL object)
    |     +-- prop.c:1253  synthesise "Usetup<lvl>Z" or "Ump_setup<lvl>Z"
    |     +-- prop.c:1266  g_ptrStageSetupFile =
    |     |                  _fileNameLoadToBank(name, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE)
-   |     |                  -> same ob.c:233 native-data shortcut  ✅ CORRECT for setup
+   |     |                  -> same ob.c:233 native-data shortcut  CORRECT for setup
    |     +-- prop.c:1269  langLoadToAddr(...)
    |     +-- prop.c:1275-1300  rebase all 10 stagesetup segment offsets
    |     |                     onto the RAM copy: (u32)base + (u32)field
@@ -122,8 +122,8 @@ bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
 | function | file | stub? | state / what it still must do |
 |---|---|---|---|
 | `lvlStageLoad` | lv.c:341 | real | already instrumented with `gePortBootMark` at every call — use it |
-| `load_bg_file` | bg.c:794 | real | 🔴 **must be rewritten for the native path.** Currently reads a 0x40 file header into a stack array and derives everything from segmented offsets. With linked C bg data there is no file and no offsets. See §5 step 4 |
-| `obLoadBGFileBytesAtOffset` | ob.c:150 (`!LEFTOVERDEBUG`) / ob.c:206 | real | 🔴 **fails silently.** Guarded by `if (rom_size != 0)`; `rom_size` is 0 for every bg file, so it returns without touching `target` and without any diagnostic. Its out-parameter is left as caller stack garbage. This is exactly the "stub that ignores its out-parameter" failure mode, except it is real code |
+| `load_bg_file` | bg.c:794 | real | **must be rewritten for the native path.** Currently reads a 0x40 file header into a stack array and derives everything from segmented offsets. With linked C bg data there is no file and no offsets. See §5 step 4 |
+| `obLoadBGFileBytesAtOffset` | ob.c:150 (`!LEFTOVERDEBUG`) / ob.c:206 | real | **fails silently.** Guarded by `if (rom_size != 0)`; `rom_size` is 0 for every bg file, so it returns without touching `target` and without any diagnostic. Its out-parameter is left as caller stack garbage. This is exactly the "stub that ignores its out-parameter" failure mode, except it is real code |
 | `fileGetIndex` | ob.c:423 | real | linear `strcmp` over `file_resource_table`; if not found, tries indy (stubbed) and returns 0. **Returning 0 is indistinguishable from index 0** |
 | `fileIndexLoadToBank` | ob.c:232 | real | carries the `GE_PORT_NATIVE` shortcut that makes stan/setup work. Correct as-is |
 | `_fileNameLoadToBank` | ob.c:190 | real | thin wrapper |
@@ -132,22 +132,22 @@ bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
 | `romCopy` | port_assets.c:123 | real | memcpy + images-segment range guard |
 | `decompressdata` | decompress.c:32 | real | 1172: 2 magic bytes then raw DEFLATE |
 | `obInit` | ob.c:117 | real | sizes every resource via `gePortObsegSize()`; returns 0 for anything not in `ge_obseg_sizes.c` (which is every stan/setup/bg symbol — verified, 0 matches) |
-| `stanDetermineEOF` | stan.c:3097 | real | 🔴 relocates every pointer by `delta = (s32)newBase - origBase`. Called as `(gptr_stan, 0, gptr_stan)`, so `delta` = **truncated 64-bit pointer**, and it then adds that to already-correct pointers. Must be `delta == 0` on the native path. Also **not idempotent** — it writes into linked `.data`, so a second level load re-relocates |
+| `stanDetermineEOF` | stan.c:3097 | real | relocates every pointer by `delta = (s32)newBase - origBase`. Called as `(gptr_stan, 0, gptr_stan)`, so `delta` = **truncated 64-bit pointer**, and it then adds that to already-correct pointers. Must be `delta == 0` on the native path. Also **not idempotent** — it writes into linked `.data`, so a second level load re-relocates |
 | `stanLoadFile` | stan.c:476 | real | already carries a port fix (`stan_prefix = file` instead of the half-pointer write) |
 | `stanBuildRoomData` | stan.c:246 | real | walks tiles by `list_of_tilesizes`. Depends on tile-to-tile adjacency in the linked object — **verified to hold**, see §4.1 |
-| `bgDecompress` | bg.c:2239 | real | 🔴 **`u8 buffer[0x2100]` passed as `struct huft *`.** This is the exact bug that was fixed in `ob.c`, `image.c` and `music.c` and it is still live here. `struct huft` is 16 bytes on arm64 vs 8 on N64, so this buffer holds **half** the entries `inflate()` will carve out of it, unchecked, on the **stack**. Expect `__stack_chk_fail` → SIGABRT with no usable backtrace the first time a room streams. Fix: `struct huft buffer[GE_HUFT_ENTRIES];` (`src/inflate/inflate.h:30`) |
+| `bgDecompress` | bg.c:2239 | real | **`u8 buffer[0x2100]` passed as `struct huft *`.** This is the exact bug that was fixed in `ob.c`, `image.c` and `music.c` and it is still live here. `struct huft` is 16 bytes on arm64 vs 8 on N64, so this buffer holds **half** the entries `inflate()` will carve out of it, unchecked, on the **stack**. Expect `__stack_chk_fail` → SIGABRT with no usable backtrace the first time a room streams. Fix: `struct huft buffer[GE_HUFT_ENTRIES];` (`src/inflate/inflate.h:30`) |
 | `bgLoadRoomVtxData` | bg.c:2252 | real | offset arithmetic **already fixed** to wrap in `u32` |
 | `bgLoadRoomPrimaryGdl` | bg.c:2299 | real | 🟠 offset arithmetic **not** fixed: `(s32)((u8*)pPriMappingBin + ptr_bg_data) - ptr_bg_data`. Truncates through `s32`. Works only by accident while the field holds a 32-bit segmented value |
 | `bgLoadRoomSecondaryGdl` | bg.c:2359 | real | same, `pSecMappingBin` |
 | `texLoadFromGdl` / `texCopyGdls` | tex.c:779 | real | |
-| `texLoad` | image.c:2381 | real | 🔴 writes `*(uintptr_t*)updateword` — an **8-byte** store through an `s32*`. See §4.4 |
+| `texLoad` | image.c:2381 | real | writes `*(uintptr_t*)updateword` — an **8-byte** store through an `s32*`. See §4.4 |
 | `texLoadFromDisplayList` | image.c:2322 | real | 🟠 `texLoad((u32*)((s32)bytes + 4), ...)` — `(s32)bytes` truncates a 64-bit pointer |
 | `proplvreset2` | prop.c:1216 | real | the setup loader. Blocked only by `setup_text_pointers` |
 | `setupGetPtrToCommandByIndex` | loadobjectmodel.c:253 | real | |
 | `init_load_objpos_table` | initobjects.c:43 | real | |
 | `init_guards` / `init_path_table_links` | initguards.c / initpathtablelinks.c | real | consume `g_CurrentSetup` |
 | `bondviewLoadSetupIntroSection` | bondview_r.c:75 | real | but its collaborators live in `bondview2.c`, which does not compile |
-| `mempAllocBytesInBank` | memp.c | real | 🔑 OOM = `while(1)` → **silent hang**, wrapped in `GE_MEMP_DIE` — do not remove |
+| `mempAllocBytesInBank` | memp.c | real | OOM = `while(1)` → **silent hang**, wrapped in `GE_MEMP_DIE` — do not remove |
 | `setup_text_pointers` | chraidata.c:816 | **STUB** | `void *setup_text_pointers = 0;` — an 8-byte object. `setup_text_pointers[stageId]` for stageId up to 58 reads **464 bytes past it** into whatever the linker put next. Guaranteed garbage, possibly a non-NULL garbage pointer that passes the `&&` guard |
 | `g_GlobalAILists` | chraidata.c | **STUB** | 256 KB of 0xFF |
 | `g_Startpad`, `startpadcount`, `gBondViewCutscene`, `g_CameraLookAtBondPad` | bondview2.c | **STUB** | intro camera + spawn pad |
@@ -262,7 +262,7 @@ So clang laid the flexible-array-initialised `StandTile` globals out **exactly**
 `list_of_tilesizes` predicts, tightly packed, in declaration order. The walk in
 `stanBuildRoomData` and `stanDetermineEOF` works.
 
-⚠️ This is a **link-order adjacency** dependency (ROADMAP's found-5×-already bug family)
+This is a **link-order adjacency** dependency (ROADMAP's found-5×-already bug family)
 that happens to hold today. It is not guaranteed by any standard. Add a boot-time
 assertion, don't just rely on it.
 
@@ -275,7 +275,7 @@ already cost a cycle with the font.)
 `StanPrefixRecord` (stan.c:15) is `{s32 stanfile; StandTile *ptr_firstroom;}` and
 `StandFileHeader` (bondtypes.h:472) is `{void *unk1; StandTile *firstTile; u8 unk2[];}`.
 Both compiled natively by the same compiler → offset 8 on both. Consistent.
-`tile_0` sits at 0x14 = 20 bytes in, which matches `8 + 8 + 4`. ✅ Confirms the header
+`tile_0` sits at 0x14 = 20 bytes in, which matches `8 + 8 + 4`. Confirms the header
 layout too.
 
 ### 4.2 `stagesetup` and the setup record structs — asset layout, but ALSO SAFE. VERIFIED.
@@ -289,7 +289,7 @@ stagesetup UsetupdamZ = { &pathwaypoints, &pathsets, &intro, &propDefs, ... };
 
 — real 8-byte pointers, and `prop.c` compiles against the same struct. **They agree.**
 
-🔴 **But `prop.c:1275` then does `(void*)(((u32)local_stage) + ((u32)local_stage->pathwaypoints))`.**
+**But `prop.c:1275` then does `(void*)(((u32)local_stage) + ((u32)local_stage->pathwaypoints))`.**
 That is the file-offset rebase, and on native data it is *doubly* wrong: it truncates
 both operands to 32 bits **and** adds a base to an already-absolute pointer. Every one
 of the ~10 rebases and the ~6 in-place promotion loops that follow has the same shape.
@@ -403,7 +403,7 @@ already-triaged pointer-cast class. Removes 12 stubs including `g_Startpad`,
 `setup_text_pointers` and `g_GlobalAILists`. **Without this, `proplvreset2` cannot even
 find the setup filename**, so no level has objects, guards or AI. Same macro fix almost
 certainly also fixes `assets/obseg/setup/UsetuparchZ.c`.
-⚠️ ROADMAP rule #1: a subsystem must be ALL-STUB or ALL-REAL. Land 2 and 3 together
+ROADMAP rule #1: a subsystem must be ALL-STUB or ALL-REAL. Land 2 and 3 together
 with `proplvreset2` in mind, and expect the crash to move *earlier* first.
 
 **4. Neutralise the setup rebase for native data.** `prop.c:1275-1400`: under

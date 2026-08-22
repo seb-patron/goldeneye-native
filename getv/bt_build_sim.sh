@@ -20,7 +20,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
-# 🔑 PER-AGENT BUILD ISOLATION. Every agent used to share build-sim/obj and libge.a, so
+# PER-SLOT BUILD ISOLATION. Parallel builds used to share build-sim/obj and libge.a, so
 # two concurrent `build_sim.sh lib` runs silently clobbered each other's objects and
 # archive -- which shows up as an inexplicably changed "N built" count or a link error in
 # a file nobody touched. Set GETV_SLOT=<name> to get a private object dir, archive,
@@ -31,7 +31,7 @@ DD="$BUILD-dd"
 PROJ_NAME="GoldeneyeNativeSim${SLOT:+$SLOT}"
 SPEC="$HERE/project-sim${SLOT:+-$SLOT}.yml"
 SDK="$(xcrun -sdk appletvsimulator --show-sdk-path)"
-# 🔑 A SPACE-FREE PATH. The repo lives under ".../Code Projects/...", and an
+# A SPACE-FREE PATH. The repo lives under ".../Code Projects/...", and an
 # unquoted HEADER_SEARCH_PATHS entry containing a space is silently split by
 # xcodebuild -- which presents as "SDL.h file not found" even though the path is
 # right there in project.yml. The device build never hit this because
@@ -134,7 +134,7 @@ cmd_lib() {
     -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM
     -DBUGFIX_R0 -DTARGET_N64 -DGE_PORT_NATIVE
     -DNON_MATCHING=1 -DAVOID_UB=1 -D_LANGUAGE_C=1
-    # 🔴 -Wno-everything, NOT -w. MEASURED 2026-08-21: -w defeats -Werror=return-type in
+    # -Wno-everything, NOT -w. -w defeats -Werror=return-type in
     # BOTH orders (rc=0, no diagnostic); -Wno-everything lets it through. The old comment
     # here claimed order mattered -- it does not, and the guard was a no-op all along.
     # A non-void function that falls off the end "worked" on MIPS/IDO: the callee's result
@@ -152,28 +152,28 @@ cmd_lib() {
     echo "  bt: -ftrivial-auto-var-init=$GETV_AUTOVARINIT"
   fi
 
-  # 🔑 OPT-IN DEBUG MENU. `-DLEFTOVERDEBUG` above already compiles the whole ~1,100-line
+  # OPT-IN DEBUG MENU. `-DLEFTOVERDEBUG` above already compiles the whole ~1,100-line
   # debug menu into the binary, but `boss.c:565` gates the C-Up + C-Down trigger on
   # `DEBUGMENU`, which is defined NOWHERE in the tree -- so nothing can ever open it.
   # Defining it buys: free camera, background/props toggles, portal-cull toggle, position
   # display, all-levels unlock, and `obj load`/`weapon load` (an asset-presence test that
   # is inert on N64 but genuinely useful to us).
   #
-  # 🔴 OPT-IN, NOT DEFAULT, and this is deliberate. With DEBUGMENU defined the else-chain in
+  # OPT-IN, NOT DEFAULT, and this is deliberate. With DEBUGMENU defined the else-chain in
   # boss.c routes **START** into debug_menu_processor, which is disruptive during normal
   # play and would silently change every lane's measurements. Turn it on per-run:
   #
   #     GETV_DEBUGMENU=1 ./build_sim.sh lib
   #
-  # ⚠️ It changes code generation, so a slot must REBUILD when toggling it, and any number
+  # It changes code generation, so a slot must REBUILD when toggling it, and any number
   # measured under it is not comparable to one measured without it.
-  # ⚠️ There is NO working level select in there -- DEB_LEVEL/REGION/SCALE are gutted no-ops
+  # There is NO working level select in there -- DEB_LEVEL/REGION/SCALE are gutted no-ops
   # at debugmenu_handler.c:511-521. `GETV_STAGE` remains the only stage selector.
-  # 🔑 Cheaper for a headless harness: `set_debug_testingmanpos_flag(1)` is an exported
+  # Cheaper for a headless harness: `set_debug_testingmanpos_flag(1)` is an exported
   # one-liner giving room number + XYZ + facing with no menu at all.
   if [ "${GETV_DEBUGMENU:-0}" = "1" ]; then
     CFLAGS+=(-DDEBUGMENU)
-    echo "  ⚠️  GETV_DEBUGMENU=1 -- debug menu ENABLED (C-Up+C-Down). START is repurposed."
+    echo "   GETV_DEBUGMENU=1 -- debug menu ENABLED (C-Up+C-Down). START is repurposed."
   fi
   local ok=0 fail=0
   while read -r f; do
@@ -207,7 +207,7 @@ cmd_lib() {
 
   build_port_layer
 
-  # 🔴 A FAILED COMPILE MUST NOT LEAVE ITS PREVIOUS OBJECT BEHIND.
+  # A FAILED COMPILE MUST NOT LEAVE ITS PREVIOUS OBJECT BEHIND.
   # `ar rcs .../obj/*.o` never prunes, so a stale .o silently outlived the source that
   # produced it: one slot shipped a binary whose UsetuparchZ.o was absent from the archive
   # entirely while the build still reported "762 built, 0 failed". The counts were telling
