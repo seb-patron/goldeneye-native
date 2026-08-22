@@ -1,0 +1,47 @@
+Goldeneye-Native
+================
+
+Scope of the MIT licence in LICENSE
+-----------------------------------
+
+The MIT licence covers the original work in this repository: the platform layer
+under getv/port/ (excluding the fetched third-party sources listed below), the
+build scripts, the tooling under tools/, and the documentation.
+
+It does not and cannot cover the following, which are not ours to license.
+
+Decompiled game source
+----------------------
+
+The game's C source under vendor/ge-decomp/ comes from the n64decomp/007
+decompilation project, which publishes no licence file. Its libultra sources
+carry SGI proprietary headers. That is upstream's situation and is not resolved
+by this repository. The decompilation is not distributed here; it is fetched
+separately.
+
+Third-party port sources
+------------------------
+
+Several files in the platform layer derive from sm64ex, which itself derives
+its Fast3D implementation from Emill/n64-fast3d-engine. sm64ex ships no root
+licence, and the Fast3D notice it reproduces prohibits binary redistribution.
+GitHub classifies the upstream repository as NOASSERTION.
+
+Because that situation is unresolved, those files are not distributed here.
+tools/fetch-thirdparty.sh retrieves them from upstream at a pinned commit and
+applies our changes as a patch series. See docs/THIRD_PARTY.md and
+docs/LICENSING.md.
+
+Game data
+---------
+
+No ROM, no extracted assets, no textures, no audio, no level data, and no
+game-derived material of any kind is included in this repository or in its
+history. Building requires a copy of the game that you own. See README.md.
+
+Trademarks
+----------
+
+GoldenEye 007 and related marks are the property of their respective owners.
+This project is not affiliated with, endorsed by, or connected to Nintendo,
+Rare, MGM, Danjaq, or EON Productions.

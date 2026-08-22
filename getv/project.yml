@@ -1,0 +1,100 @@
+name: Goldeneye-Native
+options:
+  bundleIdPrefix: org.goldeneyenative
+  deploymentTarget:
+    tvOS: "17.0"
+  createIntermediateGroups: true
+
+targets:
+  Goldeneye-Native:
+    type: application
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources
+      # tvOS app icon + top shelf. The catalog is a .brandassets bundle (imagestacks
+      # for the parallax layers), NOT an .appiconset -- tvOS is the one platform that
+      # wants layered icons, and ASSETCATALOG_COMPILER_APPICON_NAME below must match
+      # the bundle's name exactly, without the .brandassets extension.
+      - path: Sources/Assets.xcassets
+    # NOTE: nothing is bundled yet. GoldenEye's assets still live in the ROM and the
+    # port has no asset loader, so there is no data/ directory to ship. When one
+    # exists it goes at the .app root, which is where SDL_GetBasePath points on tvOS.
+    # The ROM itself must never be committed or shipped.
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: GoldenEye 007
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        UIRequiredDeviceCapabilities:
+          - arm64
+        GCSupportsControllerUserInteraction: true
+        GCSupportsMultipleMicroGamepads: false
+        UIApplicationSupportsIndirectInputEvents: true
+        # MANDATORY. SDL2 links CoreBluetooth for MFi/HIDAPI controller discovery;
+        # touching it with no usage description makes TCC kill the process from a
+        # libdispatch worker thread, which presents as a crash wherever the main
+        # thread happened to be. Cost real time on Perfect Dark.
+        NSBluetoothAlwaysUsageDescription: >-
+          GoldenEye 007 uses Bluetooth to connect game controllers.
+        NSBluetoothPeripheralUsageDescription: >-
+          GoldenEye 007 uses Bluetooth to connect game controllers.
+        NSMicrophoneUsageDescription: >-
+          Not used; required because the audio system enumerates input devices.
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: App Icon & Top Shelf Image
+        PRODUCT_BUNDLE_IDENTIFIER: org.goldeneyenative.getv
+        PRODUCT_NAME: Goldeneye-Native
+        TARGETED_DEVICE_FAMILY: "3"
+        DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}  # set to your own Apple Developer Team ID
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_BITCODE: NO
+        HEADER_SEARCH_PATHS:
+          - ${N64TVOS_PREFIX}/sdl2-tvos/include
+          - ${N64TVOS_PREFIX}/sdl2-tvos/include/SDL2
+          - $(SRCROOT)/port
+          - $(SRCROOT)/port/include
+          - $(SRCROOT)/port/fast3d
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - TARGET_N64=1
+          - GE_PORT_NATIVE=1
+          # PR/gbi.h gates every type behind this; without it Gfx does not exist.
+          - _LANGUAGE_C=1
+        OTHER_LDFLAGS:
+          # No -force_load yet: unlike PD, nothing in libge.a registers itself from
+          # a constructor, and the harness deliberately pulls in only what it calls.
+          # Add it when the port layer needs the whole archive.
+          - $(SRCROOT)/build/libge.a
+          - ${N64TVOS_PREFIX}/sdl2-tvos/lib/libSDL2main.a
+          - ${N64TVOS_PREFIX}/sdl2-tvos/lib/libSDL2.a
+          - -lc++
+          - -lz
+          - -framework
+          - OpenGLES
+          - -framework
+          - Metal
+          - -framework
+          - UIKit
+          - -framework
+          - Foundation
+          - -framework
+          - QuartzCore
+          - -framework
+          - CoreGraphics
+          - -framework
+          - CoreVideo
+          - -framework
+          - CoreAudio
+          - -framework
+          - AudioToolbox
+          - -framework
+          - AVFoundation
+          - -framework
+          - CoreBluetooth
+          - -weak_framework
+          - GameController
+          - -weak_framework
+          - CoreHaptics

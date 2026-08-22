@@ -1,0 +1,27 @@
+# Third-party port-layer files fetched by tools/fetch-thirdparty.sh.
+#
+# Format:  <upstream path in sm64ex>  <destination path in this repo>
+# Blank lines and lines beginning with '#' are ignored.
+#
+# Upstream: https://github.com/sm64pc/sm64ex
+# Commit:   d7ca2c04364a6dd0dac58b47151e04e26887e6f0
+#
+# Files NOT listed here are ours and stay in the repository:
+#   getv/port/fast3d/ge_sky_rdp.c
+#   getv/port/fast3d/ge_sky_rdp.h
+
+src/pc/gfx/gfx_cc.c                 getv/port/fast3d/gfx_cc.c
+src/pc/gfx/gfx_cc.h                 getv/port/fast3d/gfx_cc.h
+src/pc/gfx/gfx_opengl.c             getv/port/fast3d/gfx_opengl.c
+src/pc/gfx/gfx_opengl.h             getv/port/fast3d/gfx_opengl.h
+src/pc/gfx/gfx_pc.c                 getv/port/fast3d/gfx_pc.c
+src/pc/gfx/gfx_pc.h                 getv/port/fast3d/gfx_pc.h
+src/pc/gfx/gfx_rendering_api.h      getv/port/fast3d/gfx_rendering_api.h
+src/pc/gfx/gfx_screen_config.h      getv/port/fast3d/gfx_screen_config.h
+src/pc/gfx/gfx_sdl.h                getv/port/fast3d/gfx_sdl.h
+src/pc/gfx/gfx_sdl2.c               getv/port/fast3d/gfx_sdl2.c
+src/pc/gfx/gfx_window_manager_api.h getv/port/fast3d/gfx_window_manager_api.h
+src/pc/mixer.c                      getv/port/audio/ge_mixer.c
+src/pc/mixer.h                      getv/port/audio/ge_mixer.h
+src/pc/configfile.h                 getv/port/configfile.h
+src/pc/fs/fs.h                      getv/port/fs/fs.h
