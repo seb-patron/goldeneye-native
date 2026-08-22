@@ -108,11 +108,6 @@ truck, hazard-striped kerbing and a glass-walled guard post.
 Split screen again, in a concrete interior. Dropped weapons and body armour lie on the floor as
 world props; the two players are in different rooms.
 
-![The port layer open in an editor: getv/port/fast3d/gfx_opengl.c](docs/images/screenshot-06.jpg)
-
-`getv/port/fast3d/gfx_opengl.c` in an editor. The platform layer is ordinary C, compiled by clang
-and steppable in a debugger like any other native program.
-
 ## Build
 
 `getv/build_mac.sh` takes one of `sdl`, `lib`, `port`, `app`, `all`, `run` or `env`.
