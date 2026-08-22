@@ -62,7 +62,7 @@ This is a recommendation with reasons, not a preference:
   those files silently compile the *non*-Windows branch: `FOR_WINDOWS` is 0, GLEW is
   never included, and `glewInit()` at `gfx_opengl.c:784-788` never runs. The build
   succeeds and then dies at the first GL 1.2+ entry point. Both files are owned by
-  another lane and were deliberately not edited; if you want an MSVC build, widening
+  other work in progress and were deliberately not edited; if you want an MSVC build, widening
   those two gates to `defined(_WIN32)` is the first change to make.
 - `vendor/ge-decomp/include/PR/ultratypes.h:83-84` needs `__UINTPTR_TYPE__` and
   `__INTPTR_TYPE__`. MSVC does not define them; clang and GCC do.
@@ -136,11 +136,11 @@ macOS behaviour is unchanged; the proof is recorded in section 9.
 **Still outstanding, deliberately not changed:** `getv/port/src/port_audio.c:389-394`
 writes the `GETV_AUDIO_WAV` debug dump to `$HOME/Documents/getv_audio.wav` and decides
 whether a supplied path is absolute with `e[0] == '/'`. It is a debug-only gate in a
-file owned by another lane. One line of work whenever that file is next touched.
+file that was being changed concurrently. One line of work whenever it is next touched.
 
 ## 5. The renderer and window backend
 
-Both files are owned by another lane and were read, not edited.
+Both files were being changed concurrently and were read, not edited.
 
 - `getv/port/fast3d/gfx_sdl2.c` — SDL2 throughout. Its only non-portable include is
   `<unistd.h>` at `:37`, which MinGW provides.
@@ -219,9 +219,9 @@ on the next line, so the pragmas are already redundant for the port; wrapping al
 in `#ifndef GE_PORT_NATIVE` is the same fix already applied to `spectrum.c`, and it is
 provable on macOS because the current behaviour is "ignored" either way.
 
-`objective_status.c` is owned by a live lane and was not edited.
+`objective_status.c` was being changed concurrently and was not edited.
 
-Estimate: **1 hour**, plus whatever it takes to get lane agreement on
+Estimate: **1 hour**, plus whatever it takes to agree on
 `objective_status.c`.
 
 ## 8. Link-time: four undefined symbols that macOS currently hides

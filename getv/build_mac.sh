@@ -82,6 +82,24 @@ cmd_sdl() {
 # The port layer's third-party sources (Fast3D, the audio mixer) are not vendored in this
 # repository -- see docs/THIRD_PARTY.md. Without them the compile fails with a long list
 # of missing headers and nothing that points at the cause, so check once and say so.
+require_decomp() {
+  if [ ! -d "$DECOMP/src" ]; then
+    echo "error: the decompiled game source is not present." >&2
+    echo "       expected: $( cd "$HERE/.." >/dev/null 2>&1 && pwd )/vendor/ge-decomp" >&2
+    echo "" >&2
+    echo "       This repository does not include the decompilation. Clone it into" >&2
+    echo "       vendor/ge-decomp, then run the asset pipeline. See docs/SETUP.md." >&2
+    exit 1
+  fi
+  # A decomp that is present but has never had its assets generated fails later as
+  # hundreds of missing includes; name it here instead.
+  if [ ! -d "$DECOMP/assets" ]; then
+    echo "error: $DECOMP exists but has no assets/ directory." >&2
+    echo "       The asset pipeline has not been run. See docs/SETUP.md section 3." >&2
+    exit 1
+  fi
+}
+
 require_thirdparty() {
   # Check every file the fetch is responsible for, not just one. A partial or
   # interrupted fetch otherwise passes this gate and fails later as a confusing
@@ -200,6 +218,8 @@ run_batch() {
 }
 
 cmd_lib() {
+  require_decomp
+  require_thirdparty
   mkdir -p "$BUILD/obj"
   local CFLAGS; mac_cflags
 

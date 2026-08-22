@@ -186,3 +186,16 @@ headers. That is upstream's situation, but it is a fact about the base this port
 
 The ROM, extracted assets, and anything derived from them are never distributable under any
 license.
+
+## Credits
+
+Built by Evan King ([@SegfaultEvan](https://github.com/SegfaultEvan)).
+
+The game's C source is the work of the [`n64decomp/007`](https://github.com/n64decomp/007)
+decompilation project. The renderer and audio mixer descend from
+[sm64ex](https://github.com/sm64pc/sm64ex), which in turn derives its Fast3D implementation from
+[Emill/n64-fast3d-engine](https://github.com/Emill/n64-fast3d-engine); neither is redistributed
+here. See [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) and [`NOTICE`](NOTICE).
+
+GoldenEye 007 was made by Rare. This project is not affiliated with Nintendo, Rare, MGM, Danjaq
+or EON Productions.
