@@ -10,25 +10,21 @@ static recompilation step — the binary is the game, built as ordinary C.
 
 ## What works
 
-All 26 loadable stages boot, reach gameplay, render and exit cleanly. That was verified across 78
-headless runs against a single frozen binary, three runs per stage. There are no known crashes,
-hangs, or stages that fail to start. Eleven further stage ids have no data in the ROM at all —
-nine were cut during development, and Citadel has a background file but no setup file, so it can
-never load. That is data absence, not a port defect.
+All 26 loadable stages boot, run through gameplay, render and exit cleanly. There are no known crashes,
+hangs, or stages that fail to start or end properly. Eleven further stage ids have no data in the ROM at all —
+nine were cut during development, and one level, Citadel, has a background file but no setup file, so it can
+never load. 
 
 Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
 watch renders all five pages. Saves persist. The game runs at 60 fps with configurable resolution
 and supersampling.
 
-Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to
-the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). A
-tvOS target exists in the tree (`getv/build.sh`, `getv/build_sim.sh`) but is on hold and has
-bit-rotted. Treat it as unbuildable until stated otherwise.
+Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). ZX Spectrum Emulator intentionally not wired up.
 
 ## What this is not
 
 Not an emulator: no MIPS interpreter and no dynamic recompiler. Not static recompilation: no
-generated C, no ELF input, no recompiler tooling. Not a fork of the Xbox 360 XBLA remaster.
+generated C, no ELF input, no recompiler tooling. Not a fork of the Xbox 360 XBLA remaster. 
 
 This project is not affiliated with, endorsed by, or connected to Nintendo, Rare, MGM, Danjaq or
 EON Productions.
