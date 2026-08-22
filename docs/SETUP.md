@@ -398,8 +398,8 @@ hash matters here.
 
 ### 3.5 Generate the asset sources
 
-Everything below is derived from your ROM and stays untracked. None of it needs Docker or the IDO
-toolchain.
+Run these from inside `vendor/ge-decomp`, in this order. The order matters and was
+established by building from a clean checkout.
 
 ```bash
 cd vendor/ge-decomp
@@ -409,87 +409,47 @@ python3 scripts/generate_gun_c.py
 python3 scripts/generate_prop_model_c.py
 python3 ../../tools/gen_obseg_blobs.py
 python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
-bash scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
-```
-
-`gen_obseg_blobs.py` emits `assets/obseg/ge_obseg_blobs.c` (about 21 MB). It exists because
-`assets/obseg/ob_seg.s` defines 725 model symbols as `.incbin` of compressed `.rz` files, and this
-port builds only `.c`; the script re-creates Rare's "1172" container (two magic bytes then a raw
-deflate stream) in Python, because the shell version upstream ships relies on GNU `head --bytes=-8`,
-which BSD `head` does not have.
-
-#### Additional passes the tree also needs
-
-The six commands above are the sequence recorded in `README.md`, but they are **not sufficient on
-their own**. Four further passes are present in `tools/`, their outputs are present in a working
-checkout, and the build fails or silently misbehaves without them. The exact order in which they
-must run is **not recorded anywhere in this repository and could not be verified end to end**, so
-they are listed here with what each does and what its output looks like rather than as a
-copy-paste sequence. Treat this subsection as needing confirmation from the maintainer.
-
-```bash
-# from the repository root
-python3 tools/fix_asset_switchnodes.py
-```
-
-Retypes every generated model's `SwitchNodes` array from `u32` to `ModelNode *`. getools emits
-`u32 SwitchNodes[] = { (u32)&ModelNode_0x0f8, … }`, which is not a compile-time constant expression
-on a 64-bit target: **156 of the 762 asset translation units fail to compile without this pass**,
-and even if they compiled the values would be pointers truncated to 32 bits. The script walks
-`assets/` under the decomp root by itself and takes no path argument; `--dry-run` reports without
-writing. In a correctly prepared tree, `grep -rn 'SwitchNodes' vendor/ge-decomp/assets/obseg/chr`
-shows `ModelNode *…`, never `u32 …`.
-
-```bash
-python3 tools/uniquify_asset_symbols.py <dir> [--recurse] [--dry-run]
-```
-
-Gives each generated asset translation unit its own global-symbol namespace. getools emits generic
-names — `tile_0`, `padlist`, `propDefs`, `ai_0`, `footer` — identically in every level's file, so
-all 29 stan files and all 50 setup files define the same symbols and the linker binds each
-reference to whichever object came first alphabetically. Before this pass existed, the Dam's pad
-list resolved to another level's 62-entry list (the Dam has 368) and **every level ran on some
-other level's data**. In a correctly prepared tree,
-`grep -n propDefs vendor/ge-decomp/assets/obseg/setup/u/UsetupcradZ.c` shows
-`UsetupcradZ_propDefs`, and `assets/obseg/chr/commguard/Model.c` shows
-`commguard_Model_SwitchNodes`.
-
-Two cautions from the script's own header: language-variant directories (`setup/u`, `setup/j`,
-`setup/e`) need `--recurse` from the parent, because passing `setup/u` directly collapses the
-prefix to the bare file stem, which is identical in all three; and the tool reads a file's globals
-by compiling it, so a file that does not compile is silently skipped — the skip list is printed as
-a block at the end and the tool exits non-zero, which makes `--dry-run` usable as a regression
-gate. Note also that the script resolves its SDK with `xcrun -sdk appletvsimulator`, so a machine
-without the tvOS simulator SDK installed may not be able to run it as written.
-
-```bash
-cd vendor/ge-decomp
+bash  scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
+python3 ../../tools/fix_asset_switchnodes.py
 python3 ../../tools/gen_anim_blobs.py
 python3 ../../tools/gen_audio_segment.py
+python3 ../../tools/gen_asset_fileview.py
+python3 tools/gen_propdef_layout.py
+python3 ../../tools/gen_port_decls.py
 ```
 
-`gen_anim_blobs.py` rebuilds the animation data and entries as two contiguous C blobs in ROM order
-(`assets/ge_animation_data_segment.c`, `assets/ge_animation_entries_segment.c`), because the game
-walks byte offsets into a single segment that the decomp extracts as many separate arrays with no
-defined relative placement. It cross-checks every `PTR_ANIM_*` define and refuses to write if any
-disagrees. `gen_audio_segment.py` packs the five audio ROM segments into one array
-(`assets/music/ge_audio_segment.c`, about 7 MB) plus `src/ge_audio_segment.h`, because `music.c`
-derives each bank's size from the gap to the next segment's start and five separate globals have no
-guaranteed order.
+Notes on the ones that are easy to get wrong:
 
-`tools/gen_link_stubs.py` is **not** part of setup. Its output, `getv/port/src/ge_link_stubs.c`, is
-tracked in this repository already.
+- `gen_anim_blobs.py` writes `assets/ge_animation_offsets.h`. Without it `src/game/model.c`
+  and everything that includes `initanitable.h` fail with a missing header.
+- `gen_asset_fileview.py` writes `src/ge_asset_fileview.h`. Without it `model.c` fails.
+- `gen_port_decls.py` is iterative and may print "did not converge" on its first run. Run it
+  again until it stops saying so; two or three passes is normal.
+- `tools/gen_propdef_layout.py` lives in the decomp, not in this repository, and is created
+  by `0001-source.patch`. It will not exist until that patch is applied.
 
-Confirm all four generated blobs exist before building:
+#### Known gap: `uniquify_asset_symbols.py`
 
-```bash
-ls -l vendor/ge-decomp/assets/ge_animation_data_segment.c \
-      vendor/ge-decomp/assets/ge_animation_entries_segment.c \
-      vendor/ge-decomp/assets/music/ge_audio_segment.c \
-      vendor/ge-decomp/assets/obseg/ge_obseg_blobs.c
-```
+`tools/uniquify_asset_symbols.py` renames asset symbols so that two levels cannot bind to
+each other's data at link time. **Its correct invocation is not recorded, and a clean build
+does not currently link without it.**
 
----
+What is known:
+
+- Running it as `python3 ../../tools/uniquify_asset_symbols.py assets --recurse` produces
+  symbol names that do not match what `assets/obseg/file_resource_table.inc.c` references,
+  so the link fails with undefined character-model symbols (`CcommguardZ`, `CdjbondZ`, and
+  others).
+- Run over `assets/font`, it double-prefixes an already-prefixed symbol
+  (`font_fontBankGothic_fontBankGothic_kerning`) while leaving the uses alone, which breaks
+  the two font translation units. Apply `0002-assets.patch` after it, not before.
+- The prefixes observed in a known-good tree are inconsistent between directories
+  (`UsetupcradZ_` under `setup/u`, `commguard_Model_` under `chr/`), which suggests it is
+  meant to be run per directory with different arguments rather than once with `--recurse`.
+
+Everything compiles from a clean checkout: 167 of 168 game sources, 760 of 760 assets, 40 of
+40 audio, 23 of 23 port-layer. The link is the only remaining step that has not been
+reproduced from scratch.
 
 ## 4. Building
 
