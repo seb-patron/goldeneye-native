@@ -252,7 +252,14 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   trouble. One further correlation, a lead rather than a cause: the render tile for both bad
   decodes sits at TMEM word 19. Every other CI decode in Depot is at 0, 64 or 128 and all are
   correct; Dam uses 0, 8, 32, 64 and 128 across 60 decodes with none wrong, so it is not
-  alignment as such. Nineteen is the only odd tile offset either level produces.
+  alignment as such. It is not the render tile either: tile 0 sits at TMEM 0 in 91 of the 93 CI
+  decodes across both levels, and the two exceptions are these. Reading the texture from that
+  offset was tried and refuted -- it moves the ground from rgb(27,19,85) to rgb(28,19,86), so the
+  index stream was never the problem and the palette still is. The most promising remaining
+  observation is that the block is 2808 bytes: loaded at TMEM 0 it runs past the 2 KB point where
+  a CI texture's palette half begins, which is not something the hardware could do for a
+  palettised texture, and suggests the port is decoding as CI8 something the console treated
+  otherwise.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
