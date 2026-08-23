@@ -285,14 +285,25 @@ specifically to expose `PR/` *without* exposing the decomp's `math.h`/`string.h`
 `stdlib.h`/`stddef.h`, which shadow the system headers, so the include path would have
 to point at a directory containing only `PR/` and `platform_info.h`.
 
-Also note: `getv/port/platform.h` and `getv/port/include/platform.h` are byte-identical
-duplicates and **neither is included by any translation unit**. They are the only
-things in the tree that `#include <TargetConditionals.h>`, an Apple-only header. They
-are dead and can be deleted; do not port them.
+`getv/port/platform.h` and `getv/port/include/platform.h` were byte-identical duplicates,
+described here as included by no translation unit. That was wrong, and acting on it breaks
+the build: `getv/port/platform.h` is included as `"../platform.h"` by `gfx_opengl.c:44`,
+`gfx_pc.c:28`, `fs/fs.h:9` and `port_support.c:15`, and it declares `sys_fatal` and
+`sys_sleep`. Only the `include/` copy was genuinely unused.
 
-`getv/port/fs/fs.h` is likewise dead - an sm64ex virtual-filesystem header with no
-`.c` file and no includers. It declares `fs_sys_mkdir` and friends. Do not implement
-it; delete it.
+It was also the more urgent of the two problems rather than the lesser. The header pulled in
+`<TargetConditionals.h>` unconditionally, so on Windows or Linux it would have been the first
+thing to fail, in four translation units at once.
+
+**Fixed 2026-08-22.** The Apple include and the `TARGET_OS_TV` test it guards now sit behind
+`#ifdef __APPLE__`; `PLATFORM_TVOS` stays undefined elsewhere, which is correct. The unused
+`include/` duplicate is deleted. That removes the last unconditional Apple-only include from
+the port layer, and the macOS build is unchanged at 167/1, 746/0, 40/0, 24/0.
+
+`getv/port/fs/fs.h` was described here as likewise dead. It is not: `gfx_pc.c:30` and
+`port_support.c:17` both include it, so removing it breaks the build. It is one of the
+fifteen fetched third-party files and stays. Whether its declarations are ever implemented
+is a separate question; the header itself is load-bearing today.
 
 Estimate: **1 hour.**
 

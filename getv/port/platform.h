@@ -5,11 +5,18 @@
 #ifndef GE_PORT_PLATFORM_H
 #define GE_PORT_PLATFORM_H
 
-#include <TargetConditionals.h>
 #include <stdbool.h>
 
+/* TargetConditionals.h is Apple-only and does not exist on Windows or Linux, so it cannot
+ * be included unconditionally: four translation units pull this header in, which would
+ * make it the first thing to fail on any other platform. TARGET_OS_TV only has meaning
+ * inside it, so both move behind __APPLE__ and PLATFORM_TVOS simply stays undefined
+ * elsewhere, which is correct -- nothing else is a television. */
+#ifdef __APPLE__
+#include <TargetConditionals.h>
 #if TARGET_OS_TV
 #define PLATFORM_TVOS 1
+#endif
 #endif
 
 void sys_fatal(const char *fmt, ...) __attribute__((noreturn));
