@@ -58,6 +58,11 @@ For anything that changes rendering or gameplay, measure it rather than describi
 straight into a level with `GETV_STAGE=<n>` (the numbers are the `LEVELID_*` enum in
 `bondconstants.h`; Dam is 33) and use `GETV_EXIT_FRAME` to make the run terminate on its own.
 
+For renderer changes there is a gate: `tools/render_refs.py check` recaptures every stage and
+compares it against `tools/refs/render.txt`, reporting any that drift. Run it before and after.
+If your change is meant to affect one stage, that is what the output should say. If it is meant
+to affect none, likewise.
+
 One trap worth stating outright, because it has produced confident wrong conclusions here before:
 **a level measured immediately after load with no input is showing you the intro camera, not
 gameplay.** Frame counts and triangle counts taken there describe a cutscene. Drive past it before

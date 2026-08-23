@@ -57,9 +57,18 @@ recently and is not currently supported.
 
 ### Correctness first
 
-The remaining known issues above are the priority. Enhancements should not begin until a
-reference capture set has been frozen from a tagged build, so that later changes can be
-regression-tested against a stable baseline.
+The remaining known issues above are the priority.
+
+The baseline that gates the enhancement work now exists. `tools/render_refs.py` reduces each
+stage to an 8x6 grid of mean RGB and stores it in `tools/refs/render.txt`; `check` recaptures
+and reports any stage that drifts. A fingerprint rather than a folder of captures, because a
+screenshot of this game is ROM-derived and cannot be committed, and because 144 numbers per
+stage is enough to catch a texture binding to the wrong surface, a palette going wrong or
+geometry disappearing.
+
+Run `check` before and after anything that touches the renderer. The tile-selection fix that
+corrected Depot's ground is exactly the shape of change it is for: it had to be shown to alter
+one stage and leave twenty-six alone, and that comparison was done by hand.
 
 ### Enhancements
 

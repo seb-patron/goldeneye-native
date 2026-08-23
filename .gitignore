@@ -178,3 +178,17 @@ getv/build_sim_*.sh
 !docs/images/
 !docs/images/*.png
 !docs/images/*.jpg
+
+# Editor and tooling artifacts.
+# compile_commands.json and .cache/ matter most here: clangd generates both as soon as anyone
+# opens this tree in an editor that supports it, and on a codebase this size the cache is
+# large. The rest are the usual per-editor and per-OS droppings.
+.vscode/
+.idea/
+*.swp
+*.swo
+compile_commands.json
+.cache/
+.clangd/
+core
+core.*
