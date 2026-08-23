@@ -1,6 +1,6 @@
 # Roadmap
 
-Current state, known issues, and planned work. Updated 2026-08-22.
+Current state, known issues, and planned work. Updated 2026-08-23.
 
 ## Where the port is
 
@@ -40,6 +40,49 @@ are unresolved rather than confirmed defects.
 
 **Select File background.** Renders flat black; the original has a faint circular
 watermark behind the folders.
+
+**Door interact NULL crash - FIXED 2026-08-23.** Activating certain doors
+(`propdoorInteract` -> `doorActivateWrapper` -> `doorSetOpenState` -> `doorStartOpen` ->
+`doorPlayOpenSound0`) segfaulted at fault address `0x10`. Root cause: `door->prop` was
+NULL on the affected door, and `&door->prop->pos` computes a non-NULL garbage address
+(`offsetof(PropRecord, pos)`, which is 0x10 at 64-bit vs 0x08 on the N64's 32-bit ABI) that
+then gets dereferenced. Guarded all six call sites in `propobj.c` (`doorPlayOpenSound0/1`,
+`doorPlayCloseSound0/1`, `sub_GAME_7F053A3C`) on `door->prop != NULL`; when NULL, the
+position-dependent sound-distance call is skipped rather than crashing. This stops the
+crash but does not explain *why* `door->prop` was NULL for that door in the first place -
+see the corruption note below.
+
+**Suspected BSS corruption: paintball cheat active with no user action, bullet impacts
+render as paint splats.** `explosionCreateBulletImpact` forces `impact_type = 0x10`
+(the paintball splat) whenever `cheatIsActive(CHEAT_PAINTBALL)` is true
+(`src/game/explosion.c:2025`). A report of "confetti explosions" and "paintball mode on
+by default" in the same session is almost certainly one symptom: the flag in
+`g_CheatPlayerTextRelated[CHEAT_PAINTBALL]` (`src/game/cheat.c:26`) is set though nothing
+in `goldeneye.cfg`, the CLI or an in-game menu set it. `cheatDisableAllCheats()` clears it
+on stage unload, so it re-appearing across levels within one run points at something
+writing that byte, not at the cheat system itself. First things to rule out: an existing
+`goldeneye.cfg` with a stale `cheats = paintball` line from earlier testing (check
+`~/Library/Application Support/Goldeneye-Native/goldeneye.cfg` and the pre-rename path);
+a `GETV_CHEATS`-shaped variable left exported in the shell. If neither, this is the same
+class of bug as the `g_Props` overrun that ate the memory-pool bank table - something is
+writing past its own storage into `g_CheatPlayerTextRelated`. `gePortBootMark()` already
+runs `gePortStubCheck()` and `gePortMempSane()` on every boot mark; reproduce with those
+active and see whether either fires before the flag turns up set.
+
+**Reported: one-shot kills.** Not yet reproduced or localised - needs which side (player
+taking one-shot damage, or enemies dying in one hit), which weapon, which difficulty, and
+whether `GETV_DIFFICULTY` was set. Filed rather than guessed at.
+
+**Reported: after completing a solo mission, "next" does not advance to the next
+level.** `interface_menu0D_missioncomplete()` (`src/game/front.c:7736`) only advances past
+the mission-complete screen when `frontCompleteAllObjectivesAliveSuccess()` returns true;
+otherwise it returns to `MENU_BRIEFING` for the same stage regardless of which tab was
+selected. That function (`front.c:7619`) returns 0 immediately if `mission_failed_or_aborted`
+or `g_isBondKIA` is set, even if every objective is actually complete. Both are plain BSS
+flags with no obvious writer between a successful completion and the debrief screen, which
+makes them a second candidate for the same corruption family as the two issues above.
+Needs a repro with `GETV_STATE` running across the transition to confirm whether either
+flag is set going into the mission-complete screen.
 
 ## Platform support
 
@@ -160,6 +203,14 @@ open question is whether the third-person player model is drawn during gameplay 
 establish that before estimating the rest.
 
 **Keyboard and mouse.** Not yet supported.
+
+**Launch window / front-end.** A native pre-launch window rather than a config file: pick
+"classic" (stock N64 behaviour, every enhancement gate off) or an enhanced mode, then
+toggle cheats, co-op, FPS cap, FOV, mod packs, HD textures and lighting from checkboxes and
+sliders instead of hand-editing `goldeneye.cfg` or exporting `GETV_*` variables. This is a
+UI shell over gates that mostly already exist (`ge_config.c`'s key table, the cheat list in
+`cheat.c`) rather than new engine work; it depends on the in-game options menu and VFS/mod
+pack items above for the toggles that aren't implemented yet. Filed from `futureideas`.
 
 ## Contributing
 
