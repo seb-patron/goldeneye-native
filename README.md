@@ -16,8 +16,13 @@ nine were cut during development, and one level, Citadel, has a background file 
 never load. 
 
 Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
-watch renders all five pages. Saves persist. The game runs at 60 fps with configurable resolution
-and supersampling.
+watch renders all five pages. Saves persist. The game renders at 60 fps with configurable
+resolution and supersampling.
+
+What has not been verified is a full playthrough: combat balance, AI behaviour over time,
+objective completion, and finishing a level end to end. The port renders and reaches a playable
+state everywhere. Whether it plays correctly from start to finish is untested, and the known issue
+below on tick-coupled gameplay is a concrete reason to expect that it does not yet.
 
 Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). ZX Spectrum Emulator intentionally not wired up.
 
@@ -204,6 +209,20 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 | [`getv/port/PROVENANCE.md`](getv/port/PROVENANCE.md) | Per-directory origin of the platform layer. |
 
 ## Known issues
+
+- **Gameplay is coupled to the render rate.** GoldenEye scales some systems by elapsed video
+  frames and runs the rest once per game update, and a game update is one rendered frame. Only 13
+  of the 135 translation units under `src/game` reference `g_GlobalTimerDelta`: recoil, sway,
+  breathing, camera. Everything else is per-frame. Enemy automatic fire is the clearest case --
+  `chraction.c:6694` increments `firecount[hand]` once per tick and fires on
+  `firecount % automaticFiringRate == 0`, so the cadence is a frame count, not a duration.
+  On hardware those systems ran at the N64's real 20 to 30 fps. Rendering at a locked 60 runs them
+  roughly twice as fast, which shows up as turrets and guards firing too quickly, ammunition
+  draining too quickly, and AI state machines stepping faster than they were tuned for. Animation
+  looks correct throughout, because animation is in the 13.
+  The fix is a fixed-rate simulation tick with rendering interpolated above it. That is real work,
+  not a configuration switch, and it is the next substantial thing this port needs. Until then the
+  `framerate` setting trades one problem for another and no value is right for everything.
 
 - **Depot ground colour.** The ground renders saturated blue where the original is near-neutral
   dark asphalt: measured against a reference capture, rgb(27,19,85) against rgb(10,10,10). It is
