@@ -116,6 +116,7 @@ GETV_STAGE = 34
 | `GETV_MP_SCENARIO=<n>` | Pick the multiplayer scenario. |
 | `GETV_DIFFICULTY=<0..3>` | Force the difficulty. A direct `GETV_STAGE` boot never runs the difficulty menu, so without this you get whatever BSS left behind, which is Agent. Several AI lists branch on difficulty. |
 | `GETV_UNLOCKALL=1` | Show every mission on the file-select screen. |
+| `GETV_TICKFIELDS=<1..4>` | Video fields per simulation update. `1` is one update per field, which at 60 fps runs the game's 122 frame-counted files at 60 Hz. `2` gives a 30 Hz simulation with game time still real, because the delta the other 13 files scale by rises to match. Pair it with a render rate that matches or game time runs fast; `framerate=30` sets it to `2` for you. |
 
 Stage ids are not contiguous and not all of them are levels. Eleven have no data in the ROM;
 `docs/ROADMAP.md` and `docs/research/GE_GAME_FACTS.md` carry the full table, including which

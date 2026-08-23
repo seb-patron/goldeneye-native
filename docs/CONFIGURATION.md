@@ -113,15 +113,31 @@ they cannot disagree.
 `30`, `50`, `60`, or `off` (`0`, `uncapped` and `unlimited` are accepted for the last). Default
 `60` on NTSC builds, `50` on PAL. `off` removes the frame cap; vsync still applies.
 
-**Values above 60 are rejected.** GoldenEye's timestep is whole video frames, not seconds: fire
-rates, reload times, animation, physics and the mission clock are all integrated once per rendered
-frame. Rendering twice as often does not make the game smoother, it makes the game run at double
-speed, and nothing clamps or complains. By the same arithmetic, `30` halves the game speed —
-it is accepted, and prints a warning saying so, because a 30 fps cap is the honest way to run this
-renderer on a slow GPU and at least the slowdown is uniform.
+**Values above 60 are rejected.** GoldenEye's timestep is whole video frames, not seconds, and
+each update asks how many fields have elapsed. Render twice as often without telling the game and
+every frame-counted system runs at double speed, with nothing to clamp or complain.
+
+**`30` is the more faithful setting for gameplay, and `60` the smoother one.** They differ in more
+than frame rate. Only 13 of the 135 translation units under `src/game` scale by
+`g_GlobalTimerDelta` — animation, recoil, sway, camera. The other 122 advance once per update, so
+an enemy's rate of fire is a frame count rather than a duration (`chraction.c:6694` fires on
+`firecount % automaticFiringRate`). Hardware ran those at the N64's real 20 to 30 fps; at a locked
+60 they run about twice as fast, which shows as turrets and guards firing too quickly, ammunition
+draining too quickly, and AI stepping faster than it was tuned for.
+
+`framerate=30` therefore also sets `GETV_TICKFIELDS=2`, which makes each update report two elapsed
+fields. Game time stays real — thirty updates a second times two fields is sixty fields a second,
+so animation and the mission clock are unchanged — while the frame-counted systems drop to 30 Hz,
+close to the cadence the game was built around. Earlier builds capped the renderer without this and
+ran at half speed; that was a defect, not an inherent property, and the warning that described it
+as inherent is gone.
+
+Neither value is correct for everything. Sixty renders smoothly and runs frame-counted gameplay
+fast; thirty runs gameplay at the right cadence and renders less smoothly. Having both right at
+once needs a fixed simulation tick with interpolated presentation, which this build does not have.
 
 The rejection lives in the configuration layer only. `GETV_FPS=120` in the environment still
-reaches the pacing code untouched.
+reaches the pacing code untouched, as does `GETV_TICKFIELDS`, which overrides the pairing above.
 
 ## Controls
 

@@ -352,11 +352,28 @@ static void key_framerate(const char *v, int over)
  ge_err("framerate=%s is not one of 30, 50, 60 or off%s", v, "");
  return;
     }
-    /* 30 is accepted but is not free either: it halves game speed by the same argument
-     * as above. It is offered because a 30 fps cap is the honest way to run this
-     * renderer on a slow GPU, and the slowdown is at least uniform. */
+    /* 30 needs a second setting to be correct, and used to ship without it.
+     *
+     * Capping the renderer alone leaves each update reporting one elapsed field, so the
+     * world advances 30 fields a second instead of 60 and everything runs at half speed.
+     * The note here used to describe that as inherent. It is not; it was a missing factor.
+     *
+     * GETV_TICKFIELDS=2 makes waitForNextFrame report two elapsed fields per update, so
+     * g_ClockTimer and g_GlobalTimerDelta become 2 and the thirteen files that scale by the
+     * delta -- animation, recoil, sway, camera -- plus the mission clock advance at the same
+     * real rate they do at 60. Thirty updates a second times two fields is sixty fields a
+     * second, which is real time.
+     *
+     * The frame-quantised systems, the other 122 files under src/game, then run at 30 Hz
+     * rather than 60. That is the point rather than a side effect: an enemy's rate of fire
+     * is a frame count, chraction.c:6694 firing on firecount % automaticFiringRate, so at 60
+     * it is roughly twice what the console produced. Thirty is far closer to the cadence the
+     * game was tuned against.
+     *
+     * put() will not overwrite an existing value, so GETV_TICKFIELDS set by hand still wins. */
  if (n == 30) {
- printf("[getv][config] note: framerate=30 also runs the SIMULATION at 30 — ""the game will play at half speed. This is inherent to GE's ""frame-counted timestep, not a bug.\n");
+ put("GETV_TICKFIELDS", "2", over);
+ printf("[getv][config] framerate=30 also sets GETV_TICKFIELDS=2: the simulation ticks at ""30 Hz while game time runs at real speed. Frame-counted systems (enemy fire ""rate, ammunition, AI stepping) run at the cadence the game was tuned for ""rather than the doubled one 60 produces.\n");
     }
     {
  char buf[16];

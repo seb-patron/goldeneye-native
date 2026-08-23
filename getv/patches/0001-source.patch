@@ -11424,6 +11424,45 @@ index 004247d..684b442 100644
          cur_player_set_autoaim((options & OPTION_AUTOAIM) != FALSE);
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
+diff --git a/src/game/frametiming.c b/src/game/frametiming.c
+index cb8e24a..1bb8685 100644
+--- a/src/game/frametiming.c
++++ b/src/game/frametiming.c
+@@ -1,3 +1,4 @@
++#include <stdlib.h>  /* GETV-INSTR: getenv/atoi */
+ #include <ultra64.h>
+ #include "frametiming.h"
+ 
+@@ -84,7 +85,28 @@ void waitForNextFrame(void) //maybe WaitForTick
+     #endif
+   } while (nextFrameTime < frameDelay);
+ 
+-  frameDelay = 1;
++  /* GETV_TICKFIELDS=<n> -- hold the simulation to one update per n video fields.
++   *
++   * frameDelay is a one-shot: something sets it, waitForNextFrame honours it once, then it
++   * is reset here. Left at 1 the simulation updates once per field, so on a host that holds
++   * 60fps every per-frame system in the game runs at 60Hz -- and 122 of the 135 files under
++   * src/game are per-frame. Real hardware managed 20 to 30, which is the cadence the
++   * automatic firing rates, ammunition counters and AI stepping were tuned against.
++   *
++   * Set to 2 for a 30Hz simulation whose time base stays correct: elapsed fields per update
++   * becomes 2, so g_GlobalTimerDelta becomes 2, animation and the mission clock advance at
++   * the same real rate, and only the frame-quantised systems slow to what they expect. It
++   * must be paired with rendering at the matching rate or game time runs fast. */
++  {
++      static int tf = -1;
++      if (tf < 0) {
++          const char *e = getenv("GETV_TICKFIELDS");
++          tf = (e && *e) ? atoi(e) : 1;
++          if (tf < 1) tf = 1;
++          if (tf > 4) tf = 4;
++      }
++      frameDelay = tf;
++  }
+   updateFrameCounters(nextFrameTime);
+ }
+ 
 diff --git a/src/game/front.c b/src/game/front.c
 index 0ac962f..8c847a4 100644
 --- a/src/game/front.c

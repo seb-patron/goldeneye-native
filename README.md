@@ -220,9 +220,16 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   roughly twice as fast, which shows up as turrets and guards firing too quickly, ammunition
   draining too quickly, and AI state machines stepping faster than they were tuned for. Animation
   looks correct throughout, because animation is in the 13.
-  The fix is a fixed-rate simulation tick with rendering interpolated above it. That is real work,
-  not a configuration switch, and it is the next substantial thing this port needs. Until then the
-  `framerate` setting trades one problem for another and no value is right for everything.
+  There is a partial mitigation as of now: `framerate=30` also sets `GETV_TICKFIELDS=2`, so each
+  update reports two elapsed fields. Game time stays real -- thirty updates a second times two
+  fields is sixty fields a second, leaving animation and the mission clock untouched -- while the
+  frame-counted systems drop to 30 Hz, close to the cadence the game was tuned for. That setting
+  previously capped the renderer without the second half and ran the game at half speed, which was
+  a defect rather than the inherent property it was documented as.
+  It is a trade, not a fix: 60 renders smoothly and runs gameplay fast, 30 runs gameplay correctly
+  and renders less smoothly. Having both at once needs a fixed-rate simulation tick with rendering
+  interpolated above it, which is architecture rather than a setting, and is the next substantial
+  thing this port needs.
 
 - **Depot ground colour.** The ground renders saturated blue where the original is near-neutral
   dark asphalt: measured against a reference capture, rgb(27,19,85) against rgb(10,10,10). It is
