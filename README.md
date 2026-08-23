@@ -238,40 +238,6 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   interpolated above it, which is architecture rather than a setting, and is the next substantial
   thing this port needs.
 
-- **Depot ground colour.** The ground renders saturated blue where the original is near-neutral
-  dark asphalt: rgb(27,19,85) against rgb(10,10,10), measured against a reference capture.
-  The cause is in `ge_resolve_unit_tile`. When the render tile is resolved and the TMEM map is
-  not in use, the port points it at the most recently loaded block unconditionally:
-  `rdp.loaded_texture[0].addr = rdp.block_addr`. That is right whenever one block is live, which
-  is nearly always. Depot's ground draws with two: a 256-byte block at TMEM 0 with its own TLUT,
-  then a 2808-byte block at TMEM 32. The render tile sits at TMEM word 19, inside the first, and
-  the port reads it out of the second. The palette in force is well formed rather than corrupt: its
-  offset from the *first* block is 256, exactly that block's size, the same invariant every other
-  decode satisfies. It simply is not this texture's palette, which is why the probe reports
-  `distinct_idx == distinct_col` while the colours are nonsense: a valid palette, applied to
-  bytes it does not describe.
-  It is measurable: `GETV_TMEMMAP=1` binds each tile to the block its TMEM actually falls in and
-  counts the corrections. Depot makes 27,416 of them in a four-hundred-frame run. Dam, Cradle and
-  Silo make none, which is why this is the only level where it shows.
-  Enabling that gate is not yet a fix. It restores the binding -- the decode narrows from 16x175
-  to 16x6, matching the tile's real extent, and the palette offset lands on the invariant -- but
-  the ground comes out cyan rather than neutral, so a second factor remains.
-  The texture is identified rather than inferred: `GETV_MARKTMEM=19` paints that decode magenta
-  and the ground turns magenta, so this is the surface. Its palette is
-  `18bdff 18deff 18ffff 205aff ...`, a coherent saturated blue ramp rather than corruption, so it
-  is some other texture's real palette. The asphalt ramp the reference shows is present in the
-  same level on a different texture, `101018 101818 181818 202020 ...`, on a 1400-byte block whose
-  palette offset equals its block size. The right palette is in the same frame as the wrong one,
-  so what remains is the choosing, not the remembering: enlarging the TMEM load table from 8
-  entries to 32 changes nothing, so the correct entry is not being evicted.
-  The load sequence immediately before the ground's tile is set gives the next question. A
-  1400-byte block loads with the asphalt palette; then a 256-byte block loads at TMEM 0 with the
-  blue palette; then a 2808-byte intensity block loads at TMEM word 32; then the ground's tile is
-  declared CI8 at word 19. But 2808 bytes is 351 TMEM words, so a load at word 32 reaches word
-  383 and passes through word 256, where that TLUT sits. Hardware would be destroying its own
-  palette, which Rare would not have written, so either the size or the base this port computes
-  for a `fmt=4 siz=2` load is wrong, and the palette that ends up in force is a consequence
-  rather than the cause.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
