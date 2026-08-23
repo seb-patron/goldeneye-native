@@ -205,9 +205,17 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 
 ## Known issues
 
-- **Depot ground colour.** The ground renders saturated blue-cyan where it should be near-neutral
-  dark asphalt. Texel pattern, palette indices, palette offset, palette contents and vertex shade
-  have all been measured correct, so the colour is introduced after the texel fetch.
+- **Depot ground colour.** The ground renders saturated blue where the original is near-neutral
+  dark asphalt: measured against a reference capture, rgb(27,19,85) against rgb(10,10,10). It is
+  one CI8 texture, 16x175, decoding through a palette that is not its own. This engine stores a
+  CI texture's palette immediately after its pixel block, so the palette's byte offset from the
+  block equals the block size on every decode in Dam and on 58 of 60 in Depot -- and the two
+  exceptions are exactly this texture, at +3072 and -120 against a 2808-byte block. It is reading
+  a neighbouring texture's TLUT. Ruled out along the way: environment colour (Depot's are black
+  save one red and one white), vertex shade (cycle 2 multiplies by a neutral ~0.33), the mip and
+  LOD path, the TMEM rebinding path, and TLUT byte order (Depot's big-endian/little-endian
+  saturation profile matches Dam's). What is not yet known is why that texture's own TLUT load
+  never takes effect.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on

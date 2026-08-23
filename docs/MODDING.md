@@ -195,6 +195,24 @@ GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app
 
 Its level select does not work — those entries are gutted no-ops. Use `GETV_STAGE`.
 
+
+**Looking at why a surface is the wrong colour.**
+
+These print and change nothing. Run the same stage with and without one and compare; run a
+stage that is known good, usually Dam (`GETV_STAGE=33`), as a control in the same session.
+
+| Gate | Effect |
+|---|---|
+| `GETV_CCTRACE=<n>` | Every `G_SETCOMBINE`, both one- and two-cycle halves, plus the live combiner at each `G_SETTIMG`. Cycle-1 RGB is four 3-bit slots, `(a - b) * c + d`, in the `CC_*` order in `gfx_cc.h`; cycle 2 is four 4-bit slots at bit 32. |
+| `GETV_CIPROBE=<n>` | Per CI decode: pixel address, palette pointer, the palette's byte offset from the pixel block, distinct source indices, and distinct resolved colours. `distinct_col` far below `distinct_idx` is a palette fault; `distinct_idx == 1` is an image fault. |
+| `GETV_PALTRACE=1` | The `gDPLoadTLUT07` fields and the byte offset derived from them. |
+| `GETV_ENVTRACE=<n>` | Every environment colour the game sets. Worth reaching for whenever a combiner resolves to the shape `(x - ENV) * 0 + ENV`, which outputs the environment colour flat and makes the texture and palette irrelevant to the result. |
+| `GETV_LIGHTTRACE=1` | Per-frame census of which colour-combiner mux codes were seen, and which fell through to the constant zero. A code marked `(DROPPED)` that the level actually relies on is a decode gap. `COMBINED` in cycle 1 is dropped legitimately -- it is undefined on hardware. |
+
+One invariant is worth knowing before reading any of it: this engine stores a CI texture's
+palette immediately after its pixel block, so `GETV_CIPROBE`'s `d` normally equals `blksz`. It
+holds for every decode on Dam and all but two on Depot, and those two are the known Depot
+ground-colour defect. A decode where `d != blksz` is using some other texture's palette.
 ## Where the game data lives
 
 Everything here is generated from your ROM and is untracked.
