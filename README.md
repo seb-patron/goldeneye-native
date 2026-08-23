@@ -26,10 +26,15 @@ than reporting it as missing data.
 Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
 watch renders all five pages. Saves persist.
 
-Two to four players can also share a single-player mission, split screen, with `coop = 2`. That
-is bring-up rather than a co-op campaign: the mission loads with its own geometry, props and
-objectives and every player spawns into it, but objectives, AI and cutscenes are all authored
-around one Bond and none of that has been adapted.
+Two to four players can also share a single-player mission, split screen, with `coop = 2`. The
+mission loads with its own geometry, props and objectives, every player spawns into it, and the
+viewports render: Dam draws 5139 triangles at two players and 8412 at four, against 2042 solo.
+
+It is bring-up, and one limitation is measured rather than suspected. Under `GETV_STATE` both
+players report the same spawn point to within a couple of units of height, and neither moves
+under scripted input that moves the solo player 16,930 units on the same level. So they are
+present and drawn, not yet playable. Objectives, AI and cutscenes are authored around one Bond
+and none of that has been adapted either.
 
 Four rendering options are implemented and off by default, since the N64 look is the product:
 `msaa`, `anisotropic`, `fov` and `depth_bits`. The rest of the keys in

@@ -3,7 +3,7 @@
 Investigation only. Nothing in this document has been changed in the tree.
 Written 2026-08-19 by `getv-assets`. All paths relative to repo root unless absolute.
 
-**Read §0 first.** The headline is not what I expected going in.
+**Read §0 first.** The headline contradicts the obvious reading of the code.
 
 ---
 
@@ -12,7 +12,7 @@ Written 2026-08-19 by `getv-assets`. All paths relative to repo root unless abso
 > **Almost every FUNCTION on the level-load path is already real code. The holes are
 > DATA and TWO NON-COMPILING TRANSLATION UNITS, not missing logic.**
 
-I checked 32 functions on the path against `getv/port/src/ge_link_stubs.c`. **Zero of
+32 functions on the path were checked against `getv/port/src/ge_link_stubs.c`. **Zero of
 them are stubs.** The only stubbed symbols on the path are data:
 
 | symbol | kind | why it is stubbed |
@@ -29,7 +29,7 @@ the single most important thing to internalise:
 | kind | on the N64 | in this build | status |
 |---|---|---|---|
 | **stan** (collision tiles) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/stan/*.c`, 29 files, all compile, all link | effectively ready |
-| **setup** (objects/AI/pads) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/setup/*.c` (+ `e/ j/ u/` variants), 50 objects built, 2 TUs fail | 🟡 nearly ready, 2 gaps + a variant-selection hazard |
+| **setup** (objects/AI/pads) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/setup/*.c` (+ `e/ j/ u/` variants), 50 objects built, 2 TUs fail | nearly ready, 2 gaps + a variant-selection hazard |
 | **bg** (room geometry) | raw segment DMA'd + per-room 1172 chunks | **decompiled C with real pointers, NOT LINKED AT ALL, and structurally incompatible with the loader** | the real work |
 
 The 1172 decompressor is **not on the stan or setup path at all** in this build, and is
@@ -137,11 +137,11 @@ bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
 | `stanBuildRoomData` | stan.c:246 | real | walks tiles by `list_of_tilesizes`. Depends on tile-to-tile adjacency in the linked object - **verified to hold**, see §4.1 |
 | `bgDecompress` | bg.c:2239 | real | **`u8 buffer[0x2100]` passed as `struct huft *`.** This is the exact bug that was fixed in `ob.c`, `image.c` and `music.c` and it is still live here. `struct huft` is 16 bytes on arm64 vs 8 on N64, so this buffer holds **half** the entries `inflate()` will carve out of it, unchecked, on the **stack**. Expect `__stack_chk_fail` → SIGABRT with no usable backtrace the first time a room streams. Fix: `struct huft buffer[GE_HUFT_ENTRIES];` (`src/inflate/inflate.h:30`) |
 | `bgLoadRoomVtxData` | bg.c:2252 | real | offset arithmetic **already fixed** to wrap in `u32` |
-| `bgLoadRoomPrimaryGdl` | bg.c:2299 | real | 🟠 offset arithmetic **not** fixed: `(s32)((u8*)pPriMappingBin + ptr_bg_data) - ptr_bg_data`. Truncates through `s32`. Works only by accident while the field holds a 32-bit segmented value |
+| `bgLoadRoomPrimaryGdl` | bg.c:2299 | real | offset arithmetic **not** fixed: `(s32)((u8*)pPriMappingBin + ptr_bg_data) - ptr_bg_data`. Truncates through `s32`. Works only by accident while the field holds a 32-bit segmented value |
 | `bgLoadRoomSecondaryGdl` | bg.c:2359 | real | same, `pSecMappingBin` |
 | `texLoadFromGdl` / `texCopyGdls` | tex.c:779 | real | |
 | `texLoad` | image.c:2381 | real | writes `*(uintptr_t*)updateword` - an **8-byte** store through an `s32*`. See §4.4 |
-| `texLoadFromDisplayList` | image.c:2322 | real | 🟠 `texLoad((u32*)((s32)bytes + 4), ...)` - `(s32)bytes` truncates a 64-bit pointer |
+| `texLoadFromDisplayList` | image.c:2322 | real | `texLoad((u32*)((s32)bytes + 4), ...)` - `(s32)bytes` truncates a 64-bit pointer |
 | `proplvreset2` | prop.c:1216 | real | the setup loader. Blocked only by `setup_text_pointers` |
 | `setupGetPtrToCommandByIndex` | loadobjectmodel.c:253 | real | |
 | `init_load_objpos_table` | initobjects.c:43 | real | |
@@ -207,15 +207,15 @@ would try them:
 1. **Namespace them at compile time.** Compile each `bg_*.c` with
    `-Dheader=bg_sev_header -Droom_data_table=bg_sev_room_data_table ...`, and generate a
    table `{levelID → &bg_sev_header}`. No asset regeneration, no format work.
-   *(This is my recommendation. Untested - see §6.)*
+   *(Recommended route. Untested - see §6.)*
 2. Post-process each object with `ld -r` + symbol renaming. More moving parts on Mach-O.
 3. Re-extract bg as **packed 1172 blobs** the way `chr`/`gun`/`prop` are done, and let
    the existing `obLoadBGFileBytesAtOffset` → `romCopy` → `bgDecompress` path run
    unchanged. This is the *lowest-risk-to-the-game-code* option and the one that keeps
-   the segment model honest - but I could not find a `.bin` source for bg in the tree
+   the segment model honest - but no `.bin` source for bg exists in the tree
    (`gen_obseg_blobs.py` looks for `assets/obseg/<dir>/<sym>.bin`, and `assets/obseg/bg`
    contains only `.c`/`.h`/`.ld`). Whether `scripts/extract_baserom.u.sh` can emit them
-   is **an open question I did not test**.
+   is **an open question, untested**.
 
 ### 3.4 The 1172 decompressor and level data
 
@@ -229,14 +229,14 @@ would try them:
   point table and display lists are individually 1172-packed *inside* it, and
   `bgDecompress` inflates them per room. So if you go the route-1/route-2 "link the C
   directly" path, you must decide what `pPointTableBin` points at: in the decompiled C
-  it points at a `point_table_binary_N` array which is (I believe, **not verified**)
+  it points at a `point_table_binary_N` array which is (**not verified**)
   already the *compressed* chunk. **Check this before writing any code.**
 
 ---
 
 ## 4. Which structures are asset-file layout vs runtime
 
-Classification rule I used: *is this struct's field layout dictated by bytes that exist
+Classification rule: *is this struct's field layout dictated by bytes that exist
 outside the compiler's control?* In this port that reduces to: **is the asset a packed
 blob (layout is fixed) or decompiled C (layout is whatever clang says, on both sides)?**
 
@@ -250,7 +250,7 @@ That distinction is the whole answer, and it is different per asset kind.
 `list_of_tilesizes` (stan.c:79) = `{0x20,0x20,0x20,0x20,0x28,0x30,0x38,0x40,0x48,0x50,0x58,0}`
 → for `pointCount = n`, size = `8 + 8n`. Identical on MIPS and arm64.
 
-I verified the adjacency assumption empirically rather than reasoning about it:
+The adjacency assumption was verified empirically rather than reasoned about:
 
 ```
 nm -g build/obj/asset_assets_obseg_stan_Tbg_sev_all_p_stanZ.o | grep ' D _tile_'
@@ -319,7 +319,7 @@ These are the structures the port has to make a decision about.
   **no mirror needed** - but `load_bg_file` and the three `bgLoadRoom*` functions must
   stop doing segment arithmetic.
 
-I could not determine which route is correct without knowing whether
+Which route is correct cannot be determined without knowing whether
 `point_table_binary_N` in the decompiled bg is pre-compressed. **That is the single
 biggest unknown in this whole document.**
 
@@ -340,7 +340,7 @@ That is an **8-byte store into a 4-byte field**, which silently overwrites
 `width/height/level/format`. It is on the level path via
 `bgLoadRoomPrimaryGdl → texLoadFromGdl`. It needs the mirror machinery (a separate
 resolved-pointer side array keyed by index), not a cast. This is the known-blocked
-example the brief named, and I confirmed it is still in this shape.
+example the brief named, confirmed still in this shape.
 
 Also `image.c:2322`: `texLoad((u32 *)((s32)bytes + 4), arg1)` truncates a 64-bit
 pointer through `s32` before adding 4.
@@ -448,7 +448,7 @@ stack garbage with no signal. Add a one-shot diagnostic on the else branch.
 
 ## 6. Verified vs inferred - read this before acting
 
-### VERIFIED (I ran the command or read the exact line)
+### VERIFIED (command run, or exact line read)
 - 32 named level-path functions are **not** in `ge_link_stubs.c`; `setup_text_pointers` and `g_GlobalAILists` **are**.
 - `bg_*_all_p_seg` × 33 are stubs; **no object defines that symbol** (`nm` on `asset_assets_obseg_bg_bg_sev_all_p.o`).
 - Every `bg_*.o` defines the same 4 globals - checked `bg_sev` vs `bg_dam` with `nm`.
@@ -459,20 +459,20 @@ stack garbage with no signal. Add a one-shot diagnostic on the else branch.
 - `BG_SEG_TO_PTR` truncates `base` through `(u32)` (bg.h:23).
 - `ptr_bg_data`, `gptr_stan`, `ptr_bgdata_offsets` are declared `s32` (bg.c:94, 97, 1838).
 - `texLoad` writes `*(uintptr_t*)updateword` into a `u32` field (image.c:2381-2494); `texLoadFromDisplayList` truncates via `(s32)bytes` (image.c:2331).
-- Error counts and error *kinds* for `chraidata.c` (71), `bondview2.c` (9), `UsetuparchZ.c` (2), `u/UsetuplenZ.c` (2) - I compiled each with the real build flags.
+- Error counts and error *kinds* for `chraidata.c` (71), `bondview2.c` (9), `UsetuparchZ.c` (2), `u/UsetuplenZ.c` (2) - each compiled with the real build flags.
 - `setup/{u,e,j}/` triple definitions - from the object listing in `getv/build/obj`.
 - `prop.c` performs the 10-field rebase and 6 promotion loops with `(u32)` arithmetic.
 - `gen_asset_fileview.py`'s `struct_names()` covers only `ModelNode`, `ModelAnimation`, `ModelRoData_*`.
 
 ### INFERRED - treat every one of these as a guess
-- 🔶 **That symbol namespacing (route 1) will work for bg.** I did not try compiling a bg TU with `-Dheader=...`. There may be internal cross-references between the four tables that a `-D` rename breaks, and `bg_ame_all_p.c` is 128 KB - I read only its first 20 lines.
-- 🔶 **That `point_table_binary_N` in the decompiled bg is still 1172-compressed.** Not checked. Step 0 exists precisely because this is unknown and everything downstream depends on it.
-- 🔶 **That bg per-room chunks are big-endian.** By analogy with the model files. Not verified.
-- 🔶 **That the setup rebase can simply be skipped.** I reasoned it from the asset being native C, but I did not check whether any setup consumer *depends* on the rebase having happened (e.g. reads a raw offset elsewhere and expects it promoted).
-- 🔶 **That the chraidata macro errors are purely mechanical.** The error *kinds* are verified; that fixing them is easy is a guess. `unknown type name 'Switch'` may hide something structural.
-- 🔶 **That fixing `bondview2.c` + `chraidata.c` gets a level to load.** There are 12 other non-compiling files I did not analyse, and 161 generated `Model.c` files that still fail.
-- 🔶 **That stan tile adjacency holds for all 29 stan files.** I measured exactly one (`Tbg_sev_all_p_stanZ`). It is the strongest sample available but it is one sample, at one optimisation level.
-- 🔶 The `docs/ROADMAP.md` "Current state" table (113/159 objects, boot dies at `texReset`) is **stale** relative to what I measured (`failing.txt` shows 14 failures). I used `failing.txt` and the build objects as ground truth, not the ROADMAP prose.
+- **That symbol namespacing (route 1) will work for bg.** No bg TU was compiled with `-Dheader=...`. There may be internal cross-references between the four tables that a `-D` rename breaks, and `bg_ame_all_p.c` is 128 KB, of which only the first 20 lines were read.
+- **That `point_table_binary_N` in the decompiled bg is still 1172-compressed.** Not checked. Step 0 exists precisely because this is unknown and everything downstream depends on it.
+- **That bg per-room chunks are big-endian.** By analogy with the model files. Not verified.
+- **That the setup rebase can simply be skipped.** Reasoned from the asset being native C, but it was not checked whether any setup consumer *depends* on the rebase having happened (e.g. reads a raw offset elsewhere and expects it promoted).
+- **That the chraidata macro errors are purely mechanical.** The error *kinds* are verified; that fixing them is easy is a guess. `unknown type name 'Switch'` may hide something structural.
+- **That fixing `bondview2.c` + `chraidata.c` gets a level to load.** There are 12 other non-compiling files not analyse, and 161 generated `Model.c` files that still fail.
+- **That stan tile adjacency holds for all 29 stan files.** Exactly one was measured (`Tbg_sev_all_p_stanZ`). It is the strongest sample available but it is one sample, at one optimisation level.
+- The `docs/ROADMAP.md` "Current state" table (113/159 objects, boot dies at `texReset`) is **stale** relative to measurement (`failing.txt` shows 14 failures). `failing.txt` and the build objects are the ground truth here, not the ROADMAP prose.
 
 ### NOT INVESTIGATED
 - The other 12 non-compiling files (`crash.c`, `indy_*`, `init.c`, `ramrom.c`, `rmon.c`, `sched.c`, `sprintf.c`, `tlb_manage.c`, `usb.c`, `othermodemicrocode.c`, `spectrum.c`).
