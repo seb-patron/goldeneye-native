@@ -264,6 +264,14 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   palette offset equals its block size. The right palette is in the same frame as the wrong one,
   so what remains is the choosing, not the remembering: enlarging the TMEM load table from 8
   entries to 32 changes nothing, so the correct entry is not being evicted.
+  The load sequence immediately before the ground's tile is set gives the next question. A
+  1400-byte block loads with the asphalt palette; then a 256-byte block loads at TMEM 0 with the
+  blue palette; then a 2808-byte intensity block loads at TMEM word 32; then the ground's tile is
+  declared CI8 at word 19. But 2808 bytes is 351 TMEM words, so a load at word 32 reaches word
+  383 and passes through word 256, where that TLUT sits. Hardware would be destroying its own
+  palette, which Rare would not have written, so either the size or the base this port computes
+  for a `fmt=4 siz=2` load is wrong, and the palette that ends up in force is a consequence
+  rather than the cause.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
