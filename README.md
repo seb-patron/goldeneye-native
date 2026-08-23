@@ -4,16 +4,23 @@ A native port of GoldenEye 007. The game's C source comes from the
 [`n64decomp/007`](https://github.com/n64decomp/007) decompilation and is compiled directly for
 the host with clang; a platform layer supplies windowing, input, audio and a Fast3D display-list
 renderer on top of SDL2 and OpenGL. There is no MIPS interpreter, no dynamic recompiler and no
-static recompilation step — the binary is the game, built as ordinary C.
+static recompilation step - the binary is the game, built as ordinary C.
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
 ## What works
 
-All 26 loadable stages boot, run through gameplay, render and exit cleanly. There are no known crashes,
-hangs, or stages that fail to start or end properly. Eleven further stage ids have no data in the ROM at all —
-nine were cut during development, and one level, Citadel, has a background file but no setup file, so it can
-never load. 
+All 27 loadable stages boot, render and exit cleanly: 21 load directly, and six are multiplayer-only
+and need two or more players. That is measured across every named stage id, not sampled. There are
+no known crashes, hangs, or stages that fail to start or end properly.
+
+The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no setup,
+and nine cut during development. Reaching one now prints which stage it is and what is missing, then
+exits. Previously they were worse than useless: two spun at full CPU while ignoring SIGTERM, three
+crashed, and one of those varied between hanging, SIGBUS and SIGSEGV depending on what the heap
+happened to contain. Loading a multiplayer-only stage on its own says so and names the flag, rather
+than reporting it as missing data.
+
 
 Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
 watch renders all five pages. Saves persist. The game renders at 60 fps with configurable
@@ -63,7 +70,7 @@ directories (they contain object files compiled from extracted ROM data), `*.bmp
 and `vendor/` and `deps/` themselves. Do not defeat those rules.
 
 Two further things are absent from a fresh clone for related reasons. Fifteen third-party
-port-layer files — the Fast3D renderer and the audio mixer, inherited from sm64ex — are fetched
+port-layer files - the Fast3D renderer and the audio mixer, inherited from sm64ex - are fetched
 from a pinned upstream commit by `tools/fetch-thirdparty.sh`, because their redistribution terms
 are unresolved. The SDL2 2.30.9 source tree is supplied by you in `deps/SDL2-2.30.9`, and built
 from source, because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link
@@ -78,11 +85,11 @@ stock `/bin/bash` 3.2. Nothing newer is needed.
 tools/fetch-thirdparty.sh fetch                                       # the fifteen files
 git clone https://github.com/n64decomp/007 vendor/ge-decomp           # the game's C source
 # then: apply getv/patches/0001-source.patch, place your ROM, generate the asset sources
-# from it, and apply getv/patches/0002-assets.patch — docs/SETUP.md sections 2.4 and 3
+# from it, and apply getv/patches/0002-assets.patch - docs/SETUP.md sections 2.4 and 3
 cd getv && ./build_mac.sh sdl && ./build_mac.sh all && ./build_mac.sh run
 ```
 
-**[`docs/SETUP.md`](docs/SETUP.md) is the step-by-step guide** — every prerequisite, every command,
+**[`docs/SETUP.md`](docs/SETUP.md) is the step-by-step guide** - every prerequisite, every command,
 the expected output of each one, and a troubleshooting section. Read it if you have not built this
 before. The asset-generation step is the one that cannot be shortened: it is a sequence of
 extraction and code-generation passes, not the one line above, and skipping any of them produces
@@ -105,7 +112,7 @@ a tree that fails to compile or silently misbehaves.
 
 `getv/build_mac.sh` takes one of `sdl`, `lib`, `port`, `app`, `all`, `run` or `env`.
 
-- `sdl` builds SDL2 2.30.9 for arm64 into `~/.n64tvos/sdl2-mac` — deliberately outside the
+- `sdl` builds SDL2 2.30.9 for arm64 into `~/.n64tvos/sdl2-mac` - deliberately outside the
   repository, because the repository path contains a space and that has broken header search
   paths here before. Once per machine.
 - `lib` compiles the game, assets, audio and platform layer into `build-mac/obj`.
@@ -115,7 +122,7 @@ a tree that fails to compile or silently misbehaves.
 - `run` launches the linked binary, forwarding any arguments.
 - `env` prints the resolved SDK, SDL prefix, target triple and output paths.
 
-There is no incremental check — every `lib` is a full recompile of all 992 objects. Measured at
+There is no incremental check - every `lib` is a full recompile of all 992 objects. Measured at
 21 s wall for `all` on an Apple M1 with warm caches. Compilation is parallel; `GETV_JOBS` caps the
 job count and defaults to 6.
 
@@ -144,14 +151,14 @@ is a real problem.
 
 Keyboard is bound to controller port 0 by default: WASD to move, arrow keys to look, Space or
 Left Ctrl to fire, E or Return to use, Q to aim, Z and X for the shoulder buttons, Tab to pause,
-IJKL for the d-pad, F11 for fullscreen. A connected gamepad works alongside it — whichever input
+IJKL for the d-pad, F11 for fullscreen. A connected gamepad works alongside it - whichever input
 is held wins, so plugging in a pad never degrades the keyboard and vice versa.
 
 ## Configuration
 
 On first run, with no configuration file present anywhere, the game writes a commented template to
 `~/Library/Application Support/GoldenEye/goldeneye.cfg` and immediately reads it back. This is not
-a convenience: several of the port's tuned defaults — `invert_look` being the case in point — only
+a convenience: several of the port's tuned defaults - `invert_look` being the case in point - only
 exist in that template, and a default that lives in a file nobody has generated is not a default.
 Edit that file to taste, or regenerate it with `--write-config`.
 
@@ -196,7 +203,7 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 | | |
 |---|---|
 | [`docs/SETUP.md`](docs/SETUP.md) | The build guide. Start here. |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | The four things specific to this project: no game data, the patch workflow, measuring, provenance. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | What is specific to this project: no game data, the patch workflow, measuring, building one file, provenance. |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Every configuration key, and the reserved ones that are inert. |
 | [`docs/CHEATS.md`](docs/CHEATS.md) | The game's own cheat system, exposed by name. |
 | [`docs/MODDING.md`](docs/MODDING.md) | How the tree is arranged and where the seams are. |
@@ -256,7 +263,7 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   the file select screen, so the asset and its decode path are sound.
 - **Select File background.** Renders flat black; the original has a faint circular watermark
   behind the folders.
-- **Three unresolved colourings** — Surface 2 fog density, Cradle sky gradient, Facility vent
+- **Three unresolved colourings** - Surface 2 fog density, Cradle sky gradient, Facility vent
   colour. No reference captures exist for them, so they are neither confirmed correct nor
   confirmed defects.
 - **No framerate above 60.** The game integrates fire rates, physics, animation and the mission
@@ -276,7 +283,7 @@ documentation. It does not and cannot cover anything else. [`NOTICE`](NOTICE) st
 precisely.
 
 Read [`getv/port/PROVENANCE.md`](getv/port/PROVENANCE.md) before redistributing anything. It
-records, per directory, where the platform layer's code came from — in particular that the license
+records, per directory, where the platform layer's code came from - in particular that the license
 status of `getv/port/fast3d/`, which descends from sm64ex's copy of
 `Emill/n64-fast3d-engine`, is **unresolved**. The notice sm64ex ships is the pre-2021 form, whose
 second condition bans binary redistribution outright. Do not assume it is MIT.

@@ -577,7 +577,7 @@ index 45bd0ec..403dba2 100644
 +_Static_assert((BODIES) -1 < 0, "BODIES is unsigned again: the intro table will not wrap");
 +_Static_assert((PROP)   -1 < 0, "PROP is unsigned again: prop sentinel tests will not fire");
 diff --git a/src/bondtypes.h b/src/bondtypes.h
-index 53fd4fa..f5c6144 100644
+index 53fd4fa..b07bd82 100644
 --- a/src/bondtypes.h
 +++ b/src/bondtypes.h
 @@ -24,12 +24,35 @@
@@ -1032,7 +1032,7 @@ index 53fd4fa..f5c6144 100644
 +/* Moved from the top of this header: chrobjdata.h declares
 + * `extern struct ItemModelFileRecord ...[]` but that struct is defined BELOW,
 + * so the include has to come after the definitions. SGI IDO tolerated extern
-+ * arrays of incomplete type; clang rejects them. Ordering only — no semantics. */
++ * arrays of incomplete type; clang rejects them. Ordering only - no semantics. */
 +#ifndef AIPARSE
 +    #include "game/chrobjdata.h"
 +#endif
@@ -1503,7 +1503,7 @@ index 07cb48d..8f77833 100644
      else
      {
 diff --git a/src/game/bg.c b/src/game/bg.c
-index 858c35e..b5a75b3 100644
+index 858c35e..59e33c3 100644
 --- a/src/game/bg.c
 +++ b/src/game/bg.c
 @@ -1,6 +1,8 @@
@@ -2204,8 +2204,13 @@ index 858c35e..b5a75b3 100644
  /*
   * Address: 0x7F0B4124
  */
-@@ -815,20 +1346,28 @@ void load_bg_file(LEVEL_INDEX levelid)
-  
+@@ -812,24 +1343,87 @@ void load_bg_file(LEVEL_INDEX levelid)
+             levelentry_index = i;
+         }
+     }
+- 
++
++
      lightFixtureInitTables();
   
 -    ptr_bg_data = (s32)header;
@@ -2226,6 +2231,36 @@ index 858c35e..b5a75b3 100644
 +    size = ((((bgBE32(&ptr_bgdata_room_fileposition_list[1].pPointTableBin)) & 0x00ffffff) - 1) | 0xf) + 1;
   
 -    ptr_bg_data = (s32) mempAllocBytesInBank(size, 4);
++#ifdef GE_PORT_NATIVE
++    osSyncPrintf("[getv] bg '%s' size=%d (0x%x)\n",
++                 (const char *)levelinfotable[levelentry_index].bg_seg_filename,
++                 (int)size, (unsigned)size);
++
++    /* `size` is derived from a big-endian field inside the 0x40 header just read. When a
++     * stage has no real background data that field is garbage, the value comes out far too
++     * large, and every read after this point walks past the allocation.
++     *
++     * Stage 44 is the case in hand. It produces 196784 where the twenty-three stages that
++     * actually load span 2144 to 16528, the largest being Dam. Because the overrun reads
++     * whatever the heap happens to hold, its symptom moves between runs: across today it has
++     * hung, raised SIGBUS, crashed with SIGSEGV at a wild address inside this function, and
++     * once survived long enough to be caught by the setup check further on. A guard that only
++     * catches the crash site would not be reliable, so bound the size instead.
++     *
++     * 64 KB is roughly four times the largest real value, so it cannot reject a legitimate
++     * stage while still catching a field that is plainly not a size. */
++    if (size <= 0 || size > 0x10000) {
++        fprintf(stderr,
++                "[getv] stage %d has an implausible background size: %d bytes from '%s'.\n"
++                "Stages that load span 2144 to 16528 bytes, so this header does not contain "
++                "real data.\nThis stage id was cut during development and cannot be "
++                "loaded.\n",
++                (int)levelid, (int)size,
++                (const char *)levelinfotable[levelentry_index].bg_seg_filename);
++        fflush(stderr);
++        { extern void _exit(int); _exit(1); }
++    }
++#endif
 +    ptr_bg_data = (uintptr_t) mempAllocBytesInBank(size, 4);
      obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, (u8 *) ptr_bg_data, 0, size);
   
@@ -2237,9 +2272,34 @@ index 858c35e..b5a75b3 100644
 +                 gptr_stan ? ((void **)gptr_stan)[0] : (void *)0,
 +                 gptr_stan ? ((void **)gptr_stan)[1] : (void *)0);
   
++#ifdef GE_PORT_NATIVE
++    /* _fileNameLoadToBank returns NULL when the stan file does not exist, and
++     * stanDetermineEOF dereferences its argument immediately. Stage 42 is one of the ids cut
++     * during development: it has a levelinfotable entry and a background file, so it gets
++     * this far, but its stan blob is allocated and entirely zero, and the result is SIGSEGV
++     * at address 0 inside stanDetermineEOF with nothing said about which stage or file.
++     *
++     * A null pointer is the obvious case; the zeroed one is not. The record's second word is
++     * a pointer into the blob and is non-zero on every stage that loads -- checked across ten
++     * of them, Dam, Silo, Statue, Train, Depot, Surface, Jungle, Cradle, Surface 2 and
++     * Archives -- while the first word is legitimately zero everywhere, so the second word is
++     * what separates an empty blob from a real one.
++     *
++     * The missing data is expected. Crashing to report it is not. */
++    if (gptr_stan == 0 || ((void **)gptr_stan)[1] == 0) {
++        fprintf(stderr,
++                "[getv] stage %d has no usable stan file ('%s'), so its collision data is "
++                "missing.\nThis stage id was cut during development and cannot be loaded.\n",
++                (int)levelid,
++                (const char *)levelinfotable[levelentry_index].bg_stan_filename);
++        fflush(stderr);
++        { extern void _exit(int); _exit(1); }
++    }
++#endif
      stanDetermineEOF((struct StanPrefixRecord *) gptr_stan, 0, (u8 *) gptr_stan);
      stanLoadFile((struct StanPrefixRecord *) gptr_stan);
-@@ -850,53 +1389,69 @@ void load_bg_file(LEVEL_INDEX levelid)
+  
+@@ -850,53 +1444,69 @@ void load_bg_file(LEVEL_INDEX levelid)
      if (dword_CODE_bss_8007BF98 == 0)
      {
          dword_CODE_bss_8007FF88 = 2;
@@ -2322,7 +2382,7 @@ index 858c35e..b5a75b3 100644
                  }
              }
          }
-@@ -906,7 +1461,7 @@ void load_bg_file(LEVEL_INDEX levelid)
+@@ -906,7 +1516,7 @@ void load_bg_file(LEVEL_INDEX levelid)
              g_BgRoomInfo[i].model_bin_loaded = 0;
              g_BgRoomInfo[i].field_35 = 0;
   
@@ -2331,7 +2391,7 @@ index 858c35e..b5a75b3 100644
              {
                  s32 primaryindex;
                  s32 secondaryindex;
-@@ -927,7 +1482,7 @@ void load_bg_file(LEVEL_INDEX levelid)
+@@ -927,7 +1537,7 @@ void load_bg_file(LEVEL_INDEX levelid)
                  g_BgRoomInfo[i].csize_primary_DL_binary = 0;
              }
   
@@ -2340,7 +2400,7 @@ index 858c35e..b5a75b3 100644
              {
                  s32 primaryindex;
                  s32 secondaryindex;
-@@ -948,7 +1503,7 @@ void load_bg_file(LEVEL_INDEX levelid)
+@@ -948,7 +1558,7 @@ void load_bg_file(LEVEL_INDEX levelid)
                  g_BgRoomInfo[i].csize_secondary_DL_binary = 0;
              }
   
@@ -2349,7 +2409,7 @@ index 858c35e..b5a75b3 100644
              {
                  s32 pointindex;
                  pointindex = getPointTableBinCount(i + 1);
-@@ -969,12 +1524,12 @@ void load_bg_file(LEVEL_INDEX levelid)
+@@ -969,12 +1579,12 @@ void load_bg_file(LEVEL_INDEX levelid)
              bgRoomCalcBB(i);
          }
   
@@ -2364,7 +2424,7 @@ index 858c35e..b5a75b3 100644
          {
              bgOrderPortal(i);
          }
-@@ -984,7 +1539,7 @@ void load_bg_file(LEVEL_INDEX levelid)
+@@ -984,7 +1594,7 @@ void load_bg_file(LEVEL_INDEX levelid)
              sub_GAME_7F0B95D8(i);
          }
   
@@ -2373,7 +2433,7 @@ index 858c35e..b5a75b3 100644
          {
              g_BgPortals[i].controlbytes1 &= 0xfe;
          }
-@@ -1078,6 +1633,12 @@ void bgRoomVisibilityRelated(void)
+@@ -1078,6 +1688,12 @@ void bgRoomVisibilityRelated(void)
  
      room = bondviewGetCurrentPlayersRoom();
      g_BgCurrentRoom = room;
@@ -2386,7 +2446,7 @@ index 858c35e..b5a75b3 100644
  
      pos = bondviewGetCurrentPlayersPosition();
      pos3 = bondviewGetCurrentPlayersPosition3();
-@@ -1086,7 +1647,7 @@ void bgRoomVisibilityRelated(void)
+@@ -1086,7 +1702,7 @@ void bgRoomVisibilityRelated(void)
      if (1) {}
  
      for (depth = 0, maxdepth = 11; depth != maxdepth; depth++) {
@@ -2395,7 +2455,7 @@ index 858c35e..b5a75b3 100644
  
              if (D_800443C4[portalnum] != 0) {
                  continue;
-@@ -1100,11 +1661,15 @@ void bgRoomVisibilityRelated(void)
+@@ -1100,11 +1716,15 @@ void bgRoomVisibilityRelated(void)
  
                  room = (room ^ g_BgPortals[portalnum].connectedRoom1) ^ g_BgPortals[portalnum].connectedRoom2;
  
@@ -2412,7 +2472,7 @@ index 858c35e..b5a75b3 100644
              break;
          }
      }
-@@ -1482,6 +2047,27 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
+@@ -1482,6 +2102,27 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
       * If all 8 of the room's bounding box corners are behind the camera,
       * reject this room
       */
@@ -2440,7 +2500,7 @@ index 858c35e..b5a75b3 100644
      if (count_failed_projection == 8
              || count_z == 8
              || count_left == 8
-@@ -1538,12 +2124,12 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
+@@ -1538,12 +2179,12 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
      viGetZRange(zrange);
      zrange[1] /= mCurrentLevelVisibilityScale;
  
@@ -2457,7 +2517,7 @@ index 858c35e..b5a75b3 100644
  
          if (arg1 != 0.0f) {
              sub_GAME_7F0B96CC(portalnum, (f32 *) &metric);
-@@ -1569,11 +2155,11 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
+@@ -1569,11 +2210,11 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
          return 0;
      }
  
@@ -2472,7 +2532,7 @@ index 858c35e..b5a75b3 100644
  
          if ((point->z > 0.0f && arg2[next].z <= 0.0f) || (point->z <= 0.0f && arg2[next].z > 0.0f)) {
              f32 scale = -point->z / (arg2[next].z - point->z);
-@@ -1604,6 +2190,14 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
+@@ -1604,6 +2245,14 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
  
      cache = &table_for_portals[portalnum];
  
@@ -2487,7 +2547,7 @@ index 858c35e..b5a75b3 100644
      if (cache->count >= 0)
      {
          bbox->min.x = cache->bbox.min.x;
-@@ -1614,13 +2208,39 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
+@@ -1614,13 +2263,39 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
          return cache->count;
      }
  
@@ -2527,7 +2587,7 @@ index 858c35e..b5a75b3 100644
  
      onscreencount = 0;
      i = 0;
-@@ -1673,6 +2293,11 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
+@@ -1673,6 +2348,11 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
          while (i != pointcount);
      }
  
@@ -2539,7 +2599,7 @@ index 858c35e..b5a75b3 100644
      if (onscreencount == 0)
      {
          bounds.max.y = (bounds.min.x = 0.0f);
-@@ -1830,7 +2455,7 @@ char *bgDebPrintROOMID(s32 roomId)
+@@ -1830,7 +2510,7 @@ char *bgDebPrintROOMID(s32 roomId)
  bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
  
  bg_portal_data_entry *g_BgPortals;
@@ -2548,7 +2608,7 @@ index 858c35e..b5a75b3 100644
  s32 dword_CODE_bss_8007FF88;
  bg_room_data *ptr_bgdata_room_fileposition_list;
  s32 *dword_CODE_bss_8007FF90;
-@@ -2193,9 +2818,11 @@ s32 getIndexOfPORTALID(s32 portalID)
+@@ -2193,9 +2873,11 @@ s32 getIndexOfPORTALID(s32 portalID)
  {
      s32 i;
  
@@ -2562,7 +2622,7 @@ index 858c35e..b5a75b3 100644
          {
              return i;
          }
-@@ -2233,11 +2860,257 @@ void roomsHandleStateDebugging(void)
+@@ -2233,11 +2915,257 @@ void roomsHandleStateDebugging(void)
  
  u32 bgDecompress(u8* source, u8 *target)
  {
@@ -2821,7 +2881,7 @@ index 858c35e..b5a75b3 100644
  /**
   * Address: 7F0B5FAC
   *
-@@ -2262,13 +3135,93 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
+@@ -2262,13 +3190,93 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
      * The seemingly unncessary " + ptr_bg_data - ptr_bg_data" likely comes from paired bgdata pointer/offset macros.
      * Adding 0xf1000000 strips the 0x0f000000 segment tag, yielding a file offset.
      */
@@ -2916,7 +2976,7 @@ index 858c35e..b5a75b3 100644
      return result;
  }
  
-@@ -2299,41 +3252,47 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
+@@ -2299,41 +3307,47 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
       * at the end of the available buffer. Return -1 if there's not.
       */
      if (allocsize < size + 0x20) {
@@ -2979,7 +3039,7 @@ index 858c35e..b5a75b3 100644
      return expanded_size;
  }
  
-@@ -2364,39 +3323,44 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
+@@ -2364,39 +3378,44 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
       * at the end of the available buffer. Return -1 if there's not.
       */
      if (allocsize < size + 0x20) {
@@ -3012,14 +3072,14 @@ index 858c35e..b5a75b3 100644
 -     * texture-processed GDL/data back to dst.
 -     */
 -    scratch = dst + (allocsize - expanded_size);
--
--    texCopyGdls((Gfx *)dst, (Gfx *)scratch, expanded_size);
--
--    size = texLoadFromGdl((Gfx *)scratch, (Gfx *)expanded_size, (Gfx *)dst, NULL);
 +    /* Same conversion-in-place-of-the-tail-copy as the primary list; see
 +     * bgConvertAndTexLoadRoomGdl for the sizing argument. */
 +    size = bgConvertAndTexLoadRoomGdl(dst, allocsize, (s32)expanded_size, "secondary");
  
+-    texCopyGdls((Gfx *)dst, (Gfx *)scratch, expanded_size);
+-
+-    size = texLoadFromGdl((Gfx *)scratch, (Gfx *)expanded_size, (Gfx *)dst, NULL);
+-
 -    if (expanded_size < size) {
 -        expanded_size = size;
 +    if (size < 0)
@@ -3039,7 +3099,7 @@ index 858c35e..b5a75b3 100644
      return expanded_size;
  }
  
-@@ -2430,14 +3394,24 @@ void bgLoadRoomModelData(s32 roomID)
+@@ -2430,14 +3449,24 @@ void bgLoadRoomModelData(s32 roomID)
       * Keep this prototype visible here for IDO codegen.
       * Without it, the memaRealloc call below schedules a2 too early.
       */
@@ -3065,7 +3125,7 @@ index 858c35e..b5a75b3 100644
  
      // Room ID is out of range?
      if (roomID >= g_MaxNumRooms) goto end;
-@@ -2475,7 +3449,10 @@ void bgLoadRoomModelData(s32 roomID)
+@@ -2475,7 +3504,10 @@ void bgLoadRoomModelData(s32 roomID)
  
          if (result >= 0)
          {
@@ -3077,7 +3137,7 @@ index 858c35e..b5a75b3 100644
              redarken_lights_in_room(roomID);
          }
      }
-@@ -2490,12 +3467,99 @@ void bgLoadRoomModelData(s32 roomID)
+@@ -2490,12 +3522,99 @@ void bgLoadRoomModelData(s32 roomID)
       */
      if (g_BgRoomInfo[roomID].csize_primary_DL_binary)
      {
@@ -3178,7 +3238,7 @@ index 858c35e..b5a75b3 100644
      }
  
      /**
-@@ -2503,11 +3567,18 @@ void bgLoadRoomModelData(s32 roomID)
+@@ -2503,11 +3622,18 @@ void bgLoadRoomModelData(s32 roomID)
       */
      if (g_BgRoomInfo[roomID].csize_secondary_DL_binary)
      {
@@ -3198,7 +3258,7 @@ index 858c35e..b5a75b3 100644
          }
      }
      else
-@@ -2515,13 +3586,59 @@ void bgLoadRoomModelData(s32 roomID)
+@@ -2515,13 +3641,59 @@ void bgLoadRoomModelData(s32 roomID)
          g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info = NULL;
      }
  
@@ -3262,7 +3322,7 @@ index 858c35e..b5a75b3 100644
      }
  
      // Same branches, only the LUT parameter changes
-@@ -2661,11 +3778,14 @@ void bgRoomsTickUnload(void)
+@@ -2661,11 +3833,14 @@ void bgRoomsTickUnload(void)
  */
  Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
  {
@@ -3277,7 +3337,7 @@ index 858c35e..b5a75b3 100644
      if ((D_8004485C != 0) || (D_80044858 == (room_index % 10)))
      {
          if (g_BgRoomInfo[room_index].model_bin_loaded == 0)
-@@ -2679,10 +3799,34 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
+@@ -2679,10 +3854,34 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
  
          if (g_BgRoomInfo[room_index].model_bin_loaded == 0)
          {
@@ -3312,7 +3372,7 @@ index 858c35e..b5a75b3 100644
              gdl = applyRoomMatrixToDisplayList(gdl, room_index);
  
              gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
-@@ -2741,7 +3885,8 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
+@@ -2741,7 +3940,8 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
  * Address: 7F0B6994
  */
  #define ALIGN16(val) (((val) + 0xF) & ~0xF)
@@ -3322,7 +3382,7 @@ index 858c35e..b5a75b3 100644
  
  void bgBuildRoomVtxBounds(s32 roomID)
  {
-@@ -2763,17 +3908,40 @@ void bgBuildRoomVtxBounds(s32 roomID)
+@@ -2763,17 +3963,40 @@ void bgBuildRoomVtxBounds(s32 roomID)
  
      gdl = g_BgRoomInfo[roomID].ptr_expanded_mapping_info;
  
@@ -3365,7 +3425,7 @@ index 858c35e..b5a75b3 100644
      }
  
      points = memaAlloc(ALIGN16(numpoints * sizeof(RoomVtxBatchBounds)));
-@@ -2791,9 +3959,9 @@ void bgBuildRoomVtxBounds(s32 roomID)
+@@ -2791,9 +4014,9 @@ void bgBuildRoomVtxBounds(s32 roomID)
      numpoints = 0;
      cmdindex = 0;
  
@@ -3377,7 +3437,7 @@ index 858c35e..b5a75b3 100644
          {
              point = &points[numpoints];
  
-@@ -2805,9 +3973,13 @@ void bgBuildRoomVtxBounds(s32 roomID)
+@@ -2805,9 +4028,13 @@ void bgBuildRoomVtxBounds(s32 roomID)
                  points[numpoints].max[i] = -0x8000;
              }
  
@@ -3393,7 +3453,7 @@ index 858c35e..b5a75b3 100644
  
              for (i = 0; i < numvertices; i++)
              {
-@@ -2873,7 +4045,6 @@ void bgBuildRoomVtxBounds(s32 roomID)
+@@ -2873,7 +4100,6 @@ void bgBuildRoomVtxBounds(s32 roomID)
  }
  
  #undef ALIGN16
@@ -3401,7 +3461,7 @@ index 858c35e..b5a75b3 100644
  
  
  /**
-@@ -3040,12 +4211,10 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3040,12 +4266,10 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
      Vertex *vtxbase;
      Vertex *v;
  
@@ -3418,7 +3478,7 @@ index 858c35e..b5a75b3 100644
      s32 op;
      s32 found;
      Gfx *gdl;
-@@ -3077,35 +4246,42 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3077,35 +4301,42 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
  
      gdl = (Gfx *) g_BgRoomInfo[roomnum].ptr_expanded_mapping_info;
      gdl = &gdl[point->gdlindex];
@@ -3474,7 +3534,7 @@ index 858c35e..b5a75b3 100644
  
                      if (v->coord.x < bboxMin.x)
                      {
-@@ -3147,7 +4323,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3147,7 +4378,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
  
                  if (bgTestRayIntersectsBbox(from, dir, (s32 *) (&bboxMin), (s32 *) (&bboxMax)))
                  {
@@ -3483,7 +3543,7 @@ index 858c35e..b5a75b3 100644
                      {
                          tcmd = gdl;
                          dx = ((s32) hitbuf.hitpos.x) - ((s32) from->x);
-@@ -3157,12 +4333,12 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3157,12 +4388,12 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                          score = dist;
                          found = 1;
  
@@ -3498,7 +3558,7 @@ index 858c35e..b5a75b3 100644
                                  {
                                      break;
                                  }
-@@ -3176,8 +4352,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3176,8 +4407,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                          }
                          else
                          {
@@ -3508,7 +3568,7 @@ index 858c35e..b5a75b3 100644
                          }
  
                          if (check_if_imageID_is_light(texnum))
-@@ -3197,9 +4372,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3197,9 +4427,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                              hitthing->normal.x = hitbuf.normal.x;
                              hitthing->normal.y = hitbuf.normal.y;
                              hitthing->normal.z = hitbuf.normal.z;
@@ -3521,7 +3581,7 @@ index 858c35e..b5a75b3 100644
                              hitthing->texturenum = texnum;
                              hitthing->tricmd = gdl;
                              hitthing->unk28 = 0;
-@@ -3209,7 +4384,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3209,7 +4439,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
              }
              else
              {
@@ -3530,7 +3590,7 @@ index 858c35e..b5a75b3 100644
                  {
                      // Keep this line as-is for matching.
                      s2 = 0; do
-@@ -3217,37 +4392,41 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3217,37 +4447,41 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                          bboxMin2 = D_80044880;
                          bboxMax2 = D_8004488C;
  
@@ -3586,7 +3646,7 @@ index 858c35e..b5a75b3 100644
                              if (v->coord.x < bboxMin2.x)
                              {
                                  bboxMin2.x = v->coord.x;
-@@ -3285,7 +4464,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3285,7 +4519,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
  
                          if (bgTestRayIntersectsBbox(from, dir, (s32 *) (&bboxMin2), (s32 *) (&bboxMax2)))
                          {
@@ -3595,7 +3655,7 @@ index 858c35e..b5a75b3 100644
                              {
                                  tcmd = gdl;
                                  dx = ((s32) hitbuf.hitpos.x) - ((s32) from->x);
-@@ -3295,12 +4474,12 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3295,12 +4529,12 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                  score = dist;
                                  found = 1;
  
@@ -3610,7 +3670,7 @@ index 858c35e..b5a75b3 100644
                                          {
                                              break;
                                          }
-@@ -3314,8 +4493,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3314,8 +4548,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                  }
                                  else
                                  {
@@ -3620,7 +3680,7 @@ index 858c35e..b5a75b3 100644
                                  }
  
                                  if (check_if_imageID_is_light(texnum))
-@@ -3334,9 +4512,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3334,9 +4567,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                      hitthing->normal.x = hitbuf.normal.x;
                                      hitthing->normal.y = hitbuf.normal.y;
                                      hitthing->normal.z = hitbuf.normal.z;
@@ -3633,7 +3693,7 @@ index 858c35e..b5a75b3 100644
                                      hitthing->texturenum = texnum;
                                      hitthing->tricmd = gdl;
                                      hitthing->unk28 = s2 + 1;
-@@ -3350,9 +4528,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
+@@ -3350,9 +4583,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
              }
  
              gdl++;
@@ -3645,7 +3705,7 @@ index 858c35e..b5a75b3 100644
      }
  
      return found;
-@@ -3462,29 +4640,38 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
+@@ -3462,29 +4695,38 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
  
      if (found) 
      {
@@ -3694,7 +3754,7 @@ index 858c35e..b5a75b3 100644
          }
      }
  
-@@ -3665,7 +4852,8 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
+@@ -3665,7 +4907,8 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
      s32 i;
   
      D_80044898++;
@@ -3704,7 +3764,7 @@ index 858c35e..b5a75b3 100644
      if (depth >= 101)
      {
  #ifdef DEBUG
-@@ -3696,9 +4884,19 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
+@@ -3696,9 +4939,19 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
          return;
      }
   
@@ -3727,7 +3787,7 @@ index 858c35e..b5a75b3 100644
   
      playerpos = bondviewGetCurrentPlayersPosition();
      sub_GAME_7F0B96CC(portalnum, &metric);
-@@ -3769,7 +4967,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
+@@ -3769,7 +5022,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
          }
      }
   
@@ -3736,7 +3796,7 @@ index 858c35e..b5a75b3 100644
   
      if ((screenbox.min.x < screenbox.max.x) && (screenbox.min.y < screenbox.max.y))
      {
-@@ -3783,7 +4981,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
+@@ -3783,7 +5036,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth,
          return;
      }
   
@@ -3745,7 +3805,7 @@ index 858c35e..b5a75b3 100644
      {
          if (i != portalnum)
          {
-@@ -3806,6 +5004,26 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
+@@ -3806,6 +5059,26 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
      s32 i;
   
      D_80044898++;
@@ -3772,7 +3832,7 @@ index 858c35e..b5a75b3 100644
   
      if (depth >= 101)
      {
-@@ -3837,9 +5055,19 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
+@@ -3837,9 +5110,19 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
          return value;
      }
   
@@ -3795,7 +3855,7 @@ index 858c35e..b5a75b3 100644
   
      playerpos = bondviewGetCurrentPlayersPosition();
      sub_GAME_7F0B96CC(portalnum, &metric);
-@@ -3910,7 +5138,7 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
+@@ -3910,7 +5193,7 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
          }
      }
   
@@ -3804,7 +3864,7 @@ index 858c35e..b5a75b3 100644
   
      if ((screenbox.min.x < screenbox.max.x) && (screenbox.min.y < screenbox.max.y))
      {
-@@ -3924,7 +5152,7 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
+@@ -3924,7 +5207,7 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
          return value;
      }
   
@@ -3813,7 +3873,7 @@ index 858c35e..b5a75b3 100644
      {
          if (i != portalnum)
          {
-@@ -4299,6 +5527,52 @@ void *sub_GAME_7F0B8A24(s32 *pc)
+@@ -4299,6 +5582,52 @@ void *sub_GAME_7F0B8A24(s32 *pc)
      assert( pc->type==RS_STOP)
      #endif
  
@@ -3866,7 +3926,7 @@ index 858c35e..b5a75b3 100644
      return parse_global_vis_command_list(pc, 1);
  }
  
-@@ -4357,7 +5631,7 @@ void bgDetermineVisibleRooms(void)
+@@ -4357,7 +5686,7 @@ void bgDetermineVisibleRooms(void)
       * If the level is Cradle, or has no portals, skip the portal occlusion culling algorithm. Just add every room in the player's
       * screen bounds to the list of rooms to draw.
       */
@@ -3875,7 +3935,7 @@ index 858c35e..b5a75b3 100644
      {
          if (levelentry_index == LEVEL_INDEX_CRAD) 
          {
-@@ -4382,7 +5656,7 @@ void bgDetermineVisibleRooms(void)
+@@ -4382,7 +5711,7 @@ void bgDetermineVisibleRooms(void)
  
          sub_GAME_7F0B39BC(g_BgCurrentRoom, 0, &g_CurrentPlayer->screensize, 1);
  
@@ -3884,7 +3944,7 @@ index 858c35e..b5a75b3 100644
          {
              if ((g_BgCurrentRoom == g_BgPortals[var_s0].connectedRoom1) || (g_BgCurrentRoom == g_BgPortals[var_s0].connectedRoom2)) 
              {
-@@ -4411,7 +5685,7 @@ void bgDetermineVisibleRooms(void)
+@@ -4411,7 +5740,7 @@ void bgDetermineVisibleRooms(void)
  #endif
      }
  
@@ -3893,7 +3953,7 @@ index 858c35e..b5a75b3 100644
      {
          temp_v1 = g_BgPortals[var_s0].connectedRoom1;
          temp_a0 = g_BgPortals[var_s0].connectedRoom2;
-@@ -4425,6 +5699,260 @@ void bgDetermineVisibleRooms(void)
+@@ -4425,6 +5754,260 @@ void bgDetermineVisibleRooms(void)
              g_BgRoomInfo[temp_v1].room_neighbor_to_rendered = 1;
          }
      }
@@ -4154,7 +4214,7 @@ index 858c35e..b5a75b3 100644
  }
  
  
-@@ -4470,7 +5998,7 @@ s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
+@@ -4470,7 +6053,7 @@ s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
  
      if (room);
  
@@ -4163,7 +4223,7 @@ index 858c35e..b5a75b3 100644
      {
          offset = 0;
          portal = base;
-@@ -4492,7 +6020,7 @@ s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
+@@ -4492,7 +6075,7 @@ s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
              i++;
              portal = (bg_portal_data_entry *) (((u8 *) g_BgPortals) + offset);
          }
@@ -4172,7 +4232,7 @@ index 858c35e..b5a75b3 100644
      }
  
      return count;
-@@ -4528,7 +6056,7 @@ s32 bgGetConnectedRooms(s32 roomIndex, s32* list, s32 max)
+@@ -4528,7 +6111,7 @@ s32 bgGetConnectedRooms(s32 roomIndex, s32* list, s32 max)
      s32 connectedRoom1;
      s32 connectedRoom2;
  
@@ -4181,7 +4241,7 @@ index 858c35e..b5a75b3 100644
          connectedRoom1 = g_BgPortals[p].connectedRoom1;
          connectedRoom2 = g_BgPortals[p].connectedRoom2;
  
-@@ -4569,7 +6097,7 @@ bool bgRoomsSharePortal(s32 room1, s32 room2)
+@@ -4569,7 +6152,7 @@ bool bgRoomsSharePortal(s32 room1, s32 room2)
  {
      s32 i;
  
@@ -4190,7 +4250,7 @@ index 858c35e..b5a75b3 100644
      {
          s32 v0 = g_BgPortals[i].connectedRoom1;
          s32 v1 = g_BgPortals[i].connectedRoom2;
-@@ -4699,9 +6227,9 @@ void bgRoomCalcBB(s32 room) // canonical name
+@@ -4699,9 +6282,9 @@ void bgRoomCalcBB(s32 room) // canonical name
      StanRoomBounds limits;
      u8 wasloaded;
  
@@ -4202,7 +4262,7 @@ index 858c35e..b5a75b3 100644
      {
          if ((room < dword_CODE_bss_8007B9DC) && ((s32) firststaninroom[room] != ((StanRoomBounds *) vertices)->min[j] % 1))
          {
-@@ -4732,7 +6260,7 @@ void bgRoomCalcBB(s32 room) // canonical name
+@@ -4732,7 +6315,7 @@ void bgRoomCalcBB(s32 room) // canonical name
      }
  
      vertices = g_BgRoomInfo[room].vertices;
@@ -4211,7 +4271,7 @@ index 858c35e..b5a75b3 100644
  
      limits.minX = 0x7fff;
      limits.minY = 0x7fff;
-@@ -4741,7 +6269,11 @@ void bgRoomCalcBB(s32 room) // canonical name
+@@ -4741,7 +6324,11 @@ void bgRoomCalcBB(s32 room) // canonical name
      limits.maxY = -0x7fff;
      limits.maxZ = -0x7fff;
  
@@ -4224,7 +4284,7 @@ index 858c35e..b5a75b3 100644
      {
          for (j = 0; j < 3; j++)
          {
-@@ -4779,15 +6311,15 @@ void sub_GAME_7F0B95D8(s32 roomID)
+@@ -4779,15 +6366,15 @@ void sub_GAME_7F0B95D8(s32 roomID)
      s32 k;
      f32 value;
  
@@ -4243,7 +4303,7 @@ index 858c35e..b5a75b3 100644
  
                      if (value < g_BgRoomInfo[roomID].minbounds.f[k])
                      {
-@@ -4825,12 +6357,12 @@ void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
+@@ -4825,12 +6412,12 @@ void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
  
      for (i = 0; i < 3; i++)
      {
@@ -4258,7 +4318,7 @@ index 858c35e..b5a75b3 100644
      }
  
      out[0] = (sp6c[1] * sp60[2]) - (sp6c[2] * sp60[1]);
-@@ -4848,7 +6380,7 @@ void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
+@@ -4848,7 +6435,7 @@ void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
      out[1] *= dot;
      out[2] *= dot;
  
@@ -4267,7 +4327,7 @@ index 858c35e..b5a75b3 100644
  
      min = 3.4028235e38f;
      max = -3.4028235e38f;
-@@ -5033,6 +6565,10 @@ s8 bgSwapConnectedRooms(s32 index)
+@@ -5033,6 +6620,10 @@ s8 bgSwapConnectedRooms(s32 index)
      t = g_BgPortals[index].connectedRoom1;
      g_BgPortals[index].connectedRoom1 = g_BgPortals[index].connectedRoom2;
      g_BgPortals[index].connectedRoom2 = t;
@@ -4278,7 +4338,7 @@ index 858c35e..b5a75b3 100644
  }
  
  
-@@ -5107,10 +6643,13 @@ s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
+@@ -5107,10 +6698,13 @@ s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
      s32 portalIndex = -1;
  
      #ifndef DEBUG
@@ -4294,7 +4354,7 @@ index 858c35e..b5a75b3 100644
      {
          if (((g_BgPortals[i].connectedRoom1 == room1) && (g_BgPortals[i].connectedRoom2 == room2)) ||
              ((g_BgPortals[i].connectedRoom1 == room2) && (g_BgPortals[i].connectedRoom2 == room1)))
-@@ -5160,7 +6699,9 @@ void bgToggleDataPortalsContrlBytes1Bit1(s32 portal, s32 toggle)
+@@ -5160,7 +6754,9 @@ void bgToggleDataPortalsContrlBytes1Bit1(s32 portal, s32 toggle)
   *
   * Address 0x7F0B9DE4.
   */
@@ -4305,7 +4365,7 @@ index 858c35e..b5a75b3 100644
  {
  #if DEBUG
      // removed
-@@ -5299,13 +6840,13 @@ s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
+@@ -5299,13 +6895,13 @@ s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
  
      D_80044900 = (value1 + value2) * 0.5f - metric.min;
  
@@ -4324,7 +4384,7 @@ index 858c35e..b5a75b3 100644
  
          cross.f[0] = edge.f[1] * diff.f[2] - edge.f[2] * diff.f[1];
          cross.f[1] = edge.f[2] * diff.f[0] - edge.f[0] * diff.f[2];
-@@ -5318,9 +6859,9 @@ s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
+@@ -5318,9 +6914,9 @@ s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
              return 0;
          }
  
@@ -4337,7 +4397,7 @@ index 858c35e..b5a75b3 100644
  
          tmp = (cross.f[0] * pos1->f[0] + cross.f[1] * pos1->f[1] + cross.f[2] * pos1->f[2]) * room_data_float1;
  
-@@ -5364,6 +6905,61 @@ bool bgIsBboxOverlapping(coord3d *portalbbmin, coord3d *portalbbmax, coord3d *pr
+@@ -5364,6 +6960,61 @@ bool bgIsBboxOverlapping(coord3d *portalbbmin, coord3d *portalbbmax, coord3d *pr
  }
  
  
@@ -4399,7 +4459,7 @@ index 858c35e..b5a75b3 100644
  void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *count, s32 max_count)
  {
      bg_portal_entry *portal_pts;
-@@ -5401,7 +6997,7 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
+@@ -5401,7 +7052,7 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
              cur_room = *p;
              portal_idx = 0;
   
@@ -4408,7 +4468,7 @@ index 858c35e..b5a75b3 100644
              {
                  do
                  {
-@@ -5410,9 +7006,61 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
+@@ -5410,9 +7061,61 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
                          goto next_portal;
                      }
                      
@@ -4471,7 +4531,7 @@ index 858c35e..b5a75b3 100644
                      
                      for (j = 0; j < portal_pts->numPoints; j++)
                      {
-@@ -5430,13 +7078,20 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
+@@ -5430,13 +7133,20 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
                                  portal_max.f[k] = v;
                              }
                              
@@ -4493,7 +4553,7 @@ index 858c35e..b5a75b3 100644
                  {
                      if (cur_room == g_BgPortals[portal_idx].connectedRoom1)
                      {
-@@ -5466,6 +7121,9 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
+@@ -5466,6 +7176,9 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
                          if (cur_count >= max_count)
                          {
                              *count = cur_count;
@@ -4503,7 +4563,7 @@ index 858c35e..b5a75b3 100644
                              return;
                          }
                      }
-@@ -5474,7 +7132,7 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
+@@ -5474,7 +7187,7 @@ void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *coun
  next_portal:
                  portal_idx++;
                  }         
@@ -4512,7 +4572,7 @@ index 858c35e..b5a75b3 100644
              }
  
              i++;
-@@ -5491,4 +7149,7 @@ next_portal:
+@@ -5491,4 +7204,7 @@ next_portal:
          saved_count = cur_count;
      }
      *count = cur_count;
@@ -12832,7 +12892,7 @@ index 1ce99c4..2d06f51 100644
 +
  #endif
 diff --git a/src/game/gunfire.c b/src/game/gunfire.c
-index e9a970f..4b19c90 100644
+index e9a970f..c60bdbb 100644
 --- a/src/game/gunfire.c
 +++ b/src/game/gunfire.c
 @@ -37,6 +37,198 @@
@@ -14067,6 +14127,24 @@ index e9a970f..4b19c90 100644
              }
  
              if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
+@@ -4986,7 +5819,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+     Mtxf rotmtx;
+ #endif
+     f32 rand;
+-    s32 new_var; /* dead but declared on EU — still reserves its frame slot */
++    s32 new_var; /* dead but declared on EU - still reserves its frame slot */
+     f32 frac;
+ #if VERSION_EU
+     s32 randlimit;
+@@ -5303,7 +6136,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+     Mtxf rotmtx;
+ #endif
+     f32 rand;
+-    s32 new_var; /* dead but declared on EU — still reserves its frame slot */
++    s32 new_var; /* dead but declared on EU - still reserves its frame slot */
+     f32 frac;
+ #if VERSION_EU
+     s32 randlimit;
 @@ -5558,18 +6391,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      ModelFileHeader *model_header = casing->header;
      RenderPosView   *model_matrices = dynAllocate(model_header->numMatrices * sizeof(RenderPosView));
@@ -23591,15 +23669,16 @@ index 53583db..f59a65e 100644
      g_playerPointers[player_num]->field_10EC = NULL;
      g_playerPointers[player_num]->c_scalelod60 = 1.0f;
 diff --git a/src/game/prop.c b/src/game/prop.c
-index 8c877b2..940b14c 100644
+index 8c877b2..48af6a8 100644
 --- a/src/game/prop.c
 +++ b/src/game/prop.c
-@@ -1,3 +1,4 @@
+@@ -1,3 +1,5 @@
++#include <stdlib.h>  /* GETV-INSTR: getenv/exit */
 +#include <stdio.h>
  #include <ultra64.h>
  #include <memp.h>
  #include "game/mp_weapon.h"
-@@ -35,6 +36,18 @@ ITEM_IDS lastmpweaponnum;
+@@ -35,6 +37,18 @@ ITEM_IDS lastmpweaponnum;
  // redeclare with the element count so ARRAYCOUNT works in proplvreset2
  extern ItemModelFileRecord PitemZ_entries[341];
  
@@ -23618,7 +23697,7 @@ index 8c877b2..940b14c 100644
  // forward declarations
  
  s32 load_proptype(PROPDEF_TYPE type);
-@@ -122,6 +135,101 @@ void sub_GAME_7F001BD4(struct BoundPadRecord *pad, struct coord3d *arg1)
+@@ -122,6 +136,101 @@ void sub_GAME_7F001BD4(struct BoundPadRecord *pad, struct coord3d *arg1)
  /**
   * NTSC address 0x7F001D9C.
  */
@@ -23720,7 +23799,7 @@ index 8c877b2..940b14c 100644
  void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
  {
      s32 padding;
-@@ -147,6 +255,9 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
+@@ -147,6 +256,9 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
      f32 sp50;
      s32 padding3;
      f32 sp48;
@@ -23730,7 +23809,7 @@ index 8c877b2..940b14c 100644
  
      spF0 = arg1->obj;
      var_s0 = NULL;
-@@ -292,8 +403,17 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
+@@ -292,8 +404,17 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
              }
          }
  
@@ -23748,7 +23827,7 @@ index 8c877b2..940b14c 100644
              if (arg1->type == PROP_TYPE_SMOKE)
              {
                  sp60 = sub_GAME_7F051DD8(arg1, PitemZ_entries[spF0].header);
-@@ -473,6 +593,16 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
+@@ -473,6 +594,16 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
              chrpropActivate(sp60);
              chrpropEnable(sp60);
          }
@@ -23765,7 +23844,7 @@ index 8c877b2..940b14c 100644
          #ifdef DEBUG
          else
          {
-@@ -601,6 +731,42 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
+@@ -601,6 +732,42 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
              weaponLoadProjectileModels(weapon->weaponnum);
              domakedefaultobj(arg0, (struct ObjectRecord*)weapon, cmdindex);
          }
@@ -23808,7 +23887,7 @@ index 8c877b2..940b14c 100644
      }
  }
  
-@@ -642,6 +808,21 @@ void setupCctv(s32 arg0, CCTVRecord *arg1, s32 cmdindex)
+@@ -642,6 +809,21 @@ void setupCctv(s32 arg0, CCTVRecord *arg1, s32 cmdindex)
  
      domakedefaultobj(arg0, (struct ObjectRecord*)arg1, cmdindex);
  
@@ -23830,7 +23909,7 @@ index 8c877b2..940b14c 100644
      if (arg1->pad >= 0)
      {
          temp_a2 = (struct coord3d*)arg1->model->obj->Switches[0]->Data;
-@@ -750,6 +931,19 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
+@@ -750,6 +932,19 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
  
          prop = autogun->prop;
  
@@ -23850,7 +23929,7 @@ index 8c877b2..940b14c 100644
          xdiff = pad->pos.x - prop->pos.x;
          ydiff = pad->pos.y - prop->pos.y;
          zdiff = pad->pos.z - prop->pos.z;
-@@ -895,7 +1089,15 @@ void sub_GAME_7F00324C(struct BoundPadRecord *arg0, s32 *arg1, s32 *arg2, struct
+@@ -895,7 +1090,15 @@ void sub_GAME_7F00324C(struct BoundPadRecord *arg0, s32 *arg1, s32 *arg2, struct
  
      if (1);
  
@@ -23866,7 +23945,7 @@ index 8c877b2..940b14c 100644
      sp4C = sp2C;
  
      arg4->f[0] = center.f[0] - (normal.f[0] * 50.0f);
-@@ -906,7 +1108,11 @@ void sub_GAME_7F00324C(struct BoundPadRecord *arg0, s32 *arg1, s32 *arg2, struct
+@@ -906,7 +1109,11 @@ void sub_GAME_7F00324C(struct BoundPadRecord *arg0, s32 *arg1, s32 *arg2, struct
  
      if (1);
  
@@ -23878,7 +23957,7 @@ index 8c877b2..940b14c 100644
  
      if (*arg2 == *arg1)
      {
-@@ -965,6 +1171,14 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
+@@ -965,6 +1172,14 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
      modelLoad(modelnum);
  
      pad = &(g_CurrentSetup.boundpads[door->pad]);
@@ -23893,7 +23972,7 @@ index 8c877b2..940b14c 100644
  
      if ((door->flags & PROPFLAG_CULL_BEHIND_DOOR) || (door->flags & PROPFLAG_NO_PORTAL_CLOSE))
      {
-@@ -1213,7 +1427,38 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
+@@ -1213,7 +1428,38 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
  }
  
  
@@ -23932,7 +24011,7 @@ index 8c877b2..940b14c 100644
  void proplvreset2(enum LEVELID stageId)
  {
      ItemModelFileRecord *pitem;
-@@ -1222,6 +1467,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1222,6 +1468,11 @@ void proplvreset2(enum LEVELID stageId)
  
      withchrs = (((void *) tokenFind(1, "-nochr")) == NULL) && (((void *) tokenFind(1, "-noprop")) == NULL);
      withobjs = (((void *) tokenFind(1, "-noobj")) == NULL) && (((void *) tokenFind(1, "-noprop")) == NULL);
@@ -23944,7 +24023,7 @@ index 8c877b2..940b14c 100644
  
      g_DoorScale = 1.0f;
  
-@@ -1267,25 +1517,55 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1267,25 +1518,102 @@ void proplvreset2(enum LEVELID stageId)
          g_ptrStageSetupFile = _fileNameLoadToBank(strResource, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE);
  
          local_stage = g_ptrStageSetupFile;
@@ -23960,6 +24039,53 @@ index 8c877b2..940b14c 100644
 +                   (void*)local_stage->pads, (void*)local_stage->boundpads,
 +                   (void*)local_stage->padnames);
 +            fflush(stdout);
++
++            /* A stage whose every setup offset is zero has no setup data in the ROM.
++             *
++             * Nine of GoldenEye's stage ids were cut during development and Citadel has a
++             * background file but no setup, so the file loads, its header is all zeroes, and
++             * every rebased pointer below lands back on the header. The game then walks lists
++             * that do not exist. On stages 40 and 44 that is an infinite loop: the process
++             * spins at full CPU, ignores SIGTERM, and prints nothing further. Reaching one of
++             * these through a level select or a mod wedges the game with no explanation.
++             *
++             * The absence is correct -- it is missing data, not a port defect -- but the
++             * failure mode is not, so say so and stop.
++             *
++             * Two different causes produce an empty setup, and the message has to separate
++             * them. Stages 31 and 38 are multiplayer-only: solo they read UsetuprefZ and
++             * UsetupdishZ, which are empty, but with two or more players they read
++             * Ump_setuprefZ and Ump_setupdishZ and load correctly. Telling someone their
++             * stage was cut when it merely needs GETV_MP=2 sends them looking for a fault
++             * that is not there. GETV_ALLOWEMPTYSETUP=1 proceeds anyway
++             * for anyone who wants to debug the walk itself. */
++            if (local_stage->pathwaypoints == 0 && local_stage->propDefs == 0 &&
++                local_stage->pads == 0 && local_stage->ailists == 0) {
++                const char *ge_allow = getenv("GETV_ALLOWEMPTYSETUP");
++                fprintf(stderr,
++                        "[getv] stage %d ('%s') has no setup data: every offset in the file is "
++                        "zero.\n", (int)stageId, strResource);
++                if (getPlayerCount() < 2) {
++                    fprintf(stderr,
++                            "[getv] This is either a stage cut during development, or one of "
++                            "the multiplayer-only stages,\n[getv] which have no solo setup. If "
++                            "it is multiplayer-only, load it with two or more players\n"
++                            "[getv] (GETV_MP=2), which reads 'Ump_%s' instead.\n",
++                            strResource + 1);
++                } else {
++                    fprintf(stderr,
++                            "[getv] This stage id carries no setup in the ROM and cannot be "
++                            "loaded.\n");
++                }
++                if (!(ge_allow && *ge_allow == '1')) {
++                    fprintf(stderr, "[getv] stopping. Set GETV_ALLOWEMPTYSETUP=1 to continue "
++                                    "into the walk anyway (it will hang).\n");
++                    fflush(stderr);
++                    { extern void _exit(int); _exit(1); }
++                }
++                fprintf(stderr, "[getv] GETV_ALLOWEMPTYSETUP=1, continuing.\n");
++                fflush(stderr);
++            }
 +        }
 +#endif
          langLoadToAddr(langGetLangBankIndexFromStagenum(stageId));
@@ -24009,7 +24135,7 @@ index 8c877b2..940b14c 100644
          }
          else
          {
-@@ -1294,7 +1574,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1294,7 +1622,7 @@ void proplvreset2(enum LEVELID stageId)
  
          if (local_stage->boundpadnames != 0)
          {
@@ -24018,7 +24144,7 @@ index 8c877b2..940b14c 100644
          }
          else
          {
-@@ -1305,7 +1585,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1305,7 +1633,7 @@ void proplvreset2(enum LEVELID stageId)
          {
              for (i1 = 0; g_CurrentSetup.pathwaypoints[i1].padID >= 0; i1++)
              {
@@ -24027,7 +24153,7 @@ index 8c877b2..940b14c 100644
              }
          }
  
-@@ -1313,8 +1593,8 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1313,8 +1641,8 @@ void proplvreset2(enum LEVELID stageId)
          {
              for (i2 = 0; g_CurrentSetup.waypointgroups[i2].neighbours; i2++)
              {
@@ -24038,7 +24164,7 @@ index 8c877b2..940b14c 100644
              }
          }
  
-@@ -1325,7 +1605,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1325,7 +1653,7 @@ void proplvreset2(enum LEVELID stageId)
              {
                  for (i3 = 0; g_CurrentSetup.ailists[i3].ailist != 0; i3++)
                  {
@@ -24047,7 +24173,7 @@ index 8c877b2..940b14c 100644
                  }
              }
          }
-@@ -1334,7 +1614,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1334,7 +1662,7 @@ void proplvreset2(enum LEVELID stageId)
          {
              for (i3 = 0; g_CurrentSetup.patrolpaths[i3].waypoints != NULL; i3++)
              {
@@ -24056,7 +24182,7 @@ index 8c877b2..940b14c 100644
  
                  for (i5 = 0; g_CurrentSetup.patrolpaths[i3].waypoints[i5] >= 0; i5++)
                  {
-@@ -1354,7 +1634,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1354,7 +1682,7 @@ void proplvreset2(enum LEVELID stageId)
  
              for (; pad->plink != NULL; pad++)
              {
@@ -24065,7 +24191,7 @@ index 8c877b2..940b14c 100644
                  pad->pos.f[0] *= roompos_1;
                  pad->pos.f[1] *= roompos_1;
                  pad->pos.f[2] *= roompos_1;
-@@ -1377,6 +1657,36 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1377,6 +1705,36 @@ void proplvreset2(enum LEVELID stageId)
  
                  if (1);
              }
@@ -24102,7 +24228,7 @@ index 8c877b2..940b14c 100644
          }
  
          if (g_CurrentSetup.boundpads)
-@@ -1393,7 +1703,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1393,7 +1751,7 @@ void proplvreset2(enum LEVELID stageId)
                  */
                  if ((((u32) local_stage) ^ 0) + ((u32)vol->plink));
  
@@ -24111,7 +24237,7 @@ index 8c877b2..940b14c 100644
                  vol->pos.f[0] *= roompos_2;
                  vol->pos.f[1] *= roompos_2;
                  vol->pos.f[2] *= roompos_2;
-@@ -1422,13 +1732,38 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1422,13 +1780,38 @@ void proplvreset2(enum LEVELID stageId)
  
                  if (1);
              }
@@ -24151,7 +24277,7 @@ index 8c877b2..940b14c 100644
              }
          }
  
-@@ -1439,7 +1774,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1439,7 +1822,7 @@ void proplvreset2(enum LEVELID stageId)
  
              for (i1 = 0; g_CurrentSetup.boundpadnames[i1].p; i1++)
              {
@@ -24160,7 +24286,7 @@ index 8c877b2..940b14c 100644
              }
          }
  
-@@ -1482,6 +1817,14 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1482,6 +1865,14 @@ void proplvreset2(enum LEVELID stageId)
              numAnimatedObjects += load_proptype(PROPDEF_AIRCRAFT);
          }
  
@@ -24175,7 +24301,7 @@ index 8c877b2..940b14c 100644
          modelmgrAllocateModelSlots(numObjects);
          modelmgrAllocateAnimModelSlots(numAnimatedObjects);
  
-@@ -1491,7 +1834,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1491,7 +1882,7 @@ void proplvreset2(enum LEVELID stageId)
              alloc_additional_item_slots(load_proptype(PROPDEF_LINK));
          }
  
@@ -24184,7 +24310,7 @@ index 8c877b2..940b14c 100644
          {
              PropDefHeaderRecord *phead;
              s32 flags;
-@@ -1739,7 +2082,10 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1739,7 +2130,10 @@ void proplvreset2(enum LEVELID stageId)
                              pdef_veh->turnrot60    = 0.0f;
                              pdef_veh->roty         = 0.0f;
                              pdef_veh->speedtime60  = -1.0f;
@@ -24196,7 +24322,7 @@ index 8c877b2..940b14c 100644
                              pdef_veh->aioffset     = 0;
                              pdef_veh->aireturnlist = -1;
                              pdef_veh->path         = 0;
-@@ -1761,7 +2107,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1761,7 +2155,7 @@ void proplvreset2(enum LEVELID stageId)
                              pdef_air->yrot            = 0.0f;
                              pdef_air->speedtime60     = -1.0f;
                              pdef_air->rotaryspeedtime = -1.0f;
@@ -24205,7 +24331,7 @@ index 8c877b2..940b14c 100644
                              pdef_air->aioffset        = 0;
                              pdef_air->aireturnlist    = -1;
                              pdef_air->nextstep        = 0;
-@@ -1887,6 +2233,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1887,6 +2281,11 @@ void proplvreset2(enum LEVELID stageId)
                          struct WeaponObjRecord *guna = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index1 + pdefIndex);
                          struct WeaponObjRecord *gunb = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index2 + pdefIndex);
  
@@ -24217,7 +24343,7 @@ index 8c877b2..940b14c 100644
                          if (guna && gunb)
                          {
                              if ((guna->type == PROPDEF_COLLECTABLE) && (gunb->type == PROPDEF_COLLECTABLE))
-@@ -1922,6 +2273,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1922,6 +2321,11 @@ void proplvreset2(enum LEVELID stageId)
                          doorA = (struct ObjectRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
                          doorB = (struct ObjectRecord *) setupGetPtrToCommandByIndex(pdefIndex + index2);
  
@@ -24229,7 +24355,7 @@ index 8c877b2..940b14c 100644
                          if ((((doorA && doorA->prop) && doorB) && (doorB->type == PROPDEF_DOOR)) && doorB->prop)
                          {
                              pdef_switch->first = doorA->prop;
-@@ -1957,6 +2313,12 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1957,6 +2361,12 @@ void proplvreset2(enum LEVELID stageId)
                          safe = (struct SafeRecord *) setupCommandGetObject(stageId, pdefIndex + index2);
                          door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index3);
  
@@ -24242,7 +24368,7 @@ index 8c877b2..940b14c 100644
                          if (((((((safe_item && safe_item->prop) && safe) && safe->prop) && (safe->type == PROPDEF_SAFE)) && door) && door->prop) && (door->type == PROPDEF_DOOR))
                          {
                              pdef_safe->item = safe_item;
-@@ -1990,6 +2352,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1990,6 +2400,11 @@ void proplvreset2(enum LEVELID stageId)
                          door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
                          lock = setupCommandGetObject(stageId, pdefIndex + index2);
  
@@ -24254,7 +24380,7 @@ index 8c877b2..940b14c 100644
                          if ((((door && door->prop) && lock) && lock->prop) && (door->type == PROPDEF_DOOR))
                          {
                              pdef_lock_door->door = door;
-@@ -2010,6 +2377,8 @@ void proplvreset2(enum LEVELID stageId)
+@@ -2010,6 +2425,8 @@ void proplvreset2(enum LEVELID stageId)
                  phead = (PropDefHeaderRecord *) (((u32 *) phead) + sizepropdef(phead));
                  pdefIndex += 1;
              }
@@ -25855,7 +25981,7 @@ index 4e29949..546d293 100644
      }
  
 diff --git a/src/game/spectrum.c b/src/game/spectrum.c
-index 29f223d..ca90815 100644
+index 29f223d..b4eb446 100644
 --- a/src/game/spectrum.c
 +++ b/src/game/spectrum.c
 @@ -46,14 +46,26 @@ s32 sub_GAME_7F0D37DC(u32 cycles, u8 specA, u8 port, u8 value);
@@ -25885,8 +26011,62 @@ index 29f223d..ca90815 100644
  
  u8 spec_kempston_joystick_state = 0;
  
+@@ -1003,7 +1015,7 @@ void spectrum_hw_emulation(void)
+             * instruction is fetched from the location designated by
+             * the new contents of the PC. The jump is measured from the
+             * address of the instruction op code and contains a range of
+-            * –126 to +129 bytes. The assembler automatically adjusts for
++            * -126 to +129 bytes. The assembler automatically adjusts for
+             * the twice incremented PC. If the result of decrementing leaves
+             * B with a zero value, the next instruction executed is taken
+             * from the location following this instruction.
+@@ -1152,7 +1164,7 @@ void spectrum_hw_emulation(void)
+             * added to PC and the next instruction is fetched from the location
+             * designated by the new contents of the PC. This jump is measured
+             * from the address of the instruction op code and contains a range
+-            * of –126 to +129 bytes. The assembler automatically adjusts for
++            * of -126 to +129 bytes. The assembler automatically adjusts for
+             * the twice incremented PC.
+             */
+             case SPEC_HEX_OP_JR_NN: // 0x18
+@@ -1307,7 +1319,7 @@ void spectrum_hw_emulation(void)
+             * E is added to PC and the next instruction is fetched from the
+             * location designated by the new contents of the PC. The jump is
+             * measured from the address of the instruction op code and contains
+-            * a range of –126 to +129 bytes. The assembler automatically adjusts
++            * a range of -126 to +129 bytes. The assembler automatically adjusts
+             * for the twice incremented PC.
+             */
+             case SPEC_HEX_OP_JR_NZ_NN: // 0x20
+@@ -1614,7 +1626,7 @@ void spectrum_hw_emulation(void)
+             * E is added to PC and the next instruction is fetched from the
+             * location designated by the new contents of the PC. The jump is
+             * measured from the address of the instruction op code and contains
+-            * a range of –126 to +129 bytes. The assembler automatically adjusts
++            * a range of -126 to +129 bytes. The assembler automatically adjusts
+             * for the twice incremented PC.
+             */
+             case SPEC_HEX_OP_JR_Z_NN: // 0x28
+@@ -1879,7 +1891,7 @@ void spectrum_hw_emulation(void)
+             * E is added to PC and the next instruction is fetched from the
+             * location designated by the new contents of the PC. The jump is
+             * measured from the address of the instruction op code and contains
+-            * a range of –126 to +129 bytes. The assembler automatically adjusts
++            * a range of -126 to +129 bytes. The assembler automatically adjusts
+             * for the twice incremented PC.
+             */
+             case SPEC_HEX_OP_JR_NC_NN: // 0x30
+@@ -2073,7 +2085,7 @@ void spectrum_hw_emulation(void)
+             * E is added to PC and the next instruction is fetched from the
+             * location designated by the new contents of the PC. The jump is
+             * measured from the address of the instruction op code and contains
+-            * a range of –126 to +129 bytes. The assembler automatically adjusts
++            * a range of -126 to +129 bytes. The assembler automatically adjusts
+             * for the twice incremented PC.
+             */
+             case SPEC_HEX_OP_JR_C_NN: // 0x38
 diff --git a/src/game/spectrum_hw.h b/src/game/spectrum_hw.h
-index 28f4758..9f13251 100644
+index 28f4758..12f7417 100644
 --- a/src/game/spectrum_hw.h
 +++ b/src/game/spectrum_hw.h
 @@ -1,3 +1,11 @@
@@ -25901,6 +26081,15 @@ index 28f4758..9f13251 100644
  #include <ultra64.h>
  
  /**
+@@ -305,7 +313,7 @@
+ * the operation being performed. For arithmetic operations, this flag 
+ * indicates an overflow condition when the result in the Accumulator is 
+ * greater than the maximum possible number (+127) or is less than the 
+-* minimum possible number (–128). This overflow condition is determined by 
++* minimum possible number (-128). This overflow condition is determined by 
+ * examining the sign bits of the operands.
+ */
+ #define SPEC_FLAG_PARITY_OVERFLOW 0x04
 @@ -795,3 +803,4 @@ struct reg16_2 {
      };
  };
@@ -30029,9 +30218,18 @@ index ea79684..2c9aa86 100644
  
  #endif
 diff --git a/src/snd.c b/src/snd.c
-index 7ade16d..fcc3776 100644
+index 7ade16d..7313dce 100644
 --- a/src/snd.c
 +++ b/src/snd.c
+@@ -266,7 +266,7 @@ void sndHandleEvent(ALSndPlayer *sndp, ALSndpEvent *event) {
+ 
+     do {
+         if (nextState != NULL) {
+-            // NB: soundState is uninitialised on the first pass — original bug, preserved.
++            // NB: soundState is uninitialised on the first pass - original bug, preserved.
+             nextStateEvent.common.state = soundState;
+             nextStateEvent.common.type = event->common.type;
+             nextStateEvent.vol.vol = event->vol.vol;
 @@ -789,6 +789,71 @@ u8 sndGetPlayingState(ALSoundState *state)
      return AL_STOPPED;
  }
