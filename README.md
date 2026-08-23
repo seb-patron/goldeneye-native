@@ -12,8 +12,9 @@ static recompilation step - the binary is the game, built as ordinary C.
 
 All 27 loadable stages boot, render and exit cleanly: 21 load directly, and six are multiplayer-only
 and need two or more players. That is measured across every named stage id, not sampled;
-`tools/stage_census.sh` reproduces it. There are
-no known crashes, hangs, or stages that fail to start or end properly.
+`tools/stage_census.sh` reproduces it. There are no known crashes, hangs, or stages that fail to start or end properly.
+
+MacOS Apple Silicon/X86 install scripts included. Debian implementation is nearly complete, Windows after that. See Roadmap.md for future development and mods.
 
 The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no setup,
 and nine cut during development. Reaching one now prints which stage it is and what is missing, then
@@ -21,7 +22,6 @@ exits. Previously they were worse than useless: two spun at full CPU while ignor
 crashed, and one of those varied between hanging, SIGBUS and SIGSEGV depending on what the heap
 happened to contain. Loading a multiplayer-only stage on its own says so and names the flag, rather
 than reporting it as missing data.
-
 
 Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
 watch renders all five pages. Saves persist.
@@ -41,10 +41,8 @@ Four rendering options are implemented and off by default, since the N64 look is
 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) are still reserved. The game renders at 60 fps with configurable
 resolution and supersampling.
 
-What has not been verified is a full playthrough: combat balance, AI behaviour over time,
-objective completion, and finishing a level end to end. The port renders and reaches a playable
-state everywhere. Whether it plays correctly from start to finish is untested, and the known issue
-below on tick-coupled gameplay is a concrete reason to expect that it does not yet.
+Whether it plays 100% correctly from start to finish is untested, and the known issue
+below on tick-coupled gameplay is a concrete reason to expect that it is not yet feature complete.
 
 That gap is now measurable rather than merely stated. `tools/playtest.py` drives a stage with
 scripted input and reads the machine-readable run state the game emits under `GETV_STATE`:
