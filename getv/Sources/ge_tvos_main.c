@@ -13,6 +13,11 @@
 // Entry comes from libSDL2main.a: its main() calls UIApplicationMain, installs
 // SDLUIKitDelegate, then calls SDL_main below.
 
+/* REG_RIP/REG_PC on glibc's ucontext_t need this defined before any system header. */
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <execinfo.h>
 #include <sys/ucontext.h>
 #include <dlfcn.h>
@@ -83,6 +88,7 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
      * exact, and `sym + off` maps straight onto `otool -tV` output for that offset.
      * Registers are dumped too: the difference between a NULL base, a pointer truncated
      * to 32 bits, and a real overrun is usually visible in them. */
+#if defined(__APPLE__)
     if (uctx) {
         ucontext_t *uc = (ucontext_t *) uctx;
         _STRUCT_ARM_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
@@ -106,6 +112,30 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
                (unsigned long long) __darwin_arm_thread_state64_get_lr(*ss),
                (unsigned long long) __darwin_arm_thread_state64_get_sp(*ss));
     }
+#elif defined(__linux__)
+    /* glibc ucontext_t. Untested -- no Linux machine has run this build (see
+     * docs/PORTING.md section 6). Fault PC only; the register set differs enough
+     * between x86_64 and aarch64 that a full dump isn't worth guessing at here. */
+    if (uctx) {
+        ucontext_t *uc = (ucontext_t *) uctx;
+        void *pc = NULL;
+        Dl_info di;
+#if defined(__x86_64__)
+        pc = (void *) (uintptr_t) uc->uc_mcontext.gregs[REG_RIP];
+#elif defined(__aarch64__)
+        pc = (void *) (uintptr_t) uc->uc_mcontext.pc;
+#endif
+        if (pc && dladdr(pc, &di) && di.dli_sname) {
+            printf("[getv] FAULT PC: %p = %s + %ld   (image %s)\n", pc, di.dli_sname,
+                   (long)((uintptr_t) pc - (uintptr_t) di.dli_saddr),
+                   di.dli_fname ? di.dli_fname : "?");
+        } else if (pc) {
+            printf("[getv] FAULT PC: %p (no symbol)\n", pc);
+        }
+    }
+#else
+    (void) uctx;
+#endif
 
     // What the renderer was executing, if anything. See gfx_pc.c's trace ring.
     { extern void gfx_dump_trace(void); gfx_dump_trace(); }
