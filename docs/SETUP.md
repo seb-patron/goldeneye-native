@@ -478,6 +478,7 @@ python3 ../../tools/uniquify_asset_symbols.py assets/obseg/gun   --recurse
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/prop  --recurse
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup/u
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/stan
 ```
 
 Then, and only then, apply the second patch:
@@ -486,7 +487,7 @@ Then, and only then, apply the second patch:
 git apply ../../getv/patches/0002-assets.patch
 ```
 
-Why it is five invocations rather than one:
+Why it is six invocations rather than one:
 
 - **`chr`, `gun` and `prop` need `--recurse`.** Their models are laid out as
   `<dir>/<name>/Model.c` - 340 props all defining `ModelNode_0x048`, each its own translation
@@ -500,6 +501,12 @@ Why it is five invocations rather than one:
 - **Never run `assets --recurse`.** It prefixes the symbols in `ge_obseg_blobs.c` as well, so they
   no longer match what `assets/obseg/file_resource_table.inc.c` references, and the link fails on
   undefined character models (`CcommguardZ`, `CdjbondZ` and others).
+- **`stan` is easy to leave out and the omission is silent.** Its 29 files ship from the
+  decompilation with Getools' generic names, and nothing else renames them, so without this pass
+  the archive ends up with 29 definitions of `_tile_0`. That is not a link error: duplicate
+  definitions in a static archive are resolved by picking one, so the build succeeds and 28
+  levels quietly bind to another level's collision data. This is the exact fault the whole pass
+  exists to prevent, and it was missing from this list until a contributor pointed it out.
 - **`0002-assets.patch` goes on afterwards.** Run over `assets/font` the tool double-prefixes an
   already-prefixed symbol (`font_fontBankGothic_fontBankGothic_kerning`) while leaving the uses
   alone, which breaks both font translation units. The patch carries the corrected files.
@@ -709,7 +716,7 @@ no objects in /path/to/getv/build-mac/obj -- run './build_mac.sh lib' once first
 ```
 
 ```
-mac libge.a:  32M, 990 members
+mac libge.a:  31M, 974 members
 ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
 mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 18M, arm64)
 ```
@@ -719,7 +726,7 @@ successful link. Warnings reading `was built for newer` are filtered out by the 
 from SDL2 having been compiled with the SDK's default deployment target rather than this build's,
 and the code is arm64 either way.
 
-990 archive members is 992 objects minus the two harness objects, which stay outside the archive
+974 archive members is 976 objects minus the two harness objects, which stay outside the archive
 because they carry `main()` and `SDL_main()` and are the roots the link is discovered from.
 
 Two details worth knowing, because both look like mistakes and are not:
@@ -754,7 +761,7 @@ mac game: 167 built, 1 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
 mac port layer: 23 built, 0 failed
-mac libge.a:  32M, 990 members
+mac libge.a:  31M, 974 members
 ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
 mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 18M, arm64)
 ```
