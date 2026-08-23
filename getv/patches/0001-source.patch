@@ -1489,10 +1489,15 @@ index 3f718f3..71b8414 100644
  #include "game/dyn.h"
  
 diff --git a/src/fr.c b/src/fr.c
-index 07cb48d..8f77833 100644
+index 07cb48d..f4fac29 100644
 --- a/src/fr.c
 +++ b/src/fr.c
-@@ -455,7 +455,8 @@ void video_related_8(void)
+@@ -1,3 +1,4 @@
++#include <stdlib.h>  /* GETV-INSTR: getenv/strtol */
+ #include <ultra64.h>
+ #include "vi.h"
+ #include "fr.h"
+@@ -455,7 +456,8 @@ void video_related_8(void)
  
      if (g_viColorOutputMode != COLORMODE_32BIT)
      {
@@ -1502,6 +1507,64 @@ index 07cb48d..8f77833 100644
      }
      else
      {
+@@ -706,7 +708,21 @@ Gfx *viSetupCurrentPlayerView(Gfx *gdl)
+ 
+     // Create both a floating-point matrix for the CPU side and a fixed-point matrix for the RSP.
+     g_viProjectionMatrix = dynAllocateMatrix();
++#ifdef GE_PORT_NATIVE
++    /* Defined below; declared here because the definition sits with the other vi helpers
++     * and this is the only call. Without the prototype C assumes int and the definition
++     * returning f32 is a conflicting type. */
++    extern f32 gePortFovScale(void);
++    /* GETV_FOV is applied to the argument, not to g_ViBackData->fovy. This call is the only
++     * place the projection matrix is built, and the stored value is read back by
++     * bondview2.c:4398/4402/4414 as viGetFovY() / FOV_Y_F to scale aiming as you zoom.
++     * Scaling the stored value would widen the view and retune aim with it. */
++    guPerspectiveF(g_viProjectionMatrixF, &g_viPerspNorm,
++                   g_ViBackData->fovy * gePortFovScale(), g_ViBackData->aspect,
++                   g_ViBackData->znear, g_ViBackData->zfar, 1.0f);
++#else
+     guPerspectiveF(g_viProjectionMatrixF, &g_viPerspNorm, g_ViBackData->fovy, g_ViBackData->aspect, g_ViBackData->znear, g_ViBackData->zfar, 1.0f);
++#endif
+     guMtxF2L(g_viProjectionMatrixF, g_viProjectionMatrix);
+ 
+     /** 
+@@ -899,6 +915,35 @@ void viSetUseZBuf(s32 usezbuf)
+   g_ViBackData->usezbuf = usezbuf;
+ }
+ 
++#ifdef GE_PORT_NATIVE
++/* GETV_FOV=<n> -- vertical field of view as a percentage of the original, 100 = unchanged.
++ *
++ * The game re-sets the field of view every frame from the player's zoom state
++ * (bondview2.c:3427), so a one-shot override is overwritten immediately. It is applied in
++ * currentPlayerSetPerspective (bondview.c), which is the single point that stores the value
++ * the projection is built from -- there are six callers, and scaling only some of them lets
++ * the others put the unscaled value back.
++ *
++ * What it must not do is change g_ViBackData->fovy itself. Three sites compute
++ * viGetFovY() / FOV_Y_F as a ratio and use it to scale aiming (bondview2.c:4398, 4402,
++ * 4414), which is how the game makes aim finer as you zoom in. Scaling the stored value
++ * would widen the view and quietly retune aim sensitivity with it -- a gameplay change
++ * wearing a cosmetic option's clothes. So the stored value stays exactly as the game set
++ * it, and only the projection matrix sees the multiplier. */
++f32 gePortFovScale(void)
++{
++    static f32 scale = -1.0f;
++    if (scale < 0.0f) {
++        const char *e = getenv("GETV_FOV");
++        s32 pct = (e && *e) ? (s32) strtol(e, NULL, 10) : 100;
++        if (pct < 50) { pct = 50; }
++        if (pct > 160) { pct = 160; }
++        scale = (f32) pct / 100.0f;
++    }
++    return scale;
++}
++#endif
++
+ void viSetFovY(f32 fovy)
+ {
+     g_ViBackData->fovy = fovy;
 diff --git a/src/game/bg.c b/src/game/bg.c
 index 858c35e..59e33c3 100644
 --- a/src/game/bg.c
