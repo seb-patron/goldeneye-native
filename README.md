@@ -249,7 +249,10 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   `LOADTLUT` at all, so those textures are meant to inherit the resident TLUT. The port is not
   dropping anything. What remains unexplained is why the inherited palette is the wrong one here
   and right everywhere else -- Dam draws 500 textures through the same no-TLUT path without
-  trouble.
+  trouble. One further correlation, a lead rather than a cause: the render tile for both bad
+  decodes sits at TMEM word 19. Every other CI decode in Depot is at 0, 64 or 128 and all are
+  correct; Dam uses 0, 8, 32, 64 and 128 across 60 decodes with none wrong, so it is not
+  alignment as such. Nineteen is the only odd tile offset either level produces.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
