@@ -207,6 +207,34 @@ void gePortRenderDisplayList(void *firstGdl)
         }
     }
 
+    /* ---- GETV_STATE=<n> -- machine-readable progress, one line every n frames --------
+     *
+     * The README says a full playthrough is unverified, and it will keep saying so until
+     * something can watch a run and report where it got to. Frames and triangle counts
+     * cannot: they say the renderer is busy, not that Bond reached the objective.
+     *
+     * This prints the things a script can actually assert on -- where each player is, how
+     * many objectives the mission has, their individual statuses, and whether the mission
+     * is complete. Combined with GETV_SCRIPT for input and GETV_EXIT_FRAME for a bounded
+     * run, a level attempt becomes a test with a pass condition rather than a screenshot
+     * someone has to look at.
+     *
+     * Read as plain externs, the same way the pace trace above does it, so no game file is
+     * touched to obtain the measurement. One line, space-separated key=value, so it stays
+     * greppable without a parser. */
+    {
+        static int st = -1;
+        if (st == -1) {
+            const char *e = getenv("GETV_STATE");
+            st = (e && *e) ? atoi(e) : 0;
+            if (st < 0) st = 0;
+        }
+        if (st > 0 && (rendered % st) == 0) {
+            extern void gePortStateDump(int frame);
+            gePortStateDump(rendered);
+        }
+    }
+
     {
         static int trace = -1;
         if (trace == -1) {

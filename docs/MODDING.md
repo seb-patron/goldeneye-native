@@ -127,6 +127,7 @@ stages are multiplayer-only and which were cut. Check it before concluding a sta
 
 | Gate | Effect |
 |---|---|
+| `GETV_STATE=<n>` | Print one machine-readable line every `n` frames: frame, player count, the current player's position, the mission's objective count, each objective's status, and whether the mission is complete. With `GETV_SCRIPT` for input and `GETV_EXIT_FRAME` for a bounded run, this turns a level attempt into a test with a pass condition. Frame and triangle counts cannot do that: they say the renderer is busy, not that Bond reached the objective. |
 | `GETV_EXIT_FRAME=<n>` | End the run after `n` rendered frames and exit cleanly. This is a fixed *frame* count, not a wall-clock timeout, so two runs with the same value do the same amount of work. |
 | `GETV_SHOTFRAME=<n>` | Write a BMP of frame `n`. Costs one `glReadPixels` on exactly one frame; off unless set. |
 | `GETV_SHOTPATH=<path>` | Where that BMP goes. Defaults to `getv_shot.bmp` in the working directory. |

@@ -22926,7 +22926,7 @@ index e5fdbc2..50beb36 100644
      {
          objective_count = objective->menu;
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..4d2c9f7 100644
+index 4ebf14b..54a5302 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -29,6 +29,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
@@ -23137,6 +23137,47 @@ index 4ebf14b..4d2c9f7 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
+@@ -523,3 +686,40 @@ void objectiveTakePictureHandler(void)
+ 
+ 
+ //filebreak
++
++#ifdef GE_PORT_NATIVE
++#include <stdio.h>
++/* GETV_STATE -- one machine-readable line of progress, called by the port each nth frame.
++ *
++ * It lives here rather than in the port layer because the port cannot see struct player or
++ * OBJECTIVESTATUS, and adding game headers to it would tangle the two together for a
++ * diagnostic. The port calls gePortStateDump(frame) through a plain prototype.
++ *
++ * The point is to make a level attempt assertable. Frame counts and triangle counts say the
++ * renderer is busy; they cannot say Bond reached the objective. This prints where each
++ * player is, how many objectives the mission has, each status, and whether the mission is
++ * complete -- which is what a script needs to decide whether a run passed. */
++void gePortStateDump(int frame)
++{
++    s32 i;
++    s32 n = getPlayerCount();
++
++    printf("[getv][state] f=%d players=%d", frame, (int) n);
++    if (g_CurrentPlayer != NULL) {
++        printf(" pos=%.1f,%.1f,%.1f",
++               (double) g_CurrentPlayer->pos.x,
++               (double) g_CurrentPlayer->pos.y,
++               (double) g_CurrentPlayer->pos.z);
++    }
++    printf(" objectives=%d status=", (int) objective_count);
++    if (objective_count <= 0) {
++        printf("-");
++    } else {
++        for (i = 0; i < objective_count && i < OBJECTIVES_MAX; i++) {
++            printf("%d", (int) objectiveStatuses[i]);
++        }
++    }
++    printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
++    fflush(stdout);
++}
++#endif
 diff --git a/src/game/objective_status.h b/src/game/objective_status.h
 index 2e96e4d..69aabe9 100644
 --- a/src/game/objective_status.h
