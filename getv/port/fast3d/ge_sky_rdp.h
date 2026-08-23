@@ -1,4 +1,4 @@
-/* GoldenEye port — decoder for sky.c's hand-assembled RDP triangle commands.
+/* GoldenEye port - decoder for sky.c's hand-assembled RDP triangle commands.
  *
  * GoldenEye's sky is not drawn with F3D vertex/triangle commands. sky.c hand-packs raw
  * RDP triangle commands and passes them through the display list as a run of
@@ -10,13 +10,13 @@
  *
  * All 88 G_RDPHALF sites in the tree are in sky.c.
  *
- * The opcodes are not literals in gbi.h. They are G_IMMFIRST-11/-12/-13 — negative ints
+ * The opcodes are not literals in gbi.h. They are G_IMMFIRST-11/-12/-13 - negative ints
  * that only become 0xB4 / 0xB3 / 0xB2 after u8 truncation, so grepping gbi.h for "0xB4"
  * finds nothing.
  *
  * G_TEXRECT is not affected and must not be routed here: gfx_pc.c already consumes its
  * two trailing words with ++cmd, so those halves never reach the opcode switch. sky.c's
- * are standalone commands (w0 = 0xB4000000 — opcode in the top byte, rest zero).
+ * are standalone commands (w0 = 0xB4000000 - opcode in the top byte, rest zero).
  *
  * The packing is the stock RDP layout:
  *   word0 = [63:56]=cmd  [55]=dir  [53:51]=level  [50:48]=tile  [47:32]=YL
@@ -46,12 +46,12 @@
  *   YH=10.00  YM=YL=212.75   XH=319.75 DxHDy=0   XM=0 DxMDy=0   XL=0
  * The major edge is the vertical line x=319.75; minor edge 1 is the vertical line x=0;
  * minor edge 2 has zero height (YM==YL). Every scanline from y=10 to y=212.75 is filled
- * from x=0 to x=319.75 — a full-width rectangle, which matches the full gradient across
+ * from x=0 to x=319.75 - a full-width rectangle, which matches the full gradient across
  * the upper frame that the retail screenshot shows.
  *
- * An earlier decoder reconstructed three vertices from those edges —
+ * An earlier decoder reconstructed three vertices from those edges -
  *   (XH,YH), (XL,YM), (XH+DxHDy*(YL-YH),YL)
- * — which for this command is (319.75,10) (0,212.75) (319.75,212.75), exactly half the
+ * - which for this command is (319.75,10) (0,212.75) (319.75,212.75), exactly half the
  * rectangle. That, and not any missing second mechanism, is why DAM rendered one flat
  * triangle where retail has a full sky. The 65 Gfx commands the cloud path emits are 25
  * state-setup commands plus this one command's 40 halves, not a separate path.

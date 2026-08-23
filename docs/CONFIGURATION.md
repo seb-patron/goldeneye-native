@@ -72,7 +72,7 @@ the menu bar and cannot be moved.
 `4:3`, `16:9` or `auto`. `43` and `169` are accepted as aliases. No default.
 
 Read the scope carefully. The renderer derives its aspect ratio from the actual framebuffer
-dimensions, so it does not need an aspect setting — it needs a correctly shaped window. This key
+dimensions, so it does not need an aspect setting - it needs a correctly shaped window. This key
 therefore does two things and nothing else: if `resolution` is unset it picks a default window
 shape (`1280x960` for 4:3, `1600x900` for 16:9), and if `resolution` is set it checks the window
 shape against the requested aspect and prints a note if they disagree by more than 3%. An explicit
@@ -104,8 +104,8 @@ each other for anything more precise than "it looks better".
 
 Default `three-point`.
 
-Two independent mechanisms exist behind this key — the renderer's `configFiltering` and the
-`GETV_POINT_FILTER` gate — and they do not mean the same thing. The key sets both consistently so
+Two independent mechanisms exist behind this key - the renderer's `configFiltering` and the
+`GETV_POINT_FILTER` gate - and they do not mean the same thing. The key sets both consistently so
 they cannot disagree.
 
 ### `framerate`
@@ -119,15 +119,15 @@ every frame-counted system runs at double speed, with nothing to clamp or compla
 
 **`30` is the more faithful setting for gameplay, and `60` the smoother one.** They differ in more
 than frame rate. Only 13 of the 135 translation units under `src/game` scale by
-`g_GlobalTimerDelta` — animation, recoil, sway, camera. The other 122 advance once per update, so
+`g_GlobalTimerDelta` - animation, recoil, sway, camera. The other 122 advance once per update, so
 an enemy's rate of fire is a frame count rather than a duration (`chraction.c:6694` fires on
 `firecount % automaticFiringRate`). Hardware ran those at the N64's real 20 to 30 fps; at a locked
 60 they run about twice as fast, which shows as turrets and guards firing too quickly, ammunition
 draining too quickly, and AI stepping faster than it was tuned for.
 
 `framerate=30` therefore also sets `GETV_TICKFIELDS=2`, which makes each update report two elapsed
-fields. Game time stays real — thirty updates a second times two fields is sixty fields a second,
-so animation and the mission clock are unchanged — while the frame-counted systems drop to 30 Hz,
+fields. Game time stays real - thirty updates a second times two fields is sixty fields a second,
+so animation and the mission clock are unchanged - while the frame-counted systems drop to 30 Hz,
 close to the cadence the game was built around. Earlier builds capped the renderer without this and
 ran at half speed; that was a defect, not an inherent property, and the warning that described it
 as inherent is gone.
@@ -153,7 +153,7 @@ Selects one of Rare's eight control styles, by number or by name:
 | `2.3` `domino` | `2.4` `goodhead` | two controllers |
 
 `2.2 galore` and `2.4 goodhead` are the true dual-analog layouts. The port's built-in default is
-`2.2`, and the written template sets `2.2` as well — one physical gamepad is presented as N64
+`2.2`, and the written template sets `2.2` as well - one physical gamepad is presented as N64
 ports 0 and 1, left stick moving and right stick looking. Rare's own shipped default is `1.1`.
 
 Selecting a two-controller style prints a note. With three or four players the game forces
@@ -182,7 +182,7 @@ Each accepts one of: `a`, `b`, `x`, `y`, `lb`, `rb`, `lt`, `rt`, `start`, `back`
 | `pause` | `start` |
 
 **Button names are positional, not label-based.** `a` always means the physically bottom face
-button on the pad, whatever that button is printed with — SDL maps the bottom face button to its
+button on the pad, whatever that button is printed with - SDL maps the bottom face button to its
 `A` slot on every controller it knows, including Nintendo's, where the same button is labelled
 `B`. The `gamepad` profile above affects prompts only, so it cannot make `a` refer to a different
 physical button.
@@ -190,7 +190,7 @@ physical button.
 `fire = rt` / `aim = lt` is the modern-shooter convention rather than a settled fact; GoldenEye's
 retail scheme has neither. Swapping them is one line: `fire = lt`, `aim = rt`.
 
-`weapon_prev` defaults to `none` deliberately. GoldenEye has no back-cycle button — the retail
+`weapon_prev` defaults to `none` deliberately. GoldenEye has no back-cycle button - the retail
 gesture is hold-inventory plus tap-fire. The synthesised single-button version is faithful to that
 gesture but has not been verified against real hardware, so it stays opt-in.
 
@@ -210,7 +210,7 @@ which are applied downstream in N64 counts and are left alone.
 `0` or `1`. Also spelled `invertlook`.
 
 **Unset is not the same as `0`.** When the key is absent nothing is written, and the game's own
-Look Up/Down option in the save file decides — which is retail behaviour. Setting `0` is an
+Look Up/Down option in the save file decides - which is retail behaviour. Setting `0` is an
 explicit override to non-inverted. Setting `1` forces inversion.
 
 The written template sets `1`, and that is a measured decision rather than a preference. Retail's
@@ -230,8 +230,8 @@ A comma-separated list of named cheats. See [`CHEATS.md`](CHEATS.md).
 `8` or `64`. Multiplayer character count. `8` is the shipped default and does nothing. `64`
 unlocks the full character list.
 
-`33` is refused rather than faked. The 33-character roster is derived from the save file — it
-unlocks by completing Cradle on Agent — and the character-select screen recomputes it every frame
+`33` is refused rather than faked. The 33-character roster is derived from the save file - it
+unlocks by completing Cradle on Agent - and the character-select screen recomputes it every frame
 from that save for any value other than 64. Writing 33 would be overwritten on the first frame and
 the setting would appear to do nothing.
 
@@ -266,7 +266,7 @@ debug menu.
 
 Present only to explain that it does not work as a runtime setting. The leftover debug menu is
 already compiled into every binary, but its trigger is gated on a macro that changes code
-generation in two places — one of which repurposes the Start button. Setting the key prints the
+generation in two places - one of which repurposes the Start button. Setting the key prints the
 rebuild command instead:
 
 ```bash
@@ -276,7 +276,7 @@ GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app
 Note `lib`, not `port`: it is a game-object flag. The menu's level select does not work either;
 those entries are gutted no-ops. Use `GETV_STAGE=<n>` to pick a level.
 
-## Reserved keys — parsed but inert
+## Reserved keys - parsed but inert
 
 The keys below validate, export their gate, and are then consumed by nothing. They exist so the
 option surface is stable before the features land, and so a configuration written today keeps
@@ -289,9 +289,9 @@ output destroys the ability to check the port is right. Enhancements are options
 | Key | Accepts | Intended effect |
 |---|---|---|
 | `preset` | `faithful` \| `enhanced` | One switch for the whole set below. |
-| `depth_bits` | 16–32, clamped | Wider depth buffer. N64 z-fighting is a 16-bit Z limit, not an aesthetic. |
-| `anisotropic` | 0–16, clamped | Anisotropic filtering. |
-| `msaa` | 0–8, clamped | Multisampling. The N64 had anti-aliasing; this port does not. |
+| `depth_bits` | 16-32, clamped | Wider depth buffer. N64 z-fighting is a 16-bit Z limit, not an aesthetic. |
+| `anisotropic` | 0-16, clamped | Anisotropic filtering. |
+| `msaa` | 0-8, clamped | Multisampling. The N64 had anti-aliasing; this port does not. |
 | `mipmaps` | 0 \| 1 | Mipmapping and LOD bias. |
 | `fog_per_pixel` | 0 \| 1 | Per-pixel fog. N64 fog is per-vertex. |
 | `muzzle_lights` | 0 \| 1 | Dynamic lighting on muzzle flashes. |

@@ -1,22 +1,22 @@
-/* GoldenEye tvOS port — the audio manager, replaced.
+/* GoldenEye tvOS port - the audio manager, replaced.
  *
  * libultra's AL audio library (src/libultra/audio + Rare's src/libultrare/audio)
- * compiles natively and is linked for real — see build.sh's audio_sources(). So
+ * compiles natively and is linked for real - see build.sh's audio_sources(). So
  * alInit / alAudioFrame / alSynAllocVoice / alHeapInit / alLink and the rest are the
  * game's own code, not stubs, and must not be defined here: they would collide.
  *
  * What is left for the port is the two ends of that library:
  *
- *   below it — the RSP that executed the command list. That is getv/port/audio/
+ *   below it - the RSP that executed the command list. That is getv/port/audio/
  *              ge_mixer.c, wired in by <PR/abi.h> under -DGE_AUDIO_MIXER.
- *   above it — src/audi.c, the audio manager. That file is pure N64: an audio
+ *   above it - src/audi.c, the audio manager. That file is pure N64: an audio
  *              thread, OSScTask scheduling, AI double-buffering, and a 64-entry DMA
  *              cache that streamed sample bytes off the cartridge. None of it
  *              survives a port, so audi.c is not compiled and this file replaces it.
  *
  * The replacement is much smaller than the original for one reason: with the mixer
  * in place, alAudioFrame() no longer builds a command list for someone else to run
- * later — every a* macro executes immediately, so alAudioFrame() returns with the
+ * later - every a* macro executes immediately, so alAudioFrame() returns with the
  * samples already in outBuf. There is nothing to schedule and nothing to wait for.
  */
 #include <stdio.h>
@@ -37,7 +37,7 @@
 #define GE_OUTPUT_RATE      22050
 
 /* audi.c sized a frame as (outputRate << FRAMES_PER_FIELD_AS_POW2) / MAYBE_FRAME_RATE
- * rounded up to 16 — i.e. two fields' worth at 60 Hz. Same arithmetic here. */
+ * rounded up to 16 - i.e. two fields' worth at 60 Hz. Same arithmetic here. */
 #define GE_FRAME_SAMPLES    (((GE_OUTPUT_RATE * 2 / 60) + 15) & ~15)   /* 736 */
 #define GE_MIN_FRAME        (GE_FRAME_SAMPLES - 16)
 #define GE_MAX_FRAME        (GE_FRAME_SAMPLES + 0x25 + 16)             /* + EXTRA_SAMPLES */
@@ -71,7 +71,7 @@ static unsigned long long geSubmitted = 0;
 static Uint32 geClockStart = 0;
 
 /* Rare's reverb configuration, copied verbatim out of src/audi.c (CUSTOM_FX_PARAMS_N).
- * music.c asks for AL_FX_CUSTOM but never fills in ALSynConfig.params — on the N64
+ * music.c asks for AL_FX_CUSTOM but never fills in ALSynConfig.params - on the N64
  * audi.c supplied them, so the port has to. Without this alFxNew() reads param[0] off
  * a null pointer.
  *
@@ -442,7 +442,7 @@ static void geWavWrite(const s16 *buf, s32 frames)
  * data lived on the cartridge and had to be pulled into RAM a chunk at a time, and
  * the return value was the RAM address the RSP should read from.
  *
- * Here every sample byte is already in memory — the .tbl banks are linked-in data and
+ * Here every sample byte is already in memory - the .tbl banks are linked-in data and
  * gePortAudioBankNew() has already turned each ALWaveTable.base into a real pointer
  * into them. So the "DMA" is the identity, and the DMA cache disappears entirely.
  *
@@ -473,7 +473,7 @@ void amCreateAudioManager(ALSynConfig *alconf)
     alconf->outputRate = GE_OUTPUT_RATE;
 
     /* music.c leaves params unset and maxFXbusses uninitialised. maxFXbusses is
-     * harmless — ge's alSynNew hardcodes maxAuxBusses = 1 and never reads it — but
+     * harmless - ge's alSynNew hardcodes maxAuxBusses = 1 and never reads it - but
      * params is dereferenced immediately by alFxNew(). */
     if (alconf->fxType == AL_FX_CUSTOM) {
         alconf->params = geCustomFxParams;

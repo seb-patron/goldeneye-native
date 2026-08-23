@@ -17,7 +17,7 @@ a clean checkout links against 25 symbols that were never written to disk. The
 failure is a wall of undefined-symbol errors at link time with nothing earlier
 in the build to explain them.
 
-The offsets and sizes in those rows are correct — every one of the 25 extracts
+The offsets and sizes in those rows are correct - every one of the 25 extracts
 byte-for-byte from an unmodified NTSC ROM. Only the flag is wrong for our
 purposes. So flip it, rather than carrying 5 MB of ROM-derived blobs in git or
 asking anyone to hand-extract them.
@@ -35,7 +35,7 @@ TARGET = "assets/obseg/bg/"
 def main() -> int:
     if not CSV.is_file():
         sys.stderr.write(
-            f"{CSV} not found — run this from the decomp root (vendor/ge-decomp).\n"
+            f"{CSV} not found - run this from the decomp root (vendor/ge-decomp).\n"
         )
         return 1
 
@@ -65,7 +65,7 @@ def main() -> int:
     total = changed + already
     print(f"{CSV}: {total} background rows, {changed} switched on, {already} already on")
     if not total:
-        sys.stderr.write(f"no rows matched {TARGET} — is this the right filelist?\n")
+        sys.stderr.write(f"no rows matched {TARGET} - is this the right filelist?\n")
         return 1
     return 0
 

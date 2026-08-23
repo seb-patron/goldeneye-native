@@ -1,4 +1,4 @@
-# GoldenEye decomp changes — the only copy that survives a re-clone
+# GoldenEye decomp changes - the only copy that survives a re-clone
 
 `vendor/` is gitignored (see `.gitignore`), so **every change the port makes to
 `vendor/ge-decomp` is untracked**. Re-cloning or resetting the decomp discards all of it.
@@ -13,7 +13,7 @@ There are two, split by *when* they can be applied rather than by subject.
 | `0001-source.patch` | 1.4 MB, 140 files | `src/` (131), `include/` (8), `tools/` (1) | immediately after cloning the decomp |
 | `0002-assets.patch` | 212 KB, 8 files | generated asset sources | at the end of the asset pipeline |
 
-The split exists because the eight files in `0002` do not exist in a fresh decomp — they are
+The split exists because the eight files in `0002` do not exist in a fresh decomp - they are
 produced from the ROM by the pipeline in `docs/SETUP.md` section 3.5. Applying it early fails,
 and applying it before `uniquify_asset_symbols.py` gets the font symbols double-prefixed.
 
@@ -32,7 +32,7 @@ git apply ../../getv/patches/0002-assets.patch
 ## Refresh (before any commit that touches the decomp)
 
 Each patch must be regenerated over its own paths. A bare `git diff` would sweep the entire
-extracted asset tree into `0001` — hundreds of megabytes of ROM-derived data.
+extracted asset tree into `0001` - hundreds of megabytes of ROM-derived data.
 
 ```bash
 cd vendor/ge-decomp
@@ -45,6 +45,6 @@ git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c 
 
 ## What is deliberately not in here
 
-Generated data — the audio segment, the obseg blobs, the animation blobs, the images segment,
+Generated data - the audio segment, the obseg blobs, the animation blobs, the images segment,
 the per-model `Model.c` files. They are large, derived from the ROM, and reproducible from
 `tools/` and `scripts/`; see `docs/SETUP.md` section 3.5. **Never commit ROM-derived data.**

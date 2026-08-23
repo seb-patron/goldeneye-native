@@ -13,7 +13,7 @@ Sources and full texts: `docs/research/MGB64_MINING.md` §5, `docs/research/GOLD
 
 | path | origin | notes |
 |---|---|---|
-| `fast3d/gfx_pc.c`, `gfx_opengl.c`, `gfx_cc.c`, `gfx_sdl2.c`, headers | **sm64ex**, which took it from **`Emill/n64-fast3d-engine`** | licence contested — see §2 |
+| `fast3d/gfx_pc.c`, `gfx_opengl.c`, `gfx_cc.c`, `gfx_sdl2.c`, headers | **sm64ex**, which took it from **`Emill/n64-fast3d-engine`** | licence contested - see §2 |
 | `fast3d/ge_sky_rdp.{c,h}` | ours | decodes GE's hand-built RDP triangles from `sky.c`'s `G_RDPHALF_*` pairs |
 | `audio/ge_mixer.c` | ours, built against libultra's AL semantics | `aPoleFilter` derived from GE's own `init_lpfilter` coefficients |
 | `src/**`, `mac/**` | ours | tvOS/macOS harness, input, asset bridge, render loop |
@@ -21,13 +21,13 @@ Sources and full texts: `docs/research/MGB64_MINING.md` §5, `docs/research/GOLD
 Anything adapted from another project must record repo, commit and file both at the
 adaptation site and in this document.
 
-## 2. The Fast3D licence question — settled as to fact, open as to consequence
+## 2. The Fast3D licence question - settled as to fact, open as to consequence
 
 `Emill/n64-fast3d-engine` has never been MIT. This is established from its own history:
 
 - `LICENSE.txt` has exactly four commits.
 - In the initial commit `a99492dd` (2020-04-24), condition 2 read `Redistributions in binary
-  form are not allowed.` — a flat ban.
+  form are not allowed.` - a flat ban.
 - Commit `881eb68b` (2021-10-26, *"Updating license"*) changed one line only, adding the
   carve-out *"except in cases where the binary contains no assets you do not have the right
   to distribute"*.
@@ -44,7 +44,7 @@ Two downstream projects label the same lineage differently:
   reading it as custom BSD-2-Clause with a binary-redistribution restriction.
 
 Our own lineage is the stricter one. We descend from sm64ex, which ships no root licence and
-reproduces the Emill notice in exactly one place — `src/pc/README-n64-fast32-engine.md` — in
+reproduces the Emill notice in exactly one place - `src/pc/README-n64-fast32-engine.md` - in
 the pre-2021 form, with the flat binary ban and no asset carve-out. The strict reading is
 therefore not merely mgb64's opinion; it is the notice our own upstream ships.
 
@@ -52,7 +52,7 @@ What this does not settle: whether our Fast3D is closer to Emill's original or t
 libultraship's rewrite, and what either permits. That requires a human decision. Do not
 publish `getv/port/fast3d/` on the assumption that it is MIT.
 
-## 3. Quarantine — do not take code from these
+## 3. Quarantine - do not take code from these
 
 | project | licence | status |
 |---|---|---|

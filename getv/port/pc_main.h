@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port — Fast3D's window backend calls back into the game to shut
+/* GoldenEye tvOS port - Fast3D's window backend calls back into the game to shut
  * down (e.g. when the OS asks the app to quit). sm64ex declares these in
  * src/pc/pc_main.h; GoldenEye has no equivalent, so the port owns them.
  * Implemented in port/src/port_support.c. */

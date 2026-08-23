@@ -1,4 +1,4 @@
-/* GoldenEye port — where the host keeps user files, and how to create a directory.
+/* GoldenEye port - where the host keeps user files, and how to create a directory.
  *
  * Why this file exists.
  *

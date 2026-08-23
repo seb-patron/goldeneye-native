@@ -1,4 +1,4 @@
-/* ge_config.c — the user configuration layer.
+/* ge_config.c - the user configuration layer.
  *
  * Why this exists, and why it looks like this
  * -------------------------------------------
@@ -41,7 +41,7 @@
  * -----------
  *   # comment              ; also a comment
  * key = value            (whitespace around either side is trimmed)
- * GETV_ANYTHING = value  (raw escape hatch — sets that gate directly)
+ * GETV_ANYTHING = value  (raw escape hatch - sets that gate directly)
  *
  * No sections, no quoting, no line continuation. A config file that users hand-edit
  * should be hard to get subtly wrong; an unknown key is reported on stdout rather than
@@ -67,7 +67,7 @@ int ge_config_controls = -1;
  * port/src/port_support.c; this file only assigns to it. */
 extern unsigned int configFiltering;   /* 0 = nearest, 1 = bilinear, 2 = three-point */
 
-/* Rare's own leftover position readout. src/game/debugmenu_handler.c:1018 — a
+/* Rare's own leftover position readout. src/game/debugmenu_handler.c:1018 - a
  * three-line exported setter for `g_DebugManPos` (a plain s32 in BSS at :266),
  * whose only other writers are the debug menu's own toggle (:628) and this setter.
  * Setting it once here therefore sticks. bondview2.c:10367 then draws room id,
@@ -79,7 +79,7 @@ extern unsigned int configFiltering;   /* 0 = nearest, 1 = bilinear, 2 = three-p
 extern void set_debug_testingmanpos_flag(int flag);
 
 /* ------------------------------------------------------------------------- *
- * Named cheats — the game's own cheat system, exposed by name.
+ * Named cheats - the game's own cheat system, exposed by name.
  *
  * These are not GameShark codes, and the difference matters.
  *
@@ -96,22 +96,22 @@ extern void set_debug_testingmanpos_flag(int flag);
  *
  * exactly, gaps included: 0x80069650 is the retail base of `g_CheatPlayerTextRelated[]`
  * (src/game/cheat.c:26). This checks out against src/bondconstants.h:1249 on nine values
- * — Invincibility=2, AllGuns=3, LineMode=7, 2xHealth=8, Invisibility=0xA,
- * InfiniteAmmo=0xB, DKMode=0xC, TinyBond=0xE, Paintball=0xF — and every skipped address
+ * - Invincibility=2, AllGuns=3, LineMode=7, 2xHealth=8, Invisibility=0xA,
+ * InfiniteAmmo=0xB, DKMode=0xC, TinyBond=0xE, Paintball=0xF - and every skipped address
  * lands on an enum member the published code lists do not name (CHEAT_MAXAMMO,
  * CHEAT_DEBUG_UNK5, CHEAT_DEACTIVATE_INVINCIBILITY, CHEAT_2X_ARMOR,
  * CHEAT_EXTRA_WEAPONS), which a coincidence would not reproduce.
  *
  * So the useful cheats on that list are the game's own cheat flags, and they can be set
  * by name. That is layout-independent, ASLR-proof, survives every relink and recompile,
- * and stays correct under mods that move the array — none of which an address list can
+ * and stays correct under mods that move the array - none of which an address list can
  * do.
  *
  * Why a direct array write and not cheatButtonTurnOnCheatForPlayers(): that function
  * (cheat.c:952) reads g_CheatInfo, calls getPlayerCount() and set_cur_player(), and
  * dispatches a per-cheat switch. None of that is safe from main(), which runs before any
  * player exists. It is also unnecessary, because the consumers do not read a cached copy
- * — they call cheatIsActive() live, per use (explosion.c:2025 for paintball; chr.c:2188,
+ * - they call cheatIsActive() live, per use (explosion.c:2025 for paintball; chr.c:2188,
  * 2208, 2825 and chr_b.c:41 for DK mode). cheatIsActive() (cheat.c:1677) is nothing but
  * `(g_CheatPlayerTextRelated[cheat] >> get_cur_playernum()) & 1`. Setting the bits
  * directly at startup therefore reaches every one of those call sites, and for anything
@@ -120,7 +120,7 @@ extern void set_debug_testingmanpos_flag(int flag);
  *
  * What this does not do. A flag write alone is not enough for most cheats: `line_mode`
  * set this way produces a frame byte-identical to baseline. The rule comes from
- * enumerating every live consumer in the tree — `grep -rE "cheatIsActive\(CHEAT_" src` —
+ * enumerating every live consumer in the tree - `grep -rE "cheatIsActive\(CHEAT_" src` -
  * which returns exactly five:
  *
  * CHEAT_DK_MODE chr.c:2188,2208,2825 chr_b.c:41,43
@@ -136,7 +136,7 @@ extern void set_debug_testingmanpos_flag(int flag);
  * Those five, plus CHEAT_EXTRA_MP_CHARS (whose entire switch arm is one assignment this
  * file can make itself), are marked `live = 1` and take effect from the config file
  * immediately. Every other cheat's effect lives in the turn-on switch
- * (cheat.c:1084-1445) — granting weapons, multiplying health — which needs a player
+ * (cheat.c:1084-1445) - granting weapons, multiplying health - which needs a player
  * context that does not exist at main() time. For those, the flag is set, which is real
  * and which the game's own UI honours, and the log says so. Nothing is silently
  * half-applied.
@@ -156,7 +156,7 @@ extern void set_debug_testingmanpos_flag(int flag);
 extern unsigned char g_CheatPlayerTextRelated[];  /* cheat.c:26, u8[CHEAT_INVALID+1] */
 extern int num_chars_selectable_mp;               /* front.c:573, s32, initialised to 8 */
 
-#define GE_CHEAT_MAX_ID 34   /* CHEAT_2X_LASER — the last gameplay cheat we expose */
+#define GE_CHEAT_MAX_ID 34   /* CHEAT_2X_LASER - the last gameplay cheat we expose */
 
 static const struct { const char *name; unsigned char id; unsigned char live; }
 GE_CHEATS[] = {
@@ -281,7 +281,7 @@ static void key_resolution(const char *v, int over)
 static void key_aspect(const char *v, int over)
 {
     /* gfx_pc.c:1468 derives the aspect from the actual framebuffer dimensions
-     * (`gfx_adjust_x_for_aspect_ratio`), so the renderer needs no aspect setting — it
+     * (`gfx_adjust_x_for_aspect_ratio`), so the renderer needs no aspect setting - it
      * needs a correctly-shaped window. This key therefore picks a default window shape
      * and validates any explicit `resolution` against it. It does not introduce a
      * second, independent aspect control; two of those would aspect-correct twice,
@@ -293,7 +293,7 @@ static void key_aspect(const char *v, int over)
  else if (strcmp(v, "16:9") == 0 || strcmp(v, "169") == 0) { aw = 16; ah = 9;  }
  else if (strcmp(v, "auto") == 0)                           { return; }
  else {
- ge_err("aspect=\"%s\" — only 4:3, 16:9 and auto are supported%s", v, "");
+ ge_err("aspect=\"%s\" - only 4:3, 16:9 and auto are supported%s", v, "");
  return;
     }
  put("GETV_ASPECT", (aw == 4) ? "4:3" : "16:9", over);
@@ -345,7 +345,7 @@ static void key_framerate(const char *v, int over)
      * still reaches gfx_sdl2.c:240 untouched, so a diagnostic run can still ask for
      * wrong-but-informative behaviour. */
  if (n > 60) {
- ge_err("framerate=%s is NOT SUPPORTED and has been ignored.\n""GoldenEye's timestep is whole video frames, so running ""above 60 does not\n""make the game smoother — it makes the game FASTER. ""Fire rates, physics,\n""animation and the mission clock all scale with the ""render rate. Real high-\n""refresh support needs simulation/render decoupling, ""which this build does\n""not have. Supported values: 30, 50, 60, or off%s", v, "");
+ ge_err("framerate=%s is NOT SUPPORTED and has been ignored.\n""GoldenEye's timestep is whole video frames, so running ""above 60 does not\n""make the game smoother - it makes the game FASTER. ""Fire rates, physics,\n""animation and the mission clock all scale with the ""render rate. Real high-\n""refresh support needs simulation/render decoupling, ""which this build does\n""not have. Supported values: 30, 50, 60, or off%s", v, "");
  return;
     }
  if (n != 30 && n != 50 && n != 60) {
@@ -386,7 +386,7 @@ static void key_supersample(const char *v, int over)
 {
  int n = atoi(v);
  if (n != 1 && n != 2) {
- ge_err("supersample=%s — only 1 and 2 are supported%s", v, "");
+ ge_err("supersample=%s - only 1 and 2 are supported%s", v, "");
  return;
     }
     /* Not a neutral speed knob: it changes the framebuffer size and therefore the heap
@@ -413,7 +413,7 @@ static void key_filtering(const char *v, int over)
  configFiltering = 2;   /* what the N64 RDP actually did */
  put("GETV_POINT_FILTER", "0", over);
     } else {
- ge_err("filtering=\"%s\" — expected point, bilinear or three-point%s", v, "");
+ ge_err("filtering=\"%s\" - expected point, bilinear or three-point%s", v, "");
     }
 }
 
@@ -434,7 +434,7 @@ static void key_gamepad(const char *v, int over)
  put("GETV_GAMEPAD", v, over);
  return;
     }
- ge_err("gamepad=\"%s\" — expected auto, xbox, playstation, switch or generic%s",
+ ge_err("gamepad=\"%s\" - expected auto, xbox, playstation, switch or generic%s",
  v, "");
 }
 
@@ -457,7 +457,7 @@ static int is_bind_value(const char *v)
 static void key_bind(const char *gate, const char *key, const char *v, int over)
 {
  if (is_bind_value(v)) { put(gate, v, over); return; }
- ge_err("%s=\"%s\" — expected a/b/x/y/lb/rb/lt/rt/start/back/none", key, v);
+ ge_err("%s=\"%s\" - expected a/b/x/y/lb/rb/lt/rt/start/back/none", key, v);
 }
 
 static void key_deadzone(const char *v, int over)
@@ -485,10 +485,10 @@ static void key_invert_look(const char *v, int over)
      * unset indistinguishable and silently break the in-game watch option. */
  if (is_true(v))       { put("GETV_INVERTLOOK", "1", over); }
  else if (is_false(v)) { put("GETV_INVERTLOOK", "0", over); }
- else                  { ge_err("invert_look=\"%s\" — expected 0/1%s", v, ""); }
+ else                  { ge_err("invert_look=\"%s\" - expected 0/1%s", v, ""); }
 }
 
-/* The 8 styles, in CONTROLLER_CONFIG_* order — src/bondconstants.h:1337-1364 and the
+/* The 8 styles, in CONTROLLER_CONFIG_* order - src/bondconstants.h:1337-1364 and the
  * menu table at src/game/front.c:726-735, which also supplies the controller count. */
 static const struct { const char *num; const char *name; int pads; } GE_CONTROL_STYLES[8] = {
     { "1.1", "honey",     1 },
@@ -518,7 +518,7 @@ static void key_controls(const char *v, int over)
  return;
         }
     }
- ge_err("controls=\"%s\" — expected one of 1.1/honey 1.2/solitaire 1.3/kissy ""1.4/goodnight 2.1/plenty 2.2/galore 2.3/domino 2.4/goodhead%s", v, "");
+ ge_err("controls=\"%s\" - expected one of 1.1/honey 1.2/solitaire 1.3/kissy ""1.4/goodnight 2.1/plenty 2.2/galore 2.3/domino 2.4/goodhead%s", v, "");
 }
 
 static void key_cheats(const char *v, int over)
@@ -538,7 +538,7 @@ static void key_cheats(const char *v, int over)
  if (strcmp(n, GE_CHEATS[i].name) == 0) { hit = i; break; }
         }
  if (hit < 0) {
- ge_err("cheats: unknown cheat \"%s\" — run --list-cheats for the full set%s",
+ ge_err("cheats: unknown cheat \"%s\" - run --list-cheats for the full set%s",
  n, "");
  continue;
         }
@@ -548,17 +548,17 @@ static void key_cheats(const char *v, int over)
  applied++;
 
  if (GE_CHEATS[hit].id == 1) {
-            /* CHEAT_EXTRA_MP_CHARS. Its switch arm is one line — front.c:4428's
-             * unlock_all_mp_chars(), which just sets num_chars_selectable_mp = 0x40 —
+            /* CHEAT_EXTRA_MP_CHARS. Its switch arm is one line - front.c:4428's
+             * unlock_all_mp_chars(), which just sets num_chars_selectable_mp = 0x40 -
              * so we can do it here and skip the unsafe call entirely.
              * 0x40 is sticky: front.c:5327 re-derives the roster every frame on the
              * character-select screen but guards the whole block with
              * `if (num_chars_selectable_mp != 0x40)`, so 0x40 short-circuits it
-             * permanently. 0x21 would not stick — see key_roster(). */
+             * permanently. 0x21 would not stick - see key_roster(). */
  num_chars_selectable_mp = 0x40;
         } else if (!GE_CHEATS[hit].live) {
  deferred++;
- printf("[getv][config] cheats: \"%s\" — flag SET, but this cheat has no live ""cheatIsActive() consumer: its effect is applied once inside the ""turn-on switch (cheat.c:1084-1445), which needs a player context ""that does not exist at startup. Toggle it in-game for the effect.\n", n);
+ printf("[getv][config] cheats: \"%s\" - flag SET, but this cheat has no live ""cheatIsActive() consumer: its effect is applied once inside the ""turn-on switch (cheat.c:1084-1445), which needs a player context ""that does not exist at startup. Toggle it in-game for the effect.\n", n);
         }
     }
  if (applied > 0) {
@@ -574,7 +574,7 @@ static void key_roster(const char *v, int over)
         /* Same mechanism as cheats=extra_mp_chars, and sticky for the same reason. */
  num_chars_selectable_mp = 0x40;
  g_CheatPlayerTextRelated[1] = GE_CHEAT_ALL_PLAYERS;
- printf("[getv][config] roster=64 — full multiplayer character list ""(CHEAT_EXTRA_MP_CHARS, front.c:4428).\n");
+ printf("[getv][config] roster=64 - full multiplayer character list ""(CHEAT_EXTRA_MP_CHARS, front.c:4428).\n");
  return;
     }
  if (n == 8) { return; }   /* the shipped default; nothing to do */
@@ -584,16 +584,16 @@ static void key_roster(const char *v, int over)
          * (fileIsStageUnlockedAtDifficulty(..., SP_LEVEL_CRADLE, DIFFICULTY_AGENT)) for
          * any value that is not 0x40. Writing 0x21 here would be overwritten on the
          * first character-select frame and the setting would appear to do nothing. */
- ge_err("roster=33 cannot be forced. 33 is derived from the SAVE FILE — it ""unlocks by completing Cradle on Agent (front.c:5329) and is recomputed ""every frame. Only 8 (default) and 64 (cheat) are settable; use ""roster=64%s%s", "", "");
+ ge_err("roster=33 cannot be forced. 33 is derived from the SAVE FILE - it ""unlocks by completing Cradle on Agent (front.c:5329) and is recomputed ""every frame. Only 8 (default) and 64 (cheat) are settable; use ""roster=64%s%s", "", "");
  return;
     }
- ge_err("roster=%s — expected 8 or 64 (33 is save-derived; see roster=33)%s", v, "");
+ ge_err("roster=%s - expected 8 or 64 (33 is save-derived; see roster=33)%s", v, "");
 }
 
 static void list_cheats(void)
 {
  int i;
- printf("Named cheats — GoldenEye's OWN cheat flags, set by name.\n""cheats = invincibility, dk_mode, paintball\n""\n""These are NOT GameShark codes. A GameShark code is a raw N64 RDRAM address\n""and this port has no RDRAM, so the published code lists cannot work here.\n""The names below drive the game's own cheat array instead, which is\n""layout-independent, ASLR-proof and survives relinking and modding.\n""\n""[live] takes effect straight from the config — the game reads this flag\n""directly via cheatIsActive() while it runs.\n""[flag] the flag is set, but the effect is applied once by the in-game\n""turn-on path, so toggle it in-game to actually get it.\n\n");
+ printf("Named cheats - GoldenEye's OWN cheat flags, set by name.\n""cheats = invincibility, dk_mode, paintball\n""\n""These are NOT GameShark codes. A GameShark code is a raw N64 RDRAM address\n""and this port has no RDRAM, so the published code lists cannot work here.\n""The names below drive the game's own cheat array instead, which is\n""layout-independent, ASLR-proof and survives relinking and modding.\n""\n""[live] takes effect straight from the config - the game reads this flag\n""directly via cheatIsActive() while it runs.\n""[flag] the flag is set, but the effect is applied once by the in-game\n""turn-on path, so toggle it in-game to actually get it.\n\n");
  for (i = 0; i < GE_CHEAT_COUNT; i++) {
  printf("%-22s id %-3d %s\n", GE_CHEATS[i].name, GE_CHEATS[i].id,
  GE_CHEATS[i].live ? "[live]" : "[flag]");
@@ -605,7 +605,7 @@ static void key_bool_gate(const char *gate, const char *key, const char *v, int 
 {
  if (is_true(v))       { put(gate, "1", over); }
  else if (is_false(v)) { put(gate, "0", over); }
- else                  { ge_err("%s=\"%s\" — expected 0/1 (or on/off)", key, v); }
+ else                  { ge_err("%s=\"%s\" - expected 0/1 (or on/off)", key, v); }
 }
 
 /* ==================================================================== *
@@ -641,7 +641,7 @@ static void key_todo_flag(const char *gate, const char *key, const char *v, int 
  printf("[getv][config] %s=1 accepted, but %s IS NOT IMPLEMENTED YET -- the gate ""is reserved and currently has no effect.\n", key, what);
  return;
     }
- ge_err("%s=\"%s\" — expected 0/1 (or on/off)", key, v);
+ ge_err("%s=\"%s\" - expected 0/1 (or on/off)", key, v);
 }
 
 static void key_todo_int(const char *gate, const char *key, const char *v, int over,
@@ -652,7 +652,7 @@ static void key_todo_int(const char *gate, const char *key, const char *v, int o
  char *end = NULL;
  n = strtol(v, &end, 10);
  if (end == v || (end && *end != '\0')) {
- ge_err("%s=\"%s\" — expected an integer", key, v); return;
+ ge_err("%s=\"%s\" - expected an integer", key, v); return;
     }
  if (n < lo) { n = lo; }
  if (n > hi) { n = hi; }
@@ -749,7 +749,7 @@ static int apply(const char *key_in, const char *val, int over)
  else if (strcmp(val, "enhanced") == 0) {
  put("GETV_PRESET", "enhanced", over);
  printf("[getv][config] preset=enhanced accepted, but NO ENHANCEMENT IS ""IMPLEMENTED YET -- this is a reserved seam.\n");
-        } else { ge_err("preset=\"%s\" — expected faithful|enhanced", val, ""); }
+        } else { ge_err("preset=\"%s\" - expected faithful|enhanced", val, ""); }
  return 1;
     }
  if (strcmp(key, "unlock_all") == 0 || strcmp(key, "unlockall") == 0) {
@@ -762,7 +762,7 @@ static int apply(const char *key_in, const char *val, int over)
         /* inverted gate: GETV_NO_AUDIO is presence-tested, so it must be UNSET to
          * mean "on", never set to "0". */
  if (is_false(val))     { put("GETV_NO_AUDIO", "1", over); }
- else if (!is_true(val)) { ge_err("audio=\"%s\" — expected 0/1%s", val, ""); }
+ else if (!is_true(val)) { ge_err("audio=\"%s\" - expected 0/1%s", val, ""); }
  return 1;
     }
  if (strcmp(key, "realclock") == 0 || strcmp(key, "real_clock") == 0) {
@@ -778,11 +778,11 @@ static int apply(const char *key_in, const char *val, int over)
  if (is_true(val)) {
  put("GETV_DEBUGPOS", "1", over);
  set_debug_testingmanpos_flag(1);
- printf("[getv][config] debug_position=1 — Rare's room + XYZ + heading ""readout is ON (debugmenu_handler.c:1018 -> bondview2.c:10367). ""Works in a stock build; no DEBUGMENU needed.\n");
+ printf("[getv][config] debug_position=1 - Rare's room + XYZ + heading ""readout is ON (debugmenu_handler.c:1018 -> bondview2.c:10367). ""Works in a stock build; no DEBUGMENU needed.\n");
         } else if (is_false(val)) {
  set_debug_testingmanpos_flag(0);
         } else {
- ge_err("debug_position=\"%s\" — expected 0/1%s", val, "");
+ ge_err("debug_position=\"%s\" - expected 0/1%s", val, "");
         }
  return 1;
     }
@@ -797,7 +797,7 @@ static int apply(const char *key_in, const char *val, int over)
          * macro the decomp's own Makefile:101 defines but our build scripts do not.
          *
          * It cannot be a config key because it is not a branch that can be taken at
-         * runtime — it changes codegen in two places:
+         * runtime - it changes codegen in two places:
          * boss.c:565-576 adds an `else if (joyGetButtons(0, START_BUTTON) == 0)`
          * arm that hijacks START into `g_DebugMode = <highlighted>`
          * debugmenu.c:419 turns `if ((randomGetNext() & 0xFF) < g_DebugMenuPercentage)`
@@ -805,9 +805,9 @@ static int apply(const char *key_in, const char *val, int over)
          *
          * The equivalent build knob is
          * GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app
-         * (build_mac.sh:93-96 — note `lib`, not `port`: it is a game-object flag.) */
+         * (build_mac.sh:93-96 - note `lib`, not `port`: it is a game-object flag.) */
  if (is_true(val)) {
- printf("[getv][config] debug_menu cannot be enabled at runtime — it is a ""BUILD option because it changes codegen (boss.c:565 repurposes START, ""debugmenu.c:419 becomes if(1)). Rebuild with:\n""GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app\n""Also note there is NO working level select in it: ""DEB_LEVEL/DEB_REGION/DEB_SCALE are gutted no-ops ""(debugmenu_handler.c:511-521). Use GETV_STAGE=<n> instead.\n");
+ printf("[getv][config] debug_menu cannot be enabled at runtime - it is a ""BUILD option because it changes codegen (boss.c:565 repurposes START, ""debugmenu.c:419 becomes if(1)). Rebuild with:\n""GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app\n""Also note there is NO working level select in it: ""DEB_LEVEL/DEB_REGION/DEB_SCALE are gutted no-ops ""(debugmenu_handler.c:511-521). Use GETV_STAGE=<n> instead.\n");
         }
  return 1;
     }
@@ -911,7 +911,7 @@ static void read_file(void)
 static void usage(void)
 {
  printf(
-"GoldenEye 007 — native macOS port\n"
+"GoldenEye 007 - native macOS port\n"
 "\n"
 "goldeneye [--key=value ...]\n"
 "\n"
@@ -930,7 +930,7 @@ static void usage(void)
 "resolution=WxH window size, min 320x240; or \"fullscreen\"[1280x960]\n"
 "aspect=4:3|16:9|auto picks a default window shape if resolution is unset\n"
 "framerate=30|50|60|off                                             [60]\n"
-"120 is REJECTED — see the note in the written config\n"
+"120 is REJECTED - see the note in the written config\n"
 "supersample=1|2      2 = render at 2x and downsample                [1 on macOS]\n"
 "controls=1.1..2.4 or honey/solitaire/kissy/goodnight/plenty/galore/\n"
 "domino/goodhead.  2.2 and 2.4 are dual-analog.\n"
@@ -955,7 +955,7 @@ static void usage(void)
 }
 
 static const char *DEFAULT_CFG =
-"# goldeneye.cfg — GoldenEye 007, native macOS port\n"
+"# goldeneye.cfg - GoldenEye 007, native macOS port\n"
 "#\n"
 "# Lines are key = value.  '#' and ';' start a comment.\n"
 "# Precedence: command line  > GETV_* environment  > this file  > defaults.\n"
@@ -974,7 +974,7 @@ static const char *DEFAULT_CFG =
 "#\n"
 "# GoldenEye counts time in WHOLE VIDEO FRAMES, not seconds. Fire rates, reload\n"
 "# times, physics, animation and the mission clock are all integrated once per\n"
-"# rendered frame. Running at 120 therefore does not make the game smoother — it\n"
+"# rendered frame. Running at 120 therefore does not make the game smoother - it\n"
 "# makes the entire game run at DOUBLE SPEED. (30 likewise halves it.) Genuine\n"
 "# high-refresh support needs the simulation decoupled from rendering, which this\n"
 "# build does not do yet.\n"
@@ -1027,14 +1027,14 @@ static const char *DEFAULT_CFG =
 "# save_dir   = /path/to/saves\n"
 "\n"
 "# --- named cheats ----------------------------------------------------------\n"
-"# These are GoldenEye's OWN cheat flags, exposed BY NAME — not GameShark codes.\n"
+"# These are GoldenEye's OWN cheat flags, exposed BY NAME - not GameShark codes.\n"
 "# A GameShark code is a raw N64 RDRAM address, and this port has no RDRAM, so the\n"
 "# published code lists cannot be applied here at all. Driving the game's own cheat\n"
 "# system instead is layout-independent, ASLR-proof, and still correct after a\n"
 "# relink or a mod that moves things around. Run --list-cheats for the full set.\n"
 "# Six take effect straight from this file: dk_mode, infinite_ammo, paintball,\n"
 "# no_radar, enemy_rockets, extra_mp_chars. The rest set the flag but need to be\n"
-"# toggled in-game to apply — --list-cheats marks which is which.\n"
+"# toggled in-game to apply - --list-cheats marks which is which.\n"
 "# cheats = dk_mode, paintball, infinite_ammo\n"
 "#\n"
 "# roster = 64             # full multiplayer character list.\n"
@@ -1044,7 +1044,7 @@ static const char *DEFAULT_CFG =
 "# --- Rare's own leftover developer features --------------------------------\n"
 "# debug_position = 1      # room id + X/Y/Z + compass heading on screen.\n"
 "#                         # Works in a stock build. Rare's own readout.\n"
-"# debug_menu     = 1      # NOT a runtime setting — it changes codegen and\n"
+"# debug_menu     = 1      # NOT a runtime setting - it changes codegen and\n"
 "#                         # repurposes START. Rebuild instead:\n"
 "#                         # GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app\n"
 "#                         # Its level select does NOT work (gutted no-ops).\n"
@@ -1126,7 +1126,7 @@ int geConfigInit(int argc, char **argv)
  int doWrite = 0, doHelp = 0;
  int i;
 
-    /* Pass 1 — only the flags that change what happens next. Nothing is applied yet,
+    /* Pass 1 - only the flags that change what happens next. Nothing is applied yet,
      * because --config must be known before the file is read and every other flag must
      * be applied after it. */
  for (i = 1; i < argc; i++) {
@@ -1166,7 +1166,7 @@ int geConfigInit(int argc, char **argv)
         }
     }
 
-    /* Pass 2 — the file, with overwrite=0 so the environment always wins. */
+    /* Pass 2 - the file, with overwrite=0 so the environment always wins. */
  if (locate(argc > 0 ? argv[0] : NULL, cliPath)) {
  read_file();
     } else if (cliPath != NULL) {
@@ -1193,7 +1193,7 @@ int geConfigInit(int argc, char **argv)
         }
     }
 
-    /* Pass 3 — the command line, with overwrite=1 so it beats the environment. */
+    /* Pass 3 - the command line, with overwrite=1 so it beats the environment. */
  for (i = 1; i < argc; i++) {
  char *a = argv[i];
  char kv[512], *eq;
@@ -1235,7 +1235,7 @@ int geConfigInit(int argc, char **argv)
  getenv("GETV_SUPERSAMPLE") ? getenv("GETV_SUPERSAMPLE") : "default",
  ge_config_controls, configFiltering);
  if (g_errors > 0) {
- printf("[getv][config] %d setting(s) were rejected — see above. ""The game will start with the defaults for those.\n", g_errors);
+ printf("[getv][config] %d setting(s) were rejected - see above. ""The game will start with the defaults for those.\n", g_errors);
     }
  fflush(stdout);
  return 0;

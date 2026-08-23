@@ -1,4 +1,4 @@
-/* GoldenEye macOS port — the real main().
+/* GoldenEye macOS port - the real main().
  *
  * On tvOS, entry comes from libSDL2main.a: its main() calls UIApplicationMain, installs
  * SDLUIKitDelegate, and only then calls SDL_main(). getv/Sources/ge_tvos_main.c defines

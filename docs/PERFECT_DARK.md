@@ -22,8 +22,8 @@ Both Perfect Dark checkouts come from `https://github.com/perfect-dark-pc-port/p
 
 Each checkout carries exactly two licence files, identical across both:
 
-- `LICENSE` — MIT, © 2022 Ryan Dwyer.
-- `port/fast3d/LICENSE.txt` — MIT, © 2020 Emill, MaikelChan. This single file covers the whole
+- `LICENSE` - MIT, © 2022 Ryan Dwyer.
+- `port/fast3d/LICENSE.txt` - MIT, © 2020 Emill, MaikelChan. This single file covers the whole
   `port/fast3d/` directory; there is no internal licence boundary separating older Emill code
   from the libultraship-era rewrite.
 
@@ -38,7 +38,7 @@ harder to track, so adaptation sites in that directory need to be marked especia
 
 - `port/fast3d/glad/{glad.c,glad.h}` carries no licence file and no header notice. Upstream glad
   output is normally public domain or MIT, but that is not stated here.
-- `port/include/external/minimp3.h` declares CC0 / public domain inline at lines 3–7.
+- `port/include/external/minimp3.h` declares CC0 / public domain inline at lines 3-7.
 
 ### Both checkouts have uncommitted local modifications
 
@@ -79,7 +79,7 @@ hook points: `src/game/file.c:4157-4215` (`fileLoad` calls `romdataFilePreproces
 `port/src/romdata.c:300-311` (`romdataInitSegment` calls `seg->preprocess`).
 
 This port does the opposite, and is largely forced to. The GoldenEye decompilation extracts
-assets to C source that is compiled into the binary — 1,842 files under `assets/` — rather than
+assets to C source that is compiled into the binary - 1,842 files under `assets/` - rather than
 loading a live ROM, so there is no single load-time funnel to hook. Conversions therefore live
 inline in the game source: `src/game/bg.c:1038` (`bgBE32`) and its `BG_HDR_WORD` macro at
 `:1045`, used at `:1121`, `:1190`, `:1284`, `:1310`, `:1360`; `src/game/model.c:999`
@@ -88,7 +88,7 @@ inline in the game source: `src/game/bg.c:1038` (`bgBE32`) and its `BG_HDR_WORD`
 `GE_PORT_NATIVE` gates across 70 files.
 
 The difference in delivery does not remove the problem. The extracted assets are still
-big-endian byte arrays — `assets/ge_animation_entries_segment.c:1-7` says so in its own
+big-endian byte arrays - `assets/ge_animation_entries_segment.c:1-7` says so in its own
 generated header. **This port has Perfect Dark's problem with a different delivery mechanism**,
 which is why their solutions transfer even though their pipeline does not.
 
@@ -163,10 +163,10 @@ patching: `struct ptrmarker { u32 ptr_src; uintptr_t ptr_host; }` at
 at `port/src/preprocess/filemodel.c:38-43`.
 
 **Why this matters here specifically.** This port's `modelPromoteNodeOffsetsToPointers` cannot
-promote in place — the file slots are 4 bytes and host pointers are 8 — and has been reduced to
+promote in place - the file slots are 4 bytes and host pointers are 8 - and has been reduced to
 a survey that returns without modifying anything. Models do not render as a result. Perfect
 Dark's answer is a two-pass transcode: emit a new, larger buffer with 8-byte slots still holding
-offsets, record `src_offset -> dst_offset` in a marker table (`filemodel.c` passes 1–4,
+offsets, record `src_offset -> dst_offset` in a marker table (`filemodel.c` passes 1-4,
 `convertModel` at `:1060-1072`), resolve in pass 4 (`resolvePointer` at `:844-852`), then let the
 existing unmodified promote code do the base-add. Alignment is re-imposed per content type from
 a table at `filemodel.c:50-74`, applied at `:553`.
@@ -174,7 +174,7 @@ a table at `filemodel.c:50-74`, applied at `:553`.
 `filemodel.c` is 1,114 lines and specific to Perfect Dark's model format, so **the technique
 transfers and the code does not**. But it is a proven route past the exact wall this port is
 stuck at, and it is the reason Perfect Dark needed only **44 occurrences of `PLATFORM_64BIT`**
-across 955 files — compared with 3,089 uses of `uintptr_t` and 534 of `PLATFORM_N64`. Deferring
+across 955 files - compared with 3,089 uses of `uintptr_t` and 534 of `PLATFORM_N64`. Deferring
 relocation is what kept the 64-bit conversion from spreading through the whole tree.
 
 Attribute to `perfect_dark @ 514bf7a`, `port/src/preprocess/{filemodel.c,common.c}` and
@@ -186,7 +186,7 @@ Attribute to `perfect_dark @ 514bf7a`, `port/src/preprocess/{filemodel.c,common.
 
 Perfect Dark marks segmented addresses explicitly at preprocess time rather than guessing later.
 When it splits each 8-byte big-endian `Gfx` into the host's 16-byte form, it sets bit 0 of `w1`
-if `w1` is a segmented address — `port/src/preprocess/gbi.c:9-13` and `:175-207`
+if `w1` is a segmented address - `port/src/preprocess/gbi.c:9-13` and `:175-207`
 (`gbiConvertGdl`). Consumers then discriminate structurally
 (`port/fast3d/gfx_pc.cpp:2263-2274`):
 
@@ -210,7 +210,7 @@ rather than a fix for a live crash. What it buys is diagnosis. A 64-bit pointer 
 bits is currently indistinguishable from a legitimate segment-5 address, and that ambiguity sits
 underneath the most common bug class in this port. The tag bit makes it decidable.
 
-The cost is that display lists arrive here from heterogeneous sources — compiled-in `gs*` C
+The cost is that display lists arrive here from heterogeneous sources - compiled-in `gs*` C
 initialisers such as `assets/font_dl.c`, versus raw GDLs embedded in model blobs. The raw model-
 blob GDLs are still 64-bit and will need conversion regardless; that conversion is the natural
 place to introduce the tag bit, and doing both at once costs little more than doing one.
@@ -231,7 +231,7 @@ changing signedness mid-int breaks the bitfield even on big-endian platforms.
 The `GE_SUBWORD2/3/4` macros at `vendor/ge-decomp/src/bondtypes.h:25-52` are the same idea,
 arrived at independently, with 48 uses. The value in Perfect Dark's set is as a **checklist of
 which structs need the treatment**, particularly the `Gfx`-adjacent ones. Any adoption must be
-verified with compiled `__builtin_offsetof` rather than by inspection — note that `offsetof` is
+verified with compiled `__builtin_offsetof` rather than by inspection - note that `offsetof` is
 shadowed in this tree.
 
 ### 2.7 Fail-loud growth budgets
@@ -239,7 +239,7 @@ shadowed in this tree.
 **Effort: small. Value: medium.**
 
 `port/src/romdata.c:590-606` gives each load type a hardcoded expansion factor under
-`PLATFORM_64BIT` — background 1.1x, tiles 1.1x, language 1.3x, setup 1.5x, pads/model/gun 1.7x —
+`PLATFORM_64BIT` - background 1.1x, tiles 1.1x, language 1.3x, setup 1.5x, pads/model/gun 1.7x -
 and every `preprocess*File` calls `sysFatalError("overflow when trying to preprocess...")` if the
 budget is undershot (`filesetup.c:1182-1184`, `filemodel.c:1083-1085`, `filepads.c:282-284`).
 
@@ -286,19 +286,19 @@ identifier: Perfect Dark's `create_and_load_new_shader(uint64_t shader_id0, uint
 
 What Perfect Dark has that is structurally absent here:
 
-- **A framebuffer subsystem** — `create_framebuffer`, `update_framebuffer_parameters`,
+- **A framebuffer subsystem** - `create_framebuffer`, `update_framebuffer_parameters`,
   `start_draw_to_framebuffer`, `copy_framebuffer`, `resolve_msaa_color_buffer`,
   `select_texture_fb`, `get_framebuffer_texture_id`, backed by
   `static std::map<int, FBInfo> framebuffers` (`gfx_pc.cpp:246`). This port hand-rolled a
   single-purpose FBO for supersampling only (`gfx_opengl.c:712-760`, under `TVOS_SUPERSAMPLE`).
-- **MSAA, anisotropic filtering, mipmap filtering and three-point filtering** —
+- **MSAA, anisotropic filtering, mipmap filtering and three-point filtering** -
   `enum FilteringMode { FILTER_NONE, FILTER_LINEAR, FILTER_THREE_POINT }` and the surrounding
   block at `gfx_rendering_api.h:41-56`. None of it present here.
-- **An LRU texture cache with explicit invalidation** — `gfx_texture_cache_clear/delete/
+- **An LRU texture cache with explicit invalidation** - `gfx_texture_cache_clear/delete/
   delete_range` (`gfx_pc.cpp:510-609`), keyed on
   `TextureCacheKey{texture_addr, palette_addrs[2], fmt, siz, palette_index}` (`gfx_pc.h:22-36`).
   This port has no range invalidation.
-- **A widescreen aspect system** — `gfx_adjust_x_for_aspect_ratio` (`gfx_pc.cpp:1037-1041`) and
+- **A widescreen aspect system** - `gfx_adjust_x_for_aspect_ratio` (`gfx_pc.cpp:1037-1041`) and
   `gfx_update_aspect_mode` (`:1636-1660`), driven by custom GBI commands
   `G_ASPECT_{WIDE,LEFT,RIGHT,CENTER}_EXT` that the game emits per element.
 - **Display-mode enumeration, fullscreen modes, refresh-rate query and swap-interval control**
@@ -316,7 +316,7 @@ must not be cross-ported. **Everything below the vertex format is vertex-format-
 framebuffer subsystem, the texture cache and its invalidation, the filtering and MSAA and
 anisotropy paths, the aspect-ratio module, the window-manager API, and the GL backend's shader
 generator. That is a narrower exclusion than a blanket prohibition, and it does not disturb the
-settled decision to keep this port's own Fast3D — the point is selectively lifting subsystems
+settled decision to keep this port's own Fast3D - the point is selectively lifting subsystems
 into it, not replacing it.
 
 ### 3.3 The custom GBI extension layer
@@ -331,12 +331,12 @@ carries a full extension block at `:2334-2523` covering `G_EXTRAGEOMETRYMODE_EXT
 `G_FILLRECT_WIDE_EXT`, `G_TEXRECT_WIDE_EXT`, `G_IMAGERECT_EXT`, `G_SETFB_EXT`, `G_COPYFB_EXT`,
 `G_INVALTEXCACHE_EXT`, `G_RDPFLUSH_EXT` and `G_CLEAR_DEPTH_EXT`.
 
-This well has been partly drawn from already — `getv/port/fast3d/gfx_pc.c:4930-4943` handles
+This well has been partly drawn from already - `getv/port/fast3d/gfx_pc.c:4930-4943` handles
 `G_TRI4` and `:5048` handles `G_LOADTLUT`, both with comments citing Perfect Dark. GoldenEye's
 `gsp3D` microcode will keep producing opcodes Fast3D does not implement, and **`gbiex.h` is the
 best available list of what those are.** `vendor/pd-port/src/rsp/gsp.s` is an annotated copy of
 the same microcode GoldenEye runs and remains the primary source for microcode semantics
-questions — relevant to the open untextured-prop, splayed-limb and CI8/TLUT defects.
+questions - relevant to the open untextured-prop, splayed-limb and CI8/TLUT defects.
 
 ### 3.4 Non-renderer platform layer
 
@@ -361,7 +361,7 @@ the Rumble Pak. This port's `getv/port/src/port_os.c` has 23 symbols and nothing
 `getv/port/src/port_save.c:235-305`, but `osPfs{Init,IsPlug,GetStatus,GetInitData,RequestData,
 Checker}` are called from `vendor/ge-decomp/src/motor.c` and `src/joy.c`.
 
-**Effort:** crash handler small — one file, and the Darwin path is already written. Config system
+**Effort:** crash handler small - one file, and the Darwin path is already written. Config system
 small. VFS small to medium. `osPfs*` medium. Options menu large: 2,042 lines tightly coupled to
 Perfect Dark's menu structs, while GoldenEye's `front.c` is a different implementation of the
 same idea, making this a rewrite with reference rather than a port. Framebuffer subsystem and
@@ -374,8 +374,8 @@ filtering large. Widescreen `G_ASPECT_*_EXT` large, because it needs game-side e
 
 The lineage here is confirmed shared. Perfect Dark has `viSetFovY`, `viGetFovY`,
 `viSetFovAspectAndSize` and `camSetPerspective` (`src/include/lib/vi.h:44-48`,
-`src/include/game/camera.h:9`). GoldenEye has the same functions under the same names —
-`vendor/ge-decomp/src/fr.c:903` (`viSetFovY`), `:919` (`viGetFovY`), `:922` (`viSetFov`) —
+`src/include/game/camera.h:9`). GoldenEye has the same functions under the same names -
+`vendor/ge-decomp/src/fr.c:903` (`viSetFovY`), `:919` (`viGetFovY`), `:922` (`viSetFov`) -
 feeding `guPerspectiveF(g_viProjectionMatrixF, &g_viPerspNorm, g_ViBackData->fovy,
 g_ViBackData->aspect, ...)` at `fr.c:710`. GoldenEye already applies `WIDESCREEN_ASPECT` at
 `src/game/bondview2.c:8444,8463,8464`.
@@ -390,11 +390,11 @@ The local modifications in `vendor/pd-port` contain three tvOS/EAGL fixes that a
 independently present** in this port's Fast3D. Recording them because agreement between two
 independent solutions is worth something:
 
-- Forcing `gl_es = true` at init because SDL's UIKit backend misreports the profile mask —
+- Forcing `gl_es = true` at init because SDL's UIKit backend misreports the profile mask -
   here via `USE_GLES` at `getv/port/fast3d/gfx_opengl.c:27` and `gfx_sdl2.c:206-217`.
 - Adopting SDL's real screen FBO because EAGL has no default framebuffer 0, and rebinding SDL's
   renderbuffer before `SDL_GL_SwapWindow` or `presentRenderbuffer` fails with
-  `GL_INVALID_OPERATION` — here at `gfx_opengl.c:718-720` and `:914-928`.
+  `GL_INVALID_OPERATION` - here at `gfx_opengl.c:718-720` and `:914-928`.
 - Casting `float(three_point_filter)` because GLSL ES 3.0 has no `mix()` overload taking an
   integer interpolant. This one is latent here: it only bites once three-point filtering exists.
   Worth carrying forward if the filtering work in 3.1 is adopted.
@@ -402,7 +402,7 @@ independent solutions is worth something:
 ### 3.7 What `pd-ext` adds
 
 `pd-ext` is **older** than `pd-port` (2025-12 against 2026-05) and is a fork rather than a
-superset — its `gfx_opengl.cpp` is smaller, 1,337 lines against 1,424. A directory comparison
+superset - its `gfx_opengl.cpp` is smaller, 1,337 lines against 1,424. A directory comparison
 shows the entire delta is: new `port/src/ext_tex.c` (468 lines), `port/include/ext_tex.h` and
 `port/include/external/stb_image.h`, plus edits to `gfx_{api.h,opengl.cpp,pc.cpp,pc.h,
 rendering_api.h}`, `glad/`, `input.{c,h}`, `video.h`, `fs.c`, `main.c`, `mod.c`, `optionsmenu.c`,
@@ -430,7 +430,7 @@ struct player_data g_playerPlayerData[4];
 ```
 
 `MAX_PLAYER_COUNT` is 4 (`src/bondconstants.h:2249`). There is one initialiser and it takes a
-count — `init_player_data_ptrs_construct_viewports(s32 playercount)` at `player.c:81-103`, which
+count - `init_player_data_ptrs_construct_viewports(s32 playercount)` at `player.c:81-103`, which
 loops `initBONDdataforPlayer(i)` over the count. `getPlayerCount()` (`player.c:105-115`) simply
 counts non-NULL entries. `g_CurrentPlayer` (`player.c:16`) is a swapped pointer.
 
@@ -459,8 +459,8 @@ times across the tree, and the character and prop layers already resolve which p
 involved generically through `getPlayerPointerIndex(prop)` (`src/game/chr.c:2729`,
 `chraction.c:2437`, `propobj.c:1658,1676,13204`, `chrprop.c:1947,2129,2788`).
 
-**So most of the engine-generic machinery — split-screen viewports, multiple player structs,
-per-player camera and HUD — GoldenEye already has, and none of it is gated behind a multiplayer
+**So most of the engine-generic machinery - split-screen viewports, multiple player structs,
+per-player camera and HUD - GoldenEye already has, and none of it is gated behind a multiplayer
 flag.**
 
 ### 4.2 The level data: one spawn per solo level, no exceptions
@@ -478,8 +478,8 @@ Counting live records (`is_demo_playback == 0`) across the setup files in
 | files | 21 | 17 |
 | live spawns | **exactly 1 in every one** | 0, or 5 to 8 |
 
-All 21 solo setups — `arch, ark, azt, cave, control, cryp, dam, depo, pete, run, sevb,
-sevbunker, sevx, sevxb, crad, dest, jun, len, silo, statue, tra` — have exactly one live spawn.
+All 21 solo setups - `arch, ark, azt, cave, control, cryp, dam, depo, pete, run, sevb,
+sevbunker, sevx, sevxb, crad, dest, jun, len, silo, statue, tra` - have exactly one live spawn.
 Several have three or four spawn records in total, but the extras are all attract-mode spawns
 with `is_demo_playback == 1`. Multiplayer setups with real spawns: `ame` 8, `ark` 8, `ash` 5,
 `cave` 7, `crad` 8, `cryp` 6, `dish` 5, `imp` 5, `oat` 8, `ref` 7, `sevb` 5, `statue` 8, `arch`
@@ -488,14 +488,14 @@ with `is_demo_playback == 1`. Multiplayer setups with real spawns: `ame` 8, `ark
 The premise is confirmed. **The consequence is smaller than it sounds**, for three reasons:
 
 1. **A spawn is an integer, not a data structure.** `bondview_r.c:213` reads
-   `g_Startpad[n] = &g_CurrentSetup.pads[record->index]` — the record is an index into the
+   `g_Startpad[n] = &g_CurrentSetup.pads[record->index]` - the record is an index into the
    level's existing pad list, and those lists are already large: 160 to 537 pads per solo level
    (dam 464, arch 537, cave 486, ark 448, sevx 437, control 430, depo 408). Authoring co-op
    spawns means choosing about 21 pad indices near the existing start. That is a spreadsheet,
    not a content pipeline.
 2. **Zero authored data still boots.** `bondviewGetRandomSpawnPadIndex`
    (`src/game/bondview.c:1235-1382`) cycles `pad_index = counter % startpadcount`. With
-   `startpadcount == 1` both players get pad 0 and spawn co-located — ugly, but not a crash. A
+   `startpadcount == 1` both players get pad 0 and spawn co-located - ugly, but not a crash. A
    crude two-player co-op is reachable before any level data is authored.
 3. **Five solo stages get spawns for free.** Solo and multiplayer setups coexist for `ark`,
    `cave`, `cryp`, `sevb` and `arch`, with 5 to 8 multiplayer spawns each. Those pad indices are
@@ -507,7 +507,7 @@ that on Complex with the fallback-only guard, players 2 and 3 both landed on pad
 
 ### 4.3 Where Perfect Dark's co-op code actually lives
 
-Counting case-insensitive `coop` across `vendor/pd-port` — 994 hits in 87 files:
+Counting case-insensitive `coop` across `vendor/pd-port` - 994 hits in 87 files:
 
 | area | hits | files | character |
 |---|---|---|---|
@@ -540,7 +540,7 @@ and every objective script, per level.**
 GoldenEye has no such vocabulary. Its entire special-character set is at
 `vendor/ge-decomp/src/bondconstants.h:4696-4707`: `CHR_BOND_CINEMA -8`, `CHR_CLONE -7`,
 `CHR_SEE_SHOT -6`, `CHR_SEE_DIE -5`, `CHR_PRESET -4`, `CHR_SELF -3`, `CHR_OBJECTIVE -2`,
-`CHR_FREE -1`. There is no `CHR_COOP`, no `CHR_P1P2`, and not even a generic `CHR_BOND` target —
+`CHR_FREE -1`. There is no `CHR_COOP`, no `CHR_P1P2`, and not even a generic `CHR_BOND` target -
 GoldenEye's AI addresses the player implicitly. (`CoopyObjectRecord` at `bondtypes.h:3609` is a
 misspelling of "copy" and is unrelated.)
 
@@ -559,7 +559,7 @@ functional two-player co-op that boots on a solo stage.
 - **Every guard's reaction to player 2.** This is the large, irreducible item. GoldenEye guards
   have no target-selection concept beyond "the player". Supporting a second Bond means either
   extending the AI command vocabulary with a `CHR_COOP` equivalent and then editing per-level AI
-  lists — Perfect Dark's 568 script references are the scale marker — or a generic engine-level
+  lists - Perfect Dark's 568 script references are the scale marker - or a generic engine-level
   nearest-player substitution, which is far cheaper and will behave wrongly in every scripted
   set-piece. **Large to very large.**
 - **Objective and cutscene logic.** GoldenEye objectives assume one Bond, and intro and exit
@@ -586,15 +586,15 @@ shared primitives were taken. Perfect Dark has SIMD paths at 18 sites (`mixer.c:
 Any of those still scalar here is remaining headroom on Apple silicon. **This adoption is
 currently unattributed and should be marked.**
 
-**Perfect Dark's `docs/` is design documentation, not engineering** — `ailists.md`, `chrs.md`,
+**Perfect Dark's `docs/` is design documentation, not engineering** - `ailists.md`, `chrs.md`,
 `challenge7bug.md`, `piracychecks.md`. `ailists.md` is nonetheless the best prose explanation of
 the AI-list system GoldenEye shares through `chraidata.c` and `bondaicommands.h`, and is worth
 reading before any work in section 4.
 
-**The crash handler's Darwin path is already written** — `port/src/crash.c:299-302` extracts the
+**The crash handler's Darwin path is already written** - `port/src/crash.c:299-302` extracts the
 PC via `ucontext->uc_mcontext->__ss.__pc`, with `SA_ONSTACK` and `backtrace_symbols()`. Given
-that `mempAllocBytesInBank` currently fails by spinning in `while(1);` — a silent hang that
-raises no signal — and that block-buffered stdout loses the last kilobyte before a crash, the
+that `mempAllocBytesInBank` currently fails by spinning in `while(1);` - a silent hang that
+raises no signal - and that block-buffered stdout loses the last kilobyte before a crash, the
 discipline in that file is worth more than the code: install early, log the PC, write to a fixed
 buffer.
 
@@ -608,8 +608,8 @@ buffer.
 | 2 | `_Generic` typed byteswap with fail-loud default | small | high | `514bf7a` `port/include/preprocess/common.h` |
 | 3 | Unified `platform.h` for endian, arch and bswap | small | high | `514bf7a` `src/include/platform.h` |
 | 4 | Crash handler with Darwin PC and backtrace | small | high | `514bf7a` `port/src/crash.c` |
-| 5 | Two-player co-op bring-up: force the count at `boss.c:489`, reuse multiplayer spawns | small–medium | high | GoldenEye-native; no Perfect Dark code required |
-| 6 | Segment tag bit for model-blob GDLs | medium | medium–high | `514bf7a` `port/src/preprocess/gbi.c`, `port/fast3d/gfx_pc.cpp` |
+| 5 | Two-player co-op bring-up: force the count at `boss.c:489`, reuse multiplayer spawns | small-medium | high | GoldenEye-native; no Perfect Dark code required |
+| 6 | Segment tag bit for model-blob GDLs | medium | medium-high | `514bf7a` `port/src/preprocess/gbi.c`, `port/fast3d/gfx_pc.cpp` |
 | 7 | Config system with self-registering modules | small | medium | `514bf7a` `port/src/config.c` |
 | 8 | `gbiex.h` as the opcode checklist for `gsp3D` gaps | small | medium | `514bf7a` `src/include/gbiex.h` |
 | 9 | Field-of-view slider; GoldenEye already has `viSetFovY` | small | medium | `514bf7a` `port/src/optionsmenu.c:1334`, `src/include/lib/vi.h` |
@@ -617,7 +617,7 @@ buffer.
 | 11 | VFS and mod / asset-override system | medium | medium | `514bf7a` `port/src/{fs,mod}.c` |
 | 12 | `osPfs*` Controller Pak suite | medium | medium | `514bf7a` `port/src/libultra.c` |
 | 13 | Bitfield order-flip audit against Perfect Dark's set | medium | medium | `514bf7a` `src/include/types.h`, `include/PR/gbi.h` |
-| 14 | External and HD texture packs | medium | low–medium | **`pd-ext`** `e5484de` `port/src/ext_tex.c` |
+| 14 | External and HD texture packs | medium | low-medium | **`pd-ext`** `e5484de` `port/src/ext_tex.c` |
 | 15 | Framebuffer subsystem, three-point filtering, mipmaps, anisotropy, MSAA | large | medium | `514bf7a` `port/fast3d/*` (MIT, Emill and MaikelChan) |
 | 16 | Widescreen `G_ASPECT_*_EXT` | large | medium | `514bf7a` `port/fast3d/gfx_pc.cpp:1636-1660`, `src/include/gbiex.h` |
 | 17 | In-game options menu | large | medium | `514bf7a` `port/src/optionsmenu.c` |

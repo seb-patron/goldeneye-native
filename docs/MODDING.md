@@ -45,9 +45,9 @@ git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c 
 ```
 
 Regenerating `0001` with a bare `git diff` instead will sweep the entire extracted asset tree into
-it — several hundred megabytes of ROM-derived data, which must never be committed.
+it - several hundred megabytes of ROM-derived data, which must never be committed.
 
-Generated, ROM-derived data is deliberately excluded from the patch — the audio segment, the
+Generated, ROM-derived data is deliberately excluded from the patch - the audio segment, the
 object-segment blobs, animation blobs, the images segment, per-model `Model.c` files. Regenerate
 those with the commands in the README.
 
@@ -62,8 +62,8 @@ Game code needs `./build_mac.sh lib` instead, which is slower but still parallel
 ## The `GETV_*` environment gates
 
 These are the de-facto mod surface. There are around 250 of them, read straight from the
-environment at the point of use. They were built as A/B switches during the port — one gate per
-behavioural change, so that any two builds could be compared without recompiling — and they are
+environment at the point of use. They were built as A/B switches during the port - one gate per
+behavioural change, so that any two builds could be compared without recompiling - and they are
 the cheapest way to alter the game without touching a line of code.
 
 ### The convention
@@ -93,7 +93,7 @@ static int geMyGate(void)
 }
 ```
 
-Any gate can also be set from the configuration file or the command line by its real name — the
+Any gate can also be set from the configuration file or the command line by its real name - the
 config layer matches raw `GETV_` names before friendly ones, so a gate can never be shadowed:
 
 ```
@@ -130,7 +130,7 @@ stages are multiplayer-only and which were cut. Check it before concluding a sta
 | `GETV_SHOTFRAME=<n>` | Write a BMP of frame `n`. Costs one `glReadPixels` on exactly one frame; off unless set. |
 | `GETV_SHOTPATH=<path>` | Where that BMP goes. Defaults to `getv_shot.bmp` in the working directory. |
 
-Setting `GETV_EXIT_FRAME` also makes the keyboard pad idle by default — present, so the front-end
+Setting `GETV_EXIT_FRAME` also makes the keyboard pad idle by default - present, so the front-end
 does not decide there are no controllers, but reporting nothing held. The Mac window takes keyboard
 focus when it opens, so without this anything you type lands in the game, and a single stray edge
 aborts a level's opening cinema. `GETV_KEYBOARD_IDLE=0` overrides.
@@ -138,15 +138,15 @@ aborts a level's opening cinema. `GETV_KEYBOARD_IDLE=0` overrides.
 **Driving the game without hands.**
 
 `GETV_SCRIPT` injects controller input at the device level, upstream of the N64 bit mapping. Every
-stage below it is the production path — the stick rescale, the C-button Schmitt triggers,
-`osContGetReadData`, the 20-deep sample ring and its edge detector — so a scripted entry is
+stage below it is the production path - the stick rescale, the C-button Schmitt triggers,
+`osContGetReadData`, the 20-deep sample ring and its edge detector - so a scripted entry is
 indistinguishable from a human holding the pad.
 
 ```
 GETV_SCRIPT="<frame>:<keys>[:<hold>][,<frame>:<keys>[:<hold>]...]"
 ```
 
-- `frame` is the poll tick, one per game frame — the same clock `GETV_EXIT_FRAME` counts.
+- `frame` is the poll tick, one per game frame - the same clock `GETV_EXIT_FRAME` counts.
 - `keys` are `+`-joined and case-insensitive: `A B X Y START BACK Z L R DU DD DL DR CU CD CL CR`,
   plus `SX=<n>` and `SY=<n>` for stick counts in the range -80 to 80 (`SY` positive is up).
 - `hold` is how many frames to hold, defaulting to 4.
@@ -158,7 +158,7 @@ A live script forces port 0 present, so it works with no hardware attached.
 `GETV_SCRIPT_PORT=<n>` selects which N64 port the script drives (default 0). `GETV_SCRIPT_TRACE=0`
 silences the per-entry log, which is otherwise on and is the only proof an entry fired.
 
-Example — boot to file select and press A on frame 120:
+Example - boot to file select and press A on frame 120:
 
 ```bash
 GETV_MENU=5 GETV_SCRIPT="120:A:6" GETV_EXIT_FRAME=181 ./build-mac/goldeneye
@@ -194,7 +194,7 @@ enables the leftover debug menu, which changes code generation and repurposes th
 GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app
 ```
 
-Its level select does not work — those entries are gutted no-ops. Use `GETV_STAGE`.
+Its level select does not work - those entries are gutted no-ops. Use `GETV_STAGE`.
 
 
 **Looking at why a surface is the wrong colour.**
@@ -229,7 +229,7 @@ Everything here is generated from your ROM and is untracked.
 - **Textures.** `assets/images/`, driven by `assets/images.def` and the generated
   `imagelist.csv`. `assets/oddtextures.c` holds the ones that do not fit that scheme.
 - **Fonts.** `assets/font/`, plus `font_chardata*.c` for the per-region character tables.
-- **Audio.** `assets/music/` — instrument banks (`sfx.ctl` and friends) and sequences.
+- **Audio.** `assets/music/` - instrument banks (`sfx.ctl` and friends) and sequences.
 - **Animation.** `assets/animationtable_*.c` and the generated animation segment.
 
 Model files and room vertex data in the ROM are big-endian and must be byte-swapped on load; the
@@ -241,7 +241,7 @@ These are properties of this tree, not general C advice.
 
 **The game ships its own `stddef.h`.** `vendor/ge-decomp/include/stddef.h` is on the include path
 ahead of the system headers and its entire body is commented out. Including `<stddef.h>` from game
-code therefore defines nothing — no `size_t`, no `NULL`, no `offsetof`. The same applies to several
+code therefore defines nothing - no `size_t`, no `NULL`, no `offsetof`. The same applies to several
 other headers under `include/`, which are SGI-era shims rather than the system ones.
 
 **`atof` returns 1.0 regardless of input**, despite a correct declaration in the tree's
@@ -250,7 +250,7 @@ other headers under `include/`, which are SGI-era shims rather than the system o
 and you conclude the setting had no effect. Print the parsed value back before using it.
 
 **Familiar libc names can resolve to game functions.** `math_asinacos.c` defines `u16 acos(s16)`
-and `s16 asin(s16)` — angle-table lookups, not libm. Code that calls `acos` expecting a double
+and `s16 asin(s16)` - angle-table lookups, not libm. Code that calls `acos` expecting a double
 gets nonsense; the symptom that caught this was an angle reported as 1877468 degrees, which is
 32767 times 180/pi. Before calling any libc-looking function from game code, check whether the
 decompilation defines its own. `atan2f` and `sqrtf` are unambiguous.
@@ -267,7 +267,7 @@ the assertion is armed by deliberately breaking it before trusting a layout proo
 8 bytes rather than 4, and `tools/audit_struct_layout.py` counts 251 real layout hazards across 39
 structs. Seventeen of those are file-backed and must keep N64 offsets exactly; the rest are
 runtime-only and may grow. Anything that sizes a buffer in bytes for a struct that changed size is
-a latent bug — that exact mistake halved every stage's display-list capacity for months, silently,
+a latent bug - that exact mistake halved every stage's display-list capacity for months, silently,
 with no terminator and no error when it overflowed.
 
 **Link order is load-bearing.** The build produces a static archive rather than linking objects
@@ -282,7 +282,7 @@ harmless only because those objects are never pulled in. Do not add `-force_load
 
 ## Reading further
 
-`docs/ROADMAP.md` is the working log — what is fixed, what is open, and the reasoning behind most
+`docs/ROADMAP.md` is the working log - what is fixed, what is open, and the reasoning behind most
 of the gates. `docs/research/` holds background on the engine, the N64 RCP, and the toolchain.
 Both are internal working documents rather than user documentation, but they are where the detail
 is.

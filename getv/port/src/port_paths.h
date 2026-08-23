@@ -1,4 +1,4 @@
-/* GoldenEye port — the one place that knows where the host keeps user files.
+/* GoldenEye port - the one place that knows where the host keeps user files.
  *
  * Before this file existed, three call sites each open-coded
  * `getenv("HOME") + "/Library/Application Support/..."` and one of them shelled out to

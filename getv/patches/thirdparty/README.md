@@ -1,4 +1,4 @@
-# `getv/patches/thirdparty/` — the port's changes to fetched sm64ex sources
+# `getv/patches/thirdparty/` - the port's changes to fetched sm64ex sources
 
 Fifteen files under `getv/port/` are not in this repository. They are inherited from sm64ex,
 whose Fast3D lineage carries an unresolved redistribution restriction, so they are fetched at
@@ -47,11 +47,11 @@ the same fix: refresh the patch before any commit that touches the code it cover
 The patch is generated with `diff -U0`. It applies to exactly one upstream commit, so there is
 nothing for context lines to disambiguate, and omitting them keeps unmodified upstream text out
 of a file this repository distributes. The consequence is that the patch will not apply to any
-other version of sm64ex, which is intended — a hunk that silently fuzzes into place against a
+other version of sm64ex, which is intended - a hunk that silently fuzzes into place against a
 different upstream is worse than a refusal.
 
 ## What is not covered here
 
-`getv/port/fast3d/ge_sky_rdp.c` and `ge_sky_rdp.h` are this project's own work — they decode
-GoldenEye's hand-assembled RDP triangle commands, which sm64 never emits — and are tracked
+`getv/port/fast3d/ge_sky_rdp.c` and `ge_sky_rdp.h` are this project's own work - they decode
+GoldenEye's hand-assembled RDP triangle commands, which sm64 never emits - and are tracked
 normally in the repository. They are deliberately absent from `MANIFEST`.

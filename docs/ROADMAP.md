@@ -45,8 +45,8 @@ watermark behind the folders.
 
 macOS on Apple silicon is the working target.
 
-Windows and Linux are not yet buildable. The game layer itself is not platform-specific —
-the portability gate means "not an N64" rather than "Apple" — so the work is confined to
+Windows and Linux are not yet buildable. The game layer itself is not platform-specific -
+the portability gate means "not an N64" rather than "Apple" - so the work is confined to
 the platform layer and the build script. `docs/PORTING.md` lists what remains, with file
 references and estimates. Linux is the easier of the two.
 
@@ -81,8 +81,8 @@ lighting is per-vertex.
 ### Larger features
 
 **Co-op campaign.** More tractable than it appears. The engine is already player-count
-aware in 163 places because of split-screen multiplayer, and Perfect Dark — which shares
-this engine's ancestry and is MIT licensed — shipped both co-op and counter-op. The
+aware in 163 places because of split-screen multiplayer, and Perfect Dark - which shares
+this engine's ancestry and is MIT licensed - shipped both co-op and counter-op. The
 difficult part is level data: Perfect Dark's co-op needs second spawn points and co-op AI
 lists authored per level, and GoldenEye's solo levels have exactly one spawn and none of
 that. Budget it as content authoring with tool support, not as engine work.

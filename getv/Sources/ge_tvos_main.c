@@ -1,4 +1,4 @@
-// GoldenEye on tvOS — harness entry point.
+// GoldenEye on tvOS - harness entry point.
 //
 // This is not the game's entry point. GoldenEye's decomp has no PC port layer: its
 // real entry is src/init.c running against N64 hardware (RCP, PI/SI DMA, an OS

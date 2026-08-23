@@ -1,4 +1,4 @@
-/* GoldenEye port — decoder for sky.c's hand-assembled RDP triangle commands.
+/* GoldenEye port - decoder for sky.c's hand-assembled RDP triangle commands.
  * See ge_sky_rdp.h for the format, the evidence it is the stock RDP layout, and why a
  * three-vertex reconstruction loses half the sky. Kept in its own translation unit so
  * gfx_pc.c needs only a few lines of hook. */

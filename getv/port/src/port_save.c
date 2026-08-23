@@ -1,4 +1,4 @@
-/* GoldenEye port — the cartridge EEPROM, backed by a real file.
+/* GoldenEye port - the cartridge EEPROM, backed by a real file.
  *
  * What GoldenEye saves to, and why this is the right layer.
  *

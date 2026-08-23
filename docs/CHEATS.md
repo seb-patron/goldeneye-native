@@ -5,8 +5,8 @@ configuration key. These are not GameShark codes, and the difference matters.
 
 ## Why not GameShark codes
 
-A GameShark code is a raw N64 RDRAM address. This port has no RDRAM — it has native pointers at
-addresses the loader chooses — so the published code lists cannot be applied here the way an
+A GameShark code is a raw N64 RDRAM address. This port has no RDRAM - it has native pointers at
+addresses the loader chooses - so the published code lists cannot be applied here the way an
 emulator or a recompilation applies them. Mapping the codes back to symbols was measured at a
 1.3% resolve rate against this decompilation, so the address route is a dead end.
 
@@ -21,7 +21,7 @@ coincidence would not reproduce.
 
 So the well-known cheats are simply the game's own cheat flags, and this port sets them by name.
 That is layout-independent, survives relinking and recompilation, and stays correct under mods
-that move the array — none of which an address list can do.
+that move the array - none of which an address list can do.
 
 ## Using them
 
@@ -36,7 +36,7 @@ or on the command line:
 ```
 
 Names are comma-separated; surrounding whitespace is trimmed. An unknown name is reported as an
-error and the rest of the list still applies. Cheats accumulate — there is no syntax for turning
+error and the rest of the list still applies. Cheats accumulate - there is no syntax for turning
 one off, so remove it from the list instead.
 
 Run `./build-mac/goldeneye --list-cheats` for the full table with ids and status.
@@ -46,20 +46,20 @@ Run `./build-mac/goldeneye --list-cheats` for the full table with ids and status
 `--list-cheats` marks every cheat one way or the other, and the distinction is the difference
 between a cheat that works from your config file and one that does not.
 
-**`[live]`** — the game reads this flag directly while it runs, through `cheatIsActive()`, at the
+**`[live]`** - the game reads this flag directly while it runs, through `cheatIsActive()`, at the
 point where the effect happens. Setting the flag at startup reaches every one of those call sites,
 so the cheat takes effect straight from the configuration file. Six qualify:
 
 | Cheat | Where it is read |
 |---|---|
-| `extra_mp_chars` | Handled specially — see `roster` below |
+| `extra_mp_chars` | Handled specially - see `roster` below |
 | `infinite_ammo` | `lv.c` |
 | `dk_mode` | `chr.c`, `chr_b.c` |
 | `paintball` | `explosion.c` |
 | `no_radar` | `radar.c` |
 | `enemy_rockets` | `prop.c` |
 
-**`[flag]`** — everything else. The flag is genuinely set, and the game's own interface honours it,
+**`[flag]`** - everything else. The flag is genuinely set, and the game's own interface honours it,
 but the *effect* is applied once inside the cheat turn-on switch: granting weapons, multiplying
 health, and so on. That code needs a player context which does not exist when the configuration is
 read, at the very start of `main()`. Toggle the cheat in-game to actually get it.
@@ -94,7 +94,7 @@ slow_animation   enemy_rockets    2x_rocket_launcher
 2x_hunting_knife     2x_laser
 ```
 
-Two names that appear in a naive grep of the source — `CHEAT_MARQUIS` and `CHEAT_ENEMYSHIELDS` —
+Two names that appear in a naive grep of the source - `CHEAT_MARQUIS` and `CHEAT_ENEMYSHIELDS` -
 are not exposed. Both occur only inside commented-out Perfect Dark leftovers, and neither exists
 in the cheat enum at all.
 
@@ -108,7 +108,7 @@ roster = 64
 
 `8` is the shipped default and does nothing. `64` unlocks the full multiplayer character list; it
 sets the same flag as `cheats = extra_mp_chars` and writes the selectable-character count
-directly. That value is sticky — the character-select screen recomputes the roster every frame but
+directly. That value is sticky - the character-select screen recomputes the roster every frame but
 short-circuits the whole block when the count is already at the unlocked value.
 
 `33` is refused with an explanation rather than faked. It is derived from the save file (complete
@@ -124,7 +124,7 @@ port build.
 
 This means the table is only correct as long as that enum does not change. If the enum ever gains
 or loses a member, every ordinal after the insertion point shifts by one and the table silently
-applies the *wrong cheat* — no compile error, no warning, just a different cheat than the one you
+applies the *wrong cheat* - no compile error, no warning, just a different cheat than the one you
 named. Re-check the table against the enum after any change to the decompilation.
 
 The same trap exists in the binding and action tables in `getv/port/src/port_os.c`, which are

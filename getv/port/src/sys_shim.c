@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port — host services for Fast3D.
+/* GoldenEye tvOS port - host services for Fast3D.
  *
  * Perfect Dark provides these from its platform layer. GoldenEye's decomp has none,
  * so the port supplies them. Deliberately minimal: Fast3D only needs logging, a

@@ -54,7 +54,7 @@ The evidence, all of it from upstream's own git history:
 - Commit `881eb68b` (2021-10-26, "Updating license") changed that one line, adding the
   carve-out "except in cases where the binary contains no assets you do not have the right to
   distribute".
-- GitHub's own licence detection classifies the repository `NOASSERTION` — that is, it does not
+- GitHub's own licence detection classifies the repository `NOASSERTION` - that is, it does not
   recognise the text as any standard licence.
 
 This project's lineage runs through the pre-2021 form. sm64ex ships no root licence file at
@@ -72,7 +72,7 @@ BSD-2-Clause with a binary-redistribution restriction. This project takes no pos
 reading is correct, because it does not have to: it does not redistribute the code.
 
 The same reasoning covers the audio mixer. `getv/port/audio/ge_mixer.c` is sm64ex's
-`src/pc/mixer.c` — Emill's software implementation of the N64 audio microcode — with four
+`src/pc/mixer.c` - Emill's software implementation of the N64 audio microcode - with four
 changes. It shares the licence question with the renderer, so it is handled the same way.
 
 `getv/port/configfile.h` and `getv/port/fs/fs.h` are unmodified sm64ex files, still carrying
@@ -107,11 +107,11 @@ Fifteen files, listed in `getv/patches/thirdparty/MANIFEST`:
 `getv/port/fast3d/ge_sky_rdp.c` and `ge_sky_rdp.h` (517 lines) were written for this project and
 stay in the repository. They have no counterpart anywhere in sm64ex. They decode the RDP
 triangle commands that GoldenEye's `sky.c` assembles by hand out of `G_RDPHALF_1` / `G_RDPHALF_2`
-/ `G_RDPHALF_CONT` pairs — a GoldenEye-specific construct that sm64 never emits and Fast3D
+/ `G_RDPHALF_CONT` pairs - a GoldenEye-specific construct that sm64 never emits and Fast3D
 therefore never had to handle.
 
-Everything else under `getv/port/` — `src/`, `mac/`, `include/`, `cliopts.h`, `platform.h`,
-`pc_main.h`, `audio/ge_mixer.h`'s GoldenEye-specific portion — is likewise this project's own
+Everything else under `getv/port/` - `src/`, `mac/`, `include/`, `cliopts.h`, `platform.h`,
+`pc_main.h`, `audio/ge_mixer.h`'s GoldenEye-specific portion - is likewise this project's own
 and is not affected by any of this. Only the fifteen files in the manifest are removed.
 
 ## 5. How much of each file is upstream
@@ -137,11 +137,11 @@ version; "of ours" is the share of this project's file that those lines account 
 | `ge_mixer.h` | 103 | 53 | 35 | 66.0% | 34.0% |
 | `configfile.h` | 67 | 67 | 67 | 100% | 100% |
 | `fs.h` | 138 | 138 | 138 | 100% | 100% |
-| `ge_sky_rdp.c` | 405 | — | 0 | — | 0% |
-| `ge_sky_rdp.h` | 112 | — | 0 | — | 0% |
+| `ge_sky_rdp.c` | 405 | - | 0 | - | 0% |
+| `ge_sky_rdp.h` | 112 | - | 0 | - | 0% |
 
 `gfx_pc.c` is the outlier in both directions. It has grown from 1,820 lines to 5,513, so only a
-fifth of the file is inherited — but 1,126 of upstream's lines are still in it verbatim, which
+fifth of the file is inherited - but 1,126 of upstream's lines are still in it verbatim, which
 is why it is fetched rather than kept.
 
 ## 6. The patch
@@ -156,14 +156,14 @@ The patch is the substance of the port's rendering work, not a thin adaptation l
 fifteen files it introduces 70 distinct `GETV_*` switches and diagnostic probes. The corrections
 that matter most for output correctness are:
 
-- `GETV_CVGSEL` — coverage-vs-alpha selection. Fast3D blended against a value the RDP discards;
+- `GETV_CVGSEL` - coverage-vs-alpha selection. Fast3D blended against a value the RDP discards;
   roughly three-quarters of a typical frame was affected.
-- `GETV_ZCMP` — depth comparison was being read from RSP geometry mode rather than from the RDP
+- `GETV_ZCMP` - depth comparison was being read from RSP geometry mode rather than from the RDP
   other-modes word, which is where the hardware actually keeps it.
-- `GETV_RECTFLIP` — flipped texture rectangles had their coordinate negation applied twice.
-- `GETV_RGBA16BE` — RGBA16 texture byte order.
-- `GETV_FILTCLAMP` — texture filter clamping at tile edges.
-- `GETV_PROBE_AFTER` and the surrounding probe family — the instrumentation used to measure all
+- `GETV_RECTFLIP` - flipped texture rectangles had their coordinate negation applied twice.
+- `GETV_RGBA16BE` - RGBA16 texture byte order.
+- `GETV_FILTCLAMP` - texture filter clamping at tile edges.
+- `GETV_PROBE_AFTER` and the surrounding probe family - the instrumentation used to measure all
   of the above.
 
 The remainder are listed in the patch itself. `tools/fetch-thirdparty.sh regen` rewrites the
@@ -193,12 +193,12 @@ history, so there is no local record to compare against, and none of the copied 
 version marker. `d7ca2c04` is pinned because it is verifiable rather than because it is proven
 to be the original source: at that commit six of the fifteen files are byte-identical to this
 project's copies, and the other nine differ only in ways attributable to this port's own work.
-If the files came from a slightly earlier commit, the patch absorbs the difference — it is
+If the files came from a slightly earlier commit, the patch absorbs the difference - it is
 generated against `d7ca2c04` and round-trips to the current tree byte for byte, which
 `tools/fetch-thirdparty.sh verify` checks on demand.
 
 ## 9. Related
 
-- `docs/LICENSING.md` — provenance for the repository as a whole, including the ROM and assets.
-- `getv/port/PROVENANCE.md` — the file-level origin record for `getv/port/`.
-- `getv/patches/thirdparty/README.md` — operational notes on the patch.
+- `docs/LICENSING.md` - provenance for the repository as a whole, including the ROM and assets.
+- `getv/port/PROVENANCE.md` - the file-level origin record for `getv/port/`.
+- `getv/patches/thirdparty/README.md` - operational notes on the patch.

@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port — the bridge from the game's display list to Fast3D.
+/* GoldenEye tvOS port - the bridge from the game's display list to Fast3D.
  *
  * Kept in its own translation unit deliberately. port_os.c is compiled against the N64
  * SDK headers (PR/*.h) and must not pull in Fast3D's; this file is the one place the

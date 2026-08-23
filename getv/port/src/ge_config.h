@@ -1,4 +1,4 @@
-/* ge_config.h — the user configuration layer.
+/* ge_config.h - the user configuration layer.
  *
  * This file and ge_config.c are purely additive: nothing else in port/src/** is
  * modified by them. The single call site is getv/port/mac/ge_mac_main.c's main().

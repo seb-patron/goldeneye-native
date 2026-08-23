@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Check [docs/ROADMAP.md](../blob/main/docs/ROADMAP.md) first — several known issues are
+        Check [docs/ROADMAP.md](../blob/main/docs/ROADMAP.md) first - several known issues are
         listed there, and a few things that look like bugs are faithful to the original.
 
         **Do not attach a ROM or anything extracted from one.** Screenshots of the running game

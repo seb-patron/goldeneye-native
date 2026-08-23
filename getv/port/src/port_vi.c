@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port — the N64 Video Interface, replaced.
+/* GoldenEye tvOS port - the N64 Video Interface, replaced.
  *
  * src/fr.c is GoldenEye's video layer. Most of it is game logic we want: view
  * sizes, split-screen viewports, FOV, Z range, and the display lists it emits. But

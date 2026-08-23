@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Before filing, please check section 7 of [docs/SETUP.md](../blob/main/docs/SETUP.md).
-        It covers the failures that are expected, and several that look alarming but are not —
+        It covers the failures that are expected, and several that look alarming but are not -
         in particular `mac game: 167 built, 1 failed` is a correct build, and the one failure
         is always `src/tlb_manage.c`.
 

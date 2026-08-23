@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port — the SDL side of input, kept away from <PR/os.h>.
+/* GoldenEye tvOS port - the SDL side of input, kept away from <PR/os.h>.
  *
  * This split is required, not cosmetic. <PR/os.h> redeclares bcopy/bcmp/bzero with
  * `int` lengths, and <SDL.h> pulls in the system <string.h> which declares them with
@@ -6,7 +6,7 @@
  * whichever order they go in. port_input.c sees SDL and never sees PR/os.h; port_os.c
  * sees PR/os.h and never sees SDL. This neutral struct is the only thing that crosses.
  *
- * Raw device state only — no N64 mapping. The CONT_* bits belong in port_os.c, next
+ * Raw device state only - no N64 mapping. The CONT_* bits belong in port_os.c, next
  * to the header that defines them.
  */
 #ifndef GE_PORT_INPUT_H
@@ -20,7 +20,7 @@ struct GePadState {
     int present;        /* 0 = no pad on this port yet (tvOS delivers them late) */
 
     /* 1 = a real dual-stick gamepad (MFi/DualSense/Xbox). 0 = something that
-     * enumerated as a controller but has no sticks/shoulders — in practice the Siri
+     * enumerated as a controller but has no sticks/shoulders - in practice the Siri
      * Remote. The game is not playable from one, but it must not crash either, and
      * a real pad that arrives later must be able to take over. */
     int real_gamepad;

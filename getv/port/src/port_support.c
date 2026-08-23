@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port — the host services Fast3D expects.
+/* GoldenEye tvOS port - the host services Fast3D expects.
  *
  * sm64ex supplies these from its own platform/config/filesystem layers.
  * GoldenEye's decomp has none of that, so the port provides the minimum Fast3D

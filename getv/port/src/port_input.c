@@ -1,11 +1,11 @@
-/* GoldenEye tvOS port — SDL GameController, replacing the N64's SI bus.
+/* GoldenEye tvOS port - SDL GameController, replacing the N64's SI bus.
  *
  * See port_input.h for why the SDL half lives in its own translation unit.
  *
  * Two facts about tvOS input, both established on device during the Perfect Dark port
  * (commit 3b4b554, "stop the Siri Remote from claiming player 1") rather than guessed
- * at here. Both are silent failures — the app runs perfectly and no button does
- * anything — so they are worth stating plainly:
+ * at here. Both are silent failures - the app runs perfectly and no button does
+ * anything - so they are worth stating plainly:
  *
  *   1. The Siri Remote enumerates as a joystick, and it tends to appear BEFORE the
  * real gamepad. Whatever takes index 0 becomes player 1, so the remote wins and
@@ -44,7 +44,7 @@
  * that mistake was merely useless; under four it is a broken game mode. The remote is a
  * menu-only fallback for player 1 and nothing else.
  *
- * Ports must stay contiguous — see the comment on gePortInputPadCount() in the header.
+ * Ports must stay contiguous - see the comment on gePortInputPadCount() in the header.
  * Detach compacts the array rather than leaving a hole.
  */
 #include <stdio.h>
@@ -60,7 +60,7 @@ static int geSubsysReady = 0;
 
 /* Devices examined and rejected as stickless while a real pad was available. Kept so
  * the scan does not open/close a Siri Remote every single frame forever. Consulted only
- * while at least one real device is open — if everything detaches, the remote becomes
+ * while at least one real device is open - if everything detaches, the remote becomes
  * the menu-only fallback again and must be reconsidered. */
 #define GE_REJECT_MAX 16
 static SDL_JoystickID geRejected[GE_REJECT_MAX];
@@ -384,11 +384,11 @@ int gePortInputDebugLevel(void)
  return level;
 }
 
-/* GETV_PADS=N — force N ports to report connected regardless of what enumerated.
+/* GETV_PADS=N - force N ports to report connected regardless of what enumerated.
  *
  * This exists because the four-controller path cannot otherwise be exercised: no
  * simulator produces a second pad and there are rarely four physical pads to plug in.
- * It is the same shape as gunfire.c's GETV_GUN_AUTOFIRE — drive the subsystem from
+ * It is the same shape as gunfire.c's GETV_GUN_AUTOFIRE - drive the subsystem from
  * inside the process so the thing under test is the code path, not the peripheral.
  *
  * A forced port with no device behind it reads as present-and-idle, or, with
@@ -496,7 +496,7 @@ static void geRejectRemember(SDL_JoystickID id)
 }
 
 /* Close a port and slide the ports above it down, so the occupied ports stay
- * contiguous from 0. Slot 0 losing its pad must not strand player 2 in port 1 —
+ * contiguous from 0. Slot 0 losing its pad must not strand player 2 in port 1 -
  * joyGetControllerCount() would then answer 0. */
 static void geClosePort(int port)
 {
@@ -655,7 +655,7 @@ static void gePortInputEnsure(void)
  int anyReal = 0;
 
  if (!geSubsysReady) {
-        /* Before SDL_INIT_GAMECONTROLLER, not after — see (1) above. */
+        /* Before SDL_INIT_GAMECONTROLLER, not after - see (1) above. */
  SDL_SetHint(SDL_HINT_TV_REMOTE_AS_JOYSTICK, "0");
  if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0) {
  printf("[getv] input: SDL_INIT_GAMECONTROLLER failed: %s\n", SDL_GetError());
@@ -1116,7 +1116,7 @@ void gePortInputPollPort(int port, struct GePadState *out)
 
     /* Every read below is safe on a device that lacks the control: SDL returns 0 for
      * an axis or button the open controller has no mapping for. That is what keeps a
-     * Siri Remote from crashing anything — it simply reads as an idle pad. */
+     * Siri Remote from crashing anything - it simply reads as an idle pad. */
  out->present      = 1;
  out->real_gamepad = gePadReal[port];
 
