@@ -239,18 +239,10 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   interpolated above it, which is architecture rather than a setting, and is the next substantial
   thing this port needs.
 
-- **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
-  emits more commands than any other stage's, so the path is active.
-- **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
+- **Missing HMS MI5 crest on the multiplayer character select.** The same crest renders correctly on
   the file select screen, so the asset and its decode path are sound.
 - **Select File background.** Renders flat black; the original has a faint circular watermark
   behind the folders.
-- **Three unresolved colourings** - Surface 2 fog density, Cradle sky gradient, Facility vent
-  colour. No reference captures exist for them, so they are neither confirmed correct nor
-  confirmed defects.
-- **No framerate above 60.** The game integrates fire rates, physics, animation and the mission
-  clock once per rendered frame, so raising the render rate raises the game speed with it. Values
-  above 60 are rejected by the configuration layer for that reason.
 - **Multiplayer edge cases.** Score caps are not enforced on the headless path, and `num_shots`
   disagrees with the fire path.
 - **Keyboard and mouse.** Mouse look is not supported.
