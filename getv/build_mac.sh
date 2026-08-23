@@ -48,7 +48,16 @@ BUILD="$HERE/build-mac"
 SDL="$HOME/.n64tvos/sdl2-mac"
 SDLSRC="$HERE/../deps/SDL2-2.30.9"
 SDK="$(xcrun -sdk macosx --show-sdk-path)"
-TARGET="arm64-apple-macos13.0"
+# Host-arch detection: the game/renderer layer has no arm64-specific code (see
+# docs/PORTING.md), so x86_64 Macs build too. The only real arch dependency is the
+# crash handler's register dump in Sources/ge_tvos_main.c, which branches on it.
+HOSTARCH="$(uname -m)"
+case "$HOSTARCH" in
+  arm64)   MACARCH="arm64" ;;
+  x86_64)  MACARCH="x86_64" ;;
+  *) echo "unsupported host arch: $HOSTARCH" >&2; exit 1 ;;
+esac
+TARGET="${MACARCH}-apple-macos13.0"
 BIN="$BUILD/goldeneye"
 
 # --------------------------------------------------------------------------- SDL2
@@ -59,7 +68,7 @@ cmd_sdl() {
   # which CMake 4 refuses outright. This is the sanctioned opt-back-in.
   cmake -S "$SDLSRC" -B "$b" \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_OSX_ARCHITECTURES="$MACARCH" \
     -DCMAKE_BUILD_TYPE=Release \
     -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF \
     -DCMAKE_INSTALL_PREFIX="$SDL" >/dev/null || return 1
@@ -362,25 +371,20 @@ cmd_app() {
   # "built for newer macOS version" warnings come from SDL2 having been compiled with the
   # SDK's default deployment target rather than ours. They are advisory -- the code is
   # arm64 either way -- so they are filtered rather than chased.
-  # -dead_strip is now an optimisation, which it was not until 2026-08-22.
+  # -dead_strip is REMOVED. It was documented here as a pure size optimisation; it
+  # wasn't. The obseg asset generator (chr/gun/prop/stan) emits each ROM-derived record
+  # as its own named global, and the decompiled game walks between them with raw
+  # `tile + stride` pointer arithmetic, referencing everything past the first record in
+  # a chain only by computed offset. ld64 saw no name reference to `_tile_1..N` and
+  # discarded them, which broke room/collision resolution on every level -- see
+  # github.com/SegfaultEvan/goldeneye-native/issues/2 for the measurements. Not provably
+  # x86_64-specific (this is a linker/dead-stripping interaction, not architecture code),
+  # but arm64 builds happen to keep most chains intact.
   #
-  # ld64 dead-strips before it checks for undefined symbols, so a reference from a dead
-  # atom is not an error, and this flag was hiding real undefined symbols rather than
-  # trimming the binary. That is fine on macOS and worthless anywhere else: neither
-  # lld-link /OPT:REF nor GNU ld --gc-sections promises to diagnose unresolved externals
-  # only after garbage collection, so a Windows or Linux link was entitled to fail.
-  #
-  # The comment here used to say six symbols. Two of those, osEepromRead and
-  # osEepromWrite, stopped being undefined when port_save.c implemented the EEPROM entry
-  # points for real. Measured today the list is four, and port/src/port_n64_unused.c
-  # defines all of them, so the link no longer depends on linker ordering:
-  #
-  #   without port_n64_unused.o and without -dead_strip:  those four, undefined
-  #   with it and without -dead_strip:                    clean, 18 MB binary
-  #
-  # Removing the flag now costs binary size and nothing else.
+  # The four N64-hardware symbols this flag used to incidentally hide are unaffected:
+  # port/src/port_n64_unused.c defines all four for real, so the link stays clean
+  # without -dead_strip too.
   clang -target "$TARGET" -isysroot "$SDK" -o "$BIN" \
-    -dead_strip \
     "${roots[@]}" "$BUILD/libge.a" \
     "$SDL/lib/libSDL2.a" \
     -lc++ -lz -liconv \

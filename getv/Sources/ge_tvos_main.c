@@ -91,9 +91,38 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
 #if defined(__APPLE__)
     if (uctx) {
         ucontext_t *uc = (ucontext_t *) uctx;
+        Dl_info di;
+#if defined(__x86_64__)
+        /* Intel Mac: no pointer authentication, so the register struct's fields are
+         * read directly -- there is no get_pc/get_lr/get_sp helper family here, that
+         * indirection exists only on arm64 to strip PAC bits. */
+        _STRUCT_X86_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
+        void *pc = (void *)(uintptr_t) ss->__rip;
+
+        if (dladdr(pc, &di) && di.dli_sname) {
+            printf("[getv] FAULT PC: %p = %s + %ld   (image %s)\n", pc, di.dli_sname,
+                   (long)((uintptr_t) pc - (uintptr_t) di.dli_saddr),
+                   di.dli_fname ? di.dli_fname : "?");
+        } else {
+            printf("[getv] FAULT PC: %p (no symbol)\n", pc);
+        }
+        printf("[getv] regs:\n[getv]   rax=0x%016llx  rbx=0x%016llx  rcx=0x%016llx  rdx=0x%016llx\n"
+               "[getv]   rdi=0x%016llx  rsi=0x%016llx  rbp=0x%016llx  rsp=0x%016llx\n"
+               "[getv]   r8= 0x%016llx  r9= 0x%016llx  r10=0x%016llx  r11=0x%016llx\n"
+               "[getv]   r12=0x%016llx  r13=0x%016llx  r14=0x%016llx  r15=0x%016llx\n",
+               (unsigned long long) ss->__rax, (unsigned long long) ss->__rbx,
+               (unsigned long long) ss->__rcx, (unsigned long long) ss->__rdx,
+               (unsigned long long) ss->__rdi, (unsigned long long) ss->__rsi,
+               (unsigned long long) ss->__rbp, (unsigned long long) ss->__rsp,
+               (unsigned long long) ss->__r8,  (unsigned long long) ss->__r9,
+               (unsigned long long) ss->__r10, (unsigned long long) ss->__r11,
+               (unsigned long long) ss->__r12, (unsigned long long) ss->__r13,
+               (unsigned long long) ss->__r14, (unsigned long long) ss->__r15);
+        printf("[getv]    rip=0x%016llx  rsp=0x%016llx\n",
+               (unsigned long long) ss->__rip, (unsigned long long) ss->__rsp);
+#else
         _STRUCT_ARM_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
         void *pc = (void *)(uintptr_t) __darwin_arm_thread_state64_get_pc(*ss);
-        Dl_info di;
         int i;
 
         if (dladdr(pc, &di) && di.dli_sname) {
@@ -111,6 +140,7 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
         printf("\n[getv]    lr=0x%016llx  sp=0x%016llx\n",
                (unsigned long long) __darwin_arm_thread_state64_get_lr(*ss),
                (unsigned long long) __darwin_arm_thread_state64_get_sp(*ss));
+#endif
     }
 #elif defined(__linux__)
     /* glibc ucontext_t. Untested -- no Linux machine has run this build (see
