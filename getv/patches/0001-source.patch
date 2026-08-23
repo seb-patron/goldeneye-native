@@ -1039,7 +1039,7 @@ index 53fd4fa..b07bd82 100644
 +
  #endif
 diff --git a/src/boss.c b/src/boss.c
-index bfad266..0afd23f 100644
+index bfad266..43125d1 100644
 --- a/src/boss.c
 +++ b/src/boss.c
 @@ -1,4 +1,5 @@
@@ -1048,7 +1048,29 @@ index bfad266..0afd23f 100644
  #include <PR/os.h>
  #include "bondview.h"
  #include <bondconstants.h>
-@@ -156,30 +157,33 @@ extern struct player *g_CurrentPlayer;
+@@ -87,6 +88,21 @@ typedef union {
+ } GFXMsg;
+ 
+ // forward declarations
++#ifdef GE_PORT_NATIVE
++/* Read once. Clamped to the engine's MAX_PLAYER_COUNT of 4. */
++s32 gePortCoopPlayers(void)
++{
++    static s32 n = -1;
++    if (n < 0) {
++        const char *e = getenv("GETV_COOP");
++        n = (e && *e) ? (s32) strtol(e, NULL, 10) : 0;
++        if (n < 0) { n = 0; }
++        if (n > 4) { n = 4; }
++    }
++    return n;
++}
++#endif
++
+ void bossMainloop(void);
+ 
+ /* data */
+@@ -156,30 +172,33 @@ extern struct player *g_CurrentPlayer;
   */
  
  
@@ -1097,7 +1119,7 @@ index bfad266..0afd23f 100644
      osCreateMesgQueue(&bossmq, &bossmsg, 1);
  
      for (i = 0; i != MAXCONTROLLERS; i++)
-@@ -214,8 +218,20 @@ void bossInitMainthreadData(void)
+@@ -214,8 +233,20 @@ void bossInitMainthreadData(void)
          g_CurentMMallocValue = (s32) (strtol(tokenFind(1, "-m"), 0, 0) << 0xa);
      }
  
@@ -1119,7 +1141,7 @@ index bfad266..0afd23f 100644
      mempResetBank(MEMPOOL_PERMANENT);
      langInit();
      lvInit();
-@@ -300,6 +316,7 @@ void bossEntry(void) {
+@@ -300,6 +331,7 @@ void bossEntry(void) {
   */
  void bossMainloop(void)
  {
@@ -1127,7 +1149,7 @@ index bfad266..0afd23f 100644
      // declarations
  
      s32 done;
-@@ -321,13 +338,17 @@ void bossMainloop(void)
+@@ -321,13 +353,17 @@ void bossMainloop(void)
      u32 pendingGfx = 0;
      s32 freeGfx;
      s32 mainTickElapsed;
@@ -1146,7 +1168,7 @@ index bfad266..0afd23f 100644
      reset_mem_bank_5();
  
      if (tokenFind(1, "-level_") != NULL)
-@@ -339,22 +360,47 @@ void bossMainloop(void)
+@@ -339,22 +375,47 @@ void bossMainloop(void)
          g_StageNum = (((s32)(tokenFindLevel[0] * 10) + (s32)tokenFindLevel[1]) - 0x210);
      }
  
@@ -1194,7 +1216,7 @@ index bfad266..0afd23f 100644
      randomSetSeed(nowCount);
  
      // 'done' value never changes, and control never breaks -- infinite loop
-@@ -365,6 +411,7 @@ void bossMainloop(void)
+@@ -365,6 +426,7 @@ void bossMainloop(void)
          toggleFlag = 0;
          pendingGfx = 0;
  
@@ -1202,7 +1224,7 @@ index bfad266..0afd23f 100644
          test_if_recording_demos_this_stage_load(g_StageNum, lvlGetSelectedDifficulty());
          if (g_DebugAndUpdateStageFlag)
          {
-@@ -410,17 +457,22 @@ void bossMainloop(void)
+@@ -410,17 +472,22 @@ void bossMainloop(void)
                  }
              }
  
@@ -1225,8 +1247,28 @@ index bfad266..0afd23f 100644
          reset_play_data_ptrs();
  
          localSelectedNumPlayers = 0;
-@@ -433,32 +485,45 @@ void bossMainloop(void)
+@@ -431,34 +498,65 @@ void bossMainloop(void)
+             {
+                 localSelectedNumPlayers = get_selected_num_players();
              }
++#ifdef GE_PORT_NATIVE
++            /* GETV_COOP=<n> -- n players sharing a single-player mission.
++             *
++             * The engine is already N-player generic: one g_playerPointers[4] array, one
++             * initialiser taking a count, and getPlayerCount() simply counts non-NULL
++             * entries. What stops GETV_MP=2 from producing co-op is not the player count,
++             * it is the setup file: prop.c builds the resource name as "U" + "mp_" +
++             * "setupdamZ" whenever the count is two or more, and Ump_setupdamZ does not
++             * exist for a solo mission, so the load comes back all zeroes.
++             *
++             * So co-op needs both halves -- the count here, and the solo setup name in
++             * prop.c, which reads gePortCoopPlayers() for exactly that reason. */
++            {
++                extern s32 gePortCoopPlayers(void);
++                s32 coop = gePortCoopPlayers();
++                if (coop >= 2) { localSelectedNumPlayers = coop; }
++            }
++#endif
          }
  
 +        gePortBootMark("bm:init_player_data_ptrs_construct_viewports");
@@ -1271,7 +1313,7 @@ index bfad266..0afd23f 100644
                  case (OS_SC_RETRACE_MSG):
                  {
  #ifdef DEBUG
-@@ -479,6 +544,7 @@ void bossMainloop(void)
+@@ -479,6 +577,7 @@ void bossMainloop(void)
                          {
                              if (get_is_ramrom_flag())
                              {
@@ -1279,7 +1321,7 @@ index bfad266..0afd23f 100644
                                  iterate_ramrom_entries_handle_camera_out();
                              }
                              else
-@@ -486,10 +552,14 @@ void bossMainloop(void)
+@@ -486,10 +585,14 @@ void bossMainloop(void)
                                  waitForNextFrame();
                              }
  
@@ -1294,7 +1336,7 @@ index bfad266..0afd23f 100644
                              permit_stderr(0);
  
                              gdl = firstGdl = dynGetMasterDisplayList();
-@@ -516,21 +586,27 @@ void bossMainloop(void)
+@@ -516,21 +619,27 @@ void bossMainloop(void)
  			                	g_BossIsDebugMenuOpen = debug_menu_processor(joyStickXPos, joyStickYPos, joyButtons, joyGetButtonsPressedThisFrame(0, ANY_BUTTON));
  			                }
  
@@ -1322,7 +1364,7 @@ index bfad266..0afd23f 100644
                                      lvlViewMoveTick();
                                  }
                              }
-@@ -541,12 +617,19 @@ void bossMainloop(void)
+@@ -541,12 +650,19 @@ void bossMainloop(void)
                              // (done on the VI), also produces a cool looking linemode - providing AA is working.
                              if (get_debug_VisCVG_flag())
                              {
@@ -1342,7 +1384,7 @@ index bfad266..0afd23f 100644
                                  gDPFillRectangle(gdl++, 0, 0, viGetX() - 1, viGetY() - 1);
                              }
  
-@@ -559,29 +642,39 @@ void bossMainloop(void)
+@@ -559,29 +675,39 @@ void bossMainloop(void)
  
                              if (g_BossIsDebugMenuOpen)
                              {
@@ -1382,7 +1424,7 @@ index bfad266..0afd23f 100644
                              video_related_8();
  
                              if ((get_debug_taskgrab_val())
-@@ -605,15 +698,19 @@ void bossMainloop(void)
+@@ -605,15 +731,19 @@ void bossMainloop(void)
                                      break;
                                  }
  
@@ -1404,7 +1446,7 @@ index bfad266..0afd23f 100644
                              eu_sub_7f0c00a4();
  #endif
                              toggleFlag ^= 1;
-@@ -635,8 +732,11 @@ void bossMainloop(void)
+@@ -635,8 +765,11 @@ void bossMainloop(void)
              }
          }
  
@@ -1416,7 +1458,7 @@ index bfad266..0afd23f 100644
          mempNullNextEntryInBank(MEMPOOL_STAGE);
          obBlankResourcesLoadedInBank(MEMPOOL_STAGE);
  
-@@ -653,6 +753,7 @@ void bossMainloop(void)
+@@ -653,6 +786,7 @@ void bossMainloop(void)
          // removed ... or ido?
      ;
  
@@ -23732,7 +23774,7 @@ index 53583db..f59a65e 100644
      g_playerPointers[player_num]->field_10EC = NULL;
      g_playerPointers[player_num]->c_scalelod60 = 1.0f;
 diff --git a/src/game/prop.c b/src/game/prop.c
-index 8c877b2..48af6a8 100644
+index 8c877b2..bce9903 100644
 --- a/src/game/prop.c
 +++ b/src/game/prop.c
 @@ -1,3 +1,5 @@
@@ -24086,7 +24128,21 @@ index 8c877b2..48af6a8 100644
  
      g_DoorScale = 1.0f;
  
-@@ -1267,25 +1518,102 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1259,6 +1510,13 @@ void proplvreset2(enum LEVELID stageId)
+          */
+         if (getPlayerCount() >= 2)
+         {
++#ifdef GE_PORT_NATIVE
++            /* Under GETV_COOP the extra players share the single-player mission, so the
++             * solo setup is the one to load. Without this the name becomes Ump_setupdamZ,
++             * which exists only for the multiplayer arenas and comes back all zeroes. */
++            extern s32 gePortCoopPlayers(void);
++            if (gePortCoopPlayers() < 2)
++#endif
+             strcat(strResource, "mp_"); // -> "Ump_"
+         }
+ 
+@@ -1267,25 +1525,102 @@ void proplvreset2(enum LEVELID stageId)
          g_ptrStageSetupFile = _fileNameLoadToBank(strResource, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE);
  
          local_stage = g_ptrStageSetupFile;
@@ -24198,7 +24254,7 @@ index 8c877b2..48af6a8 100644
          }
          else
          {
-@@ -1294,7 +1622,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1294,7 +1629,7 @@ void proplvreset2(enum LEVELID stageId)
  
          if (local_stage->boundpadnames != 0)
          {
@@ -24207,7 +24263,7 @@ index 8c877b2..48af6a8 100644
          }
          else
          {
-@@ -1305,7 +1633,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1305,7 +1640,7 @@ void proplvreset2(enum LEVELID stageId)
          {
              for (i1 = 0; g_CurrentSetup.pathwaypoints[i1].padID >= 0; i1++)
              {
@@ -24216,7 +24272,7 @@ index 8c877b2..48af6a8 100644
              }
          }
  
-@@ -1313,8 +1641,8 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1313,8 +1648,8 @@ void proplvreset2(enum LEVELID stageId)
          {
              for (i2 = 0; g_CurrentSetup.waypointgroups[i2].neighbours; i2++)
              {
@@ -24227,7 +24283,7 @@ index 8c877b2..48af6a8 100644
              }
          }
  
-@@ -1325,7 +1653,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1325,7 +1660,7 @@ void proplvreset2(enum LEVELID stageId)
              {
                  for (i3 = 0; g_CurrentSetup.ailists[i3].ailist != 0; i3++)
                  {
@@ -24236,7 +24292,7 @@ index 8c877b2..48af6a8 100644
                  }
              }
          }
-@@ -1334,7 +1662,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1334,7 +1669,7 @@ void proplvreset2(enum LEVELID stageId)
          {
              for (i3 = 0; g_CurrentSetup.patrolpaths[i3].waypoints != NULL; i3++)
              {
@@ -24245,7 +24301,7 @@ index 8c877b2..48af6a8 100644
  
                  for (i5 = 0; g_CurrentSetup.patrolpaths[i3].waypoints[i5] >= 0; i5++)
                  {
-@@ -1354,7 +1682,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1354,7 +1689,7 @@ void proplvreset2(enum LEVELID stageId)
  
              for (; pad->plink != NULL; pad++)
              {
@@ -24254,7 +24310,7 @@ index 8c877b2..48af6a8 100644
                  pad->pos.f[0] *= roompos_1;
                  pad->pos.f[1] *= roompos_1;
                  pad->pos.f[2] *= roompos_1;
-@@ -1377,6 +1705,36 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1377,6 +1712,36 @@ void proplvreset2(enum LEVELID stageId)
  
                  if (1);
              }
@@ -24291,7 +24347,7 @@ index 8c877b2..48af6a8 100644
          }
  
          if (g_CurrentSetup.boundpads)
-@@ -1393,7 +1751,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1393,7 +1758,7 @@ void proplvreset2(enum LEVELID stageId)
                  */
                  if ((((u32) local_stage) ^ 0) + ((u32)vol->plink));
  
@@ -24300,7 +24356,7 @@ index 8c877b2..48af6a8 100644
                  vol->pos.f[0] *= roompos_2;
                  vol->pos.f[1] *= roompos_2;
                  vol->pos.f[2] *= roompos_2;
-@@ -1422,13 +1780,38 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1422,13 +1787,38 @@ void proplvreset2(enum LEVELID stageId)
  
                  if (1);
              }
@@ -24340,7 +24396,7 @@ index 8c877b2..48af6a8 100644
              }
          }
  
-@@ -1439,7 +1822,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1439,7 +1829,7 @@ void proplvreset2(enum LEVELID stageId)
  
              for (i1 = 0; g_CurrentSetup.boundpadnames[i1].p; i1++)
              {
@@ -24349,7 +24405,7 @@ index 8c877b2..48af6a8 100644
              }
          }
  
-@@ -1482,6 +1865,14 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1482,6 +1872,14 @@ void proplvreset2(enum LEVELID stageId)
              numAnimatedObjects += load_proptype(PROPDEF_AIRCRAFT);
          }
  
@@ -24364,7 +24420,7 @@ index 8c877b2..48af6a8 100644
          modelmgrAllocateModelSlots(numObjects);
          modelmgrAllocateAnimModelSlots(numAnimatedObjects);
  
-@@ -1491,7 +1882,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1491,7 +1889,7 @@ void proplvreset2(enum LEVELID stageId)
              alloc_additional_item_slots(load_proptype(PROPDEF_LINK));
          }
  
@@ -24373,7 +24429,7 @@ index 8c877b2..48af6a8 100644
          {
              PropDefHeaderRecord *phead;
              s32 flags;
-@@ -1739,7 +2130,10 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1739,7 +2137,10 @@ void proplvreset2(enum LEVELID stageId)
                              pdef_veh->turnrot60    = 0.0f;
                              pdef_veh->roty         = 0.0f;
                              pdef_veh->speedtime60  = -1.0f;
@@ -24385,7 +24441,7 @@ index 8c877b2..48af6a8 100644
                              pdef_veh->aioffset     = 0;
                              pdef_veh->aireturnlist = -1;
                              pdef_veh->path         = 0;
-@@ -1761,7 +2155,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1761,7 +2162,7 @@ void proplvreset2(enum LEVELID stageId)
                              pdef_air->yrot            = 0.0f;
                              pdef_air->speedtime60     = -1.0f;
                              pdef_air->rotaryspeedtime = -1.0f;
@@ -24394,7 +24450,7 @@ index 8c877b2..48af6a8 100644
                              pdef_air->aioffset        = 0;
                              pdef_air->aireturnlist    = -1;
                              pdef_air->nextstep        = 0;
-@@ -1887,6 +2281,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1887,6 +2288,11 @@ void proplvreset2(enum LEVELID stageId)
                          struct WeaponObjRecord *guna = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index1 + pdefIndex);
                          struct WeaponObjRecord *gunb = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index2 + pdefIndex);
  
@@ -24406,7 +24462,7 @@ index 8c877b2..48af6a8 100644
                          if (guna && gunb)
                          {
                              if ((guna->type == PROPDEF_COLLECTABLE) && (gunb->type == PROPDEF_COLLECTABLE))
-@@ -1922,6 +2321,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1922,6 +2328,11 @@ void proplvreset2(enum LEVELID stageId)
                          doorA = (struct ObjectRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
                          doorB = (struct ObjectRecord *) setupGetPtrToCommandByIndex(pdefIndex + index2);
  
@@ -24418,7 +24474,7 @@ index 8c877b2..48af6a8 100644
                          if ((((doorA && doorA->prop) && doorB) && (doorB->type == PROPDEF_DOOR)) && doorB->prop)
                          {
                              pdef_switch->first = doorA->prop;
-@@ -1957,6 +2361,12 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1957,6 +2368,12 @@ void proplvreset2(enum LEVELID stageId)
                          safe = (struct SafeRecord *) setupCommandGetObject(stageId, pdefIndex + index2);
                          door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index3);
  
@@ -24431,7 +24487,7 @@ index 8c877b2..48af6a8 100644
                          if (((((((safe_item && safe_item->prop) && safe) && safe->prop) && (safe->type == PROPDEF_SAFE)) && door) && door->prop) && (door->type == PROPDEF_DOOR))
                          {
                              pdef_safe->item = safe_item;
-@@ -1990,6 +2400,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1990,6 +2407,11 @@ void proplvreset2(enum LEVELID stageId)
                          door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
                          lock = setupCommandGetObject(stageId, pdefIndex + index2);
  
@@ -24443,7 +24499,7 @@ index 8c877b2..48af6a8 100644
                          if ((((door && door->prop) && lock) && lock->prop) && (door->type == PROPDEF_DOOR))
                          {
                              pdef_lock_door->door = door;
-@@ -2010,6 +2425,8 @@ void proplvreset2(enum LEVELID stageId)
+@@ -2010,6 +2432,8 @@ void proplvreset2(enum LEVELID stageId)
                  phead = (PropDefHeaderRecord *) (((u32 *) phead) + sizepropdef(phead));
                  pdefIndex += 1;
              }

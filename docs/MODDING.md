@@ -112,6 +112,7 @@ GETV_STAGE = 34
 |---|---|
 | `GETV_STAGE=<n>` | Boot straight into a stage id, skipping the front-end. `90` is the normal title boot. Dam is `33`, Facility `34`, Cradle `41`, Cuba (the credits) `54`. |
 | `GETV_MENU=<n>` | The front-end counterpart. Enters at a menu screen: `0` legal, `1` Nintendo, `2` Rareware, `3` eye intro, `4` logo, `5` file select, `6` mode select. Everything from file select onward is input-only with no timer path forward, so this is the only way to reach those screens headlessly. |
+| `GETV_COOP=<n>` | Load a single-player mission with `n` players sharing it, split screen. Bring-up only: the mission's objectives, AI and cutscenes are authored around one Bond, so expect the second player to be present rather than accounted for. Differs from `GETV_MP` in that it keeps the solo setup file; `GETV_MP=2` on a solo stage looks for `Ump_setup<level>Z`, which does not exist. |
 | `GETV_MP=<n>` | Boot into multiplayer with `n` players (2 and up). Six stages are multiplayer-only; loading them solo gives geometry and no setup at all. |
 | `GETV_MP_SCENARIO=<n>` | Pick the multiplayer scenario. |
 | `GETV_DIFFICULTY=<0..3>` | Force the difficulty. A direct `GETV_STAGE` boot never runs the difficulty menu, so without this you get whatever BSS left behind, which is Agent. Several AI lists branch on difficulty. |
