@@ -22,16 +22,39 @@ Run from the decomp root (vendor/ge-decomp):
 """
 import io
 import re
+import os
+import sys
 import subprocess
 
 HDR = 'src/bondtypes.h'
 OUT = 'src/ge_asset_fileview.h'
 CHECK = 'src/ge_asset_fileview_check.c'
 
-SDK = subprocess.run(['xcrun', '-sdk', 'appletvos', '--show-sdk-path'],
-                     capture_output=True, text=True).stdout.strip()
+def _sysroot_flags():
+    """-isysroot on Apple, nothing anywhere else.
 
-BASE = ['-isysroot', SDK, '-fsyntax-only', '-fms-extensions',
+    xcrun exists only on macOS. Calling it on Linux leaves SDK empty, and passing
+    `-isysroot ''` makes every compile fail for a reason that looks nothing like the cause.
+    Off Apple the system headers are already on the default search path, so the right answer
+    is to pass no sysroot at all rather than an empty one.
+
+    macOS first, then the tvOS simulator: the Command Line Tools alone provide the macOS SDK,
+    and this only ever compiles throwaway objects, so the SDK does not have to match the real
+    build target.
+    """
+    if sys.platform != 'darwin':
+        return []
+    for sdk in ('macosx', 'appletvsimulator', 'appletvos'):
+        r = subprocess.run(['xcrun', '-sdk', sdk, '--show-sdk-path'],
+                           capture_output=True, text=True)
+        path = r.stdout.strip()
+        if r.returncode == 0 and path and os.path.isdir(path):
+            return ['-isysroot', path]
+    sys.exit("no usable SDK on macOS: install the Xcode Command Line Tools "
+             "(xcode-select --install).")
+
+
+BASE = _sysroot_flags() + ['-fsyntax-only', '-fms-extensions',
         '-include', 'src/ge_port_decls.h',
         '-I', '.', '-I', 'include', '-I', 'include/PR', '-I', 'src',
         '-I', 'src/game', '-I', 'src/inflate',

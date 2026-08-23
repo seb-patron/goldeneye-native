@@ -51,35 +51,36 @@ Usage:  uniquify_asset_symbols.py <dir> [--recurse] [--dry-run]
 """
 import glob, os, re, subprocess, sys, tempfile
 
-def _sdk():
-    """Resolve an SDK to compile probe objects against.
+def _host_flags():
+    """Target and sysroot for the throwaway probe objects, or nothing off Apple.
 
-    This only ever produces a .o that nm is run over and then deleted, so the target
-    does not have to match the real build -- it just has to compile. macOS is tried
-    first because it is the platform this port builds for, and because Command Line
-    Tools alone provide it. The tvOS simulator SDK is a fallback for trees still set
-    up for the tvOS target; a Command Line Tools install does not have it.
+    This only ever compiles an object that nm is run over and then deleted, so the target
+    does not have to match the real build. On macOS it does need a sysroot, and macOS is
+    tried before the tvOS simulator because the Command Line Tools alone provide it.
 
-    Failing loudly here matters. With an empty -isysroot every compile fails,
-    globals_of() returns None for every file, and the tool "succeeds" at renaming
-    nothing while printing a SKIP for all 1600 assets. The result is a tree that
-    still has every collision it started with.
+    Off Apple there is no xcrun. Calling it there leaves the path empty and `-isysroot ''`
+    makes every compile fail, which this tool reports as a SKIP for every file -- it then
+    renames nothing while appearing to succeed. So on Linux and elsewhere, pass neither a
+    target nor a sysroot and let the system compiler use its defaults.
     """
+    if sys.platform != 'darwin':
+        return []
     for sdk, target in (('macosx', 'arm64-apple-macos13.0'),
                         ('appletvsimulator', 'arm64-apple-tvos17.0-simulator')):
         r = subprocess.run(['xcrun', '-sdk', sdk, '--show-sdk-path'],
                            capture_output=True, text=True)
         path = r.stdout.strip()
         if r.returncode == 0 and path and os.path.isdir(path):
-            return path, target
-    sys.exit("no usable SDK: neither 'xcrun -sdk macosx' nor 'xcrun -sdk "
+            return ['-target', target, '-isysroot', path]
+    sys.exit("no usable SDK on macOS: neither 'xcrun -sdk macosx' nor 'xcrun -sdk "
              "appletvsimulator' resolved. Install the Xcode Command Line Tools "
              "(xcode-select --install) before running this.")
 
-SDK, TARGET = _sdk()
+
+HOST_FLAGS = _host_flags()
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'vendor', 'ge-decomp')
 ROOT = os.path.normpath(ROOT)
-CFLAGS = ['-target',TARGET,'-isysroot',SDK,
+CFLAGS = HOST_FLAGS + [
           '-fms-extensions','-include','src/ge_port_decls.h',
           '-I','.','-I','include','-I','include/PR','-I','src','-I','src/game','-I','src/inflate',
           '-DVERSION_US','-DLANG_US','-DREFRESH_NTSC','-DLEFTOVERDEBUG','-DLEFTOVERSPECTRUM',

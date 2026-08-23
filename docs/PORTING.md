@@ -307,6 +307,27 @@ is a separate question; the header itself is load-bearing today.
 
 Estimate: **1 hour.**
 
+### The asset pipeline was macOS-only, and is not any more
+
+Worth stating separately because it sits before the build rather than in it. Two tools the
+asset pipeline depends on shelled out to `xcrun` unconditionally:
+
+- `tools/uniquify_asset_symbols.py`, section 3.6
+- `tools/gen_asset_fileview.py`, section 3.5
+
+`xcrun` exists only on macOS. Off Apple both left the SDK path empty and passed
+`-isysroot ''`, which fails every compile. In `uniquify` that failure is silent in the worst
+way: a file that will not compile is reported as one `SKIP` among hundreds of `ok` lines and
+is left with colliding symbols, so the tool renames nothing while appearing to work.
+
+**Fixed 2026-08-22.** Both now pass a sysroot only on Apple, and nothing at all elsewhere,
+where the system headers are already on the default search path. `gen_asset_fileview.py` was
+additionally asking for the `appletvos` SDK, the same wrong-SDK bug `uniquify` had.
+
+Verified unchanged on macOS: `gen_asset_fileview.py` still reports 21 of 21 file views
+matching the N64 layout, and `uniquify` still comes back clean with no skips on chr, prop,
+setup and stan.
+
 ## 10. Ordered plan for Windows
 
 1. Repository hygiene - relative include paths, delete the three dead headers. 1 hour.
