@@ -70,6 +70,56 @@ Run `check` before and after anything that touches the renderer. The tile-select
 corrected Depot's ground is exactly the shape of change it is for: it had to be shown to alter
 one stage and leave twenty-six alone, and that comparison was done by hand.
 
+### Build order
+
+Ordered by effort, not by appeal. Estimates are estimates; the Depot ground colour was filed as
+a small rendering bug and took a full session, so treat anything involving the RDP with caution.
+
+Each of the ten enhancement gates below already exists as a config key that parses, validates
+and range-checks its value, then prints NOT-IMPLEMENTED. The naming and plumbing are done; the
+work is the implementation behind them.
+
+**A day or less each. Context and framebuffer settings, no engine changes.**
+
+| item | notes |
+|---|---|
+| 24-bit depth buffer | `GETV_DEPTH_BITS`. An SDL GL attribute at context creation. The N64's z-fighting is a 16-bit depth artefact, so this is the highest ratio of visible improvement to code in the whole list. |
+| MSAA | `GETV_MSAA`. Two SDL GL attributes and enabling multisample. |
+| Anisotropic filtering | `GETV_ANISO`. One texture parameter where the sampler is configured. |
+| Field-of-view | GoldenEye already has `viSetFovY`; Perfect Dark item 9. |
+
+**Days. Confined to one subsystem.**
+
+| item | notes |
+|---|---|
+| Per-pixel fog | `GETV_FOG_PERPIXEL`. A shader change in the Fast3D backend. |
+| Positional audio | `GETV_AUDIO_3D`. The mixer exists; this is panning and attenuation from emitter positions. |
+| Muzzle-flash lighting | `GETV_MUZZLE_LIGHTS`. Needs a light injected into the shade path, which is per-vertex here. |
+| Mipmapping | `GETV_MIPMAPS`. Harder than it sounds: the game ships its own mip pyramid and selects LODs itself, so this has to cooperate with `TRILERP` rather than replace it. |
+| State and control API | A socket exposing player, chr list and objectives, and accepting pad state. Frame-stepped so runs stay reproducible. Unlocks automated playthrough verification, which is what "full playthrough unverified" needs. |
+| Two-player co-op bring-up | The engine is already N-player generic; the hook is one integer at `boss.c:489` and multiplayer spawns can be reused. Perfect Dark item 5, no Perfect Dark code required. |
+
+**Weeks. Architecture, or breadth.**
+
+| item | notes |
+|---|---|
+| VFS and asset override | Perfect Dark item 11. Without it every mod is a rebuild, so this is the mod-pack foundation rather than a mod. |
+| External and HD texture packs | Perfect Dark item 14, and it depends on the VFS above. |
+| Fixed simulation tick with interpolation | The real fix for frame-coupled gameplay. `framerate=30` is the current mitigation. This is the single largest correctness item left. |
+| Widescreen | Perfect Dark item 16, rated large there. |
+| In-game options menu | Perfect Dark item 17. Ends the config file being the only interface. |
+| Multiplayer bots | Native work reusing `chraction.c`. Not a Perfect Dark import: simulants are welded to Perfect Dark's own structures. |
+
+**Open-ended. Do not schedule these against a date.**
+
+| item | notes |
+|---|---|
+| Remaining rendering defects | Frigate's sky, the multiplayer character-select crest, the Select File watermark. Each is a hunt, and the last one of these took a session. |
+| SSAO, real-time shadows, per-pixel lighting | `GETV_SSAO`, `GETV_SHADOWS`, `GETV_PERPIXEL_LIGHT`. These change the look enough to need art direction, not just a flag. Per-pixel lighting departs furthest from the original, whose lighting is per-vertex. |
+| Full co-op with AI, objectives and cutscenes | Perfect Dark item 18, rated very large. Bring-up above is the tractable part. |
+
+Run `tools/render_refs.py check` before and after anything in the first three groups.
+
 ### Enhancements
 
 Configuration keys for these are already parsed and validated, and currently do nothing.
