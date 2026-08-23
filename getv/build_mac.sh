@@ -362,17 +362,23 @@ cmd_app() {
   # "built for newer macOS version" warnings come from SDL2 having been compiled with the
   # SDK's default deployment target rather than ours. They are advisory -- the code is
   # arm64 either way -- so they are filtered rather than chased.
-  # -dead_strip is load-bearing, not an optimisation. Without it the link fails on six
-  # undefined symbols: `osEepromRead`/`osEepromWrite` (joy.c's GamePak save path),
-  # `osViSetMode` (fr.c's viVsyncRelated, deliberately not carried over), `osPiReadIo`
-  # (token.c) and the `_{e,j}fontchardataSegmentRomStart` linker-script symbols
-  # (language.c's Japanese font). Every one is referenced only from a function this port
-  # never calls.
+  # -dead_strip is now an optimisation, which it was not until 2026-08-22.
+  #
   # ld64 dead-strips before it checks for undefined symbols, so a reference from a dead
-  # atom is not an error. Xcode's Release configuration turns DEAD_CODE_STRIPPING on by
-  # default, which is why the tvOS build never sees these; the sim binary's dSYM confirms
-  # it, with `_joyPoll` present and `_joyGamePakRead` absent.
-  # Removing this flag does not link more of the game; it just breaks the build.
+  # atom is not an error, and this flag was hiding real undefined symbols rather than
+  # trimming the binary. That is fine on macOS and worthless anywhere else: neither
+  # lld-link /OPT:REF nor GNU ld --gc-sections promises to diagnose unresolved externals
+  # only after garbage collection, so a Windows or Linux link was entitled to fail.
+  #
+  # The comment here used to say six symbols. Two of those, osEepromRead and
+  # osEepromWrite, stopped being undefined when port_save.c implemented the EEPROM entry
+  # points for real. Measured today the list is four, and port/src/port_n64_unused.c
+  # defines all of them, so the link no longer depends on linker ordering:
+  #
+  #   without port_n64_unused.o and without -dead_strip:  those four, undefined
+  #   with it and without -dead_strip:                    clean, 18 MB binary
+  #
+  # Removing the flag now costs binary size and nothing else.
   clang -target "$TARGET" -isysroot "$SDK" -o "$BIN" \
     -dead_strip \
     "${roots[@]}" "$BUILD/libge.a" \

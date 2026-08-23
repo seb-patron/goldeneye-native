@@ -249,9 +249,16 @@ _osViSetMode                     referenced from viVsyncRelated        (src/fr.o
 ```
 
 Every one is reachable only from a function this port never calls: the Japanese font,
-a PI register read, and a VI mode set. Four stubs in
-`getv/port/src/ge_link_stubs.c` - two zero `u32`s and two no-op functions - remove the
-dependency on linker ordering on every platform including macOS.
+a PI register read, and a VI mode set.
+
+**DONE 2026-08-22.** `getv/port/src/port_n64_unused.c` defines all four: two zeroed `u32`
+data symbols and two no-op functions. Not `ge_link_stubs.c`, which is a generated
+diagnostic scaffold meant to be deleted, whereas these are permanent and correct.
+
+Verified by linking the archive without `-dead_strip`, both ways: with that object removed
+the link fails on exactly those four symbols, and with it present the link is clean and
+produces an 18 MB binary. The dependency on ld64's strip-before-diagnose ordering is gone
+on every platform.
 
 Note that `osEepromRead`/`osEepromWrite` used to be on this list and are not any more:
 `getv/port/src/port_save.c` defines all five EEPROM entry points for real.
