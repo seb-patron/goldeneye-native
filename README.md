@@ -232,34 +232,24 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   thing this port needs.
 
 - **Depot ground colour.** The ground renders saturated blue where the original is near-neutral
-  dark asphalt: measured against a reference capture, rgb(27,19,85) against rgb(10,10,10). It is
-  one CI8 texture, 16x175, decoding through a palette that is not its own. This engine stores a
-  CI texture's palette immediately after its pixel block, so the palette's byte offset from the
-  block equals the block size on every decode in Dam and on 58 of 60 in Depot -- and the two
-  exceptions are exactly this texture, at +3072 and -120 against a 2808-byte block. It is reading
-  a neighbouring texture's TLUT. Ruled out along the way: environment colour (Depot's are black
-  save one red and one white), vertex shade (cycle 2 multiplies by a neutral ~0.33), the mip and
-  LOD path, the TMEM rebinding path, and TLUT byte order (Depot's big-endian/little-endian
-  saturation profile matches Dam's). Tracing `LOADBLOCK` against `LOADTLUT` narrows it further:
-  every other block size in the level loads its own palette every single time -- 127, 379, 691,
-  699 and 763 texels, 29 loads, 29 palettes -- while the 2808-byte blocks do so never, 7 loads
-  and none. They draw against whichever palette was left in place, which is the one belonging to
-  the block before them. That omission is the game's own: `tex.c` branches on
-  `tex->lutmodeindex`, and the zero case emits `SETTIMG`, `SETTILE` and `LOADBLOCK` with no
-  `LOADTLUT` at all, so those textures are meant to inherit the resident TLUT. The port is not
-  dropping anything. What remains unexplained is why the inherited palette is the wrong one here
-  and right everywhere else -- Dam draws 500 textures through the same no-TLUT path without
-  trouble. One further correlation, a lead rather than a cause: the render tile for both bad
-  decodes sits at TMEM word 19. Every other CI decode in Depot is at 0, 64 or 128 and all are
-  correct; Dam uses 0, 8, 32, 64 and 128 across 60 decodes with none wrong, so it is not
-  alignment as such. It is not the render tile either: tile 0 sits at TMEM 0 in 91 of the 93 CI
-  decodes across both levels, and the two exceptions are these. Reading the texture from that
-  offset was tried and refuted -- it moves the ground from rgb(27,19,85) to rgb(28,19,86), so the
-  index stream was never the problem and the palette still is. The most promising remaining
-  observation is that the block is 2808 bytes: loaded at TMEM 0 it runs past the 2 KB point where
-  a CI texture's palette half begins, which is not something the hardware could do for a
-  palettised texture, and suggests the port is decoding as CI8 something the console treated
-  otherwise.
+  dark asphalt: rgb(27,19,85) against rgb(10,10,10), measured against a reference capture.
+  The cause is in `ge_resolve_unit_tile`. When the render tile is resolved and the TMEM map is
+  not in use, the port points it at the most recently loaded block unconditionally:
+  `rdp.loaded_texture[0].addr = rdp.block_addr`. That is right whenever one block is live, which
+  is nearly always. Depot's ground draws with two: a 256-byte block at TMEM 0 with its own TLUT,
+  then a 2808-byte block at TMEM 32. The render tile sits at TMEM word 19, inside the first, and
+  the port reads it out of the second. The palette is correct throughout -- its offset from the
+  *first* block is 256, exactly that block's size, which is the same invariant every other decode
+  in the game satisfies -- so the result is a valid palette applied to the wrong bytes, which is
+  why the probe reports `distinct_idx == distinct_col` while the colours are nonsense.
+  It is measurable: `GETV_TMEMMAP=1` binds each tile to the block its TMEM actually falls in and
+  counts the corrections. Depot makes 27,416 of them in a four-hundred-frame run. Dam, Cradle and
+  Silo make none, which is why this is the only level where it shows.
+  Enabling that gate is not yet a fix. It restores the binding -- the decode narrows from 16x175
+  to 16x6, matching the tile's real extent, and the palette offset lands on the invariant -- but
+  the ground comes out cyan rather than neutral, so a second factor remains, most likely the
+  format: the game declares this texture `gbifmt=4` (intensity) while the render tile descriptor
+  says CI8.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
