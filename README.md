@@ -218,9 +218,12 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   every other block size in the level loads its own palette every single time -- 127, 379, 691,
   699 and 763 texels, 29 loads, 29 palettes -- while the 2808-byte blocks do so never, 7 loads
   and none. They draw against whichever palette was left in place, which is the one belonging to
-  the block before them. What is not yet known is whether the game omits that load deliberately,
-  relying on a TLUT still resident in TMEM from an earlier frame, or whether the port is dropping
-  it.
+  the block before them. That omission is the game's own: `tex.c` branches on
+  `tex->lutmodeindex`, and the zero case emits `SETTIMG`, `SETTILE` and `LOADBLOCK` with no
+  `LOADTLUT` at all, so those textures are meant to inherit the resident TLUT. The port is not
+  dropping anything. What remains unexplained is why the inherited palette is the wrong one here
+  and right everywhere else -- Dam draws 500 textures through the same no-TLUT path without
+  trouble.
 - **Frigate sky.** Flat dark navy rather than blue with cirrus. The cloud display list runs and
   emits more commands than any other stage's, so the path is active.
 - **Missing gold crest on the multiplayer character select.** The same crest renders correctly on
