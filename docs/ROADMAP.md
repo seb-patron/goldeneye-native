@@ -122,7 +122,8 @@ Run `tools/render_refs.py check` before and after anything in the first three gr
 
 ### Enhancements
 
-Configuration keys for these are already parsed and validated, and currently do nothing.
+Configuration keys for these are already parsed and validated. `depth_bits` and `msaa` are
+now implemented; the rest currently do nothing.
 Enabling one prints a notice saying so. See `docs/CONFIGURATION.md`.
 
 The first group removes hardware limits without changing artistic intent: a wider depth

@@ -276,11 +276,21 @@ GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app
 Note `lib`, not `port`: it is a game-object flag. The menu's level select does not work either;
 those entries are gutted no-ops. Use `GETV_STAGE=<n>` to pick a level.
 
-## Reserved keys - parsed but inert
+## Enhancement keys
 
-The keys below validate, export their gate, and are then consumed by nothing. They exist so the
-option surface is stable before the features land, and so a configuration written today keeps
-working. Turning one on prints a not-implemented notice rather than silently doing nothing.
+Two of these are implemented. The rest validate, export their gate, and are then consumed by
+nothing; they exist so the option surface is stable before the features land, and so a
+configuration written today keeps working. Turning an unimplemented one on prints a
+not-implemented notice rather than silently doing nothing.
+
+**Implemented:**
+
+| Key | Accepts | Effect |
+|---|---|---|
+| `depth_bits` | 16-32, clamped | Requested depth-buffer width. Note that the driver decides: on Apple silicon the context comes back 32-bit whatever is asked for, including 16, so this cannot currently be used to reproduce N64 z-fighting. The obtained width is printed at startup as `[getv][gl] depth buffer N-bit`. |
+| `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
+
+**Reserved, parsed but inert:**
 
 All of them default off. That is deliberate: the N64 look is the product, and the project's
 correctness checks are comparisons against real N64 captures, so anything that silently alters
@@ -289,9 +299,7 @@ output destroys the ability to check the port is right. Enhancements are options
 | Key | Accepts | Intended effect |
 |---|---|---|
 | `preset` | `faithful` \| `enhanced` | One switch for the whole set below. |
-| `depth_bits` | 16-32, clamped | Wider depth buffer. N64 z-fighting is a 16-bit Z limit, not an aesthetic. |
 | `anisotropic` | 0-16, clamped | Anisotropic filtering. |
-| `msaa` | 0-8, clamped | Multisampling. The N64 had anti-aliasing; this port does not. |
 | `mipmaps` | 0 \| 1 | Mipmapping and LOD bias. |
 | `fog_per_pixel` | 0 \| 1 | Per-pixel fog. N64 fog is per-vertex. |
 | `muzzle_lights` | 0 \| 1 | Dynamic lighting on muzzle flashes. |

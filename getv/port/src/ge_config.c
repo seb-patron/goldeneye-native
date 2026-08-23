@@ -644,6 +644,22 @@ static void key_todo_flag(const char *gate, const char *key, const char *v, int 
  ge_err("%s=\"%s\" - expected 0/1 (or on/off)", key, v);
 }
 
+/* An integer gate that is actually implemented: same parsing and clamping as key_todo_int,
+ * without the notice saying it does nothing. */
+static void key_int(const char *gate, const char *key, const char *v, int over, int lo, int hi)
+{
+ char buf[32];
+ char *end = NULL;
+ long n = strtol(v, &end, 10);
+ if (end == v || (end && *end != '\0')) {
+ ge_err("%s=\"%s\" - expected an integer", key, v); return;
+    }
+ if (n < lo) { n = lo; }
+ if (n > hi) { n = hi; }
+ snprintf(buf, sizeof buf, "%ld", n);
+ put(gate, buf, over);
+}
+
 static void key_todo_int(const char *gate, const char *key, const char *v, int over,
  int lo, int hi, const char *what)
 {
@@ -705,17 +721,13 @@ static int apply(const char *key_in, const char *val, int over)
 
     /* --- reserved enhancement seam; see the block above. Parsed, gated, unconsumed. --- */
  if (strcmp(key, "depth_bits") == 0) {
- key_todo_int("GETV_DEPTH_BITS", key, val, over, 16, 32,
- "a wider depth buffer (N64 z-fighting is a 16-bit Z limit, not an aesthetic)");
- return 1;
+ key_int("GETV_DEPTH_BITS", key, val, over, 16, 32); return 1;
     }
  if (strcmp(key, "anisotropic") == 0) {
  key_todo_int("GETV_ANISO", key, val, over, 0, 16, "anisotropic filtering"); return 1;
     }
  if (strcmp(key, "msaa") == 0) {
- key_todo_int("GETV_MSAA", key, val, over, 0, 8,
- "MSAA (note: the N64 HAD anti-aliasing and we currently do not)");
- return 1;
+ key_int("GETV_MSAA", key, val, over, 0, 8); return 1;
     }
  if (strcmp(key, "mipmaps") == 0) {
  key_todo_flag("GETV_MIPMAPS", key, val, over, "mipmapping + LOD bias"); return 1;
