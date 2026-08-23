@@ -142,9 +142,9 @@ int SDL_main(int argc, char *argv[])
     printf("[getv] libge.a linked; bossGetStageNum() -> %d\n", bossGetStageNum());
 
     /* macOS is the only target with a real window, so it is the only one with
-     * anything to configure. GE_PLATFORM_MAC is defined by build_mac.sh alone --
+     * anything to configure. GE_PLATFORM_DESKTOP is defined by the desktop build scripts --
      * the tvOS device and simulator builds do not define it and are unaffected. */
-#ifdef GE_PLATFORM_MAC
+#ifdef GE_PLATFORM_DESKTOP
     { extern void gePortMacWindowConfig(void); gePortMacWindowConfig(); }
 #endif
 

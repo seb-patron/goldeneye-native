@@ -152,6 +152,7 @@ build_port_layer() {
     -I "$SDL/include" -I "$SDL/include/SDL2"
     -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DRAPI_GL -DWAPI_SDL2
     -DGE_PLATFORM_MAC
+    -DGE_PLATFORM_DESKTOP
     # Desktop GL on macOS is deprecated-but-present; silence only that, so a real
     # diagnostic still shows.
     -DGL_SILENCE_DEPRECATION

@@ -814,10 +814,10 @@ static void geSynthState(int port, struct GePadState *out)
 }
 
 
-#ifdef GE_PLATFORM_MAC
+#ifdef GE_PLATFORM_DESKTOP
 /* ===========================================================================
  * Keyboard as port 0 -- macOS only (build_mac.sh is the only thing that defines
- * GE_PLATFORM_MAC; the tvOS device and simulator builds never see any of this).
+ * GE_PLATFORM_DESKTOP; the tvOS device and simulator builds never see any of this).
  *
  * The Apple TV has no keyboard and the port otherwise assumes a gamepad, so
  * `gePads[0] == NULL` means "port 0 is dead" unless GETV_PADS or GETV_SCRIPT forces it.
@@ -1043,7 +1043,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
  out->present      = 1;
  out->real_gamepad = 1;
 }
-#endif /* GE_PLATFORM_MAC */
+#endif /* GE_PLATFORM_DESKTOP */
 
 void gePortInputPollPort(int port, struct GePadState *out)
 {
@@ -1068,7 +1068,7 @@ void gePortInputPollPort(int port, struct GePadState *out)
 
  gc = gePads[port];
  if (gc == NULL) {
-#ifdef GE_PLATFORM_MAC
+#ifdef GE_PLATFORM_DESKTOP
         /* The keyboard is its own forced pad, for the same reason a script is: on a Mac
          * it is the default input device, not a fallback, and requiring GETV_PADS=1 to
          * use it would make a fresh build look input-dead.
@@ -1090,7 +1090,7 @@ void gePortInputPollPort(int port, struct GePadState *out)
  geScriptApply(port, geSynthFrame, out);
  return;
         }
-#ifdef GE_PLATFORM_MAC
+#ifdef GE_PLATFORM_DESKTOP
         /* Keyboard claimed the port and no script is live -- nothing further to do. */
  if (out->present) {
  return;
@@ -1148,7 +1148,7 @@ void gePortInputPollPort(int port, struct GePadState *out)
      * controller happens to be attached to the host. OR-only: it never CLEARS a button
      * the human is holding, so a script can be steered out of by hand on the device. */
  geScriptApply(port, geSynthFrame, out);
-#ifdef GE_PLATFORM_MAC
+#ifdef GE_PLATFORM_DESKTOP
  geKeyboardApply(port, out);
 #endif
 }

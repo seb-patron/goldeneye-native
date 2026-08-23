@@ -98,15 +98,19 @@ Eleven code sites. Two of them are misnamed and are the main source of avoidable
 | `getv/port/src/port_save.c:113` | Diagnostic wording only, since 2026-08-22 | None |
 | `getv/port/src/port_paths.c:71` | The macOS user-data directory, since 2026-08-22 | None - the `#else` is already correct on Windows |
 
-**The single highest-value change on this list**: `GE_PLATFORM_MAC` is doing duty as
-"this platform has a keyboard and a resizable window". Introduce `GE_PLATFORM_DESKTOP`
-(defined by `build_mac.sh` and by the future Windows and Linux scripts, and *not* by
-`build.sh`/`build_sim.sh`), move the `port_input.c` and `port_support.c` blocks onto
-it, and leave `GE_PLATFORM_MAC` for things that are genuinely Apple. Without this a
-Windows build has no keyboard input and comes up as a 1920x1080 non-resizable window.
+**DONE 2026-08-22.** `GE_PLATFORM_DESKTOP` now exists, defined by `build_mac.sh` and to be
+defined by the future Windows and Linux scripts, but not by `build.sh` or `build_sim.sh`. The
+keyboard device and its three call sites in `port_input.c`, the `configWindow` block in
+`port_support.c`, and the caller in `ge_tvos_main.c` are on it. What is left under
+`GE_PLATFORM_MAC` is the macOS user-data directory and one diagnostic string, which are
+genuinely Apple.
 
-Estimate: **half a day**, and it is verifiable on macOS - define both symbols in
-`build_mac.sh` and confirm the counts and the runtime output are unchanged.
+Verified on macOS: build unchanged at 167/1 game, 746/0 assets, 40/0 audio, 23/0 port layer;
+the window still comes up 1280x960 resizable; the keyboard code is in the binary (37 keyboard
+symbols, `SDL_GetKeyboardState` linked); and `tools/render_refs.py check` reports 27 of 27
+stages unchanged.
+
+Without this a Windows build would have had no keyboard input and a fixed 1920x1080 window.
 
 ## 4. User-data paths and directory creation - DONE 2026-08-22
 

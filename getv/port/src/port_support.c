@@ -84,7 +84,7 @@ unsigned int gePortHostN64Count(void)
  * Mac target exists -- a window can be looked at, screenshotted and played. So it
  * starts windowed and resizable rather than seizing the display. Override with
  * GETV_WINDOW=WxH, or GETV_FULLSCREEN=1. */
-#ifdef GE_PLATFORM_MAC
+#ifdef GE_PLATFORM_DESKTOP
 ConfigWindow configWindow = {
     .x = (unsigned)WAPI_WIN_CENTERPOS, .y = (unsigned)WAPI_WIN_CENTERPOS,
     .w = 1280, .h = 960,          /* 4:3, the aspect the game was authored for */
