@@ -11,7 +11,8 @@ static recompilation step - the binary is the game, built as ordinary C.
 ## What works
 
 All 27 loadable stages boot, render and exit cleanly: 21 load directly, and six are multiplayer-only
-and need two or more players. That is measured across every named stage id, not sampled. There are
+and need two or more players. That is measured across every named stage id, not sampled;
+`tools/stage_census.sh` reproduces it. There are
 no known crashes, hangs, or stages that fail to start or end properly.
 
 The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no setup,

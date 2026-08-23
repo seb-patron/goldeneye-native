@@ -5,8 +5,17 @@ body:
   - type: markdown
     attributes:
       value: |
-        Check [docs/ROADMAP.md](../blob/main/docs/ROADMAP.md) first - several known issues are
-        listed there, and a few things that look like bugs are faithful to the original.
+        Check the known issues in the [README](../blob/main/README.md) first. Several are listed
+        there, and a few things that look like bugs are faithful to the original.
+
+        **If the problem is combat pacing, try `--framerate=30` before filing.** Enemy fire
+        rates, ammunition and AI stepping advance once per rendered frame, so at 60 they run
+        roughly twice as fast as the console did. 30 runs them at the intended cadence. That
+        is a known gap, not something to report again.
+
+        A stage that refuses to load and prints a reason is usually working as intended:
+        ten stage ids carry no data in the ROM, and six more are multiplayer-only and need
+        `GETV_MP=2`. The message says which.
 
         **Do not attach a ROM or anything extracted from one.** Screenshots of the running game
         are fine and are usually the fastest way to explain a rendering problem.
