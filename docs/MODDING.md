@@ -208,6 +208,7 @@ stage that is known good, usually Dam (`GETV_STAGE=33`), as a control in the sam
 | `GETV_CIPROBE=<n>` | Per CI decode: pixel address, palette pointer, the palette's byte offset from the pixel block, distinct source indices, and distinct resolved colours. `distinct_col` far below `distinct_idx` is a palette fault; `distinct_idx == 1` is an image fault. |
 | `GETV_PALTRACE=1` | The `gDPLoadTLUT07` fields and the byte offset derived from them. |
 | `GETV_ENVTRACE=<n>` | Every environment colour the game sets. Worth reaching for whenever a combiner resolves to the shape `(x - ENV) * 0 + ENV`, which outputs the environment colour flat and makes the texture and palette irrelevant to the result. |
+| `GETV_MARKTMEM=<n>` | Paint every CI8 decode whose render tile sits at TMEM word `n` bright magenta. Attribution, not diagnosis: it answers whether a given decode is the surface you are looking at, which reading the display list will not tell you. This is how Depot's ground was tied to a specific texture after several wrong guesses. |
 | `GETV_LIGHTTRACE=1` | Per-frame census of which colour-combiner mux codes were seen, and which fell through to the constant zero. A code marked `(DROPPED)` that the level actually relies on is a decode gap. `COMBINED` in cycle 1 is dropped legitimately -- it is undefined on hardware. |
 
 One invariant is worth knowing before reading any of it: this engine stores a CI texture's
