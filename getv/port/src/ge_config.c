@@ -724,7 +724,7 @@ static int apply(const char *key_in, const char *val, int over)
  key_int("GETV_DEPTH_BITS", key, val, over, 16, 32); return 1;
     }
  if (strcmp(key, "anisotropic") == 0) {
- key_todo_int("GETV_ANISO", key, val, over, 0, 16, "anisotropic filtering"); return 1;
+ key_int("GETV_ANISO", key, val, over, 0, 16); return 1;
     }
  if (strcmp(key, "msaa") == 0) {
  key_int("GETV_MSAA", key, val, over, 0, 8); return 1;

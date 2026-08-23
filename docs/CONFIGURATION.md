@@ -288,6 +288,7 @@ not-implemented notice rather than silently doing nothing.
 | Key | Accepts | Effect |
 |---|---|---|
 | `depth_bits` | 16-32, clamped | Requested depth-buffer width. Note that the driver decides: on Apple silicon the context comes back 32-bit whatever is asked for, including 16, so this cannot currently be used to reproduce N64 z-fighting. The obtained width is printed at startup as `[getv][gl] depth buffer N-bit`. |
+| `anisotropic` | 0-16, clamped | Anisotropic filtering, off by default. Clamped again at runtime to the driver's own maximum, since asking for more than the hardware offers is a GL error rather than a silent downgrade: on this machine 64 becomes 16. Applied only where the game already chose linear filtering, so the HUD, the watch faces and text keep point sampling and stay sharp. |
 | `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
 
 **Reserved, parsed but inert:**
@@ -299,7 +300,6 @@ output destroys the ability to check the port is right. Enhancements are options
 | Key | Accepts | Intended effect |
 |---|---|---|
 | `preset` | `faithful` \| `enhanced` | One switch for the whole set below. |
-| `anisotropic` | 0-16, clamped | Anisotropic filtering. |
 | `mipmaps` | 0 \| 1 | Mipmapping and LOD bias. |
 | `fog_per_pixel` | 0 \| 1 | Per-pixel fog. N64 fog is per-vertex. |
 | `muzzle_lights` | 0 \| 1 | Dynamic lighting on muzzle flashes. |
