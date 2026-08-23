@@ -696,6 +696,7 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "aspect") == 0)      { key_aspect(val, over); return 1; }
  if (strcmp(key, "framerate") == 0)   { key_framerate(val, over); return 1; }
  if (strcmp(key, "fov") == 0)         { key_int("GETV_FOV", key, val, over, 50, 160); return 1; }
+ if (strcmp(key, "coop") == 0)        { key_int("GETV_COOP", key, val, over, 0, 4); return 1; }
  if (strcmp(key, "supersample") == 0) { key_supersample(val, over); return 1; }
  if (strcmp(key, "controls") == 0)    { key_controls(val, over); return 1; }
  if (strcmp(key, "filtering") == 0)   { key_filtering(val, over); return 1; }

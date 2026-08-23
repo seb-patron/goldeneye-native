@@ -24,13 +24,37 @@ than reporting it as missing data.
 
 
 Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
-watch renders all five pages. Saves persist. The game renders at 60 fps with configurable
+watch renders all five pages. Saves persist.
+
+Two to four players can also share a single-player mission, split screen, with `coop = 2`. That
+is bring-up rather than a co-op campaign: the mission loads with its own geometry, props and
+objectives and every player spawns into it, but objectives, AI and cutscenes are all authored
+around one Bond and none of that has been adapted.
+
+Four rendering options are implemented and off by default, since the N64 look is the product:
+`msaa`, `anisotropic`, `fov` and `depth_bits`. The rest of the keys in
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) are still reserved. The game renders at 60 fps with configurable
 resolution and supersampling.
 
 What has not been verified is a full playthrough: combat balance, AI behaviour over time,
 objective completion, and finishing a level end to end. The port renders and reaches a playable
 state everywhere. Whether it plays correctly from start to finish is untested, and the known issue
 below on tick-coupled gameplay is a concrete reason to expect that it does not yet.
+
+That gap is now measurable rather than merely stated. `tools/playtest.py` drives a stage with
+scripted input and reads the machine-readable run state the game emits under `GETV_STATE`:
+whether the player reached gameplay at all, how far they moved, how many objectives the mission
+has, whether any changed, and whether it completed.
+
+Its current result: **all 21 solo missions reach gameplay and the player moves**, between 408
+and 19,584 units over a 900-frame run, with objective counts matching the missions. No objective
+advanced, which is expected when the input is "walk forward" and nothing else. So the port is
+further than "renders" and well short of "plays": reaching a playable state is now measured
+across every mission, and completing one is not.
+
+One reading to know about. Cuba is the credits sequence and reports no objectives, so
+`objectiveIsAllComplete()` is trivially true there and the tool prints `complete=yes`. It is an
+empty set, not a finished mission.
 
 Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). ZX Spectrum Emulator intentionally not wired up.
 
@@ -204,6 +228,9 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 | | |
 |---|---|
 | [`docs/SETUP.md`](docs/SETUP.md) | The build guide. Start here. |
+| [`tools/playtest.py`](tools/playtest.py) | Drive a stage and report whether it reached gameplay, moved, and advanced objectives. |
+| [`tools/stage_census.sh`](tools/stage_census.sh) | Every named stage id: loads, multiplayer only, or carries no data. |
+| [`tools/render_refs.py`](tools/render_refs.py) | Rendering baseline; `check` reports any stage that drifts. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | What is specific to this project: no game data, the patch workflow, measuring, building one file, provenance. |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Every configuration key, which are implemented, and which are reserved. |
 | [`docs/CHEATS.md`](docs/CHEATS.md) | The game's own cheat system, exposed by name. |
