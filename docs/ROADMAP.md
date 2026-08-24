@@ -54,7 +54,26 @@ The build script also could not fail: it took its exit status from `head` rather
 compiler and tested an output binary that a previous run had left behind, so a link with 27
 missing translation units still reported success. Both are fixed.
 
-### Windows - in progress
+### Windows - builds and runs
+
+Verified 2026-08-24 on a Surface Pro 3, Windows 11, mingw-w64 gcc 16.2: **1801 frames of
+Bunker 1, no exceptions, clean exit.**
+
+```
+GL_VENDOR=Intel | GL_RENDERER=Intel(R) HD Graphics 4400 | GL_VERSION=4.3.0
+frame 1801: tris submitted=4188 drawn=1931 fog=1843
+```
+
+⚠️ **Run it from a desktop session, not over SSH.** A remote session gets
+`GL_RENDERER=GDI Generic, GL_VERSION=1.1.0` -- Microsoft's software rasteriser -- and GLEW
+cannot resolve modern entry points there, so Fast3D calls through a null function pointer
+and faults at PC 0x0. That is an environment property, not a port bug, and it is worth
+knowing because the crash looks catastrophic and means only "no GPU driver in this session".
+
+The historical detail below is kept because most of it applies to any new toolchain, not
+just this one.
+
+### Windows - how it was brought up
 
 A native Win32 build is underway on a Surface Pro 3. Where it stands: the toolchain works,
 **165 of 168 game translation units compile** (macOS and Linux build 167/1), and the port
