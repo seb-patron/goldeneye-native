@@ -51,11 +51,21 @@ SDK="$(xcrun -sdk macosx --show-sdk-path)"
 # Host-arch detection: the game/renderer layer has no arm64-specific code (see
 # docs/PORTING.md), so x86_64 Macs build too. The only real arch dependency is the
 # crash handler's register dump in Sources/ge_tvos_main.c, which branches on it.
+# uname -m answers for the *process*, not the machine. An x86_64 Homebrew bash under
+# Rosetta reports x86_64 on an Apple silicon Mac, and the build then targets the Intel
+# slice, ignores an arm64-only libSDL2.a with ~30 "required architecture" warnings, and
+# either fails to link or silently leaves the previous binary in place. hw.optional.arm64
+# is a property of the hardware and is not rewritten by Rosetta, so it is asked first;
+# uname remains the fallback for real Intel Macs, where the sysctl does not exist.
+# Set MACARCH in the environment to override (cross-building the other slice).
 HOSTARCH="$(uname -m)"
-case "$HOSTARCH" in
+if [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
+  HOSTARCH="arm64"
+fi
+case "${MACARCH:-$HOSTARCH}" in
   arm64)   MACARCH="arm64" ;;
   x86_64)  MACARCH="x86_64" ;;
-  *) echo "unsupported host arch: $HOSTARCH" >&2; exit 1 ;;
+  *) echo "unsupported host arch: ${MACARCH:-$HOSTARCH}" >&2; exit 1 ;;
 esac
 TARGET="${MACARCH}-apple-macos13.0"
 BIN="$BUILD/goldeneye"
