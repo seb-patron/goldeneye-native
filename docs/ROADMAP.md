@@ -54,6 +54,48 @@ The build script also could not fail: it took its exit status from `head` rather
 compiler and tested an output binary that a previous run had left behind, so a link with 27
 missing translation units still reported success. Both are fixed.
 
+### Windows - in progress
+
+A native Win32 build is underway on a Surface Pro 3. Where it stands: the toolchain works,
+**165 of 168 game translation units compile** (macOS and Linux build 167/1), and the port
+layer's Windows branches are written and compile clean. It does not link yet.
+
+**The toolchain is standalone mingw-w64, not MSYS2.** MSYS2 emulates `fork()` by copying an
+address space, which failed outright on this host -- `dofork: child died unexpectedly, exit
+code 0xC0000142` -- and the build forks once per translation unit. `autorebase` and
+`rebaseall` did not fix it and left both bash and MSYS2's own gcc unable to spawn `cc1.exe`.
+The fix was to stop depending on it: `getv/build_windows.ps1` drives mingw's `gcc.exe`
+directly from PowerShell, and mingw-w64 from WinLibs plus SDL2's official mingw package need
+no POSIX emulation at all. `getv/build_windows.sh` is kept for hosts where MSYS2 is healthy.
+
+Three toolchain-era traps were found, none of them Windows-specific in principle:
+
+- **GCC 15+ defaults to `gnu23`, where `bool` is a keyword.** `bondtypes.h:85` does
+  `typedef s32 bool;`. `-std=gnu17` is now passed explicitly, and **this will bite the Linux
+  build the moment that host's gcc updates** -- it is a compiler-version trap, not a platform
+  one.
+- **GCC 14 promoted five old-C warnings to errors** (incompatible-pointer-types,
+  int-conversion, implicit-function-declaration, implicit-int, return-mismatch). The decomp
+  is 1990s C and trips four constantly. They are demoted back to warnings;
+  `-Werror=return-type` deliberately stays fatal.
+- macOS AppleDouble `._*` files travelled in a tarball and were fed to the compiler.
+
+**The real remaining problem is that Windows is LLP64.** Measured on the box: `long=4,
+ptr=8, size_t=8`, against `long=8` on macOS and Linux. Every decomp struct field declared
+`long` therefore changes size, which reintroduces exactly the 32-bit truncation class this
+port spent its early life eliminating. Two files fail on it today and both failures are
+informative rather than mysterious:
+
+- `stan.c:1453` -- a `_Static_assert` fires: *"StandTile grew: &standTileStart[link] no
+  longer equals base + (link << 3)"*. The guard did its job, the same way the endianness
+  asserts did when GCC first saw this tree.
+- `loadobjectmodel.c:15` -- a local `memcpy` prototype using `unsigned long` conflicts with
+  the real one, because `unsigned long` is no longer `size_t`.
+
+Fixing these means auditing `long` in the decomp's structs the way pointer width was audited
+before, not adding a flag. `tlb_manage.c` is the third failure and is the deliberately
+stubbed N64 hardware file that fails on every platform.
+
 ## Known issues
 
 **Doors that never resolved a position.** `proplvreset` sets `door->prop = NULL` when
