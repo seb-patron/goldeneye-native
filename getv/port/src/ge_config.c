@@ -788,6 +788,22 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "cheats") == 0) { key_cheats(val, over); return 1; }
  if (strcmp(key, "roster") == 0) { key_roster(val, over); return 1; }
 
+    /* Rulesets. These are pure pass-through to the gates ge_ruleset.c reads, so the config
+     * file, the environment and a launcher all name the same thing and there is no second
+     * copy of the defaults to drift. Validation lives in ge_ruleset.c, which is where an
+     * unknown ruleset name is reported along with the list of known ones. */
+ if (strcmp(key, "ruleset") == 0)          { put("GETV_RULESET", val, over); return 1; }
+ if (strcmp(key, "horde") == 0)            { put("GETV_HORDE", val, over); return 1; }
+ if (strcmp(key, "enemy_health") == 0)     { put("GETV_RS_ENEMY_HEALTH", val, over); return 1; }
+ if (strcmp(key, "enemy_damage") == 0)     { put("GETV_RS_ENEMY_DAMAGE", val, over); return 1; }
+ if (strcmp(key, "enemy_accuracy") == 0)   { put("GETV_RS_ENEMY_ACCURACY", val, over); return 1; }
+ if (strcmp(key, "enemy_reaction") == 0)   { put("GETV_RS_ENEMY_REACTION", val, over); return 1; }
+ if (strcmp(key, "player_health") == 0)    { put("GETV_RS_PLAYER_HEALTH", val, over); return 1; }
+ if (strcmp(key, "player_armour") == 0)    { put("GETV_RS_PLAYER_ARMOUR", val, over); return 1; }
+ if (strcmp(key, "ammo") == 0)             { put("GETV_RS_AMMO", val, over); return 1; }
+ if (strcmp(key, "explosion_damage") == 0) { put("GETV_RS_EXPLOSION_DAMAGE", val, over); return 1; }
+ if (strcmp(key, "turret_damage") == 0)    { put("GETV_RS_TURRET_DAMAGE", val, over); return 1; }
+
  if (strcmp(key, "debug_position") == 0 || strcmp(key, "debugpos") == 0) {
  if (is_true(val)) {
  put("GETV_DEBUGPOS", "1", over);

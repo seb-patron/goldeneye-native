@@ -197,7 +197,7 @@ If the files came from a slightly earlier commit, the patch absorbs the differen
 generated against `d7ca2c04` and round-trips to the current tree byte for byte, which
 `tools/fetch-thirdparty.sh verify` checks on demand.
 
-## 8b. Lua, and the projects deliberately not read
+## 8b. Lua, Dear ImGui, and the projects deliberately not read
 
 **Lua 5.4.7 (MIT).** Fetched and built by `tools/fetch_lua.sh` into `~/.n64tvos/lua-*`, never
 vendored, on the same terms as SDL2: `deps/` is not tracked. It backs the mod scripting host in
@@ -206,6 +206,25 @@ without it -- absent `liblua.a`, the hooks compile to empty functions. Upstream 
 `https://www.lua.org/ftp/lua-5.4.7.tar.gz`, sha256
 `9fbf5e28ef86c69858f6d3d34eccc32e911c1a28b4120ff3e84aaa70cfbf1e30`, checked by the fetch script
 before anything is compiled into the game.
+
+**Dear ImGui 1.91.9b (MIT).** Fetched and built by `tools/fetch_imgui.sh` into
+`~/.n64tvos/imgui-*`, never vendored, on the same terms as Lua and SDL2. It backs the dev
+overlay in `getv/port/src/ge_imgui.cpp`, which is the substrate a launcher / debug UI is meant
+to be built on. MIT imposes nothing on the rest of the tree, and the build works without it --
+absent `libimgui.a`, the entry points compile to empty functions and `gfx_sdl2.c` needs no
+`#ifdef`. It is additionally off at runtime unless `GETV_IMGUI=1`, so having it installed does
+not change how the game behaves. Upstream is
+`https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz`, sha256
+`8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb`, checked by the fetch script
+before anything is compiled into the game.
+
+Five ImGui core sources plus two backends are compiled: `imgui_impl_sdl2.cpp` and -- note --
+`imgui_impl_opengl2.cpp`, the *fixed-function* renderer backend rather than the usual
+`imgui_impl_opengl3.cpp`. `build_mac.sh` deliberately takes macOS's legacy GL 2.1 context
+because `gfx_opengl.c` emits `#version 120` shaders, and the GL3 backend unconditionally calls
+`glGenVertexArrays`, which that context does not have. The consequence is that ImGui cannot
+restore the bound shader program or array buffer itself (its own source says so), so
+`ge_imgui.cpp` saves and clears both around the draw. Both files carry that reasoning in full.
 
 **`Graslu/1964GEPD` -- GPL-2.0, quarantined (checked 2026-08-24).** A fork of Joel Middendorf's
 1964 emulator (1999-2002) carrying GoldenEye and Perfect Dark fixes, notably around input and

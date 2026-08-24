@@ -56,6 +56,19 @@ if [ -f "$LUA/lib/liblua.a" ] && [ -f "$LUA/include/lua.h" ]; then
   LUAFLAGS=( -DGE_WITH_LUA -I "$LUA/include" )
   LUALIBS=( "$LUA/lib/liblua.a" )
 fi
+# Optional Dear ImGui dev overlay / launcher UI. Built by tools/fetch_imgui.sh into the same
+# out-of-repo prefix, on the same terms as Lua and SDL2. Absent is the normal case: without
+# it the build omits -DGE_WITH_IMGUI and getv/port/src/ge_imgui.cpp compiles to empty entry
+# points, so gfx_sdl2.c needs no #ifdef and nothing else in the tree knows.
+#
+# The overlay is additionally OFF at runtime unless GETV_IMGUI=1, so having the library
+# installed does not change how the game behaves.
+IMGUI="$HOME/.n64tvos/imgui-mac"
+IMGUIFLAGS=(); IMGUILIBS=()
+if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
+  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
+  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
+fi
 SDLSRC="$HERE/../deps/SDL2-2.30.9"
 SDK="$(xcrun -sdk macosx --show-sdk-path)"
 # Host-arch detection: the game/renderer layer has no arm64-specific code (see
@@ -187,12 +200,27 @@ build_port_layer() {
     -DGL_SILENCE_DEPRECATION
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
     ${LUAFLAGS[@]+"${LUAFLAGS[@]}"}
+    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
   )
   mkdir -p "$BUILD/obj"
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c "$HERE"/port/audio/*.c; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.c}").o"
     if clang "${PORTFLAGS[@]}" -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
+    else pfail=$((pfail+1)); rm -f "$o"; echo "  mac port FAILED: $(basename "$f")"; fi
+  done
+  # C++ in the port layer. Exactly one file today (ge_imgui.cpp) and that is the intent:
+  # ImGui is C++, everything that calls it is C, and the boundary is kept to one translation
+  # unit with a plain-C header. The flags are PORTFLAGS with -std=c++17 added and nothing
+  # removed, so a define that reaches the C files reaches this one too -- an -I or a -D that
+  # applied to only half the port layer is a bug waiting to happen.
+  #
+  # This loop runs whether or not ImGui is installed. Without -DGE_WITH_IMGUI the file
+  # compiles to empty entry points, which is what lets gfx_sdl2.c call them unconditionally.
+  for f in "$HERE"/port/src/*.cpp; do
+    [ -e "$f" ] || continue
+    local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
+    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
     else pfail=$((pfail+1)); rm -f "$o"; echo "  mac port FAILED: $(basename "$f")"; fi
   done
   # The harness. Shared verbatim with the tvOS app target (getv/Sources) -- it is plain
@@ -407,7 +435,7 @@ cmd_app() {
   # without -dead_strip too.
   clang -target "$TARGET" -isysroot "$SDK" -o "$BIN" \
     "${roots[@]}" "$BUILD/libge.a" \
-    "$SDL/lib/libSDL2.a" ${LUALIBS[@]+"${LUALIBS[@]}"} \
+    "$SDL/lib/libSDL2.a" ${LUALIBS[@]+"${LUALIBS[@]}"} ${IMGUILIBS[@]+"${IMGUILIBS[@]}"} \
     -lc++ -lz -liconv \
     -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo \
     -framework CoreAudio -framework AudioToolbox -framework AVFoundation \

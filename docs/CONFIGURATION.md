@@ -293,6 +293,64 @@ not-implemented notice rather than silently doing nothing.
 | `anisotropic` | 0-16, clamped | Anisotropic filtering, off by default. Clamped again at runtime to the driver's own maximum, since asking for more than the hardware offers is a GL error rather than a silent downgrade: on this machine 64 becomes 16. Applied only where the game already chose linear filtering, so the HUD, the watch faces and text keep point sampling and stay sharp. |
 | `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
 
+
+## Rulesets
+
+A ruleset scales values the game already reads. No level, model, setup file or asset is
+involved, which is why these cost almost nothing to add and can be combined freely.
+
+`ruleset = classic | hardcore | survival | chaos | horde`
+
+| preset | what it does |
+|---|---|
+| `classic` | the game as shipped. The default, and completely silent. |
+| `hardcore` | enemy health 200%, damage 150%, accuracy 130%; player health 50%; ammo 50% |
+| `survival` | hardcore-lite (150/125/115, player 75%, ammo 75%) with endless waves |
+| `chaos` | everything turned up: enemies 300/200/150, player 200%, ammo 300% |
+| `horde` | stock difficulty, double ammo, endless waves |
+
+Individual keys override whatever the preset chose, so `ruleset = hardcore` plus
+`ammo = 200` is a hardcore run with generous ammo. All are percentages, where 100 is
+unmodified:
+
+`enemy_health` · `enemy_damage` · `enemy_accuracy` · `enemy_reaction` ·
+`player_health` · `player_armour` · `ammo` · `explosion_damage` · `turret_damage`
+
+Horde: `horde = 0 | 1`, tuned with the gates `GETV_HORDE_PER_KILL` (default 1),
+`GETV_HORDE_PER_KILL_CAP` (3), `GETV_HORDE_MAX_ALIVE` (12), `GETV_HORDE_WAVE_KILLS` (10)
+and `GETV_HORDE_GROWTH` (1). When a guard dies, replacements spawn where it fell using the
+engine's own `chrSpawnAtCoord`, inheriting the dead guard's body and AI list; the wave
+number rises every `wave_kills` kills and adds `growth` to the spawn count, up to the cap.
+
+⚠️ **Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
+`(guard count + 10)` entries and the engine declines to spawn with fewer than three free, so
+the real ceiling belongs to the level. A refused spawn leaves the wave smaller rather than
+failing.
+
+**Two of these are inverted internally**, and the implementation compensates so the
+user-facing name means what it says. `enemy_health` divides `g_AiHealthModifier`, because
+that global scales damage dealt *to* a guard; `player_health` multiplies `actual_health`,
+because `bondhealth` falls by `damage / actual_health`. `enemy_reaction` is documented
+without a difficulty claim: it scales the upper bound of a randomised AI timer, and which
+direction feels harder has not been measured.
+
+**Verifying a ruleset took effect.** Any non-stock ruleset prints once at level load, both
+what was requested and what the engine ended up holding:
+
+```
+[getv][ruleset] "hardcore" -- tougher guards, less ammo, half the player health
+[getv][ruleset]   enemy: health 200% damage 150% accuracy 130% reaction 100%
+[getv][ruleset]   player: health 50% armour 100% | ammo 50% explosion 100% turret 100%
+[getv][ruleset] applied: aiHealth=1.000 aiDamage=0.750 aiAccuracy=0.780 ... ammo=1.000
+```
+
+The second line is the claim and the `applied:` line is the measurement. On Agent, stock
+`aiHealth` is 2.000, so hardcore's 1.000 is guards taking half the damage they used to.
+
+`GETV_HORDE_SELFTEST=<frame>` spawns one replacement from a live guard at that tick without
+a kill having happened. It exists because combat cannot be driven reliably from a headless
+run, and it exercises the same spawn path a real death does.
+
 **Reserved, parsed but inert:**
 
 All of them default off. That is deliberate: the N64 look is the product, and the project's

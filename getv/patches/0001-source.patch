@@ -7624,7 +7624,7 @@ index 71e949a..ae59082 100644
  
  #endif
 diff --git a/src/game/chr.c b/src/game/chr.c
-index 50544ec..1ff62d0 100644
+index 50544ec..3940018 100644
 --- a/src/game/chr.c
 +++ b/src/game/chr.c
 @@ -1,4 +1,5 @@
@@ -9125,6 +9125,157 @@ index 50544ec..1ff62d0 100644
      if (!handles_shot_actors(chr, bhit->hitpart, &shot->dir, shot->weapon, TRUE)) {
          return;
      }
+@@ -3882,3 +4573,150 @@ s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct co
+ 
+     return 0;
+ }
++
++
++/* ===================== HORDE MODE =====================
++ *
++ * Endless waves, built entirely out of the engine's own spawning. A horde is not a game
++ * mode here so much as a rule attached to dying: when a guard dies, some number of
++ * replacements are spawned where it fell, and that number grows every so many kills.
++ *
++ * Driven from lv.c's per-frame tick rather than from a death callback, because there is no
++ * single place a chr dies -- a bullet, an explosion, a fall and a scripted kill all arrive
++ * differently, and chr.c:4204 only sees the bullet. Polling the slot table catches every
++ * cause for the price of one walk of an array the game already walks several times a frame.
++ *
++ * Slot reuse is why the "already counted" marks are cleared for any slot that is not
++ * currently dying: a slot that dies, is cleaned up and is then handed to a new guard must be
++ * countable again, and clearing on the live path means that happens without tracking
++ * cleanup explicitly.
++ *
++ * Three limits, all of which can stop a spawn, and all deliberate:
++ *   - chrSpawnAtCoord refuses unless chrGetNumFree() >= 3, which is the engine's own rule.
++ *     g_ChrSlots is allocated with only (count + 10) entries (initguards.c:30), so the
++ *     ceiling on live guards is a property of the level, not of this code.
++ *   - max_alive caps how many spawned guards may live at once.
++ *   - per_kill is capped, so growth cannot outrun the slot table.
++ * A refused spawn is not an error and is not retried; the wave simply stays smaller.
++ */
++
++#define GE_HORDE_MARKS 512
++
++static unsigned char ge_horde_dead_mark[GE_HORDE_MARKS];
++static s32 ge_horde_kills;
++static s32 ge_horde_wave;
++static s32 ge_horde_alive;      /* guards spawned by this system that are still up */
++static s32 ge_horde_spawned;    /* lifetime total, for the summary line */
++
++s32 gePortHordeKills(void) { return ge_horde_kills; }
++s32 gePortHordeWave(void)  { return ge_horde_wave;  }
++
++void gePortHordeTick(void)
++{
++    extern int gePortHordeEnabled(void);
++    extern int gePortHordeMaxAlive(void);
++    extern int gePortHordeWaveKills(void);
++    extern int gePortHordeGrowth(void);
++    extern int gePortHordePerKillBase(void);
++    extern int gePortHordePerKillCap(void);
++    extern PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos,
++                                       StandTile *stan, f32 angle,
++                                       struct AIListRecord *ailist, s32 spawnflags);
++
++    s32 i;
++    s32 per_kill;
++
++    if (!gePortHordeEnabled()) {
++        return;
++    }
++
++    /* GETV_HORDE_SELFTEST=<frame>: at that tick, treat the first live guard as a kill
++     * without one having happened. Combat cannot be driven reliably from a headless run --
++     * scripted fire sprays in whatever direction the level happens to start facing and
++     * usually hits nobody -- so without this the spawn path could only be claimed to work,
++     * not shown to. It exercises exactly the code a real death runs, and it is the only
++     * thing in this file that is not reachable in normal play. */
++    {
++        static s32 ge_st_tick = 0;
++        static s32 ge_st_at = -2;
++        if (ge_st_at == -2) {
++            const char *e = getenv("GETV_HORDE_SELFTEST");
++            ge_st_at = (e && *e) ? atoi(e) : -1;
++        }
++        ge_st_tick++;
++        if (ge_st_at > 0 && ge_st_tick == ge_st_at) {
++            s32 k;
++            for (k = 0; k < g_NumChrSlots; k++) {
++                ChrRecord *c = &g_ChrSlots[k];
++                if (c->model != NULL && c->prop != NULL && c->prop->stan != NULL &&
++                    c->actiontype != ACT_DIE && c->actiontype != ACT_DEAD) {
++                    PropRecord *r = chrSpawnAtCoord((s32) c->bodynum, -1, &c->prop->pos,
++                                                    c->prop->stan, getsubroty(c->model),
++                                                    (struct AIListRecord *) c->ailist, 0);
++                    printf("[getv][horde] selftest: slot %d body %d free-before=%d -> "
++                           "spawn %s\n", k, (s32) c->bodynum, chrGetNumFree(),
++                           r ? "OK" : "REFUSED (too few free slots)");
++                    if (r) { ge_horde_alive++; ge_horde_spawned++; }
++                    break;
++                }
++            }
++        }
++    }
++
++    per_kill = gePortHordePerKillBase() + (ge_horde_wave * gePortHordeGrowth());
++    if (per_kill > gePortHordePerKillCap()) {
++        per_kill = gePortHordePerKillCap();
++    }
++
++    for (i = 0; i < g_NumChrSlots && i < GE_HORDE_MARKS; i++) {
++        ChrRecord *chr = &g_ChrSlots[i];
++        s32 dying;
++
++        if (chr->model == NULL) {
++            ge_horde_dead_mark[i] = 0;
++            continue;
++        }
++
++        dying = (chr->actiontype == ACT_DIE || chr->actiontype == ACT_DEAD);
++
++        if (!dying) {
++            ge_horde_dead_mark[i] = 0;      /* live again: this slot was reused */
++            continue;
++        }
++        if (ge_horde_dead_mark[i]) {
++            continue;                        /* already counted this death */
++        }
++        ge_horde_dead_mark[i] = 1;
++        ge_horde_kills++;
++
++        if (ge_horde_alive > 0) {
++            ge_horde_alive--;                /* approximate: any death frees a slot budget */
++        }
++
++        if ((ge_horde_kills % gePortHordeWaveKills()) == 0) {
++            ge_horde_wave++;
++            printf("[getv][horde] wave %d  (%d kills, %d spawned so far)\n",
++                   ge_horde_wave, ge_horde_kills, ge_horde_spawned);
++        }
++
++        /* Spawn where it fell. The prop is still valid at ACT_DIE -- the body has not been
++         * cleaned up yet -- so pos and stan can be read straight off it. A null prop or stan
++         * means this guard never resolved a position, which is the same condition the door
++         * guard in propobj.c documents, and it is skipped rather than spawned into nowhere. */
++        if (chr->prop != NULL && chr->prop->stan != NULL) {
++            s32 n;
++            for (n = 0; n < per_kill; n++) {
++                if (ge_horde_alive >= gePortHordeMaxAlive()) {
++                    break;
++                }
++                if (chrSpawnAtCoord((s32) chr->bodynum, -1, &chr->prop->pos,
++                                    chr->prop->stan, getsubroty(chr->model),
++                                    (struct AIListRecord *) chr->ailist, 0) == NULL) {
++                    break;      /* engine refused: too few free slots. Not an error. */
++                }
++                ge_horde_alive++;
++                ge_horde_spawned++;
++            }
++        }
++    }
++}
 diff --git a/src/game/chr.h b/src/game/chr.h
 index 7cbb50b..2639f9b 100644
 --- a/src/game/chr.h
@@ -18539,7 +18690,7 @@ index 6e6582e..1cbea5d 100644
  void                   setupUpdateObjectRoomPosition(struct ObjectRecord *);
  struct ObjectRecord    *setupGetPtrToCommandByIndex(s32 index);
 diff --git a/src/game/lv.c b/src/game/lv.c
-index 48ef126..dbe75b3 100644
+index 48ef126..9aae2ac 100644
 --- a/src/game/lv.c
 +++ b/src/game/lv.c
 @@ -1,4 +1,8 @@
@@ -18774,7 +18925,88 @@ index 48ef126..dbe75b3 100644
  }
  
  
-@@ -1080,6 +1151,67 @@ void lvlManageMpGame(void)
+@@ -726,6 +797,15 @@ Gfx* lvlRender(Gfx* DL)
+             DL = skyRender(DL);
+             bgRoomVisibilityRelated();
+             propsTick();
++
++            /* Horde waves. Placed immediately after propsTick so the chr slot table has
++             * just been ticked and any death this frame is already reflected in
++             * actiontype. It returns on the first line unless horde is enabled. */
++            {
++                extern void gePortHordeTick(void);
++                gePortHordeTick();
++            }
++
+             chraiUpdateOnscreenPropCount();
+             chrpropUpdateAutoaimTarget();
+             chraiCheckUseHeldItems();
+@@ -945,6 +1025,64 @@ void lvlSetMultipliersForDifficulty(void)
+         g_SoloAmmoMultiplier = DEFAULT_007_SOLO_AMMO_MULTIPLIER;
+         g_AiReactionSpeed = DEFAULT_007_AI_REACTION_SPEED;
+     }
++
++    /* Ruleset multipliers, applied once on top of whatever the difficulty branches above
++     * chose. This is the whole of the enemy and ammo side of a ruleset: every value here is
++     * a float the game reads at load, so no level, model or asset is involved. Neutral by
++     * default -- with no ruleset selected every accessor returns 1.0f and this block is
++     * arithmetic with no effect.
++     *
++     * enemy_health DIVIDES g_AiHealthModifier rather than multiplying it, because that
++     * global scales the damage dealt TO a guard (chraction.c:2600, damageToCause *=
++     * g_AiHealthModifier). Multiplying would make "200% enemy health" mean guards die twice
++     * as fast, which is the kind of inversion that makes a hard mode quietly easy. */
++    {
++        extern float gePortRulesetEnemyHealth(void);
++        extern float gePortRulesetEnemyDamage(void);
++        extern float gePortRulesetEnemyAccuracy(void);
++        extern float gePortRulesetEnemyReaction(void);
++        extern float gePortRulesetAmmo(void);
++        extern float gePortRulesetExplosionDamage(void);
++        extern float gePortRulesetTurretDamage(void);
++
++        f32 hp = gePortRulesetEnemyHealth();
++
++        if (hp > 0.0f) {
++            g_AiHealthModifier /= hp;
++        }
++        g_AiDamageModifier      *= gePortRulesetEnemyDamage();
++        g_AiAccuracyModifier    *= gePortRulesetEnemyAccuracy();
++        g_AiReactionSpeed       *= gePortRulesetEnemyReaction();
++        g_SoloAmmoMultiplier    *= gePortRulesetAmmo();
++        g_SpExplosionDamageMult *= gePortRulesetExplosionDamage();
++        g_AutogunDamageScalar   *= gePortRulesetTurretDamage();
++
++        /* What the ruleset actually did to the engine's own values, rather than what it was
++         * asked to do. A percentage in a config file is a claim; these are the floats the
++         * game will read for the rest of the level, and printing them is the difference
++         * between "the option parsed" and "the option took effect". Silent unless something
++         * was changed. */
++        {
++            /* Once per process, not once per call. lvlSetMultipliersForDifficulty() runs
++             * on every level load and several times besides, and the values are identical
++             * each time -- the difficulty branches above reassign the globals from their
++             * defaults before this block multiplies, so the ruleset does not compound.
++             * That repetition is worth stating: it is the evidence the hook is idempotent,
++             * and it is also why printing it every call is noise. */
++            static s32 ge_rs_said = 0;
++            extern int gePortRulesetChanged(void);
++            if (gePortRulesetChanged() && !ge_rs_said) {
++                ge_rs_said = 1;
++                osSyncPrintf("[getv][ruleset] applied: aiHealth=%.3f aiDamage=%.3f "
++                             "aiAccuracy=%.3f aiReaction=%.3f ammo=%.3f expl=%.3f "
++                             "autogun=%.3f\n",
++                             (double) g_AiHealthModifier, (double) g_AiDamageModifier,
++                             (double) g_AiAccuracyModifier, (double) g_AiReactionSpeed,
++                             (double) g_SoloAmmoMultiplier, (double) g_SpExplosionDamageMult,
++                             (double) g_AutogunDamageScalar);
++            }
++        }
++    }
+ }
+ 
+ 
+@@ -1080,6 +1218,67 @@ void lvlManageMpGame(void)
              }
          }
  
@@ -18842,7 +19074,7 @@ index 48ef126..dbe75b3 100644
          // when playing with a kill limit, g_MpPoint is not zero
          if ((g_MpPoint > 0) && (g_ClockTimer != 0))
          {
-@@ -1275,8 +1407,28 @@ void lvlManageMpGame(void)
+@@ -1275,8 +1474,28 @@ void lvlManageMpGame(void)
                  for (i=0; i<3000; i++)
                  {
                      D_800483C8[i].unk_0 = 0xff;
@@ -18873,7 +19105,7 @@ index 48ef126..dbe75b3 100644
                  }
              }
          }
-@@ -1626,6 +1778,19 @@ s32 lvlGetControlsLockedFlag(void)
+@@ -1626,6 +1845,19 @@ s32 lvlGetControlsLockedFlag(void)
  
  DIFFICULTY lvlGetSelectedDifficulty(void)
  {
@@ -23931,7 +24163,7 @@ index b169550..2f7b4d7 100644
                      case G_IM_SIZ_32b:
                          line = (s32) (width + 3) / 4;
 diff --git a/src/game/player.c b/src/game/player.c
-index 53583db..f59a65e 100644
+index 53583db..62da495 100644
 --- a/src/game/player.c
 +++ b/src/game/player.c
 @@ -123,7 +123,30 @@ void initBONDdataforPlayer(s32 player_num)
@@ -23981,6 +24213,29 @@ index 53583db..f59a65e 100644
      g_playerPointers[player_num]->field_10E8 = NULL;
      g_playerPointers[player_num]->field_10EC = NULL;
      g_playerPointers[player_num]->c_scalelod60 = 1.0f;
+@@ -470,8 +493,20 @@ void initBONDdataforPlayer(s32 player_num)
+     g_playerPointers[player_num]->field_2A30 = 0;
+     g_playerPointers[player_num]->field_2A34 = 0;
+     g_playerPointers[player_num]->cur_item_weapon_getname = ITEM_FIST;
+-    g_playerPointers[player_num]->actual_health = 1.0f;
+-    g_playerPointers[player_num]->actual_armor = 1.0f;
++    /* Player side of a ruleset. bondhealth falls by damage/actual_health
++     * (bondview2.c:9917), so a LARGER actual_health is more player health -- the same shape
++     * the game's own 10x health cheat uses when it writes 10.0f (cheat.c:1183). Both default
++     * to 1.0f, so an unset ruleset leaves these exactly as they were.
++     *
++     * Set here rather than in lvlSetMultipliersForDifficulty because these are per-player
++     * fields on a slot that may not exist when the difficulty multipliers are chosen. */
++    {
++        extern float gePortRulesetPlayerHealth(void);
++        extern float gePortRulesetPlayerArmour(void);
++
++        g_playerPointers[player_num]->actual_health = gePortRulesetPlayerHealth();
++        g_playerPointers[player_num]->actual_armor  = gePortRulesetPlayerArmour();
++    }
+     g_playerPointers[player_num]->cur_player_control_type_0 = CONTROLLER_CONFIG_HONEY;
+     g_playerPointers[player_num]->cur_player_control_type_1 = CONTROLLER_CONFIG_HONEY;
+     g_playerPointers[player_num]->cur_player_control_type_2 = 0.0f; //CONTROLLER_CONFIG_HONEY
 diff --git a/src/game/prop.c b/src/game/prop.c
 index 8c877b2..bce9903 100644
 --- a/src/game/prop.c
