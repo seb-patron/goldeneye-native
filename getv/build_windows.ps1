@@ -261,7 +261,15 @@ function Build-Lib {
                      $_.FullName -notmatch '\\assets\\obseg\\setup\\e\\' -and
                      $_.FullName -notmatch '\\assets\\obseg\\setup\\j\\' } |
       ForEach-Object { Resolve-Path -Relative $_.FullName } | Sort-Object)
-    $f2 = Invoke-Batch -Label 'assets' -Files $assets -Flags $gameFlags -Prefix 'asset_'
+    # The stan format is one flat contiguous run of tiles in declaration order, walked by
+    # adding each tile's byte size, and tile pointers are computed as base + (link << 3).
+    # GCC emits .data in REVERSE declaration order, which put tile_0 at the end of .data --
+    # measured on Tbg_sev: tile_0 at 0x89f8, tile_1 at 0x89b8 -- so the walk ran off the
+    # section end after one tile and every link resolved into padding. Clang emits in source
+    # order, which is why macOS never showed this. The all-zero terminator tile also lands in
+    # .bss by default, which breaks contiguity at the far end.
+    $assetFlags = $gameFlags + @('-fno-toplevel-reorder','-fno-zero-initialized-in-bss')
+    $f2 = Invoke-Batch -Label 'assets' -Files $assets -Flags $assetFlags -Prefix 'asset_'
 
     # -DNDEBUG is for the mixer only. Do not widen it: SUPPORT_CHECK in gfx_pc.c is an
     # assert() and is deliberately armed.

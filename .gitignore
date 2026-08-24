@@ -192,3 +192,8 @@ compile_commands.json
 .clangd/
 core
 core.*
+
+# macOS AppleDouble sidecars. They travel in tarballs, and a compiler will happily
+# try to build one.
+._*
+.DS_Store

@@ -126,17 +126,41 @@ void  put_str(const char *k, const char *v)
  * background exists but whose setup file does not), and offering them would be offering a
  * hang. MP-only stages are marked because selecting one solo loads geometry with no setup,
  * which looks like a rendering bug and is not one. */
-struct Stage { int id; const char *name; bool mp_only; };
+/* Ordered as the campaign is played, not by stage id. The id order is an artefact of the
+ * ROM and means nothing to a player: "Bunker 1, Silo, Statue, Control..." is not a sequence
+ * anyone recognises, while "01 Dam, 02 Facility, 03 Runway..." is the game people remember.
+ * The mission number and the theatre it belongs to come from the game's own briefings, and
+ * they are what make the list scannable -- the id is an implementation detail and is not
+ * shown at all. `mission` is 0 for the multiplayer-only stages, which have no campaign slot
+ * and are grouped separately in the UI for that reason. */
+struct Stage { int id; const char *name; const char *place; int mission; bool mp_only; };
 const Stage kStages[] = {
-    {  9, "Bunker 1",   false }, { 20, "Silo",       false }, { 22, "Statue",     false },
-    { 23, "Control",    false }, { 24, "Archives",   false }, { 25, "Train",      false },
-    { 26, "Frigate",    false }, { 27, "Bunker 2",   false }, { 28, "Aztec",      false },
-    { 29, "Streets",    false }, { 30, "Depot",      false }, { 31, "Complex",    true  },
-    { 32, "Egypt",      false }, { 33, "Dam",        false }, { 34, "Facility",   false },
-    { 35, "Runway",     false }, { 36, "Surface",    false }, { 37, "Jungle",     false },
-    { 38, "Temple",     true  }, { 39, "Caverns",    false }, { 41, "Cradle",     false },
-    { 43, "Surface 2",  false }, { 45, "Basement",   true  }, { 46, "Stack",      true  },
-    { 48, "Library",    true  }, { 50, "Caves",      true  },
+    { 33, "Dam",        "Arkangelsk",     1,  false },
+    { 34, "Facility",   "Arkangelsk",     2,  false },
+    { 35, "Runway",     "Arkangelsk",     3,  false },
+    { 36, "Surface",    "Severnaya",      4,  false },
+    {  9, "Bunker 1",   "Severnaya",      5,  false },
+    { 20, "Silo",       "Kirghizstan",    6,  false },
+    { 26, "Frigate",    "Monte Carlo",    7,  false },
+    { 43, "Surface 2",  "Severnaya",      8,  false },
+    { 27, "Bunker 2",   "Severnaya",      9,  false },
+    { 22, "Statue",     "St Petersburg",  10, false },
+    { 24, "Archives",   "St Petersburg",  11, false },
+    { 29, "Streets",    "St Petersburg",  12, false },
+    { 30, "Depot",      "St Petersburg",  13, false },
+    { 25, "Train",      "St Petersburg",  14, false },
+    { 37, "Jungle",     "Cuba",           15, false },
+    { 23, "Control",    "Cuba",           16, false },
+    { 39, "Caverns",    "Cuba",           17, false },
+    { 41, "Cradle",     "Cuba",           18, false },
+    { 28, "Aztec",      "Bonus",          19, false },
+    { 32, "Egypt",      "Bonus",          20, false },
+    { 31, "Complex",    "Multiplayer",    0,  true  },
+    { 38, "Temple",     "Multiplayer",    0,  true  },
+    { 45, "Basement",   "Multiplayer",    0,  true  },
+    { 46, "Stack",      "Multiplayer",    0,  true  },
+    { 48, "Library",    "Multiplayer",    0,  true  },
+    { 50, "Caves",      "Multiplayer",    0,  true  },
 };
 const int kStageCount = (int)(sizeof kStages / sizeof kStages[0]);
 
@@ -409,6 +433,331 @@ void relaunch()
     free(nv);
 }
 
+/* ---------------------------------------------------------------- look
+ *
+ * The launcher is the first thing anyone sees, and until now it was stock ImGui: grey
+ * rounded boxes and the built-in ProggyClean bitmap font. The font is most of why it read
+ * as a debug tool -- a 13px bitmap face at one weight cannot express hierarchy, so every
+ * line had equal emphasis and the eye had nowhere to land.
+ *
+ * What is copied from the game is its menu grammar, not a screenshot: black ground, hard
+ * right angles with no rounding anywhere, thin rules, and a single gold accent that means
+ * "this one" and is never used for decoration. Hierarchy comes from size, letterspacing and
+ * colour rather than from weight, which is both closer to the original's lettering and the
+ * only option available -- see the font note below.
+ */
+
+/* Roboto Condensed, SIL OFL 1.1, bundled at port/assets/fonts with its OFL.txt. Condensed
+ * because the labels here are long ("Enemy reaction", "Multiplayer only") and a condensed
+ * face fits them at a readable size without truncation.
+ *
+ * It is the VARIABLE font, and ImGui's stb_truetype has no variable-axis support: it
+ * rasterises the default master, which for this family is Regular. There is therefore no
+ * bold available at all, and asking for one silently gets Regular back. That is why every
+ * heading below is distinguished by size, colour and letterspacing instead -- not a
+ * stylistic preference, a constraint of the rasteriser. */
+ImFont *g_fTitle = NULL, *g_fH = NULL, *g_fBody = NULL, *g_fSmall = NULL;
+
+const ImU32 kBg     = IM_COL32(  8,   9,  11, 255);
+const ImU32 kPanel  = IM_COL32( 14,  16,  20, 255);
+const ImU32 kPanel2 = IM_COL32( 21,  24,  30, 255);
+const ImU32 kLine   = IM_COL32( 38,  42,  50, 255);
+const ImU32 kGold   = IM_COL32(198, 160,  46, 255);
+const ImU32 kGoldHi = IM_COL32(242, 208,  96, 255);
+const ImU32 kText   = IM_COL32(223, 221, 214, 255);
+const ImU32 kDim    = IM_COL32(128, 135, 145, 255);
+const ImU32 kWarn   = IM_COL32(214, 132,  46, 255);
+
+ImVec4 v4(ImU32 c) { return ImGui::ColorConvertU32ToFloat4(c); }
+
+ImU32 mix(ImU32 a, ImU32 b, float t)
+{
+    ImVec4 x = ImGui::ColorConvertU32ToFloat4(a), y = ImGui::ColorConvertU32ToFloat4(b);
+    return ImGui::ColorConvertFloat4ToU32(ImVec4(x.x + (y.x - x.x) * t, x.y + (y.y - x.y) * t,
+                                                 x.z + (y.z - x.z) * t, x.w + (y.w - x.w) * t));
+}
+
+void ge_load_fonts()
+{
+    ImGuiIO &io = ImGui::GetIO();
+    char exe[4096], dir[4096], path[4096];
+
+    dir[0] = '\0';
+    if (self_path(exe, sizeof exe)) {
+        snprintf(dir, sizeof dir, "%s", exe);
+        char *fw = strrchr(dir, '/');
+        char *bw = strrchr(dir, '\\');
+        char *cut = (bw && (!fw || bw > fw)) ? bw : fw;
+        if (cut) *cut = '\0'; else dir[0] = '\0';
+    }
+
+    /* Next to the binary first -- that is where the build script copies it, and it is the
+     * only location that is right for an installed copy. The source-tree paths after it are
+     * for running the exe straight out of build-windows/ during development. */
+    static const char *kRel[] = {
+        "assets/fonts/RobotoCondensed-VF.ttf",
+        "../port/assets/fonts/RobotoCondensed-VF.ttf",
+        "port/assets/fonts/RobotoCondensed-VF.ttf",
+        "getv/port/assets/fonts/RobotoCondensed-VF.ttf",
+    };
+
+    for (int i = 0; i < (int)(sizeof kRel / sizeof kRel[0]); i++) {
+        for (int pass = 0; pass < 2; pass++) {
+            if (pass == 0) {
+                if (!dir[0]) continue;
+                snprintf(path, sizeof path, "%s/%s", dir, kRel[i]);
+            } else {
+                snprintf(path, sizeof path, "%s", kRel[i]);
+            }
+            FILE *fp = fopen(path, "rb");
+            if (!fp) continue;
+            fclose(fp);
+
+            g_fBody  = io.Fonts->AddFontFromFileTTF(path, 18.0f);
+            g_fSmall = io.Fonts->AddFontFromFileTTF(path, 14.0f);
+            g_fH     = io.Fonts->AddFontFromFileTTF(path, 25.0f);
+            g_fTitle = io.Fonts->AddFontFromFileTTF(path, 46.0f);
+            if (g_fBody && g_fSmall && g_fH && g_fTitle) {
+                printf("[getv][launcher] font: %s\n", path);
+                io.FontDefault = g_fBody;
+                return;
+            }
+        }
+    }
+
+    /* Not fatal. A missing font must not stop the game starting, so fall back and say so --
+     * silently rendering in ProggyClean would look like the redesign had not landed. */
+    printf("[getv][launcher] bundled font not found; falling back to the built-in bitmap font\n");
+    g_fBody = g_fSmall = g_fH = g_fTitle = io.Fonts->AddFontDefault();
+    io.FontDefault = g_fBody;
+}
+
+void ge_apply_style()
+{
+    ImGui::StyleColorsDark();
+    ImGuiStyle &s = ImGui::GetStyle();
+
+    /* Nothing is rounded. The original's menus are drawn with hard rectangles and so is
+     * this; a single rounded corner anywhere reads as a different product. */
+    s.WindowRounding = s.ChildRounding = s.FrameRounding = 0.0f;
+    s.PopupRounding  = s.ScrollbarRounding = s.GrabRounding = s.TabRounding = 0.0f;
+    s.WindowBorderSize = 0.0f;
+    s.ChildBorderSize  = 1.0f;
+    s.FrameBorderSize  = 1.0f;
+    s.PopupBorderSize  = 1.0f;
+    s.WindowPadding    = ImVec2(0, 0);
+    s.FramePadding     = ImVec2(10, 7);
+    s.ItemSpacing      = ImVec2(10, 10);
+    s.ItemInnerSpacing = ImVec2(8, 6);
+    s.ScrollbarSize    = 12.0f;
+    s.GrabMinSize      = 12.0f;
+
+    ImVec4 *c = s.Colors;
+    c[ImGuiCol_WindowBg]            = v4(kBg);
+    c[ImGuiCol_ChildBg]             = v4(kPanel);
+    c[ImGuiCol_PopupBg]             = v4(kPanel2);
+    c[ImGuiCol_Border]              = v4(kLine);
+    c[ImGuiCol_BorderShadow]        = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_Text]                = v4(kText);
+    c[ImGuiCol_TextDisabled]        = v4(kDim);
+    c[ImGuiCol_FrameBg]             = v4(kPanel2);
+    c[ImGuiCol_FrameBgHovered]      = v4(mix(kPanel2, kGold, 0.18f));
+    c[ImGuiCol_FrameBgActive]       = v4(mix(kPanel2, kGold, 0.28f));
+    c[ImGuiCol_Button]              = v4(kPanel2);
+    c[ImGuiCol_ButtonHovered]       = v4(mix(kPanel2, kGold, 0.25f));
+    c[ImGuiCol_ButtonActive]        = v4(mix(kPanel2, kGold, 0.40f));
+    c[ImGuiCol_Header]              = v4(mix(kPanel2, kGold, 0.22f));
+    c[ImGuiCol_HeaderHovered]       = v4(mix(kPanel2, kGold, 0.32f));
+    c[ImGuiCol_HeaderActive]        = v4(mix(kPanel2, kGold, 0.42f));
+    c[ImGuiCol_CheckMark]           = v4(kGoldHi);
+    c[ImGuiCol_SliderGrab]          = v4(kGold);
+    c[ImGuiCol_SliderGrabActive]    = v4(kGoldHi);
+    c[ImGuiCol_ScrollbarBg]         = v4(kBg);
+    c[ImGuiCol_ScrollbarGrab]       = v4(kLine);
+    c[ImGuiCol_ScrollbarGrabHovered]= v4(mix(kLine, kGold, 0.35f));
+    c[ImGuiCol_ScrollbarGrabActive] = v4(kGold);
+    c[ImGuiCol_Separator]           = v4(kLine);
+    c[ImGuiCol_ResizeGrip]          = ImVec4(0, 0, 0, 0);
+}
+
+/* Letterspaced text, drawn a glyph at a time. ImGui has no tracking control, and tracking
+ * is most of what makes small caps read as a title rather than as a label -- the original's
+ * headings are widely spaced and lose their character without it. */
+void TextLS(ImFont *f, float sz, ImVec2 p, ImU32 col, const char *s, float sp)
+{
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    for (const char *c = s; *c; c++) {
+        dl->AddText(f, sz, p, col, c, c + 1);
+        p.x += f->CalcTextSizeA(sz, FLT_MAX, 0.0f, c, c + 1).x + sp;
+    }
+}
+
+float TextLSWidth(ImFont *f, float sz, const char *s, float sp)
+{
+    float w = 0.0f;
+    for (const char *c = s; *c; c++) w += f->CalcTextSizeA(sz, FLT_MAX, 0.0f, c, c + 1).x + sp;
+    return (w > 0.0f) ? w - sp : 0.0f;
+}
+
+/* A gold small-caps heading with a rule running out to the right margin. */
+void Section(const char *title)
+{
+    ImGui::Dummy(ImVec2(0, 4));
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    float  w = ImGui::GetContentRegionAvail().x;
+    TextLS(g_fSmall, 13.0f, p, kGold, title, 2.4f);
+    float tw = TextLSWidth(g_fSmall, 13.0f, title, 2.4f);
+    ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x + tw + 14, p.y + 8),
+                                        ImVec2(p.x + w, p.y + 8), kLine, 1.0f);
+    ImGui::Dummy(ImVec2(0, 20));
+}
+
+void Hint(const char *text)
+{
+    ImGui::PushFont(g_fSmall);
+    ImGui::PushStyleColor(ImGuiCol_Text, v4(kDim));
+    ImGui::TextWrapped("%s", text);
+    ImGui::PopStyleColor();
+    ImGui::PopFont();
+}
+
+/* Left-hand navigation. The active page carries a gold bar on its leading edge -- one
+ * unambiguous marker, in the one colour that means "selected" everywhere else in the UI. */
+bool NavItem(const char *label, bool active, int idx)
+{
+    const float h = 44.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    float  w = ImGui::GetContentRegionAvail().x;
+
+    ImGui::PushID(idx);
+    bool clicked = ImGui::InvisibleButton("nav", ImVec2(w, h));
+    bool hov = ImGui::IsItemHovered();
+    ImGui::PopID();
+
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    if (active)   dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), mix(kPanel, kGold, 0.13f));
+    else if (hov) dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), mix(kPanel, kGold, 0.06f));
+    if (active)   dl->AddRectFilled(p, ImVec2(p.x + 3, p.y + h), kGold);
+
+    TextLS(g_fSmall, 14.0f, ImVec2(p.x + 22, p.y + h * 0.5f - 8.0f),
+           active ? kGoldHi : (hov ? kText : kDim), label, 1.8f);
+    return clicked;
+}
+
+/* A segmented control: one row of hard-edged cells, the chosen one filled gold. Used where
+ * the options are few and worth showing at once -- a dropdown hides the alternatives, and
+ * for a two-way choice like the profile that is strictly worse. */
+bool Segmented(const char *id, int *v, const char *const *opts, int n, float cellw)
+{
+    bool changed = false;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    const float h = 32.0f;
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+
+    ImGui::PushID(id);
+    for (int i = 0; i < n; i++) {
+        ImVec2 a(p.x + i * cellw, p.y), b(a.x + cellw - 2, p.y + h);
+        ImGui::SetCursorScreenPos(a);
+        ImGui::PushID(i);
+        if (ImGui::InvisibleButton("seg", ImVec2(cellw - 2, h))) { *v = i; changed = true; }
+        bool hov = ImGui::IsItemHovered();
+        ImGui::PopID();
+
+        bool on = (*v == i);
+        dl->AddRectFilled(a, b, on ? mix(kPanel, kGold, 0.30f)
+                                   : (hov ? mix(kPanel2, kGold, 0.12f) : kPanel2));
+        dl->AddRect(a, b, on ? kGold : kLine, 0.0f, 0, 1.0f);
+        float tw = TextLSWidth(g_fSmall, 14.0f, opts[i], 1.6f);
+        TextLS(g_fSmall, 14.0f,
+               ImVec2(a.x + (cellw - 2 - tw) * 0.5f, a.y + h * 0.5f - 8.0f),
+               on ? kGoldHi : kDim, opts[i], 1.6f);
+    }
+    ImGui::PopID();
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + 6));
+    ImGui::Dummy(ImVec2(0, 0));
+    return changed;
+}
+
+/* One mission in the list: number, name, theatre. The number is set in gold and given its
+ * own column so the campaign order is readable as a sequence at a glance. */
+bool MissionRow(const Stage &s, bool selected, float w, int idx)
+{
+    const float h = 40.0f;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+
+    ImGui::PushID(idx);
+    bool clicked = ImGui::InvisibleButton("mi", ImVec2(w, h));
+    bool hov = ImGui::IsItemHovered();
+    ImGui::PopID();
+
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h),
+                      selected ? mix(kPanel, kGold, 0.22f)
+                               : (hov ? mix(kPanel2, kGold, 0.08f) : kPanel2));
+    dl->AddRect(p, ImVec2(p.x + w, p.y + h), selected ? kGold : kLine, 0.0f, 0, 1.0f);
+    if (selected) dl->AddRectFilled(p, ImVec2(p.x + 3, p.y + h), kGoldHi);
+
+    char num[8];
+    if (s.mission > 0) snprintf(num, sizeof num, "%02d", s.mission);
+    else               snprintf(num, sizeof num, "MP");
+    TextLS(g_fSmall, 15.0f, ImVec2(p.x + 16, p.y + h * 0.5f - 8.5f),
+           selected ? kGoldHi : kGold, num, 1.0f);
+
+    dl->AddText(g_fBody, 18.0f, ImVec2(p.x + 54, p.y + h * 0.5f - 11.0f),
+                selected ? kText : mix(kText, kDim, 0.25f), s.name);
+
+    float pw = g_fSmall->CalcTextSizeA(13.0f, FLT_MAX, 0.0f, s.place).x;
+    dl->AddText(g_fSmall, 13.0f, ImVec2(p.x + w - pw - 14, p.y + h * 0.5f - 7.0f), kDim, s.place);
+    return clicked;
+}
+
+/* The two footer actions. `primary` is the one the window exists to reach, so it is the only
+ * filled-gold control anywhere in the launcher. */
+bool Btn(const char *label, ImVec2 size, bool primary)
+{
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::PushID(label);
+    bool clicked = ImGui::InvisibleButton("b", size);
+    bool hov = ImGui::IsItemHovered(), act = ImGui::IsItemActive();
+    ImGui::PopID();
+
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    ImVec2 b(p.x + size.x, p.y + size.y);
+    ImU32 fill = primary ? (act ? kGoldHi : (hov ? mix(kGold, kGoldHi, 0.5f) : kGold))
+                         : (act ? mix(kPanel2, kGold, 0.35f)
+                                : (hov ? mix(kPanel2, kGold, 0.18f) : kPanel2));
+    dl->AddRectFilled(p, b, fill);
+    dl->AddRect(p, b, primary ? kGoldHi : kLine, 0.0f, 0, 1.0f);
+
+    float tw = TextLSWidth(g_fSmall, 15.0f, label, 2.0f);
+    TextLS(g_fSmall, 15.0f, ImVec2(p.x + (size.x - tw) * 0.5f, p.y + size.y * 0.5f - 9.0f),
+           primary ? IM_COL32(12, 11, 8, 255) : kText, label, 2.0f);
+    return clicked;
+}
+
+/* A labelled slider that reads as a row rather than as an ImGui widget: name on the left,
+ * value on the right, bar underneath. */
+void Row(const char *label, int *v, int lo, int hi, const char *suffix)
+{
+    ImGui::PushID(label);
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    float w = ImGui::GetContentRegionAvail().x;
+
+    ImGui::GetWindowDrawList()->AddText(g_fBody, 17.0f, ImVec2(p.x, p.y), kText, label);
+    char val[32];
+    snprintf(val, sizeof val, "%d%s", *v, suffix ? suffix : "");
+    float vw = g_fBody->CalcTextSizeA(17.0f, FLT_MAX, 0.0f, val).x;
+    ImGui::GetWindowDrawList()->AddText(g_fBody, 17.0f, ImVec2(p.x + w - vw, p.y),
+                                        (*v == 100) ? kDim : kGoldHi, val);
+    ImGui::Dummy(ImVec2(0, 22));
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 3));
+    ImGui::SetNextItemWidth(w);
+    ImGui::SliderInt("##s", v, lo, hi, "");
+    ImGui::PopStyleVar();
+    ImGui::PopID();
+}
+
 } /* namespace */
 
 extern "C" int gePortLauncherRun(int argc, char **argv)
@@ -454,10 +803,14 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
      * buffer: this context exists only to draw ImGui, and asking for depth/MSAA here would
      * be asking for the game's settings in a window that is not the game. */
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_Window *win = SDL_CreateWindow("GoldenEye",
+    SDL_Window *win = SDL_CreateWindow("GoldenEye 007",
                                        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       780, 720,
-                                       SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+                                       1120, 780,
+                                       SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI |
+                                       SDL_WINDOW_RESIZABLE);
+    /* The mission list needs vertical room and the two-column pages need width; below this
+     * the layout starts overlapping rather than reflowing. */
+    if (win != NULL) SDL_SetWindowMinimumSize(win, 960, 640);
     if (win == NULL) {
         printf("[getv][launcher] SDL_CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
@@ -475,7 +828,10 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui::StyleColorsDark();
+    ge_apply_style();
+    /* Before the first NewFrame: the backend builds the atlas texture there, and a font
+     * added afterwards would not be in it. */
+    ge_load_fonts();
     /* imgui_impl_opengl2, matching ge_imgui.cpp: this build takes macOS's legacy context and
      * the GL3 backend calls glGenVertexArrays, which a 2.1 context does not have. */
     ImGui_ImplSDL2_InitForOpenGL(win, ctx);
