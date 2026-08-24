@@ -117,6 +117,27 @@ stubbed N64 hardware file that fails on every platform.
 
 ## Known issues
 
+**Widescreen does not widen the view (measured 2026-08-24).** `resolution` and `aspect` set
+the window, and the renderer derives its aspect from the framebuffer
+(`gfx_adjust_x_for_aspect_ratio`, gfx_pc.c:1468), but the visible world does not change.
+
+Bunker 1, frame 301, identical scene:
+
+| setting | tris submitted | tris drawn |
+|---|---|---|
+| 1280x960 (4:3) | 1330 | 788 |
+| 1706x960 (16:9) | 1330 | 790 |
+| 1920x1080 (16:9) | 1330 | 790 |
+| `fov=140` at 4:3 | 1330 | **807** |
+
+The control is the point: widening the field of view by 40% pulls in 19 more triangles, so
+the metric is sensitive to a wider frustum. Changing the aspect by a third pulls in 2, which
+is noise. Room culling agrees, reporting identical rooms and vertex counts at both aspects.
+
+So a wider window shows the same amount of world. `fov` is the setting that changes what is
+visible, and the FAQ now says so. Genuine aspect-aware widescreen, where a 16:9 window shows
+more to the left and right rather than the same view fitted differently, is unimplemented.
+
 **FIXED: the scripted-input harness can now fire.** `GE_SK_Z` drove the gamepad's *left*
 trigger, and `port_os.c:467` binds `GE_ACT_FIRE` to `GE_SRC_RT`, the right one -- the left is
 AIM. So scripted `Z` aimed instead of shooting, and no key in the parser reached the fire

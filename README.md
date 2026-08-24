@@ -101,9 +101,10 @@ sensitivity and Y-invert, WASD movement, ESC to release the cursor.
 is arbitrary. Above 60 the game's per-frame systems run faster than they were tuned for; see
 the section above. `framerate = 30` is the faithful setting.
 
-**Is there widescreen?** Resolution and aspect are configurable. Whether the widescreen path
-widens the field of view or stretches the image has not been measured yet, and that is
-recorded honestly in the roadmap rather than claimed either way.
+**Is there widescreen?** Resolution is fully configurable, but measured: **changing the
+window aspect does not widen the field of view.** The renderer fits the 4:3 view to whatever
+window it is given. Use `fov` for a genuinely wider view; it is the setting that changes what
+you can see. Real aspect-aware widescreen is a roadmap item.
 
 **Can I mod it?** Yes, three ways: Lua scripts in `mods/`, roughly 275 `GETV_*` behaviour
 gates, and `goldeneye.cfg`. Texture replacement is on the roadmap, not implemented.

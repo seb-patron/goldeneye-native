@@ -269,3 +269,18 @@ int gePortGiveLeft(void)
     }
     return v;
 }
+
+
+/* GETV_GIVE_AMMO: rounds handed over with GETV_GIVE. Defaults to 400, which is enough to
+ * hold the trigger on an automatic for a long measurement without being infinite. 0 gives
+ * none, for anyone who wants the gun and the mission's own ammunition. */
+int gePortGiveAmmo(void)
+{
+    static int v = -2;
+    if (v == -2) {
+        const char *e = getenv("GETV_GIVE_AMMO");
+        v = (e && *e) ? atoi(e) : 400;
+        if (v < 0) v = 0;
+    }
+    return v;
+}

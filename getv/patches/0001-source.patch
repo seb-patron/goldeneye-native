@@ -7076,7 +7076,7 @@ index e83a09c..0a8bf87 100644
  extern s32 upper_text_buffer_index;
  extern s32 display_upper_text_window;
 diff --git a/src/game/bondview_r.c b/src/game/bondview_r.c
-index 48cd024..59bb16d 100644
+index 48cd024..722b73a 100644
 --- a/src/game/bondview_r.c
 +++ b/src/game/bondview_r.c
 @@ -1,3 +1,6 @@
@@ -7165,7 +7165,59 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -222,7 +261,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -193,6 +232,51 @@ void bondviewLoadSetupIntroSection(void)
+                 {
+                     intro_item = (struct SetupIntroItem*)intro_record;
+ 
++                    /* GETV_GIVE / GETV_GIVE_LEFT: start the mission with a chosen weapon.
++                     *
++                     * Overriding the record rather than forcing a weapon into a hand later
++                     * means everything downstream still happens: the projectile models get
++                     * loaded, the inventory entry is made, ammo is handled, and
++                     * starting_weapon[] is set for the mission restart. item_left is the
++                     * game's own dual-wield field, so GETV_GIVE_LEFT comes free.
++                     *
++                     * Only the first ITEM record is replaced, so a mission that hands Bond
++                     * several things still gets the rest. */
++                    {
++                        extern int gePortGiveRight(void);
++                        extern int gePortGiveLeft(void);
++                        static s32 ge_gave = 0;
++                        int ge_r = gePortGiveRight();
++
++                        if (ge_r >= 0 && ge_gave == 0)
++                        {
++                            extern int gePortGiveAmmo(void);
++                            extern s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
++                            extern void give_cur_player_ammo(s32 ammo_type, s32 amount);
++                            int ge_l = gePortGiveLeft();
++                            int ge_a = gePortGiveAmmo();
++
++                            ge_gave = 1;
++                            intro_item->item_right = (s32) ge_r;
++                            intro_item->item_left  = (s32) ge_l;
++
++                            /* Ammunition for the weapon actually being handed over. The
++                             * mission's own ammo records are written for the weapon it
++                             * expected, so without this the new gun arrives with an empty
++                             * magazine and is useless. give_cur_player_ammo paired with
++                             * get_ammo_type_for_weapon is the same combination bondview.c
++                             * uses at 1598. */
++                            if (ge_a > 0)
++                            {
++                                give_cur_player_ammo(get_ammo_type_for_weapon((ITEM_IDS) ge_r), ge_a);
++                                if (ge_l >= 0)
++                                {
++                                    give_cur_player_ammo(get_ammo_type_for_weapon((ITEM_IDS) ge_l), ge_a);
++                                }
++                            }
++                        }
++                    }
++
+                     if (check_ramrom_flags() == intro_item->is_demo_playback)
+                     {
+                         weaponLoadProjectileModels(intro_item->item_right);
+@@ -222,7 +306,7 @@ void bondviewLoadSetupIntroSection(void)
                          }
                      }
  
@@ -7174,7 +7226,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -233,7 +272,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -233,7 +317,7 @@ void bondviewLoadSetupIntroSection(void)
                          give_cur_player_ammo(((struct SetupIntroAmmo*)intro_record)->ammo_type, ((struct SetupIntroAmmo*)intro_record)->ammo_amount);
                      }
  
@@ -7183,7 +7235,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -252,7 +291,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -252,7 +336,7 @@ void bondviewLoadSetupIntroSection(void)
                      intro_swirl->unk14.fval = intro_swirl->unk14.ival / M_U16_MAX_VALUE_F;
                      intro_swirl->unk18.fval = intro_swirl->unk18.ival / M_U16_MAX_VALUE_F;
  
@@ -7192,7 +7244,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -260,7 +299,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -260,7 +344,7 @@ void bondviewLoadSetupIntroSection(void)
                  {
                      g_IntroAnimationIndex = ((struct SetupIntroAnim*)intro_record)->intro_anim;
  
@@ -7201,7 +7253,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -268,7 +307,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -268,7 +352,7 @@ void bondviewLoadSetupIntroSection(void)
                  {
                      g_CurrentPlayer->bondtype = ((struct SetupIntroCuff*)intro_record)->bondtype;
  
@@ -7210,7 +7262,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -294,7 +333,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -294,7 +378,7 @@ void bondviewLoadSetupIntroSection(void)
                          }
                      }
  
@@ -7219,7 +7271,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -316,7 +355,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -316,7 +400,7 @@ void bondviewLoadSetupIntroSection(void)
  
                      if (watch_time_0);
  
@@ -7228,7 +7280,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -324,17 +363,69 @@ void bondviewLoadSetupIntroSection(void)
+@@ -324,17 +408,69 @@ void bondviewLoadSetupIntroSection(void)
                  {
                      intro_credits = (struct SetupIntroCredits*)intro_record;
  
@@ -7301,7 +7353,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -343,7 +434,7 @@ void bondviewLoadSetupIntroSection(void)
+@@ -343,7 +479,7 @@ void bondviewLoadSetupIntroSection(void)
                      #ifdef DEBUG
                          ossyncprintf("unknown bondstart type %d!\n",intro_record->type);
                      #endif
@@ -7310,7 +7362,7 @@ index 48cd024..59bb16d 100644
                  }
                  break;
  
-@@ -355,6 +446,33 @@ void bondviewLoadSetupIntroSection(void)
+@@ -355,6 +491,33 @@ void bondviewLoadSetupIntroSection(void)
      {
          ptr_random06cam_entry = g_CurrentSetupIntroCamera;
          rand_camera_index = (s32)(randomGetNext() % (u32) g_SetupIntroCameraCount);
@@ -7344,7 +7396,7 @@ index 48cd024..59bb16d 100644
          while (rand_camera_index > 0)
          {
              rand_camera_index--;
-@@ -373,6 +491,11 @@ void bondviewLoadSetupIntroSection(void)
+@@ -373,6 +536,11 @@ void bondviewLoadSetupIntroSection(void)
      g_CurrentPlayer->field_7C = -0.0001f;
      g_CurrentPlayer->field_80 = FLOAT_INIT;
  
@@ -7356,7 +7408,7 @@ index 48cd024..59bb16d 100644
      if (startpadcount > 0)
      {
          if ((getPlayerCount() >= 2) && (startpadcount > 0))
-@@ -384,6 +507,102 @@ void bondviewLoadSetupIntroSection(void)
+@@ -384,6 +552,102 @@ void bondviewLoadSetupIntroSection(void)
              rand_pad_index = 0;
          }
  
@@ -7459,7 +7511,7 @@ index 48cd024..59bb16d 100644
  #ifdef DEBUG
          assert(g_Startpad[rand_pad_index]->stan); //              (".\\ported\\bondview_r.cpp",0x171,"Assertion failed: g_Startpad[sp]->stan");
  #endif
-@@ -391,6 +610,26 @@ void bondviewLoadSetupIntroSection(void)
+@@ -391,6 +655,26 @@ void bondviewLoadSetupIntroSection(void)
          start_pos.f[0] = g_Startpad[rand_pad_index]->pos.f[0];
          start_pos.f[2] = g_Startpad[rand_pad_index]->pos.f[2];
  
@@ -7486,7 +7538,7 @@ index 48cd024..59bb16d 100644
  
          start_stan = g_Startpad[rand_pad_index]->stan;
  
-@@ -398,15 +637,63 @@ void bondviewLoadSetupIntroSection(void)
+@@ -398,15 +682,63 @@ void bondviewLoadSetupIntroSection(void)
          start_pos.f[1] = g_CurrentPlayer->eyeheight + stan_height;
          g_CurrentPlayer->field_70 = stan_height;
          start_look_angle = M_TAU_F - atan2f(g_Startpad[rand_pad_index]->look.f[0], g_Startpad[rand_pad_index]->look.f[2]);
@@ -7550,7 +7602,7 @@ index 48cd024..59bb16d 100644
      g_CurrentPlayer->vv_theta = (start_look_angle * 360.0f) / M_TAU_F;
      g_CurrentPlayer->stanHeight = stan_height;
      g_CurrentPlayer->field_6C = stan_height / FIELD_6C_FACTOR;
-@@ -424,6 +711,26 @@ void bondviewLoadSetupIntroSection(void)
+@@ -424,6 +756,26 @@ void bondviewLoadSetupIntroSection(void)
          dword_CODE_bss_80079DA8[i] = 0;
      }
  
@@ -7577,7 +7629,7 @@ index 48cd024..59bb16d 100644
      bondviewResetIntroCameraMessageDialogs();
      bondviewResetUpperTextDisplay();
      g_CurrentPlayer->prop = chrpropAllocate();
-@@ -456,6 +763,31 @@ void bondviewLoadSetupIntroSection(void)
+@@ -456,6 +808,31 @@ void bondviewLoadSetupIntroSection(void)
          bondviewSetCameraMode(CAMERAMODE_MP);
      }
  
