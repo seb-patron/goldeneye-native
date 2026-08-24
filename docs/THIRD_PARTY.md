@@ -197,6 +197,31 @@ If the files came from a slightly earlier commit, the patch absorbs the differen
 generated against `d7ca2c04` and round-trips to the current tree byte for byte, which
 `tools/fetch-thirdparty.sh verify` checks on demand.
 
+## 8b. Lua, and the projects deliberately not read
+
+**Lua 5.4.7 (MIT).** Fetched and built by `tools/fetch_lua.sh` into `~/.n64tvos/lua-*`, never
+vendored, on the same terms as SDL2: `deps/` is not tracked. It backs the mod scripting host in
+`getv/port/src/ge_lua.c`. MIT imposes nothing on the rest of the tree, and the build works
+without it -- absent `liblua.a`, the hooks compile to empty functions. Upstream is
+`https://www.lua.org/ftp/lua-5.4.7.tar.gz`, sha256
+`9fbf5e28ef86c69858f6d3d34eccc32e911c1a28b4120ff3e84aaa70cfbf1e30`, checked by the fetch script
+before anything is compiled into the game.
+
+**`Graslu/1964GEPD` -- GPL-2.0, quarantined (checked 2026-08-24).** A fork of Joel Middendorf's
+1964 emulator (1999-2002) carrying GoldenEye and Perfect Dark fixes, notably around input and
+frame pacing. It joins GoldenRecomp, `cblock85/GoldenEye64Recomp` and `chrissotraidis/goldenpad`
+on the do-not-read list, and for a reason worth stating explicitly: **permission from the fork's
+maintainer would not be sufficient.** The upstream emulator is someone else's GPL work, so a fork
+maintainer can relicense only the parts they wrote themselves, and separating those from a GPL
+codebase is precisely the entanglement this rule exists to avoid.
+
+What may be taken from it is nothing at all in the way of code, and everything in the way of
+*which problems are worth solving*: behaviour is not copyrightable, and a list of symptoms is not
+a derivative work. That distinction costs this project little, because the asymmetry runs the
+other way. That project patches a running emulator from the outside with no access to the game's
+source. This one has the decompiled source and can fix the same class of defect at its origin.
+A bug list is the useful artefact; the patches are not.
+
 ## 9. Related
 
 - `docs/LICENSING.md` - provenance for the repository as a whole, including the ROM and assets.

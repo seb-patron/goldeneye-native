@@ -23044,7 +23044,7 @@ index e5fdbc2..50beb36 100644
      {
          objective_count = objective->menu;
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..04fb819 100644
+index 4ebf14b..1d38078 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -29,6 +29,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
@@ -23268,7 +23268,7 @@ index 4ebf14b..04fb819 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +691,52 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +691,76 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -23285,6 +23285,30 @@ index 4ebf14b..04fb819 100644
 + * renderer is busy; they cannot say Bond reached the objective. This prints where each
 + * player is, how many objectives the mission has, each status, and whether the mission is
 + * complete -- which is what a script needs to decide whether a run passed. */
++/* Position of one player, for the script host in getv/port/src/ge_lua.c.
++ *
++ * It lives here rather than in the port layer for the same reason gePortStateDump() does:
++ * struct player is a game type, and the offset of pos within it is not the N64 offset
++ * (the 32-bit pointers ahead of it are 64-bit here), so any port-side copy of that number
++ * would be wrong now or wrong later. Returns 0 when the slot is empty, which a script
++ * sees as nil.
++ *
++ * g_playerPointers, not g_CurrentPlayer: that pointer is swapped as each viewport is
++ * drawn, so in split screen it names whichever player was rendered last. */
++int gePortPlayerPos(int idx, f32 *out)
++{
++    extern struct player *g_playerPointers[4];
++
++    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) {
++        return 0;
++    }
++    out[0] = g_playerPointers[idx]->pos.x;
++    out[1] = g_playerPointers[idx]->pos.y;
++    out[2] = g_playerPointers[idx]->pos.z;
++    return 1;
++}
++
++
 +void gePortStateDump(int frame)
 +{
 +    s32 i;
@@ -24693,7 +24717,7 @@ index 8c877b2..bce9903 100644
      }
      else
 diff --git a/src/game/propobj.c b/src/game/propobj.c
-index 0ae7a3f..0a025a5 100644
+index 0ae7a3f..978329d 100644
 --- a/src/game/propobj.c
 +++ b/src/game/propobj.c
 @@ -6,6 +6,7 @@
@@ -25770,7 +25794,77 @@ index 0ae7a3f..0a025a5 100644
                      }
                  }
  
-@@ -13568,6 +14130,20 @@ void door7F054FB4(DoorRecord *door)
+@@ -12683,6 +13245,14 @@ void sub_GAME_7F053A3C(DoorRecord* arg0)
+     s32 close_playing;
+     s32 sp1C;
+ 
++    /* Guarded at the callee rather than at each of the five call sites, because one of them
++     * (propobj.c:6389) arrives by casting prop->obj from a different path and has no local
++     * knowledge of whether the door was ever resolved. sub_GAME_7F0539E4(&arg0->prop->pos)
++     * below carries the same null-prop hazard documented in doorPlayOpenSound0. */
++    if (arg0->prop == NULL) {
++        return;
++    }
++
+     open_playing = (arg0->openSoundState != NULL) && (sndGetPlayingState(arg0->openSoundState) != 0);
+     close_playing = (arg0->closeSoundState != NULL) && (sndGetPlayingState(arg0->closeSoundState) != 0);
+ 
+@@ -12737,6 +13307,26 @@ void doorPlayOpenSound0(DoorRecord *door) {
+ 
+     door7F053B10(door);
+ 
++    /* Every positional sound below is placed at &door->prop->pos, and prop can legitimately
++     * be NULL: proplvreset (prop.c) sets it when getposstan() cannot resolve the door's pad
++     * against the stan, and prints "prop door object number %d not reset!" under DEBUG. The
++     * game then goes on to use door->prop in 92 places without checking, because on the N64
++     * that resolve did not fail.
++     *
++     * &door->prop->pos with a null prop is not a null dereference, it is the offset of pos
++     * within PropRecord -- 0x10 here, where the N64 had 0x08, because the pointer union
++     * above it is 8 bytes rather than 4. That is exactly the reported fault: SIGSEGV at
++     * address 0x10 inside chrobjSndCreatePostEventDefault, reached through doorSetOpenState
++     * and propdoorInteract from bond_interact_object. Opening the door was the trigger.
++     *
++     * A door with no prop has no position to attach a sound to and nothing drawn to hear it
++     * from, so the sound is skipped rather than placed at a made-up location. This does not
++     * repair the door -- the resolve that failed upstream is the actual defect, and it is
++     * tracked in ROADMAP.md. It stops interacting with one from killing the process. */
++    if (door->prop == NULL) {
++        return;
++    }
++
+     if (door->openSoundState == NULL)
+     {
+         pendingState = &door->openSoundState;
+@@ -12861,6 +13451,13 @@ void doorPlayOpenSound0(DoorRecord *door) {
+ 
+ 
+ void doorPlayOpenSound1(DoorRecord *door) {
++
++    /* Same null-prop hazard as doorPlayOpenSound0: the positional sounds below are placed
++     * at &door->prop->pos, which with a null prop is the offset of pos within PropRecord
++     * (0x10 on this build) rather than a null dereference. See the long note there. */
++    if (door->prop == NULL) {
++        return;
++    }
+     ALSoundState *soundState = NULL;
+     ALSoundState *pendingState = NULL;
+ 
+@@ -12974,6 +13571,13 @@ void doorPlayOpenSound1(DoorRecord *door) {
+ 
+ 
+ void doorPlayCloseSound0(DoorRecord *door) {
++
++    /* Same null-prop hazard as doorPlayOpenSound0: the positional sounds below are placed
++     * at &door->prop->pos, which with a null prop is the offset of pos within PropRecord
++     * (0x10 on this build) rather than a null dereference. See the long note there. */
++    if (door->prop == NULL) {
++        return;
++    }
+     ALSoundState *soundState = NULL;
+ 
+     door7F053B10(door);
+@@ -13568,6 +14172,20 @@ void door7F054FB4(DoorRecord *door)
          else if  (var_s1->doorFlags & DOORFLAG_CLIP_TO_BBOX)
          {
              temp_a0 = var_s1->model;
@@ -25791,7 +25885,7 @@ index 0ae7a3f..0a025a5 100644
              temp_a1 = temp_a0->obj->RootNode->Child->Child;
              temp_s0 = (struct ModelRoData_DisplayList_CollisionRecord *)temp_a1->Data;
              temp_v0_3 = (struct ModelRwData_DisplayList_CollisionRecord*)modelGetNodeRwData(temp_a0, temp_a1);
-@@ -13582,6 +14158,9 @@ void door7F054FB4(DoorRecord *door)
+@@ -13582,6 +14200,9 @@ void door7F054FB4(DoorRecord *door)
              }
  
              temp_v0_3->Vertices = var_s1->unkcc;
@@ -25801,7 +25895,7 @@ index 0ae7a3f..0a025a5 100644
          }
  
          var_s1->lastcalc60i = g_GlobalTimer;
-@@ -14356,3 +14935,44 @@ void drop_inventory(void)
+@@ -14356,3 +14977,44 @@ void drop_inventory(void)
          }
      }
  }
