@@ -117,6 +117,28 @@ stubbed N64 hardware file that fails on every platform.
 
 ## Known issues
 
+**The scripted-input harness cannot fire a weapon.** `GETV_SCRIPT` drives the stick and the
+menus correctly -- the player walks (15542 -> 17442 over 240 frames), START advances the
+front end, and `Z` engages the sight (`sightmode` 0 -> 2). But no button ever sets
+`trigger_down`, and `shots` stays 0 through 1441 frames of gameplay with the PP7 in hand and
+7 rounds in the magazine.
+
+The likely reason is in the same line of output: `hinv=1/0`, so the right hand is invisible.
+No weapon drawn, nothing to fire. Whether that is the harness failing to complete the
+weapon-raise or a genuine defect in the port has not been established.
+
+This matters more than it looks, because it is the common cause of two separate things that
+could not be verified:
+
+- **Weapon behaviour cannot be measured headlessly** -- fire rates, reload timing and the
+  automatic-fire cadence all need a shot to be fired. That is exactly the evidence needed to
+  back any claim about frame-rate-dependent fire rates.
+- **Horde waves cannot be verified from a kill.** The spawn path is proven through
+  `GETV_HORDE_SELFTEST`, but the kill -> wave counter needs a guard to die, and nothing can
+  shoot one.
+
+Both were previously filed as separate unknowns. They are one gap in the test harness.
+
 **Co-op players do not move (alpha).** 2-4 players spawn, are separated correctly by
 `GETV_COOP_SPREAD` (default 60 units, about two feet at this game's scale -- Bond's eye
 height measures 167), and then stand still. Player 0 is affected too, which is the most
