@@ -76,6 +76,16 @@
 /* Desktop GL. USE_GLES is defined only by the tvOS targets, which do not build this file
  * today (their Xcode projects compile getv/port/**.c); the branch is here so that adding
  * it there later is a build-script change and not a source change. */
+/* Windows needs an extension loader before any GL header. opengl32.dll exports GL 1.1 and
+ * nothing later, so glGetVertexAttribiv and everything else past 1997 resolves only through
+ * GLEW -- without this the link fails on __imp_glGetVertexAttribiv, which reads like a
+ * missing DLL import and is really a missing loader. gfx_opengl.c does exactly the same on
+ * __MINGW32__; macOS and Linux need no equivalent. */
+#if defined(_WIN32)
+#define GLEW_STATIC
+#include <GL/glew.h>
+#endif
+
 #if defined(USE_GLES)
 #include <SDL2/SDL_opengles2.h>
 #else
