@@ -225,3 +225,47 @@ int gePortHordeWaveKills(void)    { ge_rs_resolve(); return ge_horde_wave_kills;
 int gePortHordeGrowth(void)       { ge_rs_resolve(); return ge_horde_growth; }
 int gePortHordePerKillBase(void)  { ge_rs_resolve(); return ge_horde_per_kill; }
 int gePortHordePerKillCap(void)   { ge_rs_resolve(); return ge_horde_per_kill_cap; }
+
+
+/* ---------------------------------------------------------------- starting weapon
+ *
+ * GETV_GIVE=<item id>, and GETV_GIVE_LEFT=<item id> for the second hand.
+ *
+ * Consumed by the INTROTYPE_ITEM case in bondview2.c, which is the record a mission uses to
+ * arm Bond at the start. Going through that path rather than writing a hand slot directly
+ * means the weapon arrives with the game's own inventory and ammo handling, and dual wield
+ * comes free because the record already has a left-hand field.
+ *
+ * -1 means "leave the mission's own choice alone", which is the default.
+ *
+ * Useful ids: 5 PP7, 12 KF7, 13 ZMG, 15 D5K, 18 KLOBB, 22 AR33, 25 RCP90, 27 SHOTGUN.
+ * The full list is the ITEM_IDS enum in src/bondconstants.h. An id outside the table is
+ * range-checked downstream by get_ptr_item_statistics(), so a wrong number is a wrong gun
+ * rather than a crash.
+ */
+static int ge_give_env(const char *key)
+{
+    const char *v = getenv(key);
+    if (v == NULL || *v == '\0') return -1;
+    return atoi(v);
+}
+
+int gePortGiveRight(void)
+{
+    static int v = -2;
+    if (v == -2) {
+        v = ge_give_env("GETV_GIVE");
+        if (v >= 0) printf("[getv][give] starting weapon: item %d\n", (int) v);
+    }
+    return v;
+}
+
+int gePortGiveLeft(void)
+{
+    static int v = -2;
+    if (v == -2) {
+        v = ge_give_env("GETV_GIVE_LEFT");
+        if (v >= 0) printf("[getv][give] second hand: item %d (dual wield)\n", (int) v);
+    }
+    return v;
+}
