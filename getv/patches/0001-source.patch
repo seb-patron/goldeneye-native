@@ -13022,10 +13022,51 @@ index a2d72f9..6825cb9 100644
  #define BULLET_MOVING_SPARKS_MAX 50
  #define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
 diff --git a/src/game/gun.c b/src/game/gun.c
-index 79e69c8..6ee8ef5 100644
+index 79e69c8..9ebad7b 100644
 --- a/src/game/gun.c
 +++ b/src/game/gun.c
-@@ -1138,6 +1138,10 @@ s32 currentPlayerEquipWeaponWrapper(GUNHAND hand, s32 next_weapon) {
+@@ -707,6 +707,40 @@ s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *m
+ 
+ WeaponStats *get_ptr_item_statistics(ITEM_IDS item)
+ {
++    /* item indexes gitem_structs[] with no range check of its own. The guard AI reaches
++     * here with item = -1 through chrlvInitActAttack -> bondwalkItemGetAutomaticFiringRate
++     * (chraction.c:1293), which reads the memory in front of the array. On the N64 that
++     * was harmless; here it is undefined behaviour whose result depends on what the
++     * linker put there, and the two hosts disagree. On Darwin/arm64 the stray bytes give
++     * a non-zero has_no_model, so the defaults come back and nothing is noticed. On
++     * glibc/x86_64 they give has_no_model == 0 and a null item_weapon_stats, and the
++     * caller faults dereferencing it -- a guard opening fire killed the process.
++     *
++     * Range-check and hand back the same defaults the no-model branch returns, so the
++     * behaviour is defined and identical everywhere. GETV_ITEMSTATS=1 reports each
++     * rejected id once, because how often this fires is a separate question from whether
++     * it may crash: an out-of-range attack_item is still a bug further upstream. */
++    if ((s32) item < 0 || (s32) item >= ITEM_IDS_MAX)
++    {
++        static unsigned char ge_seen[64];
++        static int ge_report = -1;
++        if (ge_report < 0)
++        {
++            const char *e = getenv("GETV_ITEMSTATS");
++            ge_report = (e && *e != '0') ? 1 : 0;
++        }
++        if (ge_report)
++        {
++            unsigned slot = ((unsigned) (s32) item) & 63u;
++            if (!ge_seen[slot])
++            {
++                ge_seen[slot] = 1;
++                printf("[getv][itemstats] out-of-range item %d -> default_weaponstats\n",
++                       (int) (s32) item);
++            }
++        }
++        return &default_weaponstats;
++    }
+     if (gitem_structs[item].has_no_model == 0)
+     { /* weapon has model, return stats struct */
+         return gitem_structs[item].item_weapon_stats;
+@@ -1138,6 +1172,10 @@ s32 currentPlayerEquipWeaponWrapper(GUNHAND hand, s32 next_weapon) {
      g_CurrentPlayer->hands[hand].weapon_current_animation = 5;
      g_CurrentPlayer->hands[hand].weapon_next_weapon = next_weapon;
      g_CurrentPlayer->hands[hand].weapon_animation_trigger = 0;

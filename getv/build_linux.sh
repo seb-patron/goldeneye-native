@@ -518,7 +518,11 @@ cmd_app() {
   # is what let a build with 27 uncompiled translation units and a screenful of
   # undefined references still print a binary line and exit 0.
   rm -f "$BIN"
-  "$CC" -o "$BIN" \
+  # -rdynamic puts the static functions into .dynsym, which is what dladdr() reads.
+  # Without it the crash handler in Sources/ge_tvos_main.c resolves every frame to
+  # "./goldeneye(+0xe2a1e)" and a fault is unreadable. Mach-O needs no equivalent: its
+  # symbol table is always present, which is why this only matters here.
+  "$CC" -o "$BIN" -rdynamic \
     "${roots[@]}" "$BUILD/libge.a" \
     "${SDL_LIBS[@]}" \
     -lGL -lm -ldl -lpthread \
