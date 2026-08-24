@@ -115,6 +115,17 @@ $warn = @('-w','-Werror=return-type')
 # updates its compiler.
 $std = @('-std=gnu17')
 
+# -mno-ms-bitfields is the single most important flag here, and it is not an optimisation.
+# MinGW defaults to -mms-bitfields, which lays bitfields out the way MSVC does: a new
+# storage unit is started when the declared type changes. The decomp is full of bitfields
+# overlaid on N64 file data, and under the MSVC rule they move.
+#
+# Measured on this tree: sizeof(StandTile) is 12 with the default and 8 with this flag, and
+# 8 is what every other host produces. stan.c has a _Static_assert for exactly that number
+# and is the only reason it surfaced as a compile error rather than as garbage geometry --
+# every other bitfield struct in the decomp would have been laid out wrong silently.
+$abi = @('-mno-ms-bitfields')
+
 # GCC 14 promoted five long-standing warnings to errors by default. The decomp is 1990s C
 # and trips four of them constantly -- the asset files alone initialise struct pointers from
 # array-of-struct addresses on every background. They are demoted back to warnings rather
@@ -140,7 +151,7 @@ $gameFlags = @(
   '-DVERSION_US','-DLANG_US','-DREFRESH_NTSC','-DLEFTOVERDEBUG','-DLEFTOVERSPECTRUM',
   '-DBUGFIX_R0','-DTARGET_N64','-DGE_PORT_NATIVE',
   '-DNON_MATCHING=1','-DAVOID_UB=1','-D_LANGUAGE_C=1'
-) + $warn + $std + $permissive + @('-fno-strict-aliasing','-O1')
+) + $warn + $std + $abi + $permissive + @('-fno-strict-aliasing','-O1')
 
 $portFlags = @(
   "-I$here\port", "-I$here\port\include", "-I$here\port\fast3d", "-I$here\port\src",
@@ -148,7 +159,7 @@ $portFlags = @(
 ) + $sdlCFlags + @(
   '-DTARGET_N64','-DGE_PORT_NATIVE','-D_LANGUAGE_C=1','-DRAPI_GL','-DWAPI_SDL2',
   '-DGE_PLATFORM_DESKTOP'
-) + $luaFlags + $imguiFlags + $warn + $std + $permissive + @('-O1')
+) + $luaFlags + $imguiFlags + $warn + $std + $abi + $permissive + @('-O1')
 
 # ---------------------------------------------------------------- batch runner
 function Invoke-Batch {
@@ -174,20 +185,24 @@ function Invoke-Batch {
       # a bad flag and a genuine source error -- which is exactly the ambiguity that cost an
       # afternoon when cc1.exe stopped being able to start and every compile failed silently.
       if ($fail -eq 1) {
-        Write-Host "  first failure in $Label ($f):"
-        $out | Select-Object -First 6 | ForEach-Object { Write-Host "    $_" }
-        Write-Host "    (gcc exit $LASTEXITCODE)"
+        Write-Output "  first failure in $Label ($f):"
+        $out | Select-Object -First 6 | ForEach-Object { Write-Output "    $_" }
+        Write-Output "    (gcc exit $LASTEXITCODE)"
       }
       if (Test-Path $o) { Remove-Item $o -Force -ErrorAction SilentlyContinue }
     }
-    if (($i % 100) -eq 0) { Write-Host ("  $Label ... $i/$n") }
+    if (($i % 100) -eq 0) { Write-Output ("  $Label ... $i/$n") }
   }
-  foreach ($f in $failed) { Write-Host "  windows FAILED: $f" }
-  Write-Host "windows $Label`: $ok built, $fail failed"
+  foreach ($f in $failed) { Write-Output "  windows FAILED: $f" }
+  Write-Output "windows $Label`: $ok built, $fail failed"
   return $fail
 }
 
 function Build-Lib {
+  # Objects are cleared first. Without this a rebuild adds to whatever a previous run left,
+  # so the count no longer describes this build and a file that has started failing still
+  # appears to be present. That ambiguity wasted a cycle already.
+  if (Test-Path $obj) { Remove-Item $obj -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $obj | Out-Null
   Set-Content -Path (Join-Path $build 'objects.txt') -Value $null
 
@@ -259,7 +274,7 @@ function Build-App {
   Set-Content -Path $rsp -Value ($objs -join "`n")
   & $ar rcs $lib "@$rsp"
   if (-not (Test-Path $lib)) { throw "ar failed" }
-  Write-Host ("windows libge.a: {0:N0} MB, {1} members" -f ((Get-Item $lib).Length/1MB), $objs.Count)
+  Write-Output ("windows libge.a: {0:N0} MB, {1} members" -f ((Get-Item $lib).Length/1MB), $objs.Count)
 
   # $BIN is removed first for the same reason build_linux.sh does it: a failed link would
   # otherwise leave the previous binary in place and the check below would pass.
@@ -268,7 +283,7 @@ function Build-App {
               @('-lstdc++','-lopengl32','-ldbghelp','-lm')
   $out = & $gcc @linkArgs 2>&1
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $bin)) {
-    $out | Select-Object -First 40 | ForEach-Object { Write-Host $_ }
+    $out | Select-Object -First 40 | ForEach-Object { Write-Output $_ }
     throw "LINK FAILED (gcc exit $LASTEXITCODE)"
   }
   # SDL2 is linked through its import library, so the DLL has to sit beside the executable.
@@ -278,11 +293,11 @@ function Build-App {
   $sdlDll = Join-Path $Mingw 'bin\SDL2.dll'
   if (Test-Path $sdlDll) { Copy-Item $sdlDll (Join-Path $build 'SDL2.dll') -Force }
 
-  Write-Host ("windows binary: {0} ({1:N1} MB)" -f $bin, ((Get-Item $bin).Length/1MB))
+  Write-Output ("windows binary: {0} ({1:N1} MB)" -f $bin, ((Get-Item $bin).Length/1MB))
 }
 
 switch ($Target) {
-  'clean' { if (Test-Path $build) { Remove-Item $build -Recurse -Force }; Write-Host 'cleaned' }
+  'clean' { if (Test-Path $build) { Remove-Item $build -Recurse -Force }; Write-Output 'cleaned' }
   'lib'   { Build-Lib }
   'port'  { Build-Port }
   'app'   { Build-App }

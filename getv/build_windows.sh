@@ -294,6 +294,10 @@ linux_cflags() {
     -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM
     -DBUGFIX_R0 -DTARGET_N64 -DGE_PORT_NATIVE
     -DNON_MATCHING=1 -DAVOID_UB=1 -D_LANGUAGE_C=1
+    -std=gnu17 -mno-ms-bitfields
+    -Wno-error=incompatible-pointer-types -Wno-error=int-conversion
+    -Wno-error=implicit-function-declaration -Wno-error=implicit-int
+    -Wno-error=return-mismatch
     "${w[@]}" -fno-strict-aliasing -O1
   )
   if [ "${GETV_DEBUGMENU:-0}" = "1" ]; then
@@ -320,6 +324,10 @@ build_port_layer() {
     -I "$HERE/port" -I "$HERE/port/include" -I "$HERE/port/fast3d" -I "$HERE/port/src"
     "${SDL_CFLAGS[@]}"
     -include "$HERE/port/include/ge_win_compat.h"
+    -std=gnu17 -mno-ms-bitfields
+    -Wno-error=incompatible-pointer-types -Wno-error=int-conversion
+    -Wno-error=implicit-function-declaration -Wno-error=implicit-int
+    -Wno-error=return-mismatch
     -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DRAPI_GL -DWAPI_SDL2
     -DGE_PLATFORM_DESKTOP
     ${LUAFLAGS[@]+"${LUAFLAGS[@]}"}

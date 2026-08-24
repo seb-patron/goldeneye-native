@@ -17584,26 +17584,34 @@ index b75779e..4cadbe8 100644
                  for (j = 0; j < 4; j++)
                  {
 diff --git a/src/game/loadobjectmodel.c b/src/game/loadobjectmodel.c
-index efc36fd..96d43a3 100644
+index efc36fd..5953e7d 100644
 --- a/src/game/loadobjectmodel.c
 +++ b/src/game/loadobjectmodel.c
-@@ -6,6 +6,15 @@
+@@ -6,6 +6,23 @@
  #include "loadobjectmodel.h"
  #include "stan.h"
  #include "model.h"
 +#ifdef GE_PORT_NATIVE
 +/* include/stdlib.h and include/string.h are the decomp's own stubs and shadow the
-+ * host headers, so declare the three host functions the converter needs. */
-+extern void *malloc(unsigned long);
++ * host headers, so declare the three host functions the converter needs.
++ *
++ * __SIZE_TYPE__ rather than `unsigned long`, and rather than size_t. The two are the same
++ * type on LP64 -- macOS and Linux -- so `unsigned long` matched the real prototypes there
++ * and nobody noticed. Windows is LLP64: long is 4 bytes while size_t is 8, so these
++ * declarations conflict with the libc ones and the file does not compile. size_t itself is
++ * avoided because which stddef.h wins here is exactly what the comment above is about;
++ * __SIZE_TYPE__ is a compiler builtin and is correct on every target without depending on a
++ * header at all. */
++extern void *malloc(__SIZE_TYPE__);
 +extern void free(void *);
-+extern void *memset(void *, int, unsigned long);
-+extern void *memcpy(void *, const void *, unsigned long);
++extern void *memset(void *, int, __SIZE_TYPE__);
++extern void *memcpy(void *, const void *, __SIZE_TYPE__);
 +extern char *getenv(const char *);
 +#endif
  
  /**
   * Address 0x7F056850.
-@@ -13,234 +22,448 @@
+@@ -13,234 +30,448 @@
  */
  s32 getposstan(struct coord3d *pos, StandTile *stan, f32 radius, struct coord3d *posReturn, StandTile **stanReturn)
  {
@@ -18253,7 +18261,7 @@ index efc36fd..96d43a3 100644
  }
  
  
-@@ -252,23 +475,23 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
+@@ -252,23 +483,23 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
   */
  ObjectRecord *setupGetPtrToCommandByIndex(s32 index) //#MATCH
  {
@@ -18285,7 +18293,7 @@ index efc36fd..96d43a3 100644
  }
  
  
-@@ -279,25 +502,25 @@ ObjectRecord *setupGetPtrToCommandByIndex(s32 index) //#MATCH
+@@ -279,25 +510,25 @@ ObjectRecord *setupGetPtrToCommandByIndex(s32 index) //#MATCH
  */
  s32 tagGetCommandIndex(struct ObjectRecord *tag)
  {
@@ -18320,7 +18328,7 @@ index efc36fd..96d43a3 100644
  }
  
  
-@@ -307,38 +530,38 @@ s32 tagGetCommandIndex(struct ObjectRecord *tag)
+@@ -307,38 +538,38 @@ s32 tagGetCommandIndex(struct ObjectRecord *tag)
  */
  s32 setupGetCommandIndexByProp(struct PropRecord *prop)
  {
@@ -18373,7 +18381,7 @@ index efc36fd..96d43a3 100644
  }
  
  
-@@ -349,75 +572,75 @@ s32 modelLoad(s32 modelid)
+@@ -349,75 +580,75 @@ s32 modelLoad(s32 modelid)
  */
  void setupUpdateObjectRoomPosition(ObjectRecord *obj)
  {
@@ -18488,7 +18496,7 @@ index efc36fd..96d43a3 100644
  }
  
  
-@@ -427,64 +650,64 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
+@@ -427,64 +658,64 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
  */
   ObjectRecord *setupCommandGetObject(s32 stageID, s32 index)
  {
@@ -18607,7 +18615,7 @@ index efc36fd..96d43a3 100644
  
              // not included:
              //case PROPDEF_DEBRIS: //15:
-@@ -492,57 +715,57 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
+@@ -492,57 +723,57 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
              // return ???
          }
      }
