@@ -221,7 +221,7 @@ function Invoke-Batch {
 function Build-Lib {
   # Objects are cleared first. Without this a rebuild adds to whatever a previous run left,
   # so the count no longer describes this build and a file that has started failing still
-  # appears to be present.
+  # appears to be present. That ambiguity wasted a cycle already.
   if (Test-Path $obj) { Remove-Item $obj -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $obj | Out-Null
   Set-Content -Path (Join-Path $build 'objects.txt') -Value $null
@@ -378,6 +378,19 @@ function Build-App {
   foreach ($d in @('SDL2.dll','libwinpthread-1.dll','libgcc_s_seh-1.dll','libstdc++-6.dll')) {
     $src = Join-Path $Mingw ('bin' + [char]92 + $d)
     if (Test-Path $src) { Copy-Item $src (Join-Path $build $d) -Force }
+  }
+
+  # The launcher's bundled font, next to the binary where ge_launcher.cpp looks for it first.
+  # Roboto Condensed, SIL OFL 1.1; OFL.txt travels with it because the licence requires the
+  # copyright notice to be distributed alongside the font.
+  $fsrc = Join-Path $here ('port' + [char]92 + 'assets' + [char]92 + 'fonts')
+  if (Test-Path $fsrc) {
+    $fdst = Join-Path $build ('assets' + [char]92 + 'fonts')
+    New-Item -ItemType Directory -Force -Path $fdst | Out-Null
+    Copy-Item (Join-Path $fsrc '*') $fdst -Force
+    Write-Output ("windows launcher font: {0}" -f $fdst)
+  } else {
+    Write-Output 'windows launcher font: NOT FOUND (launcher falls back to the bitmap font)'
   }
 
   Write-Output ("windows binary: {0} ({1:N1} MB)" -f $bin, ((Get-Item $bin).Length/1MB))

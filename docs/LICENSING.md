@@ -160,6 +160,7 @@ explicit decision**, because anyone who has already cloned holds the old objects
 | Audio mixer | `getv/port/audio/ge_mixer.{c,h}` | **sm64ex** `src/pc/mixer.{c,h}`, Emill's implementation of the N64 audio microcode | **Contested - same lineage** | **Unresolved - section 4** |
 | Two inherited headers | `getv/port/configfile.h`, `getv/port/fs/fs.h` | **sm64ex** `src/pc/configfile.h`, `src/pc/fs/fs.h` - copied verbatim | **sm64ex ships no licence at all** | **Unresolved - section 4.4** |
 | Image loader | `getv/port/include/stb/stb_image.h` | `nothings/stb`, v2.19 | MIT **or** public domain, at the user's option; notice retained in-file | Settled |
+| Launcher font | `getv/port/assets/fonts/RobotoCondensed-VF.ttf` | `google/fonts`, path `ofl/robotocondensed` | **SIL Open Font License 1.1**; `OFL.txt` sits beside the font and is copied next to the binary by the build, which is what the licence's retention requirement asks for | Settled |
 | Game source | `vendor/ge-decomp/` (not distributed here) | `n64decomp/007` | **No licence file in the upstream repository.** 58 files under `src/libultra/` carry Silicon Graphics proprietary notices | Upstream's situation; see section 5 |
 | Reference: Perfect Dark | `vendor/pd-ext`, `vendor/pd-port` (not distributed here) | `perfect-dark-pc-port/perfect_dark` | MIT, © 2022 Ryan Dwyer - verified by reading `vendor/pd-port/LICENSE` | Cleared for adaptation **with attribution** |
 | Reference: mgb64 | `akratch/mgb64` | Upstream | MIT | Cleared for adaptation **with attribution** |

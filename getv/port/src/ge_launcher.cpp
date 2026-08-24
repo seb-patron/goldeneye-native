@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 
 /* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so that
@@ -169,14 +170,29 @@ const int kStageCount = (int)(sizeof kStages / sizeof kStages[0]);
  * effect lives in the turn-on switch, which needs a player context that does not exist at
  * startup. That distinction is surfaced in the UI rather than hidden, because a checkbox that
  * silently does nothing is worse than one that says it will not apply yet. */
-struct Cheat { const char *name; bool live; };
+/* `name` is the token GETV_CHEATS is built from and must not change; `label` is what the
+ * launcher shows. They were the same string until the UI grew up, and "10x_health" in a
+ * settings list reads as a debug symbol rather than as a cheat anyone recognises. */
+struct Cheat { const char *name; const char *label; bool live; };
 const Cheat kCheats[] = {
-    { "invincibility", false }, { "all_guns",      false }, { "max_ammo",       false },
-    { "infinite_ammo", true  }, { "dk_mode",       true  }, { "paintball",      true  },
-    { "no_radar",      true  }, { "enemy_rockets", true  }, { "invisibility",   false },
-    { "tiny_bond",     false }, { "golden_gun",    false }, { "magnum",         false },
-    { "laser",         false }, { "turbo_mode",    false }, { "10x_health",     false },
-    { "2x_armor",      false }, { "extra_weapons", false }, { "fast_animation", false },
+    { "invincibility", "Invincibility",   false },
+    { "all_guns",      "All guns",        false },
+    { "max_ammo",      "Max ammo",        false },
+    { "infinite_ammo", "Infinite ammo",   true  },
+    { "dk_mode",       "DK mode",         true  },
+    { "paintball",     "Paintball mode",  true  },
+    { "no_radar",      "No radar",        true  },
+    { "enemy_rockets", "Enemy rockets",   true  },
+    { "invisibility",  "Invisibility",    false },
+    { "tiny_bond",     "Tiny Bond",       false },
+    { "golden_gun",    "Golden gun",      false },
+    { "magnum",        "Magnum",          false },
+    { "laser",         "Laser",           false },
+    { "turbo_mode",    "Turbo mode",      false },
+    { "10x_health",    "10x health",      false },
+    { "2x_armor",      "2x armour",       false },
+    { "extra_weapons", "Extra weapons",   false },
+    { "fast_animation","Fast animation",  false },
 };
 const int kCheatCount = (int)(sizeof kCheats / sizeof kCheats[0]);
 
@@ -735,26 +751,66 @@ bool Btn(const char *label, ImVec2 size, bool primary)
     return clicked;
 }
 
-/* A labelled slider that reads as a row rather than as an ImGui widget: name on the left,
- * value on the right, bar underneath. */
-void Row(const char *label, int *v, int lo, int hi, const char *suffix)
+/* A labelled slider: name on the left, value on the right, filled track underneath.
+ *
+ * Custom rather than ImGui::SliderInt because ImGui draws a grab block whose WIDTH is a
+ * function of the value range -- `Spawns per kill` (0..8) gets a 90px block and `Max alive`
+ * (1..64) gets a 12px one, so two adjacent rows look like two different controls. It also
+ * draws no fill, which is the part that actually communicates magnitude. Here the track is
+ * always the same shape and the fill carries the value. */
+bool SliderRow(const char *label, int *v, int lo, int hi, const char *suffix,
+               float w, bool enabled)
 {
-    ImGui::PushID(label);
     ImVec2 p = ImGui::GetCursorScreenPos();
-    float w = ImGui::GetContentRegionAvail().x;
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    const float th = 8.0f;
+    const float ty = p.y + 27.0f;
 
-    ImGui::GetWindowDrawList()->AddText(g_fBody, 17.0f, ImVec2(p.x, p.y), kText, label);
-    char val[32];
+    dl->AddText(g_fBody, 17.0f, p, enabled ? kText : kDim, label);
+    char val[40];
     snprintf(val, sizeof val, "%d%s", *v, suffix ? suffix : "");
     float vw = g_fBody->CalcTextSizeA(17.0f, FLT_MAX, 0.0f, val).x;
-    ImGui::GetWindowDrawList()->AddText(g_fBody, 17.0f, ImVec2(p.x + w - vw, p.y),
-                                        (*v == 100) ? kDim : kGoldHi, val);
-    ImGui::Dummy(ImVec2(0, 22));
+    dl->AddText(g_fBody, 17.0f, ImVec2(p.x + w - vw, p.y), enabled ? kGoldHi : kDim, val);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 3));
+    ImGui::SetCursorScreenPos(ImVec2(p.x, ty - 7.0f));
+    ImGui::PushID(label);
+    ImGui::InvisibleButton("sl", ImVec2(w, th + 14.0f));
+    bool active = enabled && ImGui::IsItemActive();
+    bool hov    = enabled && ImGui::IsItemHovered();
+    ImGui::PopID();
+
+    if (active && w > 0.0f) {
+        float t = (ImGui::GetIO().MousePos.x - p.x) / w;
+        if (t < 0.0f) t = 0.0f;
+        if (t > 1.0f) t = 1.0f;
+        *v = lo + (int) (t * (float) (hi - lo) + 0.5f);
+    }
+
+    float t = (hi > lo) ? (float) (*v - lo) / (float) (hi - lo) : 0.0f;
+    ImU32 fill = !enabled ? mix(kPanel2, kDim, 0.35f) : ((hov || active) ? kGoldHi : kGold);
+    dl->AddRectFilled(ImVec2(p.x, ty), ImVec2(p.x + w, ty + th), kPanel2);
+    dl->AddRectFilled(ImVec2(p.x, ty), ImVec2(p.x + w * t, ty + th), fill);
+    dl->AddRect(ImVec2(p.x, ty), ImVec2(p.x + w, ty + th), kLine, 0.0f, 0, 1.0f);
+    if (enabled) {
+        float hx = p.x + w * t;
+        dl->AddRectFilled(ImVec2(hx - 2.0f, ty - 5.0f), ImVec2(hx + 2.0f, ty + th + 5.0f), kGoldHi);
+    }
+
+    ImGui::SetCursorScreenPos(ImVec2(p.x, ty + th + 16.0f));
+    ImGui::Dummy(ImVec2(0, 0));
+    return active;
+}
+
+/* A text field with its label above it rather than to the right. ImGui puts the label after
+ * the box, which reads as a stray word floating beside a field. */
+void InputRow(const char *label, char *buf, size_t n, float w)
+{
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::GetWindowDrawList()->AddText(g_fBody, 17.0f, p, kText, label);
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + 26.0f));
+    ImGui::PushID(label);
     ImGui::SetNextItemWidth(w);
-    ImGui::SliderInt("##s", v, lo, hi, "");
-    ImGui::PopStyleVar();
+    ImGui::InputText("##t", buf, n);
     ImGui::PopID();
 }
 
@@ -803,14 +859,29 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
      * buffer: this context exists only to draw ImGui, and asking for depth/MSAA here would
      * be asking for the game's settings in a window that is not the game. */
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    /* Clamped to what the display actually offers. 1120x780 is the size the two-column pages
+     * are laid out for, but this machine's panel is 1440x960 logical, and a window asked for
+     * at a size the desktop cannot show is simply placed off the edge -- the right-hand third
+     * of the launcher, including the Start button, ends up past the screen. Ask for the
+     * design size, take what fits. */
+    int winw = 1120, winh = 780;
+    {
+        SDL_Rect ub;
+        if (SDL_GetDisplayUsableBounds(0, &ub) == 0) {
+            if (winw > ub.w - 60) winw = ub.w - 60;
+            if (winh > ub.h - 60) winh = ub.h - 60;
+        }
+        if (winw < 900) winw = 900;
+        if (winh < 620) winh = 620;
+    }
     SDL_Window *win = SDL_CreateWindow("GoldenEye 007",
                                        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       1120, 780,
+                                       winw, winh,
                                        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI |
                                        SDL_WINDOW_RESIZABLE);
     /* The mission list needs vertical room and the two-column pages need width; below this
      * the layout starts overlapping rather than reflowing. */
-    if (win != NULL) SDL_SetWindowMinimumSize(win, 960, 640);
+    if (win != NULL) SDL_SetWindowMinimumSize(win, 900, 620);
     if (win == NULL) {
         printf("[getv][launcher] SDL_CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
@@ -842,6 +913,11 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
     bool running = true;
     bool launch  = false;
+    /* GETV_LAUNCHER_PAGE=<0..4> opens on that page. It exists so the four pages the probe
+     * cannot reach -- the probe never clicks anything -- can each be rendered and looked at
+     * without a human driving the mouse. */
+    int  page    = env_int("GETV_LAUNCHER_PAGE", 0);
+    if (page < 0 || page > 4) page = 0;
     const int probe_frames = env_int("GETV_LAUNCHER_PROBE", 0);
     int probe_seen = 0;
 
@@ -867,149 +943,353 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-            ImGui::TextUnformatted("GoldenEye 007  --  native");
-            ImGui::Separator();
+            const float W = (float) ww, H = (float) wh;
+            const float headerH = 106.0f, footerH = 78.0f, navW = 208.0f;
+            ImDrawList *dl = ImGui::GetWindowDrawList();
 
-            int prev_profile = m.profile;
-            ImGui::TextUnformatted("Profile");
-            ImGui::RadioButton("Faithful", &m.profile, 0);
-            ImGui::SameLine();
-            ImGui::RadioButton("GoldenEye+", &m.profile, 1);
-            if (m.profile != prev_profile) apply_profile(m);
-            ImGui::TextDisabled("%s", m.profile == 1
-                ? "Enhancements on: wider FOV allowed, MSAA, anisotropic, supersampling."
-                : "The game as shipped. Enhancements off.");
+            /* ------------------------------------------------------------ header */
+            dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, headerH), kPanel);
+            dl->AddLine(ImVec2(0, headerH - 2.0f), ImVec2(W, headerH - 2.0f), kGold, 2.0f);
 
-            ImGui::Spacing();
-            if (ImGui::BeginTabBar("tabs")) {
+            TextLS(g_fTitle, 46.0f, ImVec2(34, 20), kGoldHi, "GOLDENEYE", 5.0f);
+            {
+                float gw = TextLSWidth(g_fTitle, 46.0f, "GOLDENEYE", 5.0f);
+                TextLS(g_fTitle, 46.0f, ImVec2(34 + gw + 16, 20), kGold, "007", 5.0f);
+            }
+            TextLS(g_fSmall, 12.0f, ImVec2(36, 74), kDim,
+                   "NATIVE PORT / OPENGL / DECOMPILED", 3.0f);
 
-                if (ImGui::BeginTabItem("Play")) {
-                    ImGui::Checkbox("Start on a specific level", &m.pick_stage);
-                    if (m.pick_stage) {
-                        if (ImGui::BeginCombo("Level", kStages[m.stage_idx].name)) {
-                            for (int i = 0; i < kStageCount; i++) {
-                                bool sel = (i == m.stage_idx);
-                                char label[64];
-                                snprintf(label, sizeof label, "%s%s", kStages[i].name,
-                                         kStages[i].mp_only ? "  (multiplayer only)" : "");
-                                if (ImGui::Selectable(label, sel)) m.stage_idx = i;
-                                if (sel) ImGui::SetItemDefaultFocus();
-                            }
-                            ImGui::EndCombo();
-                        }
-                        if (kStages[m.stage_idx].mp_only) {
-                            ImGui::TextDisabled("This level has no solo setup. Started alone it "
-                                                "loads geometry with no props or spawn.");
-                        }
-                    } else {
-                        ImGui::TextDisabled("Boots to the title screen.");
-                    }
-
-                    ImGui::Spacing();
-                    ImGui::TextUnformatted("Mods");
-                    ImGui::InputText("Mod directory", m.moddir, sizeof m.moddir);
-                    ImGui::TextDisabled("Each subdirectory with a mod.lua is loaded. "
-                                        "Blank means ./mods.");
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Rules")) {
-                    if (ImGui::BeginCombo("Ruleset", kRulesets[m.ruleset])) {
-                        for (int i = 0; i < kRulesetCount; i++) {
-                            bool sel = (i == m.ruleset);
-                            if (ImGui::Selectable(kRulesets[i], sel)) m.ruleset = i;
-                            if (sel) ImGui::SetItemDefaultFocus();
-                        }
-                        ImGui::EndCombo();
-                    }
-                    ImGui::Checkbox("Customise", &m.rs_custom);
-                    if (m.rs_custom) {
-                        ImGui::TextDisabled("Percentages. 100 is unmodified. "
-                                            "These override the preset.");
-                        ImGui::SliderInt("Enemy health",   &m.enemy_health,   10, 500);
-                        ImGui::SliderInt("Enemy damage",   &m.enemy_damage,   10, 500);
-                        ImGui::SliderInt("Enemy accuracy", &m.enemy_accuracy, 10, 500);
-                        ImGui::SliderInt("Enemy reaction", &m.enemy_reaction, 10, 500);
-                        ImGui::SliderInt("Player health",  &m.player_health,  10, 500);
-                        ImGui::SliderInt("Player armour",  &m.player_armour,  10, 500);
-                        ImGui::SliderInt("Ammo",           &m.ammo,           10, 500);
-                        ImGui::SliderInt("Explosions",     &m.explosion_damage, 10, 500);
-                        ImGui::SliderInt("Turrets",        &m.turret_damage,  10, 500);
-                    }
-
-                    ImGui::Spacing();
-                    ImGui::Checkbox("Horde mode", &m.horde);
-                    if (m.horde) {
-                        ImGui::TextDisabled("When a guard dies, replacements spawn where it "
-                                            "fell. Waves grow with kills.");
-                        ImGui::SliderInt("Spawns per kill", &m.horde_per_kill, 0, 8);
-                        ImGui::SliderInt("Per-kill cap",    &m.horde_per_kill_cap, 1, 8);
-                        ImGui::SliderInt("Max alive",       &m.horde_max_alive, 1, 64);
-                        ImGui::SliderInt("Kills per wave",  &m.horde_wave_kills, 1, 100);
-                        ImGui::SliderInt("Growth per wave", &m.horde_growth, 0, 8);
-                        ImGui::TextDisabled("The engine refuses to spawn with fewer than three "
-                                            "free guard slots, so the real ceiling belongs to "
-                                            "the level.");
-                    }
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Cheats")) {
-                    ImGui::TextDisabled("The game's own cheats. Ones marked (in-game) need "
-                                        "activating from the pause menu -- their effect lives "
-                                        "in the turn-on switch, which needs a player.");
-                    ImGui::Spacing();
-                    for (int i = 0; i < kCheatCount; i++) {
-                        char label[64];
-                        snprintf(label, sizeof label, "%s%s", kCheats[i].name,
-                                 kCheats[i].live ? "" : "  (in-game)");
-                        ImGui::Checkbox(label, &m.cheat_on[i]);
-                        if ((i % 2) == 0 && i + 1 < kCheatCount) ImGui::SameLine(300);
-                    }
-                    ImGui::EndTabItem();
-                }
-
-                if (ImGui::BeginTabItem("Video")) {
-                    ImGui::InputText("Resolution", m.resolution, sizeof m.resolution);
-                    ImGui::TextDisabled("WIDTHxHEIGHT, minimum 320x240.");
-                    ImGui::Checkbox("Fullscreen", &m.fullscreen);
-                    ImGui::SliderInt("Supersample", &m.supersample, 1, 2);
-                    ImGui::SliderInt("MSAA", &m.msaa, 0, 8);
-                    ImGui::SliderInt("Anisotropic", &m.aniso, 0, 16);
-                    ImGui::SliderInt("Field of view", &m.fov, 50, 160);
-                    ImGui::TextDisabled("Percent of the original. 100 is the N64's.");
-                    ImGui::Spacing();
-                    ImGui::SliderInt("Frame rate", &m.framerate, 30, 60);
-                    if (m.framerate > 60) {
-                        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.2f, 1.0f),
-                                           "Above 60 the game runs fast: logic is tied to the "
-                                           "frame step.");
-                    }
-                    ImGui::Spacing();
-                    ImGui::Checkbox("Developer overlay", &m.dev_overlay);
-                    ImGui::EndTabItem();
-                }
-
-                ImGui::EndTabBar();
+            /* The profile is the single choice that changes the meaning of everything else on
+             * the Video page, so it sits in the header rather than inside one of the pages --
+             * it is scope, not a setting. */
+            TextLS(g_fSmall, 12.0f, ImVec2(W - 336, 26), kDim, "PROFILE", 2.6f);
+            {
+                int prev_profile = m.profile;
+                static const char *const kProf[] = { "FAITHFUL", "GOLDENEYE+" };
+                ImGui::SetCursorScreenPos(ImVec2(W - 336, 46));
+                Segmented("prof", &m.profile, kProf, 2, 150.0f);
+                if (m.profile != prev_profile) apply_profile(m);
             }
 
-            ImGui::Separator();
-            if (ImGui::Button("Play", ImVec2(160, 34))) { launch = true; running = false; }
-            ImGui::SameLine();
-            if (ImGui::Button("Quit", ImVec2(160, 34))) { running = false; }
-            ImGui::SameLine();
-            ImGui::TextDisabled("Settings are applied by restarting the game with them.");
+            /* ------------------------------------------------------------ nav */
+            dl->AddRectFilled(ImVec2(0, headerH), ImVec2(navW, H - footerH), kPanel);
+            dl->AddLine(ImVec2(navW, headerH), ImVec2(navW, H - footerH), kLine, 1.0f);
+
+            static const char *const kPages[] = { "MISSION", "RULES", "CHEATS", "VIDEO", "MODS" };
+            ImGui::SetCursorScreenPos(ImVec2(0, headerH + 20));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, v4(kPanel));
+            ImGui::BeginChild("nav", ImVec2(navW, H - footerH - headerH - 20),
+                              ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
+            for (int i = 0; i < 5; i++) if (NavItem(kPages[i], page == i, i)) page = i;
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+
+            /* ------------------------------------------------------------ content */
+            ImGui::SetCursorScreenPos(ImVec2(navW + 30, headerH + 26));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+            ImGui::BeginChild("content", ImVec2(W - navW - 60, H - headerH - footerH - 44),
+                              ImGuiChildFlags_None, 0);
+
+            if (page == 0) {
+                Section("DEPLOYMENT");
+                ImGui::Checkbox("Start on a specific mission", &m.pick_stage);
+                Hint(m.pick_stage
+                     ? "The game boots straight into the mission selected below."
+                     : "The game boots to the title screen and the mission is chosen there.");
+
+                if (m.pick_stage) {
+                    float availw = ImGui::GetContentRegionAvail().x;
+                    float colw   = (availw - 14.0f) * 0.5f;
+
+                    Section("SOLO CAMPAIGN");
+                    {
+                        ImVec2 st = ImGui::GetCursorScreenPos();
+                        int r = 0;
+                        for (int i = 0; i < kStageCount; i++) {
+                            if (kStages[i].mp_only) continue;
+                            ImGui::SetCursorScreenPos(ImVec2(st.x + (r % 2) * (colw + 14.0f),
+                                                             st.y + (r / 2) * 46.0f));
+                            if (MissionRow(kStages[i], m.stage_idx == i, colw, i)) m.stage_idx = i;
+                            r++;
+                        }
+                        ImGui::SetCursorScreenPos(ImVec2(st.x, st.y + ((r + 1) / 2) * 46.0f + 6.0f));
+                        ImGui::Dummy(ImVec2(0, 0));
+                    }
+
+                    Section("MULTIPLAYER ARENAS");
+                    {
+                        ImVec2 st = ImGui::GetCursorScreenPos();
+                        int r = 0;
+                        for (int i = 0; i < kStageCount; i++) {
+                            if (!kStages[i].mp_only) continue;
+                            ImGui::SetCursorScreenPos(ImVec2(st.x + (r % 2) * (colw + 14.0f),
+                                                             st.y + (r / 2) * 46.0f));
+                            if (MissionRow(kStages[i], m.stage_idx == i, colw, i)) m.stage_idx = i;
+                            r++;
+                        }
+                        ImGui::SetCursorScreenPos(ImVec2(st.x, st.y + ((r + 1) / 2) * 46.0f + 6.0f));
+                        ImGui::Dummy(ImVec2(0, 0));
+                    }
+
+                    if (kStages[m.stage_idx].mp_only) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, v4(kWarn));
+                        ImGui::PushFont(g_fSmall);
+                        ImGui::TextWrapped("%s has no solo setup. Started alone it loads the "
+                                           "geometry with no props and no spawn -- that is the "
+                                           "level data, not a rendering fault.",
+                                           kStages[m.stage_idx].name);
+                        ImGui::PopFont();
+                        ImGui::PopStyleColor();
+                    }
+                }
+            }
+
+            else if (page == 1) {
+                Section("RULESET");
+                static const char *const kRsUp[] =
+                    { "CLASSIC", "HARDCORE", "SURVIVAL", "CHAOS", "HORDE" };
+                /* Verbatim from ge_presets[].blurb in ge_ruleset.c, so this cannot drift away
+                 * from what the presets actually do. */
+                static const char *const kRsDesc[] = {
+                    "The game as shipped.",
+                    "Tougher guards, less ammo, half the player health.",
+                    "Hardcore-lite, with endless waves.",
+                    "Everything turned up.",
+                    "Stock difficulty, endless waves.",
+                };
+                Segmented("rs", &m.ruleset, kRsUp, 5, 124.0f);
+                Hint(kRsDesc[m.ruleset]);
+
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Checkbox("Override with custom values", &m.rs_custom);
+
+                if (m.rs_custom) {
+                    Section("BALANCE");
+                    Hint("Percentages of the original. 100 is unmodified. These replace the "
+                         "preset above.");
+                    ImGui::Dummy(ImVec2(0, 8));
+                    {
+                        float availw = ImGui::GetContentRegionAvail().x;
+                        float colw   = (availw - 30.0f) * 0.5f;
+                        struct { const char *n; int *v; } rows[] = {
+                            { "Enemy health",   &m.enemy_health   },
+                            { "Enemy damage",   &m.enemy_damage   },
+                            { "Enemy accuracy", &m.enemy_accuracy },
+                            { "Enemy reaction", &m.enemy_reaction },
+                            { "Player health",  &m.player_health  },
+                            { "Player armour",  &m.player_armour  },
+                            { "Ammo",           &m.ammo           },
+                            { "Explosions",     &m.explosion_damage },
+                            { "Turrets",        &m.turret_damage  },
+                        };
+                        ImVec2 st = ImGui::GetCursorScreenPos();
+                        for (int i = 0; i < 9; i++) {
+                            ImGui::SetCursorScreenPos(ImVec2(st.x + (i % 2) * (colw + 30.0f),
+                                                             st.y + (i / 2) * 62.0f));
+                            SliderRow(rows[i].n, rows[i].v, 10, 500, "%", colw, true);
+                        }
+                        ImGui::SetCursorScreenPos(ImVec2(st.x, st.y + 5 * 62.0f + 4.0f));
+                        ImGui::Dummy(ImVec2(0, 0));
+                    }
+                }
+
+                Section("HORDE MODE");
+                ImGui::Checkbox("Endless waves", &m.horde);
+                if (m.horde) {
+                    Hint("When a guard dies, replacements spawn where it fell. Waves grow with "
+                         "kills. The engine refuses to spawn with fewer than three free guard "
+                         "slots, so the real ceiling belongs to the level.");
+                    ImGui::Dummy(ImVec2(0, 8));
+                    {
+                        float hw = ImGui::GetContentRegionAvail().x;
+                        SliderRow("Spawns per kill", &m.horde_per_kill,     0, 8,   NULL, hw, true);
+                        SliderRow("Per-kill cap",    &m.horde_per_kill_cap, 1, 8,   NULL, hw, true);
+                        SliderRow("Max alive",       &m.horde_max_alive,    1, 64,  NULL, hw, true);
+                        SliderRow("Kills per wave",  &m.horde_wave_kills,   1, 100, NULL, hw, true);
+                        SliderRow("Growth per wave", &m.horde_growth,       0, 8,   NULL, hw, true);
+                    }
+                }
+            }
+
+            else if (page == 2) {
+                Section("CHEATS");
+                Hint("The game's own cheats. Those marked IN-GAME still need switching on from "
+                     "the pause menu -- their effect lives in the turn-on handler, which needs "
+                     "a player that does not exist at startup.");
+                ImGui::Dummy(ImVec2(0, 10));
+                {
+                    float availw = ImGui::GetContentRegionAvail().x;
+                    float colw   = (availw - 20.0f) * 0.5f;
+                    ImVec2 st = ImGui::GetCursorScreenPos();
+                    for (int i = 0; i < kCheatCount; i++) {
+                        float rx = st.x + (i % 2) * (colw + 20.0f);
+                        float ry = st.y + (i / 2) * 34.0f;
+                        ImGui::SetCursorScreenPos(ImVec2(rx, ry));
+                        ImGui::PushID(i);
+                        ImGui::Checkbox(kCheats[i].label, &m.cheat_on[i]);
+                        ImGui::PopID();
+                        /* Anchored to the row's own y, not to wherever the cursor ended up
+                         * after the checkbox -- that varies with the label and left the tags
+                         * on a ragged line. */
+                        if (!kCheats[i].live) {
+                            TextLS(g_fSmall, 11.0f,
+                                   ImVec2(rx + colw - 52.0f, ry + 6.0f), kDim, "IN-GAME", 1.2f);
+                        }
+                    }
+                    ImGui::SetCursorScreenPos(
+                        ImVec2(st.x, st.y + ((kCheatCount + 1) / 2) * 34.0f + 4.0f));
+                    ImGui::Dummy(ImVec2(0, 0));
+                }
+            }
+
+            else if (page == 3) {
+                float vw = ImGui::GetContentRegionAvail().x;
+
+                Section("DISPLAY");
+                InputRow("Resolution", m.resolution, sizeof m.resolution, 260);
+                ImGui::Dummy(ImVec2(0, 4));
+                Hint("WIDTHxHEIGHT, minimum 320x240.");
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Checkbox("Fullscreen", &m.fullscreen);
+
+                Section("IMAGE QUALITY");
+                if (m.profile == 0) {
+                    Hint("The Faithful profile pins these to the console's own values. Switch to "
+                         "GoldenEye+ in the header to change them.");
+                    ImGui::Dummy(ImVec2(0, 10));
+                }
+                {
+                    bool en = (m.profile != 0);
+                    SliderRow("Supersampling", &m.supersample, 1, 2,    "x", vw, en);
+                    SliderRow("MSAA",          &m.msaa,        0, 8,    "x", vw, en);
+                    SliderRow("Anisotropic",   &m.aniso,       0, 16,   "x", vw, en);
+                    SliderRow("Field of view", &m.fov,         50, 160, "%", vw, en);
+                }
+                Hint("Field of view is a percentage of the original. 100 is the N64's.");
+
+                Section("TIMING");
+                SliderRow("Frame rate", &m.framerate, 30, 60, " fps", vw, true);
+                Hint("Game logic is tied to the frame step, so the ceiling is 60.");
+
+                Section("DEVELOPER");
+                ImGui::Checkbox("Show the developer overlay in game", &m.dev_overlay);
+            }
+
+            else if (page == 4) {
+                Section("MODS");
+                InputRow("Mod directory", m.moddir, sizeof m.moddir,
+                         ImGui::GetContentRegionAvail().x);
+                ImGui::Dummy(ImVec2(0, 10));
+                Hint("Directory to scan. Every subdirectory containing a mod.lua is loaded. "
+                     "Leave this blank to use ./mods next to the executable.");
+            }
+
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+
+            /* ------------------------------------------------------------ footer */
+            dl->AddRectFilled(ImVec2(0, H - footerH), ImVec2(W, H), kPanel);
+            dl->AddLine(ImVec2(0, H - footerH), ImVec2(W, H - footerH), kLine, 1.0f);
+
+            {
+                /* What is actually about to be launched, in one line. The launcher composes a
+                 * run out of five pages; without a summary the only way to check it is to go
+                 * back through every page. */
+                char sum[256];
+                int n = 0;
+                if (m.pick_stage) {
+                    if (kStages[m.stage_idx].mission > 0)
+                        n += snprintf(sum + n, sizeof sum - n, "MISSION %02d %s",
+                                      kStages[m.stage_idx].mission, kStages[m.stage_idx].name);
+                    else
+                        n += snprintf(sum + n, sizeof sum - n, "ARENA %s",
+                                      kStages[m.stage_idx].name);
+                } else {
+                    n += snprintf(sum + n, sizeof sum - n, "TITLE SCREEN");
+                }
+                n += snprintf(sum + n, sizeof sum - n, "   /   %s",
+                              m.profile ? "GOLDENEYE+" : "FAITHFUL");
+                n += snprintf(sum + n, sizeof sum - n, "   /   %s",
+                              m.rs_custom ? "CUSTOM RULES" : kRulesets[m.ruleset]);
+                if (m.horde) n += snprintf(sum + n, sizeof sum - n, "   /   HORDE");
+                {
+                    int nc = 0;
+                    for (int i = 0; i < kCheatCount; i++) if (m.cheat_on[i]) nc++;
+                    if (nc) snprintf(sum + n, sizeof sum - n, "   /   %d CHEAT%s",
+                                     nc, nc == 1 ? "" : "S");
+                }
+                for (char *q = sum; *q; q++) *q = (char) toupper((unsigned char) *q);
+                TextLS(g_fSmall, 13.0f, ImVec2(34, H - footerH + 31), kDim, sum, 1.6f);
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(W - 358, H - footerH + 21));
+            if (Btn("QUIT", ImVec2(120, 36), false)) { running = false; }
+            ImGui::SetCursorScreenPos(ImVec2(W - 222, H - footerH + 21));
+            if (Btn("START MISSION", ImVec2(188, 36), true)) { launch = true; running = false; }
 
             ImGui::End();
         }
 
         ImGui::Render();
         {
-            ImGuiIO &io = ImGui::GetIO();
-            glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);
-            glClearColor(0.06f, 0.07f, 0.09f, 1.0f);
+            /* The viewport is the DRAWABLE size, not io.DisplaySize.
+             *
+             * With SDL_WINDOW_ALLOW_HIGHDPI those two differ by the display's scale factor:
+             * io.DisplaySize is logical (what SDL_GetWindowSize reports) while the framebuffer
+             * is physical. This machine's panel runs at 150%, so a 1120x780 window has a
+             * 1680x1170 drawable, and viewporting to the logical size drew the whole UI into
+             * the bottom-left 2/3 of the buffer -- which reads as "zoomed in and cut off at
+             * the right", not as a scaling bug, and is invisible at 100% scale. */
+            int dw, dh;
+            SDL_GL_GetDrawableSize(win, &dw, &dh);
+            glViewport(0, 0, dw, dh);
+            glClearColor(0.031f, 0.035f, 0.043f, 1.0f);   /* kBg */
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+        }
+
+        /* GETV_LAUNCHER_SHOT=<path.bmp> with GETV_LAUNCHER_PROBE=<frames>: write the drawable
+         * to a file on the probe frame. An external screenshot tool cannot photograph this
+         * window reliably -- the capturing process is DPI-unaware where this one is not, so
+         * the rectangle it grabs is the virtualised one and the image comes back cropped.
+         * Reading the framebuffer we just drew has no such ambiguity. */
+        if (probe_frames > 0 && probe_seen + 1 >= probe_frames) {
+            const char *shot = getenv("GETV_LAUNCHER_SHOT");
+            if (shot != NULL && *shot != '\0') {
+                int dw, dh;
+                SDL_GL_GetDrawableSize(win, &dw, &dh);
+                unsigned char *px = (unsigned char *) malloc((size_t) dw * (size_t) dh * 4);
+                FILE *f = (px != NULL) ? fopen(shot, "wb") : NULL;
+                if (px != NULL && f != NULL) {
+                    glReadPixels(0, 0, dw, dh, GL_RGBA, GL_UNSIGNED_BYTE, px);
+                    const int pad = (4 - (dw * 3) % 4) % 4;
+                    const int dat = (dw * 3 + pad) * dh;
+                    unsigned char hdr[54];
+                    const unsigned char zero[3] = { 0, 0, 0 };
+                    memset(hdr, 0, sizeof hdr);
+                    hdr[0] = 'B'; hdr[1] = 'M';
+                    *(int *) &hdr[2]  = 54 + dat;
+                    *(int *) &hdr[10] = 54;
+                    *(int *) &hdr[14] = 40;
+                    *(int *) &hdr[18] = dw;
+                    *(int *) &hdr[22] = dh;       /* positive: bottom-up, matching glReadPixels */
+                    *(short *) &hdr[26] = 1;
+                    *(short *) &hdr[28] = 24;
+                    *(int *) &hdr[34] = dat;
+                    fwrite(hdr, 1, 54, f);
+                    for (int y = 0; y < dh; y++) {
+                        for (int x = 0; x < dw; x++) {
+                            const unsigned char *q = px + ((size_t) y * dw + x) * 4;
+                            const unsigned char bgr[3] = { q[2], q[1], q[0] };
+                            fwrite(bgr, 1, 3, f);
+                        }
+                        if (pad) fwrite(zero, 1, (size_t) pad, f);
+                    }
+                    printf("[getv][launcher] shot: %s (%dx%d)\n", shot, dw, dh);
+                }
+                if (f)  fclose(f);
+                if (px) free(px);
+            }
         }
         /* GETV_LAUNCHER_PROBE=<frames>: draw that many frames, count how many pixels differ
          * from the clear colour, report and close. The window blocks on a human, so without

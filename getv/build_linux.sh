@@ -441,9 +441,23 @@ cmd_lib() {
   # unprefixed. Nothing outside those two directories references their symbols and
   # file_resource_table.inc.c asks for the bare name, so a US build simply must not compile
   # them. Namespacing them instead would keep seven dead translation units in the binary.
+  # -fno-toplevel-reorder and -fno-zero-initialized-in-bss, on the asset batch only.
+  #
+  # GCC emits .data in reverse declaration order. The stan format is one contiguous run of
+  # tiles walked by adding each tile's byte size, with pointers computed as base + (link << 3),
+  # so reversing it shatters the run: on Windows the engine saw a one-tile level, put the
+  # player in room 0, and room 0 has no geometry. The all-zero terminator tile also goes to
+  # .bss by default, detaching it from the run it terminates.
+  #
+  # This build is GCC too. It was found on Windows with GCC 16 and these flags belong here
+  # for the same reason, whether or not this host's GCC currently happens to order things
+  # favourably. Clang emits in source order, which is why macOS never showed it.
+  #
+  # Assets only, deliberately: the game batch is code, and the only place adjacency of
+  # top-level data is load-bearing is the level data.
   (cd "$DECOMP" && find assets -name '*.c' ! -name '*.inc.c' \
       ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' | sort) \
-    | run_batch "linux assets" "${CFLAGS[@]}"
+    | run_batch "linux assets" "${CFLAGS[@]}" -fno-toplevel-reorder -fno-zero-initialized-in-bss
 
   # -DNDEBUG is passed to the mixer only, exactly as the other three builds do. Do not
   # widen it: SUPPORT_CHECK in gfx_pc.c is an assert() and is deliberately armed.

@@ -102,6 +102,27 @@ def globals_of(rel):
             syms.append(p[2][1:])
     return syms
 
+
+# Getools opens each stan file with a bare `StandTile <name>_tile_0;` under a "forward
+# declarations" comment. In C that is a tentative definition, not a declaration, so the
+# compiler allocates tile_0 at that point in the file and the 24-byte StandFileHeader lands
+# between tile_0 and tile_1.
+#
+# The engine walks the tiles as one contiguous run, adding each tile's byte size and
+# computing pointers as base + (link << 3), so anything wedged between them breaks the walk
+# at the first step. On Windows it produced a one-tile level: the player spawned in room 0,
+# which has no geometry, and the world did not draw at all.
+#
+# Adding extern makes it a declaration and the storage is allocated where the definition
+# actually appears. Applied here rather than to the generated files directly, because those
+# are regenerated from the ROM and any edit to them is lost on the next run.
+_FWD_TILE = re.compile(r'^(StandTile\s+[A-Za-z_][A-Za-z0-9_]*_tile_0\s*;)\s*$', re.M)
+
+
+def _extern_forward_decls(text):
+    return _FWD_TILE.sub(lambda m: 'extern ' + m.group(1), text)
+
+
 def main():
     d = sys.argv[1]
     dry = '--dry-run' in sys.argv
@@ -145,6 +166,7 @@ def main():
         s = open(f).read()
         for sym in todo:
             s = re.sub(r'\b'+re.escape(sym)+r'\b', prefix+'_'+sym, s)
+        s = _extern_forward_decls(s)
         if not dry:
             open(f,'w').write(s)
         renamed.append((rel, len(todo)))

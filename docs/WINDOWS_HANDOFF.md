@@ -1,10 +1,30 @@
 # Windows bring-up: handoff
 
-For an agent working directly on the Surface Pro 3. Everything below was established
-remotely over SSH; the one thing that could not be done remotely is the thing that matters
-now, which is looking at the screen.
+> ## ⚠️ STATUS 2026-08-24: the bug below is FIXED. Do not re-investigate it.
+>
+> **The world renders.** Every cull figure matches the macOS reference
+> (`curroom=29`, `vtx total=326`, `tris submitted=908`).
+>
+> It was none of the four suspects listed under "Prime suspects". The cause was the order
+> **GCC emits `.data` in**: it is reverse declaration order, which shattered the stan tile
+> run the engine walks by pointer arithmetic. The game saw a **one-tile level**, put the
+> player in room 0, and room 0 has no geometry. Clang emits in source order, which is why
+> macOS never showed it.
+>
+> Fixed with `-fno-toplevel-reorder` and `-fno-zero-initialized-in-bss` on the asset batch,
+> plus `extern` on the `tile_0` forward declaration in all 29 stan assets. **`build_linux.sh`
+> is GCC too and needs the same two flags.**
+>
+> Two things this also fixed, without being touched: the `[getv][nostan]` unplaced objects
+> (4 → 0), and the weapon/hand rendering. The `hinv=1/0` noted below as a known gap was a
+> misreading — that is the **left** hand hidden, which is correct for a one-handed PP7.
+>
+> **Full record with before/after numbers: `docs/WINDOWS_STAN_ORDERING.md`.**
+>
+> The rest of this document is kept as written, because everything in "Traps already paid
+> for", "Building" and "Diagnostics available" is still current and still correct.
 
-## The bug you are here to fix
+## The bug you are here to fix ~~(SOLVED — see the status block above)~~
 
 **The game runs. Characters render. The world does not.**
 
