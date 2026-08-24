@@ -23295,7 +23295,7 @@ index e5fdbc2..50beb36 100644
      {
          objective_count = objective->menu;
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..1d38078 100644
+index 4ebf14b..36e2050 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -29,6 +29,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
@@ -23519,7 +23519,7 @@ index 4ebf14b..1d38078 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +691,76 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +691,94 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -23565,6 +23565,24 @@ index 4ebf14b..1d38078 100644
 +    s32 i;
 +    s32 n = getPlayerCount();
 +
++    /* Why the co-op players do not move, if they do not.
++     *
++     * lvlManageMpGame() (lv.c:1098) sets g_ClockTimer to 0 whenever controls are locked or
++     * the game is paused, and to speedgraphframes otherwise. A zero clock means zero delta,
++     * and zero delta freezes every player including player 0 while rendering carries on
++     * normally -- which is exactly the reported symptom: p0 travels 72.5 units in co-op
++     * against 16930 solo, and separating the spawns (GETV_COOP_SPREAD) did not change it.
++     *
++     * Printed rather than assumed, because the alternative explanations -- no input reaching
++     * players 1-3, spawn collision, missing pads -- have already been ruled out one at a
++     * time and this is the next candidate rather than a conclusion. */
++    {
++        extern s32 g_ControlsLockedFlag;
++        extern s32 g_ClockTimer;
++        extern s32 checkGamePaused(void);
++        printf("[getv][state] locked=%d paused=%d clock=%d",
++               (int) g_ControlsLockedFlag, (int) checkGamePaused(), (int) g_ClockTimer);
++    }
 +    printf("[getv][state] f=%d players=%d", frame, (int) n);
 +
 +    /* Every player, not g_CurrentPlayer. That pointer is swapped as each viewport is drawn,

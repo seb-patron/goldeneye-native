@@ -117,6 +117,31 @@ stubbed N64 hardware file that fails on every platform.
 
 ## Known issues
 
+**Co-op players do not move (alpha).** 2-4 players spawn, are separated correctly by
+`GETV_COOP_SPREAD` (default 60 units, about two feet at this game's scale -- Bond's eye
+height measures 167), and then stand still. Player 0 is affected too, which is the most
+useful fact about the bug: whatever it is, it is not "the extra players get no input".
+
+Measured on Dam, 900 frames, same scripted input in both runs:
+
+| | solo | co-op |
+|---|---|---|
+| p0 position at f600 / f720 / f840 | 15542 -> 16628 -> 17442 | 20202.2 unchanged, all three |
+| `locked` / `paused` / `clock` | 0 / 0 / 1 | 0 / 0 / 1 |
+| scripted input fires | yes | yes |
+
+Four explanations are eliminated: **spawn collision** (they are 60 units apart and still
+frozen), **pad presence** (`GETV_PADS=2` changes nothing), **a global time freeze**
+(`lvlManageMpGame` zeroes `g_ClockTimer` when controls are locked or the game is paused, and
+all three read identical to solo), and **input delivery** (`GETV_SCRIPT` reports FIRE at the
+right frames on port 0).
+
+So input arrives, time advances, controls are unlocked, and the player still does not move.
+What remains is multiplayer-specific gating between the pad read and the movement apply --
+player-to-controller mapping, or a pre-game state the MP path expects a real match to leave.
+`GETV_STATE=<n>` now prints `locked`, `paused` and `clock` alongside the positions, which is
+what made this narrowing cheap.
+
 **Doors that never resolved a position.** `proplvreset` sets `door->prop = NULL` when
 `getposstan()` cannot resolve a door's pad against the stan, and the rest of the game then
 uses `door->prop` in 92 places without checking. Interacting with such a door faulted at
