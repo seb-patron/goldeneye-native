@@ -869,6 +869,144 @@ static void geSynthState(int port, struct GePadState *out)
  *
  * GETV_KEYBOARD=0 disables it entirely.
  * =========================================================================== */
+/* ---------------------------------------------------------------- mouse look
+ *
+ * The most-requested feature this port did not have. Off by default, because it is a
+ * Phase 2 "modernise" change and is actively wrong for a faithful run -- the GoldenEye+
+ * profile is where it belongs.
+ *
+ * How it works, and the honest limitation. The game reads looking from the right stick,
+ * which is a *rate* control: a held stick turns continuously. A mouse is a *displacement*
+ * control: moving it two inches should turn a fixed amount regardless of how long that
+ * took. Mapping mouse delta onto the stick axes, which is what happens below, gives a very
+ * usable result and is what most ports start with, but it is not the same thing. A stick
+ * value derived from this frame's delta still turns for the whole frame, so fast flicks
+ * overshoot slightly and very slow movement can quantise.
+ *
+ * Doing it properly means injecting into yaw and pitch directly, which needs the player,
+ * camera and weapon orientations separated -- the same split third person and free camera
+ * need. That is the right next step and it is deliberately not attempted here: this gets
+ * mouse look working and playable without touching the game's movement code at all.
+ *
+ * Perfect Dark's port solved the same problem and is MIT with attribution (see
+ * docs/REUSE_AUDIT.md). Nothing is copied from it here -- this is small enough not to need
+ * to be -- but its separation of orientation is the model for the proper fix.
+ */
+static int geKeyboardIdle(void);   /* defined below; the mouse must idle for the same runs */
+
+static int geMouseEnabled(void)
+{
+ static int on = -1;
+ if (on < 0) {
+ const char *s = getenv("GETV_MOUSE");
+        /* Default ON. Nearly everyone has a keyboard and mouse; a gamepad is the minority
+         * case, so the majority should not have to find a setting before the game is
+         * playable. GETV_MOUSE=0 turns it off, and a connected pad keeps working either way
+         * -- the two are ORed, not exclusive. */
+ on = (s != NULL && *s != '\0') ? (atoi(s) != 0) : 1;
+ if (on) {
+ SDL_SetRelativeMouseMode(SDL_TRUE);
+ printf("[getv] input: mouse look ON (left button fires, right aims, ESC releases "
+                   "the cursor; GETV_MOUSE_SENS to tune, GETV_MOUSE_INVERT=1 to invert Y, "
+                   "GETV_MOUSE=0 to disable)\n");
+ fflush(stdout);
+        }
+    }
+ return on;
+}
+
+static int geMouseSens(void)
+{
+ static int v = -1;
+ if (v < 0) {
+ const char *s = getenv("GETV_MOUSE_SENS");
+ v = (s != NULL && *s != '\0') ? atoi(s) : 100;   /* percent */
+ if (v < 1)    v = 1;
+ if (v > 1000) v = 1000;
+    }
+ return v;
+}
+
+static int geMouseInvert(void)
+{
+ static int v = -1;
+ if (v < 0) {
+ const char *s = getenv("GETV_MOUSE_INVERT");
+ v = (s != NULL && *s != '\0') ? (atoi(s) != 0) : 0;
+    }
+ return v;
+}
+
+static void geMousePoll(int port, struct GePadState *out)
+{
+ int dx = 0, dy = 0;
+ Uint32 mb;
+ int sens;
+
+    /* Idle on a measurement run, for a stronger reason than the keyboard has: relative mode
+     * hides and locks the cursor system-wide, so an automated run would steal the pointer
+     * from whatever the user was actually doing. geKeyboardIdle() is on by default whenever
+     * GETV_EXIT_FRAME is set, which is exactly the "this is a script, not a play session"
+     * signal wanted here. Checked before geMouseEnabled() so the capture never happens. */
+ if (port != 0 || geKeyboardIdle() || !geMouseEnabled()) {
+ return;
+    }
+
+    /* Relative mode keeps delivering motion with the cursor hidden and locked, so the
+     * pointer cannot wander onto another monitor mid-firefight. SDL_PumpEvents() has
+     * already run this frame, the same reason the keyboard read relies on. */
+    /* ESC releases the cursor, and pressing it again recaptures.
+     *
+     * This matters more with the mouse on by default: relative mode hides and locks the
+     * pointer, and a player who cannot reach their other windows will read that as the game
+     * having hung. Edge-triggered, so holding ESC does not flap the mode every frame. ESC is
+     * otherwise unbound in this port -- the game's pause is START, which the keyboard maps
+     * to TAB. */
+    {
+ static int prev_esc = 0;
+ const Uint8 *ks = SDL_GetKeyboardState(NULL);
+ int esc = (ks != NULL && ks[SDL_SCANCODE_ESCAPE]) ? 1 : 0;
+ if (esc && !prev_esc) {
+ SDL_bool now = SDL_GetRelativeMouseMode();
+ SDL_SetRelativeMouseMode(now ? SDL_FALSE : SDL_TRUE);
+ printf("[getv] input: mouse %s\n", now ? "released (ESC to recapture)" : "captured");
+ fflush(stdout);
+        }
+ prev_esc = esc;
+ if (!SDL_GetRelativeMouseMode()) { return; }   /* released: no look, no clicks */
+    }
+
+ mb = SDL_GetRelativeMouseState(&dx, &dy);
+ sens = geMouseSens();
+
+ if (dx != 0 || dy != 0) {
+ long rx, ry;
+
+ if (geMouseInvert()) { dy = -dy; }
+
+        /* 220 counts per stick full-scale at 100%, chosen so a normal desk sweep turns
+         * roughly 180 degrees. Clamped rather than scaled so a large delta -- an alt-tab
+         * return, or a hitch that batches several frames of motion -- cannot spin the view. */
+ rx = ((long) dx * 32767L * sens) / (220L * 100L);
+ ry = ((long) dy * 32767L * sens) / (220L * 100L);
+
+ if (rx >  32767L) rx =  32767L;
+ if (rx < -32767L) rx = -32767L;
+ if (ry >  32767L) ry =  32767L;
+ if (ry < -32767L) ry = -32767L;
+
+ out->rx = (int) rx;
+ out->ry = (int) ry;
+ out->present      = 1;
+ out->real_gamepad = 1;
+    }
+
+ if (mb & SDL_BUTTON(SDL_BUTTON_LEFT))  { out->rtrigger = 1; out->rt_raw = 32767;
+ out->present = 1; out->real_gamepad = 1; }
+ if (mb & SDL_BUTTON(SDL_BUTTON_RIGHT)) { out->ltrigger = 1; out->lt_raw = 32767;
+ out->present = 1; out->real_gamepad = 1; }
+}
+
 static int geKeyboardEnabled(void)
 {
  static int on = -1;
@@ -1044,12 +1182,24 @@ static void geKeyboardApply(int port, struct GePadState *out)
  if (rx != 0) { out->rx = rx; }
  if (ry != 0) { out->ry = ry; }
 
+    /* SPACE and LCTRL are FIRE, which means the RIGHT trigger.
+     *
+     * This read `ltrigger` and the banner above has always said "SPACE fire", so intent and
+     * wiring disagreed: port_os.c:467 binds GE_ACT_FIRE to GE_SRC_RT and gives AIM the left
+     * trigger, so pressing space aimed. Keyboard players could walk, use, and aim, and could
+     * not shoot. The scripted-input harness had the identical bug for the identical reason --
+     * the port's "Z" concept was wired to the left trigger in both places, because on the N64
+     * Z *is* fire and the name reads correct at a glance. */
  if (k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_LCTRL]) {
+ out->rtrigger = 1;
+ out->rt_raw   = 32767;
+    }
+    /* Q is AIM, as the banner says. */
+ if (k[SDL_SCANCODE_Q]) {
  out->ltrigger = 1;
  out->lt_raw   = 32767;
     }
  if (k[SDL_SCANCODE_E] || k[SDL_SCANCODE_RETURN])  { out->a = 1; }
- if (k[SDL_SCANCODE_Q])                            { out->b = 1; }
  if (k[SDL_SCANCODE_Z])                            { out->lshoulder = 1; }
  if (k[SDL_SCANCODE_X])                            { out->rshoulder = 1; }
  if (k[SDL_SCANCODE_TAB] || k[SDL_SCANCODE_KP_ENTER]) { out->start = 1; }
@@ -1103,6 +1253,10 @@ void gePortInputPollPort(int port, struct GePadState *out)
          * prints its startup banner, which makes an input test look like a null result.
          * Script keeps priority; the keyboard only fills in underneath it. */
  geKeyboardApply(port, out);
+        /* Mouse after the keyboard so a moved mouse wins the look axes over held arrow
+         * keys, and before the script branch below so a script still overrides both --
+         * same priority rule the keyboard follows, for the same reason. */
+ geMousePoll(port, out);
 #endif
         /* A live script is its own "forced pad": it must work with no hardware and
          * without also having to set GETV_PADS. */
