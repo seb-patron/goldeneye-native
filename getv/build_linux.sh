@@ -79,6 +79,35 @@ DECOMP="$HERE/../vendor/ge-decomp"
 BUILD="$HERE/build-linux"
 SDL="${GETV_SDL_PREFIX:-$HOME/.n64tvos/sdl2-linux}"
 SDLSRC="$HERE/../deps/SDL2-2.30.9"
+
+# Optional Lua (mod scripting) and Dear ImGui (dev overlay + launcher), both built by their
+# fetch scripts into out-of-repo prefixes because deps/ is not tracked. Absent is the normal
+# case and must stay buildable: without the library the corresponding -DGE_WITH_* is omitted
+# and ge_lua.c / ge_imgui.cpp / ge_launcher.cpp compile to empty entry points, so no call
+# site anywhere needs an #ifdef. The prefixes are per-OS (-linux, not -mac) because these are
+# native static libraries and the two hosts cannot share them.
+LUA="${GETV_LUA_PREFIX:-$HOME/.n64tvos/lua-linux}"
+LUAFLAGS=(); LUALIBS=()
+if [ -f "$LUA/lib/liblua.a" ] && [ -f "$LUA/include/lua.h" ]; then
+  LUAFLAGS=( -DGE_WITH_LUA -I "$LUA/include" )
+  LUALIBS=( "$LUA/lib/liblua.a" )
+fi
+
+IMGUI="${GETV_IMGUI_PREFIX:-$HOME/.n64tvos/imgui-linux}"
+IMGUIFLAGS=(); IMGUILIBS=()
+if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
+  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
+  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
+fi
+
+# The C++ compiler, needed only for the two .cpp files in the port layer. Derived from $CC so
+# that CC=clang gets clang++ rather than silently mixing toolchains, which on Linux means
+# mixing libstdc++ and libc++ and failing at link with unresolved std:: symbols.
+if [ -n "${CXX:-}" ]; then :
+elif [ "${CC:-cc}" = "clang" ]; then CXX=clang++
+elif [ "${CC:-cc}" = "gcc" ];   then CXX=g++
+else CXX=c++
+fi
 BIN="$BUILD/goldeneye"
 
 # clang by default. gcc is expected to work and is not the recommended first attempt:
@@ -285,6 +314,8 @@ build_port_layer() {
     -D_GNU_SOURCE
     -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DRAPI_GL -DWAPI_SDL2
     -DGE_PLATFORM_DESKTOP
+    ${LUAFLAGS[@]+"${LUAFLAGS[@]}"}
+    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
     "${w[@]}" -O1
   )
   mkdir -p "$BUILD/obj"
@@ -294,6 +325,23 @@ build_port_layer() {
     if "$CC" "${PORTFLAGS[@]}" -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
     else pfail=$((pfail+1)); rm -f "$o"; echo "  linux port FAILED: $(basename "$f")"; fi
   done
+  # C++ in the port layer: ge_imgui.cpp and ge_launcher.cpp. Same reasoning as build_mac.sh
+  # -- ImGui is C++, everything calling it is C, and the boundary is two translation units
+  # behind plain-C headers. PORTFLAGS with -std=c++17 added and nothing removed, so a define
+  # reaching the C files reaches these too.
+  #
+  # The loop runs whether or not ImGui is installed; without -DGE_WITH_IMGUI both files
+  # compile to empty entry points. -Wno-everything is a clang spelling and g++ rejects it, so
+  # warn_flags is not reused here: these are third-party-adjacent files whose warnings are not
+  # this project's to fix, and -w is the portable way to say so.
+  for f in "$HERE"/port/src/*.cpp; do
+    [ -e "$f" ] || continue
+    local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
+    if "$CXX" "${PORTFLAGS[@]/-Wno-everything/-w}" -std=c++17 -fno-exceptions -fno-rtti \
+              -w -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
+    else pfail=$((pfail+1)); rm -f "$o"; echo "  linux port FAILED: $(basename "$f")"; fi
+  done
+
   # The harness. ge_tvos_main.c is shared verbatim with the tvOS and Mac targets -- it is
   # plain C + SDL with no UIKit in it -- and it defines SDL_main(). ge_mac_main.c supplies
   # the real main() that forwards to it; despite living in port/mac/ that file contains no
@@ -524,8 +572,9 @@ cmd_app() {
   # symbol table is always present, which is why this only matters here.
   "$CC" -o "$BIN" -rdynamic \
     "${roots[@]}" "$BUILD/libge.a" \
+    ${LUALIBS[@]+"${LUALIBS[@]}"} ${IMGUILIBS[@]+"${IMGUILIBS[@]}"} \
     "${SDL_LIBS[@]}" \
-    -lGL -lm -ldl -lpthread \
+    -lstdc++ -lGL -lm -ldl -lpthread \
     2>&1 | head -40
   linkrc=${PIPESTATUS[0]}
   if [ "$linkrc" -ne 0 ]; then

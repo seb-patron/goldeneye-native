@@ -7624,7 +7624,7 @@ index 71e949a..ae59082 100644
  
  #endif
 diff --git a/src/game/chr.c b/src/game/chr.c
-index 50544ec..3940018 100644
+index 50544ec..1c20bc8 100644
 --- a/src/game/chr.c
 +++ b/src/game/chr.c
 @@ -1,4 +1,5 @@
@@ -9125,7 +9125,7 @@ index 50544ec..3940018 100644
      if (!handles_shot_actors(chr, bhit->hitpart, &shot->dir, shot->weapon, TRUE)) {
          return;
      }
-@@ -3882,3 +4573,150 @@ s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct co
+@@ -3882,3 +4573,161 @@ s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct co
  
      return 0;
  }
@@ -9202,6 +9202,7 @@ index 50544ec..3940018 100644
 +        ge_st_tick++;
 +        if (ge_st_at > 0 && ge_st_tick == ge_st_at) {
 +            s32 k;
++            s32 found = 0;
 +            for (k = 0; k < g_NumChrSlots; k++) {
 +                ChrRecord *c = &g_ChrSlots[k];
 +                if (c->model != NULL && c->prop != NULL && c->prop->stan != NULL &&
@@ -9213,8 +9214,18 @@ index 50544ec..3940018 100644
 +                           "spawn %s\n", k, (s32) c->bodynum, chrGetNumFree(),
 +                           r ? "OK" : "REFUSED (too few free slots)");
 +                    if (r) { ge_horde_alive++; ge_horde_spawned++; }
++                    found = 1;
 +                    break;
 +                }
++            }
++            /* Reporting the empty case matters as much as the spawn. Without it a selftest
++             * that found no eligible guard is silent, which is indistinguishable from the
++             * tick never having run -- and on a slow host, where the chosen frame simply is
++             * not reached inside the timeout, that ambiguity sends you looking for a bug in
++             * the wrong place. Measured once, on a 1 fps box. */
++            if (!found) {
++                printf("[getv][horde] selftest: no eligible guard among %d slots at tick %d\n",
++                       (s32) g_NumChrSlots, (s32) ge_st_tick);
 +            }
 +        }
 +    }

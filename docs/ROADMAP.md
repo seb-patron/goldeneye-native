@@ -19,6 +19,18 @@ untested.
 
 ## Platforms
 
+**macOS (arm64 and x86_64)** and **Linux (x86_64)** are at feature parity as of 2026-08-24.
+Both build the same counts -- game 167/1, assets 746/0, audio 40/0, port layer 28/0 -- and
+both carry Lua mod scripting, the Dear ImGui dev overlay, rulesets, horde mode and the
+launcher. The applied-ruleset values are byte-identical across the two hosts, which is the
+check worth repeating whenever either platform's build changes.
+
+⚠️ **The Linux test box is not a performance reference.** It renders at roughly one frame per
+second (`GL_RENDERER=NVAF`, nouveau on old NVIDIA hardware), so anything measured in frames
+needs a reachable frame number there: a run asking for frame 600 inside a 250-second timeout
+simply stops at 241 and reports nothing, which reads exactly like a broken feature. That
+cost one debugging cycle before it was recognised.
+
 **macOS (arm64 and x86_64)** and **Linux (x86_64)** both build and run. Linux was brought up
 on 2026-08-24 against gcc 13 on Linux Mint 22.3 and produces a 20M ELF; the game batch builds
 167/1, identical to macOS, and the one failure (`src/tlb_manage.c`) is a deliberately stubbed

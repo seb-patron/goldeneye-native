@@ -64,9 +64,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPS="$HERE/../deps"
 SRC="$DEPS/imgui-$VERSION"
 
+# The build script to name in the closing hint. Printing the macOS one on Linux is a
+# small thing that costs a real minute to anyone following the message on the host that
+# most needs it.
 case "$(uname -s)" in
-  Darwin) PREFIX="$HOME/.n64tvos/imgui-mac";   SDL="$HOME/.n64tvos/sdl2-mac"   ;;
-  Linux)  PREFIX="$HOME/.n64tvos/imgui-linux"; SDL="$HOME/.n64tvos/sdl2-linux" ;;
+  Darwin) BUILDSCRIPT=build_mac.sh; PREFIX="$HOME/.n64tvos/imgui-mac";   SDL="$HOME/.n64tvos/sdl2-mac"   ;;
+  Linux)  BUILDSCRIPT=build_linux.sh;  PREFIX="$HOME/.n64tvos/imgui-linux"; SDL="$HOME/.n64tvos/sdl2-linux" ;;
   *) echo "unsupported host: $(uname -s)" >&2; exit 1 ;;
 esac
 
@@ -174,5 +177,5 @@ cp "$SRC/imgui.h" "$SRC/imconfig.h" "$SRC/imgui_internal.h" \
 cp "$SRC/LICENSE.txt" "$PREFIX/IMGUI-LICENSE.txt" 2>/dev/null
 
 echo "dear imgui $VERSION: $ok objects -> $PREFIX/lib/libimgui.a"
-echo "rebuild the game to pick it up: ./getv/build_mac.sh all"
-echo "then run it with: GETV_IMGUI=1 ./getv/build_mac.sh run"
+echo "rebuild the game to pick it up: ./getv/$BUILDSCRIPT all"
+echo "then run it with: GETV_IMGUI=1 ./getv/$BUILDSCRIPT run"

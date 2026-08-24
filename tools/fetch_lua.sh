@@ -25,9 +25,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPS="$HERE/../deps"
 SRC="$DEPS/lua-$VERSION"
 
+# The build script to name in the closing hint. Printing the macOS one on Linux is a
+# small thing that costs a real minute to anyone following the message on the host that
+# most needs it.
 case "$(uname -s)" in
-  Darwin) PREFIX="$HOME/.n64tvos/lua-mac";   PLATDEF="-DLUA_USE_MACOSX" ;;
-  Linux)  PREFIX="$HOME/.n64tvos/lua-linux"; PLATDEF="-DLUA_USE_LINUX"  ;;
+  Darwin) BUILDSCRIPT=build_mac.sh; PREFIX="$HOME/.n64tvos/lua-mac";   PLATDEF="-DLUA_USE_MACOSX" ;;
+  Linux)  BUILDSCRIPT=build_linux.sh;  PREFIX="$HOME/.n64tvos/lua-linux"; PLATDEF="-DLUA_USE_LINUX"  ;;
   *) echo "unsupported host: $(uname -s)" >&2; exit 1 ;;
 esac
 
@@ -90,4 +93,4 @@ ar rcs "$PREFIX/lib/liblua.a" "$OBJDIR"/*.o || exit 1
 cp "$SRC"/src/lua.h "$SRC"/src/luaconf.h "$SRC"/src/lualib.h "$SRC"/src/lauxlib.h "$PREFIX/include/"
 
 echo "lua $VERSION: $ok objects -> $PREFIX/lib/liblua.a"
-echo "rebuild the game to pick it up: ./getv/build_mac.sh all   (or build_linux.sh all)"
+echo "rebuild the game to pick it up: ./getv/$BUILDSCRIPT all"
