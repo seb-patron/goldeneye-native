@@ -197,3 +197,10 @@ core.*
 # try to build one.
 ._*
 .DS_Store
+
+# Internal research notes. Kept out of the published repository deliberately.
+#
+# This lived in .git/info/exclude, which is per-clone and does not travel, so a second
+# machine cloning this tree happily committed all twelve files. A shared rule is the only
+# kind that actually holds.
+docs/research/
