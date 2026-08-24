@@ -58,7 +58,7 @@ One reading to know about. Cuba is the credits sequence and reports no objective
 `objectiveIsAllComplete()` is trivially true there and the tool prints `complete=yes`. It is an
 empty set, not a finished mission.
 
-Today it builds and plays on **macOS 13 or later on Apple silicon (arm64)**. Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). ZX Spectrum Emulator intentionally not wired up.
+Today it builds and plays on MacOS (Silicon or X86). Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). ZX Spectrum Emulator intentionally not wired up.
 
 ## What this is not
 
