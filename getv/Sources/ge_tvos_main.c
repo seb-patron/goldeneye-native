@@ -240,6 +240,10 @@ int SDL_main(int argc, char *argv[])
     /* Must run before any game code: it lays down the 0xFF poison the stub tables are
      * scanned against and the canaries that catch a stub overrunning its neighbour. */
     { extern void gePortStubInit(void); gePortStubInit(); }
+
+    /* Mods load before any game code runs, so a mod's chunk body can configure things
+     * that are only read at startup. Silent and free when there is no mods/ directory. */
+    { extern void gePortLuaInit(void); gePortLuaInit(); }
     printf("[getv] libge.a linked; bossGetStageNum() -> %d\n", bossGetStageNum());
 
     /* macOS is the only target with a real window, so it is the only one with

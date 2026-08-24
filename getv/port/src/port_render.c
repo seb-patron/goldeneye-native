@@ -235,6 +235,15 @@ void gePortRenderDisplayList(void *firstGdl)
         }
     }
 
+    /* Script hooks run after the game has ticked and the frame's state is settled, so a
+     * mod reading ge.player_pos() sees this frame's positions rather than last frame's.
+     * The call is unconditional: without GE_WITH_LUA it resolves to an empty function in
+     * ge_lua.c, which keeps the #ifdefs in one file instead of at every call site. */
+    {
+        extern void gePortLuaFrame(int frame);
+        gePortLuaFrame(rendered);
+    }
+
     {
         static int trace = -1;
         if (trace == -1) {

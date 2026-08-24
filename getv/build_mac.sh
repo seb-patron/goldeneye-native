@@ -46,6 +46,16 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
 BUILD="$HERE/build-mac"
 SDL="$HOME/.n64tvos/sdl2-mac"
+# Optional Lua mod scripting. Built by tools/fetch_lua.sh into the same out-of-repo prefix
+# SDL2 uses, because deps/ is not tracked. Absent is the normal case: without it the build
+# omits -DGE_WITH_LUA and ge_lua.c compiles to empty hook functions, so nothing else in the
+# tree needs to know whether scripting is present.
+LUA="$HOME/.n64tvos/lua-mac"
+LUAFLAGS=(); LUALIBS=()
+if [ -f "$LUA/lib/liblua.a" ] && [ -f "$LUA/include/lua.h" ]; then
+  LUAFLAGS=( -DGE_WITH_LUA -I "$LUA/include" )
+  LUALIBS=( "$LUA/lib/liblua.a" )
+fi
 SDLSRC="$HERE/../deps/SDL2-2.30.9"
 SDK="$(xcrun -sdk macosx --show-sdk-path)"
 # Host-arch detection: the game/renderer layer has no arm64-specific code (see
@@ -176,6 +186,7 @@ build_port_layer() {
     # diagnostic still shows.
     -DGL_SILENCE_DEPRECATION
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
+    ${LUAFLAGS[@]+"${LUAFLAGS[@]}"}
   )
   mkdir -p "$BUILD/obj"
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c "$HERE"/port/audio/*.c; do
@@ -396,7 +407,7 @@ cmd_app() {
   # without -dead_strip too.
   clang -target "$TARGET" -isysroot "$SDK" -o "$BIN" \
     "${roots[@]}" "$BUILD/libge.a" \
-    "$SDL/lib/libSDL2.a" \
+    "$SDL/lib/libSDL2.a" ${LUALIBS[@]+"${LUALIBS[@]}"} \
     -lc++ -lz -liconv \
     -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo \
     -framework CoreAudio -framework AudioToolbox -framework AVFoundation \
