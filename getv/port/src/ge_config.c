@@ -1167,6 +1167,7 @@ int geConfigInit(int argc, char **argv)
  else if (strcmp(a, "--write-config") == 0)       { doWrite = 1; }
  else if (strcmp(a, "--help") == 0 || strcmp(a, "-h") == 0) { doHelp = 1; }
  else if (strcmp(a, "--list-cheats") == 0) { list_cheats(); return GE_CONFIG_STOP; }
+
     }
  if (doHelp)  { usage(); return GE_CONFIG_STOP; }
     /* write_default() uses the exit-code convention (0 = success), but the caller
@@ -1230,6 +1231,11 @@ int geConfigInit(int argc, char **argv)
  if (strncmp(a, "--", 2) != 0) { continue; }
  if (strncmp(a, "--config", 8) == 0 || strncmp(a, "--write-config", 14) == 0 ||
  strcmp(a, "--help") == 0 || strcmp(a, "--list-cheats") == 0) { continue; }
+            /* Consumed by ge_launcher.cpp, which runs after this returns. Skipped rather
+             * than handled: the launcher needs the config layer to have finished first, so
+             * that every control opens showing the value the file and environment resolved
+             * to. Listing it here only stops it being reported as a malformed --key=value. */
+ if (strcmp(a, "--launcher") == 0) { continue; }
  snprintf(kv, sizeof kv, "%s", a + 2);
  eq = strchr(kv, '=');
  if (eq == NULL) {
@@ -1254,6 +1260,21 @@ int geConfigInit(int argc, char **argv)
  if (!apply(kv, lv, /*overwrite=*/1)) {
  printf("[getv][config] ignoring unknown flag --%s\n", kv);
             }
+        }
+    }
+
+    /* GETV_CHEATS, applied last so it beats both the file and the CLI.
+     *
+     * Cheats are the one part of the config that is not expressed as a GETV_ gate: key_cheats
+     * writes the game's cheat flag array directly, here, at parse time. That works for a
+     * config file, but it means a cheat cannot survive an exec() -- and the launcher relaunches
+     * the binary precisely because most gates are read once into a static and cannot be changed
+     * afterwards. This gate is how a cheat selection crosses that boundary. Same comma-separated
+     * syntax as the `cheats` key, and it is simply handed to the same parser. */
+    {
+        const char *envcheats = getenv("GETV_CHEATS");
+        if (envcheats != NULL && *envcheats != '\0') {
+            key_cheats(envcheats, 1);
         }
     }
 

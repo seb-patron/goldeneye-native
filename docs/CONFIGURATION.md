@@ -294,6 +294,44 @@ not-implemented notice rather than silently doing nothing.
 | `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
 
 
+
+## The launcher
+
+`./getv/build-mac/goldeneye --launcher` (or `GETV_LAUNCHER=1`) opens a window for choosing a
+level, a ruleset, cheats and video settings before the game starts. On macOS the desktop
+script `GoldenEye.command` uses it.
+
+It is a user interface over the existing surface, not new capability: every control resolves
+to a `GETV_*` gate that already worked from a shell, and each one opens showing the value the
+config layer just resolved, so the launcher reflects `goldeneye.cfg` rather than competing
+with it. It does not write the config file.
+
+**Why it restarts the game rather than applying settings in place.** 76 of the `GETV_` gates
+are read once into a `static` on first use, so a setting changed after the game has started
+does nothing for most of the surface -- silently. The launcher therefore sets the environment
+and re-executes the binary with `--launcher` removed, so the game begins in a process where
+nothing has been read yet. `GETV_LAUNCHER` and `GETV_LAUNCHER_AUTOPLAY` are cleared before
+that exec, or a `launcher = 1` left in a config would reopen the launcher forever.
+
+Cheats cross that boundary through **`GETV_CHEATS`**, a comma-separated list using the same
+names as the `cheats` key. It exists because cheats are the one part of the config that is not
+a gate: they are written straight into the game's cheat array at parse time, which a new
+process would otherwise lose. Cheats whose effect lives in the game's turn-on switch are
+marked "(in-game)" in the launcher, because they need a player context that does not exist at
+startup and a checkbox that silently does nothing is worse than one that says so.
+
+**Profiles.** *Faithful* is the default and clears the enhancements rather than merely not
+setting them, so switching back cannot leave one behind. *GoldenEye+* raises FOV, MSAA,
+anisotropic filtering and supersampling -- only things this port has implemented and
+verified. It enables nothing from the reserved-and-inert list.
+
+Two testing gates, both off by default:
+
+| gate | what it does |
+|---|---|
+| `GETV_LAUNCHER_AUTOPLAY=1` | takes the launcher's path without opening a window: read the environment, write it back, re-exec. The same code the Play button runs, for checking that settings survive the exec. |
+| `GETV_LAUNCHER_PROBE=<frames>` | draws that many frames, counts pixels differing from the clear colour, reports and closes. Distinguishes a drawn UI from an empty window that merely failed to error. |
+
 ## Rulesets
 
 A ruleset scales values the game already reads. No level, model, setup file or asset is

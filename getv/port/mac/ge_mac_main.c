@@ -22,10 +22,21 @@ extern int SDL_main(int argc, char *argv[]);
  * osGetCount() and front.c all read their gates on first use. */
 extern int geConfigInit(int argc, char **argv);
 
+/* The launcher, for --launcher or GETV_LAUNCHER=1. Returns 0 to carry on into the game and
+ * non-zero if the user closed the window without playing. It normally does not return at
+ * all: it sets the environment and execv()s this binary with --launcher removed, because
+ * 76 of the GETV_ gates are read once into a static and cannot be changed after the game
+ * has started. See getv/port/src/ge_launcher.cpp.
+ *
+ * It runs after geConfigInit so that every control opens showing the value the config layer
+ * just resolved, rather than a second set of defaults that could disagree with the file. */
+extern int gePortLauncherRun(int argc, char **argv);
+
 int main(int argc, char *argv[])
 {
     int rc = geConfigInit(argc, argv);
     if (rc < 0) { return 0; }     /* clean stop: --help / --write-config / --list-cheats */
     if (rc > 0) { return rc; }    /* fatal config error */
+    if (gePortLauncherRun(argc, argv) != 0) { return 0; }
     return SDL_main(argc, argv);
 }
