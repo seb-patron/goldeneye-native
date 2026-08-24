@@ -21,10 +21,31 @@
 
 #if defined(_WIN32)
 
-#include <windows.h>
+/* Deliberately NOT <windows.h>. Everything below needs only stdlib and string, and this
+ * header is force-included into the GAME batch as well as the port layer -- where windows.h
+ * would be actively dangerous, because it defines `near`, `far` and `BOOL` as macros and the
+ * decomp uses all three as ordinary identifiers. Keeping this header free of it is what
+ * makes it safe to apply tree-wide. */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+
+/* errno is undefined here, deliberately and globally.
+ *
+ * PR/os.h declares struct fields literally named `errno` -- OSContStatus and OSContPad both
+ * carry one, and joy.c reads them. That is legal C until a libc defines errno as a macro, at
+ * which point the field expands and the struct fails to parse. MinGW's headers do define it;
+ * glibc and Darwin only bite if <errno.h> happens to have been included first, which in the
+ * port layer it is not.
+ *
+ * This was first scoped to port_os.c on the reasoning that it was the only port translation
+ * unit including PR/os.h. That was simply wrong -- port_vi.c includes it too, and any future
+ * file might -- so the undef belongs here, where it cannot be missed.
+ *
+ * The cost is that the four places wanting the real errno (port_save.c, ge_launcher.cpp)
+ * must say so explicitly; they use ge_errno, defined in those files for every platform. */
+#undef errno
 
 /* MSVCRT has _putenv_s, which differs from setenv in two ways that matter: it has no
  * "overwrite" argument, and passing an empty value deletes the variable rather than setting
@@ -55,17 +76,29 @@ static inline int ge_win_unsetenv(const char *name)
 #define setenv(n, v, o) ge_win_setenv((n), (v), (o))
 #define unsetenv(n)     ge_win_unsetenv((n))
 
-/* usleep is POSIX and MinGW has no equivalent spelling. Sleep() takes milliseconds, so a
- * sub-millisecond request would round to zero and busy-spin; it is clamped to 1ms instead,
- * which matches what every other Sleep-based usleep shim does and is honest about the
- * platform's timer granularity. */
-static inline int ge_win_usleep(unsigned long usec)
-{
-    DWORD ms = (DWORD) (usec / 1000UL);
-    Sleep(ms == 0 && usec != 0 ? 1 : ms);
-    return 0;
-}
-#define usleep(u) ge_win_usleep((unsigned long)(u))
+/* usleep is deliberately NOT shimmed here.
+ *
+ * It was, as `#define usleep(u) ...`, and that broke the build: MinGW's <unistd.h> declares
+ * usleep itself, the macro expanded inside that declaration, and gcc reported the error
+ * against this header's line rather than the real one -- which is a genuinely confusing
+ * place to be sent. A function-like macro for a name the platform may also declare is the
+ * wrong tool.
+ *
+ * There is exactly one call site in the whole tree (ge_tvos_main.c), so it branches there
+ * on Sleep() instead. One ifdef at one call site beats a macro that can collide with any
+ * header that happens to declare the same name.
+ */
+
+/* bcopy and bzero are NOT shimmed here, and the reason is the same one that removed the
+ * usleep macro: the decomp declares both itself -- include/bstring.h:28 and PR/os.h:1003,
+ * as `void bcopy(const void *, void *, int)` -- so a function-like macro of that name
+ * expands inside those declarations and the file fails to parse.
+ *
+ * They are implemented as real functions in getv/port/src/ge_link_stubs.c instead, matching
+ * that prototype exactly, so the decomp's own declaration serves as the prototype and
+ * nothing has to be redeclared. That is twice now that a macro was the wrong tool for a
+ * name the rest of the tree already knows about.
+ */
 
 /* realpath -> _fullpath. _fullpath allocates when given a NULL buffer, matching the POSIX
  * form this tree uses (realpath(path, NULL)). */

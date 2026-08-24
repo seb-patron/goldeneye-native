@@ -89,6 +89,15 @@ if ($sdlCFlags.Count -eq 0) {
 $sdlCFlags = $sdlCFlags | Where-Object { $_ -ne '-Dmain=SDL_main' }
 $sdlLibs   = $sdlLibs   | Where-Object { $_ -ne '-lSDL2main' }
 
+# ---------------------------------------------------------------- GLEW
+# Windows needs an extension loader and the renderer already expects one: gfx_opengl.c sets
+# FOR_WINDOWS on __MINGW32__ and includes <GL/glew.h> with GLEW_STATIC. opengl32.dll exports
+# only GL 1.1, so without a loader nothing past 1997 resolves. macOS gets its entry points
+# from the OpenGL framework and Linux from libGL with GL_GLEXT_PROTOTYPES, which is why this
+# is the one dependency neither of those builds needs.
+$glewLibs = @()
+if (Test-Path (Join-Path $Mingw 'lib\libglew32.a')) { $glewLibs = @('-lglew32') }
+
 # ---------------------------------------------------------------- optional deps
 $luaPrefix   = Join-Path $env:USERPROFILE '.n64tvos\lua-win'
 $imguiPrefix = Join-Path $env:USERPROFILE '.n64tvos\imgui-win'
@@ -151,6 +160,14 @@ $gameFlags = @(
   '-DVERSION_US','-DLANG_US','-DREFRESH_NTSC','-DLEFTOVERDEBUG','-DLEFTOVERSPECTRUM',
   '-DBUGFIX_R0','-DTARGET_N64','-DGE_PORT_NATIVE',
   '-DNON_MATCHING=1','-DAVOID_UB=1','-D_LANGUAGE_C=1'
+  # No compat header in the game batch, deliberately. It was added here to supply bcopy and
+  # bzero, and that was the wrong fix twice over: those are now real functions in
+  # ge_link_stubs.c, declared by the decomp's own bstring.h, so nothing is needed. Worse,
+  # force-including it pulled the real <stdio.h> into every game translation unit, where the
+  # decomp's own stdio shadow is what is supposed to win -- initactorpropstuff.c then failed
+  # on `conflicting types for fflush`, because the decomp declares it taking void *.
+  #
+  # The port layer still gets it. The decomp's headers do not shadow anything there.
 ) + $warn + $std + $abi + $permissive + @('-fno-strict-aliasing','-O1')
 
 $portFlags = @(
@@ -172,7 +189,10 @@ function Invoke-Batch {
 
   foreach ($f in $Files) {
     $i++
-    $stem = ($f -replace '[\\/]','_') -replace '\.(c|cpp)$',''
+    # The drive colon has to go: these names are built from full paths for the port layer,
+    # and "C:_ge_..." is not a legal filename, so Test-Path throws NotSupportedException and
+    # every object silently looks absent.
+    $stem = ($f -replace '[\\/]','_') -replace ':','' -replace '\.(c|cpp)$',''
     $o = Join-Path $obj "$Prefix$stem.o"
     $out = & $Compiler @Flags -c $f -o $o 2>&1
     if ($LASTEXITCODE -eq 0 -and (Test-Path $o)) {
@@ -211,7 +231,17 @@ function Build-Lib {
     # Game. The exclusions mirror build_linux.sh exactly and are load-bearing: usb, rmon,
     # sched, ramrom, init and the indy_* files are N64 hardware and SGI dev-host code, and
     # compiling them turns logging stubs into code that writes real RCP/PI registers.
-    $skip = '(ramromreplay|audi|usb|rmon|sched|ramrom|init|indy_comms|indy_commands)\.c$'
+    # crash.c, spectrum.c and tlb_manage.c are N64 hardware and dev-host stubs, and the port
+    # replaces them with getv/port/src/ge_link_stubs.c. On macOS and Linux they are not
+    # excluded by name because they simply FAIL to compile there, and that failure is the
+    # guard -- CLAUDE.md is explicit that the 167/1 split must not be "fixed".
+    #
+    # This build's permissive flags (see $permissive above) let two of them through, and the
+    # result was not a silent success: they compiled, went into the archive, and collided
+    # with ge_link_stubs.o on multiple definitions. So the guard still worked, just at link
+    # time instead of compile time. Excluded by name here, which is what the other scripts
+    # would need too if their compilers ever stopped rejecting these files.
+    $skip = '(ramromreplay|audi|usb|rmon|sched|ramrom|init|indy_comms|indy_commands|crash|spectrum|tlb_manage)\.c$'
     $game = @(Get-ChildItem -Path 'src' -Recurse -Filter *.c |
       Where-Object { $_.Name -notlike '._*' -and
                      $_.FullName -notmatch '\\src\\libultra\\' -and
@@ -265,22 +295,66 @@ function Build-App {
   $objs = @(Get-ChildItem -Path $obj -Filter *.o | ForEach-Object { $_.FullName })
   if ($objs.Count -eq 0) { throw "no objects in $obj -- run -Target lib first" }
 
+  # The harness objects are linked directly and kept OUT of the archive, exactly as
+  # build_linux.sh does. main() lives in ge_mac_main.o, and nothing in the archive refers to
+  # it -- an archive member is only pulled in to satisfy an existing undefined symbol, so
+  # burying main() in libge.a means the CRT never finds it. The symptom is not "undefined
+  # main": mingw's startup falls through to the GUI path and reports `undefined reference to
+  # WinMain', which sends you looking for a subsystem flag that is not the problem.
+  # Matched on the source stem, not a fixed object name. Port-layer objects are named from
+  # the full source path -- port_C_ge_getv_Sources_ge_tvos_main.o -- so an exact name never
+  # matches, and the drive letter makes it host-specific besides.
+  $rootStems = @('ge_tvos_main.o','ge_mac_main.o')
+  $roots = @()
+  foreach ($rn in $rootStems) {
+    $cand = @($objs | Where-Object { (Split-Path $_ -Leaf).EndsWith($rn) })
+    if ($cand.Count -eq 0) { throw "missing harness object *$rn -- run -Target port first" }
+    $roots += $cand[0]
+  }
+  $objs = $objs | Where-Object { $roots -notcontains $_ }
+
   # The archive exists to mirror the other three builds; linking the objects directly would
   # work too, but keeping the same shape means a link failure here means the same thing it
   # means there.
   $lib = Join-Path $build 'libge.a'
   Remove-Item $lib -Force -ErrorAction SilentlyContinue
+  # Forward slashes in the response file, not the native backslashes. GNU ar treats a
+  # backslash as an escape character inside a response file, so "C:\ge\getv\..." arrives as
+  # "C:getv..." and the member is silently dropped -- no error, no warning, just a smaller
+  # archive. That is what produced a link failing on four symbols that nm could plainly see
+  # inside the object file sitting on disk.
   $rsp = Join-Path $build 'ar.rsp'
-  Set-Content -Path $rsp -Value ($objs -join "`n")
+  Set-Content -Path $rsp -Value (($objs | ForEach-Object { $_ -replace '\\','/' }) -join "`n")
   & $ar rcs $lib "@$rsp"
   if (-not (Test-Path $lib)) { throw "ar failed" }
-  Write-Output ("windows libge.a: {0:N0} MB, {1} members" -f ((Get-Item $lib).Length/1MB), $objs.Count)
+
+  # Trust ar's own count, not the file list handed to it. The two disagreeing is exactly the
+  # failure above, and checking is one command.
+  $inAr = (& $ar t $lib | Measure-Object -Line).Lines
+  if ($inAr -lt $objs.Count) {
+    throw "ar archived $inAr of $($objs.Count) objects -- members were dropped"
+  }
+  Write-Output ("windows libge.a: {0:N1} MB, {1} members (+{2} roots)" -f ((Get-Item $lib).Length/1MB), $inAr, $roots.Count)
 
   # $BIN is removed first for the same reason build_linux.sh does it: a failed link would
   # otherwise leave the previous binary in place and the check below would pass.
   Remove-Item $bin -Force -ErrorAction SilentlyContinue
-  $linkArgs = @('-o', $bin, $lib) + $luaLibs + $imguiLibs + $sdlLibs +
-              @('-lstdc++','-lopengl32','-ldbghelp','-lm')
+  # -lgdi32 is required by GLEW's WGL entry points and by SDL2's Windows video backend;
+  # neither pulls it in implicitly.
+  # -static-libgcc / -static-libstdc++ / -static: a mingw build otherwise depends on
+  # libgcc_s_seh-1.dll, libstdc++-6.dll and libwinpthread-1.dll from the toolchain
+  # directory. Those are not on a player's machine, and the failure is not a helpful one --
+  # the process exits with 0xC0000135 (STATUS_DLL_NOT_FOUND) before main() runs, so there is
+  # no message, no log line and nothing on stdout to explain it. Linking them in makes the
+  # executable self-contained apart from SDL2.dll, which is copied beside it below.
+  # -static-libgcc and -static-libstdc++ only. A full -static was tried and is wrong here: it
+  # pulls the static CRT, which collides with the decomp's own str.c on multiple definitions,
+  # and forces SDL2 to link statically too, which then needs its entire Windows dependency
+  # set (imm32, ole32, setupapi, version, winmm...). These two cover the DLLs that actually
+  # go missing on a machine without the toolchain; the rest are copied beside the exe below.
+  $linkArgs = @('-o', $bin) + $roots + @($lib) + $luaLibs + $imguiLibs + $glewLibs + $sdlLibs +
+              @('-static-libgcc','-static-libstdc++',
+                '-lstdc++','-lopengl32','-lgdi32','-limm32','-ldbghelp','-lm')
   $out = & $gcc @linkArgs 2>&1
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $bin)) {
     $out | Select-Object -First 40 | ForEach-Object { Write-Output $_ }
@@ -290,8 +364,13 @@ function Build-App {
   # Copied rather than left to PATH: a build that only runs when the toolchain happens to be
   # on PATH is not a distributable build, and this is the file a player would otherwise be
   # told to hunt for.
-  $sdlDll = Join-Path $Mingw 'bin\SDL2.dll'
-  if (Test-Path $sdlDll) { Copy-Item $sdlDll (Join-Path $build 'SDL2.dll') -Force }
+  # SDL2.dll plus any mingw runtime DLL still referenced. A missing one of these exits
+  # with 0xC0000135 before main() runs -- no message, no log, nothing on stdout -- so they
+  # are copied rather than left to whatever happens to be on PATH.
+  foreach ($d in @('SDL2.dll','libwinpthread-1.dll','libgcc_s_seh-1.dll','libstdc++-6.dll')) {
+    $src = Join-Path $Mingw ('bin' + [char]92 + $d)
+    if (Test-Path $src) { Copy-Item $src (Join-Path $build $d) -Force }
+  }
 
   Write-Output ("windows binary: {0} ({1:N1} MB)" -f $bin, ((Get-Item $bin).Length/1MB))
 }

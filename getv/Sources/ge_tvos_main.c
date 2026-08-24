@@ -430,7 +430,14 @@ int SDL_main(int argc, char *argv[])
                    "(set GETV_INPUT_DEBUG=1 or 2 to see the decoded pad)\n", secs);
             for (i = 0; i < iters; i++) {
                 osContGetReadData(padbuf);
+#if defined(_WIN32)
+                /* Sleep() is milliseconds, so 16667us becomes 16ms. The rounding is
+                 * acceptable here -- this is the idle path, not frame pacing -- and
+                 * Windows' default timer granularity is coarser than that anyway. */
+                Sleep(16);
+#else
                 usleep(16667);
+#endif
             }
             printf("[getv] input probe: done\n");
         }

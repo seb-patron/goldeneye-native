@@ -13,22 +13,12 @@
  */
 /* PR/os.h redeclares bcopy/bcmp/bzero, which conflicts with <string.h> if that is
  * seen first. Include the N64 headers before any libc string header. */
-/* PR/os.h declares struct fields literally named `errno` -- OSContStatus and OSContPad both
- * carry one, and joy.c reads them (`g_ContStatus[i].errno & CONT_NO_RESPONSE_ERROR`). That
- * is legal C until a libc defines `errno` as a macro, at which point the field expands and
- * the struct fails to parse with "field '_errno' declared as a function".
- *
- * It does not bite on glibc or Darwin here only because nothing has pulled <errno.h> in by
- * this point; MinGW's header chain has, so the macro is live. The undef is scoped to this
- * file rather than put in the force-included compat header on purpose: exactly one
- * translation unit in the port layer includes PR/os.h, and undefining errno everywhere
- * would silently break the four places that use the real one (port_save.c, ge_launcher.cpp).
- * The game batch is unaffected -- the decomp's own include/ shadows the system headers. */
-#if defined(_WIN32)
-#include <errno.h>
-#undef errno
-#endif
-
+/* PR/os.h declares struct fields literally named `errno` (OSContStatus, OSContPad), which
+ * joy.c reads as `g_ContStatus[i].errno & CONT_NO_RESPONSE_ERROR`. Any libc that defines
+ * errno as a macro makes that struct fail to parse. The undef now lives in
+ * getv/port/include/ge_win_compat.h, force-included by the Windows build: it was scoped to
+ * this file first, on the wrong assumption that this was the only port translation unit
+ * including PR/os.h -- port_vi.c does too. */
 #include <PR/ultratypes.h>
 #include <PR/os.h>
 

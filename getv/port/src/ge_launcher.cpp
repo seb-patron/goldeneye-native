@@ -40,6 +40,16 @@
 #include <string.h>
 #include <errno.h>
 
+/* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so that
+ * PR/os.h's struct fields of that name can parse; MSVCRT exposes the value through
+ * _errno(). Spelled once here rather than at each use. */
+#if defined(_WIN32)
+#define ge_errno (*_errno())
+#else
+#define ge_errno errno
+#endif
+
+
 #if defined(GE_WITH_IMGUI)
 
 #include <SDL2/SDL.h>
@@ -385,7 +395,7 @@ void relaunch()
     /* Only reached if execv failed. The environment is already set, so falling through into
      * the game is still correct -- it just keeps the launcher's process rather than replacing
      * it, and every gate is still unread at this point because nothing has started yet. */
-    printf("[getv][launcher] execv failed (%s); continuing in this process\n", strerror(errno));
+    printf("[getv][launcher] execv failed (%s); continuing in this process\n", strerror(ge_errno));
     free(nv);
 }
 

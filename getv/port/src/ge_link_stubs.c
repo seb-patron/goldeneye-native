@@ -174,3 +174,27 @@ const char *gePortStubCheck(void)
     return 0;
 }
 
+
+
+#if defined(_WIN32)
+/* bcopy and bzero for MinGW.
+ *
+ * BSD functions that glibc and Darwin still provide and the Microsoft CRT does not. The
+ * decomp calls both -- they are what the N64 SDK's own code reached for -- and declares
+ * them in include/bstring.h and PR/os.h as taking an `int` length. The signatures here
+ * match those declarations deliberately: with the prototype already visible tree-wide,
+ * these are ordinary definitions and no header needs changing.
+ *
+ * bcopy takes source first, the reverse of memcpy, and is defined to tolerate overlapping
+ * regions -- so memmove is the correct implementation and memcpy would be a real bug on
+ * exactly the inputs bcopy exists to handle. */
+void bcopy(const void *src, void *dst, int n)
+{
+    if (n > 0) memmove(dst, src, (size_t) n);
+}
+
+void bzero(void *dst, int n)
+{
+    if (n > 0) memset(dst, 0, (size_t) n);
+}
+#endif /* _WIN32 */

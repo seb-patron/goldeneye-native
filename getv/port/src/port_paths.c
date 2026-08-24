@@ -40,6 +40,16 @@
  * here would change the tvOS build for no gain, so it is preserved on purpose.
  */
 #include <errno.h>
+
+/* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so PR/os.h's
+ * struct fields of that name can parse. This is used as an lvalue below, which _errno()
+ * supports: it returns a pointer to the thread's errno. */
+#if defined(_WIN32)
+#define ge_errno (*_errno())
+#else
+#define ge_errno errno
+#endif
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,13 +103,13 @@ int gePortUserDataDir(const char *org, const char *app, char *out, size_t outsz)
 int gePortMakeDir(const char *path, unsigned mode)
 {
     if (path == NULL || *path == '\0') {
-        errno = EINVAL;
+        ge_errno = EINVAL;
         return -1;
     }
     /* An existing directory is success. Every caller wants "make sure this is there",
      * not "be the one who created it". errno is left as the platform set it so the
      * caller's strerror() still says something true on the failure path. */
-    if (GE_MKDIR(path, mode) == 0 || errno == EEXIST) {
+    if (GE_MKDIR(path, mode) == 0 || ge_errno == EEXIST) {
         return 0;
     }
     return -1;
@@ -111,12 +121,12 @@ int gePortMakeDirTree(const char *path, unsigned mode)
     size_t n, i;
 
     if (path == NULL || *path == '\0') {
-        errno = EINVAL;
+        ge_errno = EINVAL;
         return -1;
     }
     n = strlen(path);
     if (n >= sizeof buf) {
-        errno = ENAMETOOLONG;
+        ge_errno = ENAMETOOLONG;
         return -1;
     }
     memcpy(buf, path, n + 1);

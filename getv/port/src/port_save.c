@@ -61,6 +61,16 @@
 #include <string.h>
 #include <errno.h>
 
+/* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so that
+ * PR/os.h's struct fields of that name can parse; MSVCRT exposes the value through
+ * _errno(). Spelled once here rather than at each use. */
+#if defined(_WIN32)
+#define ge_errno (*_errno())
+#else
+#define ge_errno errno
+#endif
+
+
 #include <SDL.h>
 
 /* The one place that knows about "$HOME/Library/Application Support" and about mkdir().
@@ -149,7 +159,7 @@ static int geSavePathInit(void)
      * failure, since creating it would paper over a wrong $HOME. */
  if (gePortMakeDir(base, 0755) != 0) {
  printf("[getv][save] cannot create %s: %s -- persistence OFF\n",
- base, strerror(errno));
+ base, strerror(ge_errno));
  return -1;
     }
 
@@ -196,7 +206,7 @@ static void geSaveFlush(void)
  snprintf(tmp, sizeof(tmp), "%s.tmp", ge_eeprom_path);
  f = fopen(tmp, "wb");
  if (f == NULL) {
- printf("[getv][save] cannot write %s: %s\n", tmp, strerror(errno));
+ printf("[getv][save] cannot write %s: %s\n", tmp, strerror(ge_errno));
  return;
     }
  if (fwrite(ge_eep, 1, sizeof(ge_eep), f) != sizeof(ge_eep)) {
@@ -209,7 +219,7 @@ static void geSaveFlush(void)
  fclose(f);
  if (rename(tmp, ge_eeprom_path) != 0) {
  printf("[getv][save] rename %s -> %s failed: %s\n",
- tmp, ge_eeprom_path, strerror(errno));
+ tmp, ge_eeprom_path, strerror(ge_errno));
  remove(tmp);
  return;
     }

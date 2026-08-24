@@ -31171,6 +31171,24 @@ index 615b033..ca3e836 100644
 -
 -
 -
+diff --git a/src/str.c b/src/str.c
+index cb031cc..ed4599d 100644
+--- a/src/str.c
++++ b/src/str.c
+@@ -87,7 +87,12 @@ int isalpha(unsigned char c) {
+             ((c >= 'A') && (c <= 'Z')));
+ }
+ 
+-int isspace(unsigned char c) {
++/* static on purpose. This is the decomp's own isspace and it is called only from this file
++ * (grep confirms one call site, below). Left external it exports a symbol that collides with
++ * the C runtime's on any libc that implements isspace as a real function rather than a macro
++ * -- mingw's does, and the link fails with "multiple definition of isspace". glibc and
++ * Darwin resolve it as a macro or inline, which is why this never surfaced before. */
++static int isspace(unsigned char c) {
+     return ((c == ' ') || (c == '\t') || (c == '\n') || (c == '\f') || (c == '\v'));
+ }
+ 
 diff --git a/tools/gen_propdef_layout.py b/tools/gen_propdef_layout.py
 new file mode 100644
 index 0000000..42d6583
