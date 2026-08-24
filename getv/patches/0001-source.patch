@@ -11829,7 +11829,7 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..1bb8685 100644
+index cb8e24a..d2bdaac 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
 @@ -1,3 +1,4 @@
@@ -11837,7 +11837,74 @@ index cb8e24a..1bb8685 100644
  #include <ultra64.h>
  #include "frametiming.h"
  
-@@ -84,7 +85,28 @@ void waitForNextFrame(void) //maybe WaitForTick
+@@ -72,6 +73,66 @@ void updateFrameCounters(s32 deltaFrames)
+  * Waits until the appropriate time has passed before updating the frame counters.
+  * This function effectively controls the frame rate by waiting for the next tick.
+  */
++/* GETV_SIMDIV: run the simulation once per n rendered frames.
++ *
++ * The problem this exists to attack: GoldenEye advances most of its systems once per pass
++ * through the main loop, not per unit of time. 122 of the 135 files under src/game do
++ * per-frame work, and fire rates, turret delay and guard reaction stepping were tuned against
++ * the 20 to 30 fps real hardware managed. Locking the loop to 60 makes all of them happen
++ * twice as often per second.
++ *
++ * GETV_TICKFIELDS solves that by slowing the whole loop, render included. This is the other
++ * half: keep drawing every frame, but only step the simulation every nth one, so a 60 Hz
++ * display can show a 30 Hz simulation.
++ *
++ * Returns 1 on frames the game should tick, 0 on frames that should only draw. lv.c gates
++ * the tick calls in lvlRender on it; everything that builds the display list runs regardless.
++ *
++ * Default 1, which ticks every frame and is exactly the behaviour that existed before.
++ *
++ * ⚠️ EXPERIMENTAL. Without interpolation a skipped tick redraws the previous simulation state
++ * unchanged, so motion judders in proportion to the divider. Whether game time stays correct
++ * across a divider is a measurement, not an assumption: updateFrameCounters() still runs every
++ * frame here, so the simulation sees one field of delta per tick while n fields of real time
++ * have passed. If travel distance per second drops with the divider, that is the cause and the
++ * fix is to accumulate the skipped fields into the tick frame's delta. */
++/* Decided once per frame in waitForNextFrame() and read by every site that ticks.
++ *
++ * The simulation is not in one place: props and characters tick inside lvlRender's
++ * per-player loop, and the player ticks at lv.c:1743 through
++ * bondviewMovePlayerUpdateViewport(). A counter that advanced on each call would step twice
++ * per frame with two call sites and once with one, so props and the player would land on
++ * different frames and drift apart. */
++static s32 ge_sim_tick_now = 1;
++
++s32 gePortSimShouldTick(void)
++{
++    return ge_sim_tick_now;
++}
++
++static void gePortSimAdvance(void)
++{
++    static s32 div = -1;
++    static s32 phase = 0;
++
++    if (div < 0) {
++        const char *e = getenv("GETV_SIMDIV");
++        div = (e && *e) ? atoi(e) : 1;
++        if (div < 1) div = 1;
++        if (div > 8) div = 8;
++        if (div > 1) {
++            osSyncPrintf("[getv][simdiv] simulation runs 1 frame in %d; rendering every frame. "
++                         "EXPERIMENTAL, expect judder without interpolation\n", div);
++        }
++    }
++    if (div == 1) { ge_sim_tick_now = 1; return; }
++
++    phase++;
++    if (phase >= div) { phase = 0; ge_sim_tick_now = 1; }
++    else              { ge_sim_tick_now = 0; }
++}
++
++
+ void waitForNextFrame(void) //maybe WaitForTick
+ {
+   u32 nextFrameTime; //next frame time?
+@@ -84,8 +145,33 @@ void waitForNextFrame(void) //maybe WaitForTick
      #endif
    } while (nextFrameTime < frameDelay);
  
@@ -11865,7 +11932,12 @@ index cb8e24a..1bb8685 100644
 +      frameDelay = tf;
 +  }
    updateFrameCounters(nextFrameTime);
++
++  /* One decision per frame, taken here because this runs exactly once per pass through
++   * bossMainloop and nothing else does. */
++  gePortSimAdvance();
  }
+ 
  
 diff --git a/src/game/front.c b/src/game/front.c
 index 0ac962f..8c847a4 100644
@@ -18709,7 +18781,7 @@ index 6e6582e..1cbea5d 100644
  void                   setupUpdateObjectRoomPosition(struct ObjectRecord *);
  struct ObjectRecord    *setupGetPtrToCommandByIndex(s32 index);
 diff --git a/src/game/lv.c b/src/game/lv.c
-index 48ef126..9aae2ac 100644
+index 48ef126..c5078f9 100644
 --- a/src/game/lv.c
 +++ b/src/game/lv.c
 @@ -1,4 +1,8 @@
@@ -18944,10 +19016,21 @@ index 48ef126..9aae2ac 100644
  }
  
  
-@@ -726,6 +797,15 @@ Gfx* lvlRender(Gfx* DL)
+@@ -725,7 +796,25 @@ Gfx* lvlRender(Gfx* DL)
+             DL = viSetupScreensForNumPlayers(DL);
              DL = skyRender(DL);
              bgRoomVisibilityRelated();
-             propsTick();
+-            propsTick();
++
++            /* GETV_SIMDIV: everything from here to propsTickPlayer() advances the
++             * simulation. The draw calls around it run every frame regardless, so a divider
++             * greater than 1 renders the previous simulation state again rather than
++             * skipping a frame. bgRoomVisibilityRelated() stays outside because culling is
++             * a property of where the camera is now, not of the tick. */
++            {
++                extern s32 gePortSimShouldTick(void);
++                if (gePortSimShouldTick()) {
++                    propsTick();
 +
 +            /* Horde waves. Placed immediately after propsTick so the chr slot table has
 +             * just been ticked and any death this frame is already reflected in
@@ -18960,7 +19043,16 @@ index 48ef126..9aae2ac 100644
              chraiUpdateOnscreenPropCount();
              chrpropUpdateAutoaimTarget();
              chraiCheckUseHeldItems();
-@@ -945,6 +1025,64 @@ void lvlSetMultipliersForDifficulty(void)
+@@ -737,6 +826,8 @@ Gfx* lvlRender(Gfx* DL)
+             }
+ 
+             propsTickPlayer();
++                }
++            }
+             DL = bgLevelRender(DL);
+ 
+             if (get_debug_portal_flag())
+@@ -945,6 +1036,64 @@ void lvlSetMultipliersForDifficulty(void)
          g_SoloAmmoMultiplier = DEFAULT_007_SOLO_AMMO_MULTIPLIER;
          g_AiReactionSpeed = DEFAULT_007_AI_REACTION_SPEED;
      }
@@ -19025,7 +19117,7 @@ index 48ef126..9aae2ac 100644
  }
  
  
-@@ -1080,6 +1218,67 @@ void lvlManageMpGame(void)
+@@ -1080,6 +1229,67 @@ void lvlManageMpGame(void)
              }
          }
  
@@ -19093,7 +19185,7 @@ index 48ef126..9aae2ac 100644
          // when playing with a kill limit, g_MpPoint is not zero
          if ((g_MpPoint > 0) && (g_ClockTimer != 0))
          {
-@@ -1275,8 +1474,28 @@ void lvlManageMpGame(void)
+@@ -1275,8 +1485,28 @@ void lvlManageMpGame(void)
                  for (i=0; i<3000; i++)
                  {
                      D_800483C8[i].unk_0 = 0xff;
@@ -19124,7 +19216,25 @@ index 48ef126..9aae2ac 100644
                  }
              }
          }
-@@ -1626,6 +1845,19 @@ s32 lvlGetControlsLockedFlag(void)
+@@ -1510,7 +1740,16 @@ void lvlViewMoveTick(void)
+         {
+             if (getDebugMode() == DEB_BOND_VIEW)
+             {
+-                bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
++                /* The other half of the simulation. lvlRender gates props and characters
++                 * on the same per-frame decision; this is where the player moves, and
++                 * leaving it ungated made a divider change the world while Bond carried on
++                 * at full rate. */
++                {
++                    extern s32 gePortSimShouldTick(void);
++                    if (gePortSimShouldTick()) {
++                        bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
++                    }
++                }
+             }
+             else
+             {
+@@ -1626,6 +1865,19 @@ s32 lvlGetControlsLockedFlag(void)
  
  DIFFICULTY lvlGetSelectedDifficulty(void)
  {
