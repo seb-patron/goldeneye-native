@@ -1,5 +1,7 @@
 # FAQ
 
+Common questions about running GoldenEye 007 natively on Windows, macOS and Linux.
+
 ### Can I play GoldenEye 007 on PC, Mac or Linux without an emulator?
 
 Yes. That is what this is. The game's C source is compiled directly for your machine. You
@@ -69,3 +71,40 @@ which can be changed. That is the whole reason the frame-timing problem is fixab
 Use one if it suits you. The difference is what you can change. An emulator runs the retail
 ROM and can only patch it from outside; problems baked into the game's own logic stay baked
 in. Here they are ordinary C.
+
+### Is this the Xbox 360 remaster or the cancelled XBLA release?
+
+Neither. Those are separate codebases. This is the Nintendo 64 game, built from its
+decompilation.
+
+### How does this compare to a source port like Ship of Harkinian?
+
+Same idea, different game. A decompilation becomes a native program with a modern platform
+layer around it. That one is Ocarina of Time; this one is GoldenEye.
+
+### Does it need Wine, Proton or WSL?
+
+No. Every platform gets a real native binary. The Windows build uses mingw-w64 with no MSYS2,
+Cygwin or WSL anywhere in it.
+
+### Does it support gamepads?
+
+Yes, through SDL2, including wireless controllers your operating system already pairs.
+Keyboard and mouse are the default and both work at the same time.
+
+### Can it run at 4K?
+
+Internal resolution is arbitrary and supersampling is available. Whether it is a good idea
+above 60fps is the frame-timing question.
+
+### Why is it faster than an emulator?
+
+There is no machine being simulated. The game is compiled for your CPU, so there is no
+instruction translation, no memory-map emulation and no RSP or RDP to imitate. The renderer
+translates the game's own display lists to OpenGL directly.
+
+### What is a decompilation, and why does it matter here?
+
+Someone reconstructed readable C source that compiles to the same machine code as the retail
+cartridge. That means the game is editable. Nearly everything on this project's roadmap is
+possible only because of that.

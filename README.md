@@ -1,8 +1,10 @@
 # Goldeneye-Native
 
-**GoldenEye 007, compiled as a native program.** Not an emulator. Not a static recompilation.
-The game's own C source, from the [`n64decomp/007`](https://github.com/n64decomp/007)
-decompilation, built directly for your machine with a modern platform layer underneath it.
+**GoldenEye 007, compiled as a native program for Windows, macOS and Linux.** Not an
+emulator. Not a static recompilation. The game's own C source, from the
+[`n64decomp/007`](https://github.com/n64decomp/007) decompilation, built directly for your
+machine with a modern platform layer underneath it: SDL2, OpenGL, mouse and keyboard,
+arbitrary resolution, and a Fast3D display-list renderer in place of the N64's RCP.
 
 There is no MIPS interpreter and no dynamic recompiler. The binary *is* the game. Every
 system in it is ordinary C that can be read, changed and rebuilt, which is the whole
@@ -61,6 +63,31 @@ quarantined; see [`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit above 
 identifying the problem, which is the more valuable contribution and is not a licensable
 thing.
 
+## If you came here looking for a GoldenEye emulator
+
+Reasonable place to land, and worth being straight about the difference.
+
+An emulator runs the retail N64 ROM by pretending to be an N64. It works, and for a lot of
+people it is the right answer. What it cannot do is change the game, because the game inside
+it is compiled MIPS machine code. Frame-rate quirks, control schemes, resolution limits and
+anything else baked into the original logic stay baked in. The usual workaround is patching
+memory from outside, which is fragile and specific to one build.
+
+This is built from a **decompilation**: the game as readable, editable C. It compiles to a
+normal executable for your operating system. There is no N64 being simulated, so there is no
+emulation overhead, no core to configure, no plugin to pick, and no ROM loaded at runtime.
+
+Practically, that means things like these are ordinary code changes rather than impossible:
+
+- widescreen and arbitrary resolution, because the projection is a function we can call
+- mouse and keyboard, because the input layer is ours
+- mod scripting in Lua, because we control the frame loop
+- **the frame-rate problem**, which is a real bug in the original scripting and is the one
+  thing everybody asks about. See [frame timing](#on-frame-timing-and-a-thank-you).
+
+You still need your own ROM. The build reads it once to extract assets. What you run
+afterwards does not touch it.
+
 ## Questions people actually ask
 
 **Can I play GoldenEye 007 on a modern PC, Mac or Linux machine without an emulator?**
@@ -89,6 +116,27 @@ Two to four players spawn into a solo mission with its own geometry, props and o
 every viewport renders. They do not move yet. Details below.
 
 **Do I need the ROM?** Yes, your own copy. Nothing in this repository contains game data.
+**Is this the Xbox 360 remaster or the cancelled XBLA version?** Neither. Those are separate
+codebases. This is the Nintendo 64 game, from its decompilation.
+
+**How is this different from a source port like Ship of Harkinian?** Same idea, different
+game. A decompilation is turned into a native program with a modern platform layer. This one
+is GoldenEye.
+
+**Does it need Wine, Proton, WSL or a compatibility layer?** No. Each platform gets a real
+native binary. Windows uses mingw-w64 with no MSYS2, Cygwin or WSL involved.
+
+**What about split-screen on one PC?** That works, with all 64 characters, the radar and the
+full multiplayer setup.
+
+**Does it support gamepads?** Yes, through SDL2, including wireless controllers your OS
+already pairs. Keyboard and mouse are the default and both work at once.
+
+**Can it run at 4K?** The internal resolution is arbitrary and supersampling is available.
+Whether that is a good idea on the frame-timing front is covered above.
+
+**Is the source available?** All of it. That is the point.
+
 
 ## What works, in detail
 
