@@ -20,11 +20,21 @@
 #define _GNU_SOURCE
 #endif
 
+/* The crash handler is the only genuinely per-OS part of this file. Windows has no
+ * execinfo/ucontext/dlfcn and no sigaction: a fault arrives as a structured exception, not a
+ * signal, so it gets its own registration and its own walk further down rather than a shim.
+ * Everything else here is portable. */
+#if defined(_WIN32)
+#include <windows.h>
+#include <dbghelp.h>
+#include <process.h>   /* _exit */
+#else
 #include <execinfo.h>
 #include <sys/ucontext.h>
 #include <dlfcn.h>
-#include <signal.h>
 #include <unistd.h>   /* _exit */
+#endif
+#include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -62,6 +72,7 @@ extern void bossMainloop(void);
 // installed on Apple platforms and a crash gives no backtrace at all. The same would
 // apply here, hence this handler. backtrace() is enough for the harness; PD's full
 // ucontext handler is not needed.
+#if !defined(_WIN32)
 static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
 {
     void *frames[64];
@@ -215,9 +226,101 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
     fflush(stdout);
     _exit(128 + sig);
 }
+#else  /* _WIN32 */
+
+/* The Windows equivalent. A fault here is a structured exception rather than a signal, so
+ * the entry point is an unhandled-exception filter and the register file arrives in a
+ * CONTEXT rather than a ucontext_t.
+ *
+ * dbghelp does the symbolisation that dladdr does elsewhere. SymInitialize is called at
+ * fault time rather than at startup on purpose: it loads and parses symbol files, which is
+ * work this process should not do on every launch to serve a case that normally never
+ * happens. The risk of initialising inside a fault is accepted for the same reason the
+ * POSIX side calls printf there -- a best-effort report beats a silent exit, and this
+ * handler's whole job is the report.
+ *
+ * A build without debug info still gets the module and the offset, which is enough to feed
+ * back into a disassembler; SYMOPT_UNDNAME plus the .pdb gets the function name. MinGW emits
+ * DWARF rather than PDB by default, so expect module+offset in a stock build. That is stated
+ * plainly rather than promising names this toolchain will not produce. */
+static LONG WINAPI ge_win_exception_filter(EXCEPTION_POINTERS *ep)
+{
+    static const int MAXF = 64;
+    void *frames[64];
+    USHORT n;
+    HANDLE proc = GetCurrentProcess();
+    DWORD code = ep && ep->ExceptionRecord ? ep->ExceptionRecord->ExceptionCode : 0;
+
+    printf("\n[getv] ===== EXCEPTION 0x%08lx =====\n", (unsigned long) code);
+
+    if (ep && ep->ExceptionRecord && ep->ExceptionRecord->NumberParameters >= 2 &&
+        (code == EXCEPTION_ACCESS_VIOLATION)) {
+        ULONG_PTR addr = ep->ExceptionRecord->ExceptionInformation[1];
+        printf("[getv] fault addr: %p%s\n", (void *) addr,
+               addr < 0x10000 ? "   <-- NULL-BASE OFFSET" : "");
+    }
+    { extern const char *gePortLastBootMark(void); (void) 0; }
+
+#if defined(_M_X64) || defined(__x86_64__)
+    if (ep && ep->ContextRecord) {
+        CONTEXT *c = ep->ContextRecord;
+        printf("[getv] FAULT PC: %p\n", (void *) (uintptr_t) c->Rip);
+        printf("[getv] regs:\n"
+               "[getv]   rcx=0x%016llx  rdx=0x%016llx  r8 =0x%016llx  r9 =0x%016llx\n"
+               "[getv]   rax=0x%016llx  rbx=0x%016llx  rbp=0x%016llx  rsp=0x%016llx\n"
+               "[getv]   rsi=0x%016llx  rdi=0x%016llx  r10=0x%016llx  r11=0x%016llx\n"
+               "[getv]   r12=0x%016llx  r13=0x%016llx  r14=0x%016llx  r15=0x%016llx\n",
+               (unsigned long long) c->Rcx, (unsigned long long) c->Rdx,
+               (unsigned long long) c->R8,  (unsigned long long) c->R9,
+               (unsigned long long) c->Rax, (unsigned long long) c->Rbx,
+               (unsigned long long) c->Rbp, (unsigned long long) c->Rsp,
+               (unsigned long long) c->Rsi, (unsigned long long) c->Rdi,
+               (unsigned long long) c->R10, (unsigned long long) c->R11,
+               (unsigned long long) c->R12, (unsigned long long) c->R13,
+               (unsigned long long) c->R14, (unsigned long long) c->R15);
+    }
+#endif
+
+    /* Same renderer trace the POSIX path dumps: what Fast3D was executing is usually more
+     * informative than the stack on this project. */
+    { extern void gfx_dump_trace(void); gfx_dump_trace(); }
+    fflush(stdout);
+
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
+    SymInitialize(proc, NULL, TRUE);
+    n = CaptureStackBackTrace(0, (DWORD) MAXF, frames, NULL);
+    {
+        USHORT i;
+        char buf[sizeof(SYMBOL_INFO) + 256];
+        SYMBOL_INFO *sym = (SYMBOL_INFO *) buf;
+        memset(buf, 0, sizeof buf);
+        sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+        sym->MaxNameLen   = 255;
+
+        for (i = 0; i < n; i++) {
+            DWORD64 disp = 0;
+            if (SymFromAddr(proc, (DWORD64) (uintptr_t) frames[i], &disp, sym)) {
+                printf("%-3u %s + %llu   (%p)\n", (unsigned) i, sym->Name,
+                       (unsigned long long) disp, frames[i]);
+            } else {
+                printf("%-3u %p (no symbol)\n", (unsigned) i, frames[i]);
+            }
+        }
+    }
+    fflush(stdout);
+    _exit(128 + 11);
+    return EXCEPTION_EXECUTE_HANDLER;   /* not reached */
+}
+#endif /* _WIN32 */
 
 int SDL_main(int argc, char *argv[])
 {
+#if defined(_WIN32)
+    /* Windows delivers a fault as a structured exception, so there is nothing for sigaction
+     * to catch. SIGABRT still exists and still comes through the CRT, but the interesting
+     * faults -- access violations -- only reach the filter below. */
+    SetUnhandledExceptionFilter(ge_win_exception_filter);
+#else
     {   /* sigaction, not signal(): SA_SIGINFO is what carries si_addr. */
         struct sigaction sa;
         memset(&sa, 0, sizeof(sa));
@@ -229,6 +332,7 @@ int SDL_main(int argc, char *argv[])
         sigaction(SIGILL,  &sa, NULL);
         sigaction(SIGABRT, &sa, NULL);
     }
+#endif
 
     // devicectl --console is block-buffered, so without this the tail before any
     // crash is lost, which can make a SIGABRT look like a clean exit 0.

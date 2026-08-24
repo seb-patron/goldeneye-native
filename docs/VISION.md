@@ -126,15 +126,20 @@ is documented in `CLAUDE.md` and it means Phase 8 and the renderer are not indep
 |---|---|---|
 | 26-28 | Combat simulator, bots, teams | **PARTIAL.** Multiplayer works: split screen, radar, all 64 characters, and co-op brings up 2-4 players. Bots do not exist. |
 | 29-30 | Weather, environmental audio | **OPEN.** |
-| 31 | Gameplay modifiers (rulesets) | **OPEN, and the best value on this list.** |
+| 31 | Gameplay modifiers (rulesets) | **DONE.** `classic`/`hardcore`/`survival`/`chaos`/`horde` plus nine individual percentages, hooked into `lvlSetMultipliersForDifficulty()`. Measured on Agent: hardcore takes `aiHealth` 2.000 -> 1.000 and ammo 2.000 -> 1.000. |
 | 32 | Randomizer | **OPEN.** |
 
-**Rulesets are the highest return per unit of work in the entire document**, for a reason
-worth spelling out: enemy health, enemy count, player health, ammo, radar and weapon
-assignment are all *numbers the game already reads*. Changing them modifies no level, no
-asset and no geometry. A ruleset is a table of multipliers applied at load, which means
-CLASSIC / HARDCORE / SURVIVAL / CHAOS are mostly a config schema and a small patch, not a
-feature programme. **Horde mode is a ruleset with a respawn rule**, not a separate mode.
+**Rulesets were the highest return per unit of work in this document, and shipping them
+confirmed why**: the game already had one function setting every value involved.
+`lvlSetMultipliersForDifficulty()` (lv.c:917) assigns enemy health, damage, accuracy,
+reaction, ammo, explosion and turret strength per difficulty, so a ruleset is that
+function's output multiplied by a table. No level, asset or geometry is touched.
+**Horde is a ruleset with a respawn rule**, not a separate mode: it attaches to dying and
+spawns through the engine's own `chrSpawnAtCoord`.
+
+Two knobs are inverted internally and the hooks compensate -- `enemy_health` divides
+`g_AiHealthModifier`, which scales damage dealt *to* a guard. Getting that backwards would
+have made hard mode quietly easier, which is the class of bug nobody reports.
 
 The randomizer's own constraint is the interesting part, and the notes get it right:
 randomisation has to stay *semantically valid*. "Photograph the computer" cannot be
@@ -149,7 +154,7 @@ before they can be shuffled, and that schema is the actual work.
 |---|---|---|
 | 33 | Custom levels | **OPEN.** Hardest item here; needs the setup/stan/bg pipeline running in reverse. |
 | 34-35 | Custom weapons, enemies | **OPEN.** Both are data-table driven and more tractable than levels. |
-| 36-37 | Custom missions, scripting | **PARTIAL.** The scripting host now exists (below); mission authoring does not. |
+| 36-37 | Custom missions, scripting | **PARTIAL.** The scripting host exists (below); mission authoring does not. |
 
 ### Lua - DONE, as of this commit
 
@@ -186,9 +191,13 @@ is what turns this from telemetry into modding.
 
 ---
 
-## The launcher, and "GoldenEye+"
+## The launcher, and "GoldenEye+" -- BUILT
 
-A launcher is the right idea and it is much cheaper than it looks, because **the entire mod
+`--launcher` opens it; the desktop shortcut uses it. Everything below was the plan and is
+now the implementation, including the re-exec, which the measurement predicted would be
+necessary.
+
+A launcher is much cheaper than it looks, because **the entire mod
 surface is already environment variables**: about 275 `GETV_*` gates plus `goldeneye.cfg`.
 A launcher is a user interface over that surface, not new engine capability.
 
@@ -222,6 +231,83 @@ and "faithful" stays the default, because Phase 1's standard of proof is the rea
 that does not change just because Phase 2 exists.
 
 ---
+
+
+## The GoldenEye+ renderer, ranked by what this codebase can actually reach
+
+A list of modern effects is easy to write and the ordering is usually wrong for any
+particular engine, because what is cheap depends entirely on what the renderer already
+produces. Two measurements decide almost every row below, and both were taken against the
+tree rather than assumed:
+
+**There is already a framebuffer object with a depth attachment.** `gfx_opengl.c` creates
+`ss_fbo` with a `GL_DEPTH24_STENCIL8` renderbuffer plus `ss_screen_fbo` for the supersample
+path. A post-processing chain therefore has somewhere to hook, and that is most of the
+plumbing for the whole of Tier 2's screen-space work.
+
+**There are no per-pixel normals, and none are sent to the GPU.** The only normals in the
+renderer are in `calculate_normal_dir()`, which serves the N64's *per-vertex* lighting.
+Shading reaches the GPU as interpolated vertex colour. Any effect that needs a surface
+normal per pixel needs a G-buffer that does not exist and cannot be derived from what the
+game supplies.
+
+### Already shipped
+
+`resolution` · `supersample` · `msaa` · `anisotropic` · `mipmaps` · `filtering`
+(point / bilinear / **three-point**, the last being the real N64 filter, which a generic
+modern-graphics list will not think to offer) · `fov` · `depth_bits`.
+
+So most of a "Tier 1" list is done. What genuinely remains there is **FXAA**, which is one
+fullscreen pass and has no data dependencies, and **confirming widescreen widens the
+horizontal field rather than stretching a 4:3 image** -- `aspect` exists and which of those
+two it does has never been measured. That measurement is worth more than any new effect on
+this page, because if it stretches, every wider aspect ratio is currently wrong.
+
+### Reachable next, in cost order
+
+| effect | why it is reachable | what it needs |
+|---|---|---|
+| **FXAA** | one fullscreen pass on the existing FBO | nothing new |
+| **HDR framebuffer** | the FBO exists; this changes its format | float colour attachment |
+| **Tone mapping** | trivial once HDR exists | one shader |
+| **Bloom** | threshold, blur, composite over HDR | two extra targets |
+| **Decals (bullet holes, scorch)** | the game already computes the hit position and surface -- `chrpropAddBulletHit` and the impact buffer are in the tree | a projected-decal pass |
+| **Muzzle and explosion lights** | the game already tells the renderer when a gun fires and when something explodes; a light list is small | additive light pass, no normals needed if faked as radial screen-space brightening |
+| **SSAO** | depth exists | the depth attachment is a **renderbuffer**, not a texture, so it cannot be sampled today. Converting it to a depth texture is the actual task; a depth-only SSAO with no normals is lower quality but real |
+
+That table is the honest Tier 2. Note what it implies: **HDR is the foundation**, exactly as
+the design notes say, and bloom/tone mapping are nearly free afterwards. The two
+game-feeding effects -- decals and muzzle lights -- are attractive precisely because the
+information already crosses the boundary; nothing in the game has to change.
+
+### Blocked on data the game does not produce
+
+- **Normal mapping, PBR, parallax, per-pixel dynamic lighting, a physically correct
+  flashlight.** All need per-pixel normals. A flashlight can be faked as a screen-space
+  cone, and it will look flat, because nothing in the scene can respond to its direction.
+  Tier 3 is a **content** project (authoring normal/roughness maps for every texture) with a
+  rendering project attached, not the other way round.
+- **TAA.** Needs motion vectors. The pipeline produces none, and TAA without them is
+  smearing, not anti-aliasing. This is the one item in the source list whose difficulty is
+  understated: it is not "more complicated than FXAA", it is blocked.
+- **Ray tracing of any kind** -- reflections, shadows, AO, GI, path tracing. These need
+  Vulkan, D3D12 or Metal. On the current GL path they are not hard, they are unavailable.
+  That makes RT a **renderer-choice** question rather than an effect question, and it is the
+  same conversation as RT64 in `REUSE_AUDIT.md`, which is MIT, N64-aware and already has
+  those backends.
+- **Dynamic resolution.** Possible, but it changes the framebuffer size every time it acts,
+  and framebuffer size is already known to move outcomes in this port (`CLAUDE.md` on
+  supersample and heap layout). It would make every bug report irreproducible.
+
+### The ordering this suggests
+
+1. FXAA, and measure what `aspect` actually does.
+2. Depth attachment as a texture -- unblocks SSAO and anything else that wants depth.
+3. HDR, then tone mapping, then bloom.
+4. Decals, then muzzle and explosion lights.
+5. Stop, and decide the renderer question honestly. Everything past this point wants either
+   per-pixel normals or a modern graphics API, and both are large enough that they deserve a
+   decision rather than an accumulation of effects.
 
 ## On bgfx, SPIRV-Cross, and cross-platform reach
 

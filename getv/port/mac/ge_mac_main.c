@@ -32,8 +32,24 @@ extern int geConfigInit(int argc, char **argv);
  * just resolved, rather than a second set of defaults that could disagree with the file. */
 extern int gePortLauncherRun(int argc, char **argv);
 
+#if defined(_WIN32)
+/* SDL on Windows defines SDL_MAIN_NEEDED, which means SDL_Init() refuses to run unless
+ * either SDL2main supplied the entry point or the application says it has done the setup
+ * itself. This file deliberately provides the real main() and does not link SDL2main -- two
+ * definitions of main would collide -- so SDL has to be told. Declared by hand for the same
+ * reason SDL_main is: including <SDL.h> here would #define main to SDL_main and there would
+ * be no real main() left.
+ *
+ * Without this the game exits immediately with "Application didn't initialize properly",
+ * which reads like a missing DLL rather than a missing one-line call. */
+extern void SDL_SetMainReady(void);
+#endif
+
 int main(int argc, char *argv[])
 {
+#if defined(_WIN32)
+    SDL_SetMainReady();
+#endif
     int rc = geConfigInit(argc, argv);
     if (rc < 0) { return 0; }     /* clean stop: --help / --write-config / --list-cheats */
     if (rc > 0) { return rc; }    /* fatal config error */

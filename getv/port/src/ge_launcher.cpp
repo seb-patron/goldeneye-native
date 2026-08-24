@@ -43,7 +43,12 @@
 #if defined(GE_WITH_IMGUI)
 
 #include <SDL2/SDL.h>
+#if defined(_WIN32)
+#include <windows.h>
+#include <process.h>   /* _execv */
+#else
 #include <unistd.h>
+#endif
 
 #if defined(USE_GLES)
 #include <SDL2/SDL_opengles2.h>
@@ -318,7 +323,10 @@ void apply_profile(Model &m)
  * directory the process has since left -- so the real path is asked of the OS. */
 bool self_path(char *out, size_t n)
 {
-#if defined(__APPLE__)
+#if defined(_WIN32)
+    DWORD r = GetModuleFileNameA(NULL, out, (DWORD) n);
+    return r > 0 && r < n;
+#elif defined(__APPLE__)
     uint32_t sz = (uint32_t) n;
     return _NSGetExecutablePath(out, &sz) == 0;
 #elif defined(__linux__)
@@ -363,7 +371,16 @@ void relaunch()
     nv[n] = NULL;
 
     fflush(stdout);
+    /* Windows has no execve that replaces the image in place: _execv starts a new process
+     * and ends this one, so the shell sees the child rather than the launcher. That is the
+     * behaviour wanted here anyway -- the launcher's job is finished -- but it is worth
+     * naming, because the parent's exit is not observable to the child the way a real exec
+     * would be, and a caller waiting on the original PID will see it return early. */
+#if defined(_WIN32)
+    _execv(exe, nv);
+#else
     execv(exe, nv);
+#endif
 
     /* Only reached if execv failed. The environment is already set, so falling through into
      * the game is still correct -- it just keeps the launcher's process rather than replacing
