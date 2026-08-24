@@ -11,10 +11,9 @@ static recompilation step - the binary is the game, built as ordinary C.
 ## What works
 
 All 27 loadable stages boot, render and exit cleanly: 21 load directly, and six are multiplayer-only
-and need two or more players. That is measured across every named stage id, not sampled;
-`tools/stage_census.sh` reproduces it. There are no known crashes, hangs, or stages that fail to start or end properly.
+and need two or more players. There are no known crashes, hangs, or stages that fail to start or end properly.
 
-MacOS Apple Silicon/X86 install scripts included. Debian implementation is nearly complete, Windows after that. See Roadmap.md for future development and mods.
+MacOS Apple Silicon/X86, and Debian install scripts included. 
 
 The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no setup,
 and nine cut during development. Reaching one now prints which stage it is and what is missing, then
@@ -127,12 +126,7 @@ a tree that fails to compile or silently misbehaves.
 
 ![Two-player split screen with a radar in each pane](docs/images/screenshot-02.jpg)
 
-
-![First person with the PP7 drawn and the ammo counter reading 7 | 93](docs/images/screenshot-03.jpg)
-
-
 ![An outdoor stage at night: snow-covered rock, a truck, a glass-walled guard post](docs/images/screenshot-04.jpg)
-
 
 ![Split screen in a concrete interior with weapons and armour on the floor](docs/images/screenshot-05.jpg)
 
