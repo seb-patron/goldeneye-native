@@ -11829,7 +11829,7 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..d2bdaac 100644
+index cb8e24a..dbcbe5b 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
 @@ -1,3 +1,4 @@
@@ -11837,7 +11837,45 @@ index cb8e24a..d2bdaac 100644
  #include <ultra64.h>
  #include "frametiming.h"
  
-@@ -72,6 +73,66 @@ void updateFrameCounters(s32 deltaFrames)
+@@ -9,6 +10,9 @@ s32 currentFrameCounter = 0;
+  * Appears to be rendered framerate, or some kind of counter since the last frame update.
+  */
+ s32 speedgraphframes = 1;
++/* Video fields elapsed since the simulation last ticked. Always 0 at divider 1. */
++static s32 ge_sim_pending_fields = 0;
++s32 gePortSimShouldTick(void);
+ 
+ #if defined(BUGFIX_R1)
+ // EU address D_8004111C
+@@ -50,7 +54,26 @@ void updateFrameCounters(s32 deltaFrames)
+ 
+     lastFrameCounter = currentFrameCounter;
+     currentFrameCounter = (s32) (currentFrameCounter + deltaFrames);
+-    speedgraphframes = deltaFrames;
++
++    /* currentFrameCounter above is the master clock and keeps advancing every frame, because
++     * that is real time and real time does not care how often the simulation runs.
++     *
++     * speedgraphframes is different: it is what the simulation consumes. lvlManageMpGame()
++     * copies it into g_ClockTimer and then into g_GlobalTimerDelta, which is the delta every
++     * per-frame system in the game steps by. Under GETV_SIMDIV the simulation runs on one
++     * frame in n, so handing it deltaFrames would tell it one field had passed when n
++     * actually had, and the whole game would run at 1/n speed while the clock stayed right.
++     *
++     * The skipped fields are accumulated and handed over on the frame that ticks. On the
++     * frames that only draw it is zero, so anything reading it outside the gate sees no time
++     * passing rather than time passing twice. */
++    ge_sim_pending_fields += deltaFrames;
++    if (gePortSimShouldTick()) {
++        speedgraphframes = ge_sim_pending_fields;
++        ge_sim_pending_fields = 0;
++    } else {
++        speedgraphframes = 0;
++    }
+ 
+     #ifdef BUGFIX_R1
+     jpD_800484CC = (f32) deltaFrames;
+@@ -72,6 +95,66 @@ void updateFrameCounters(s32 deltaFrames)
   * Waits until the appropriate time has passed before updating the frame counters.
   * This function effectively controls the frame rate by waiting for the next tick.
   */
@@ -11904,7 +11942,7 @@ index cb8e24a..d2bdaac 100644
  void waitForNextFrame(void) //maybe WaitForTick
  {
    u32 nextFrameTime; //next frame time?
-@@ -84,8 +145,33 @@ void waitForNextFrame(void) //maybe WaitForTick
+@@ -84,7 +167,32 @@ void waitForNextFrame(void) //maybe WaitForTick
      #endif
    } while (nextFrameTime < frameDelay);
  
@@ -11931,13 +11969,12 @@ index cb8e24a..d2bdaac 100644
 +      }
 +      frameDelay = tf;
 +  }
-   updateFrameCounters(nextFrameTime);
-+
-+  /* One decision per frame, taken here because this runs exactly once per pass through
-+   * bossMainloop and nothing else does. */
++  /* Decide before updateFrameCounters, which reads the decision to work out whether to hand
++   * the simulation its accumulated delta or nothing. Taken here because waitForNextFrame runs
++   * exactly once per pass through bossMainloop and nothing else does. */
 +  gePortSimAdvance();
+   updateFrameCounters(nextFrameTime);
  }
- 
  
 diff --git a/src/game/front.c b/src/game/front.c
 index 0ac962f..8c847a4 100644
