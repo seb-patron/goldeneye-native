@@ -96,8 +96,7 @@ static inline int ge_win_unsetenv(const char *name)
  *
  * They are implemented as real functions in getv/port/src/ge_link_stubs.c instead, matching
  * that prototype exactly, so the decomp's own declaration serves as the prototype and
- * nothing has to be redeclared. That is twice now that a macro was the wrong tool for a
- * name the rest of the tree already knows about.
+ * nothing has to be redeclared.
  */
 
 /* realpath -> _fullpath. _fullpath allocates when given a NULL buffer, matching the POSIX

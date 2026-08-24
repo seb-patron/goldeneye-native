@@ -102,7 +102,7 @@ if (-not (Test-Path "$luaPrefix\lib\liblua.a")) {
   }
   $rsp = "$tmp\lua.rsp"
   # Forward slashes: GNU ar treats backslash as an escape inside a response file and drops
-  # the member without a word of complaint. Learned the expensive way on libge.a.
+  # the member without a word of complaint.
   Set-Content -Path $rsp -Value (($objs | ForEach-Object { $_ -replace '\\','/' }) -join "`n")
   & $ar rcs "$luaPrefix\lib\liblua.a" "@$rsp"
   Copy-Item "$ls\lua.h","$ls\luaconf.h","$ls\lualib.h","$ls\lauxlib.h" "$luaPrefix\include\" -Force

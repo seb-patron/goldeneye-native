@@ -312,11 +312,9 @@ static void geScriptApply(int port, int frame, struct GePadState *out)
   * buttons, and it binds GE_ACT_FIRE to GE_SRC_RT (port_os.c:467) while AIM takes the left
   * trigger. Wiring "Z" to ltrigger therefore aimed instead of firing.
   *
-  * That was not a small thing. No key in this parser reached the fire button at all, so a
-  * scripted run could walk, open menus and aim, and could never shoot. It silently blocked
-  * measuring weapon fire rates, verifying a horde wave from a real kill, and any future
-  * agent that has to play rather than watch. The symptom was `trigger_down` stuck at 0 with
-  * a loaded PP7 in hand, which reads like a game bug and was a harness bug. */
+  * No key in this parser reached fire at all, so a scripted run could walk, open menus and
+  * aim but never shoot. The symptom is `trigger_down` stuck at 0 with a loaded weapon in
+  * hand. */
  if (keys & GE_SK_Z)     { out->rtrigger = 1; out->rt_raw = 32767; }
  if (keys & GE_SK_RT)    { out->rtrigger = 1; out->rt_raw = 32767; }
  if (keys & GE_SK_LT)    { out->ltrigger = 1; out->lt_raw = 32767; }

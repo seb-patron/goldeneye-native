@@ -221,7 +221,7 @@ function Invoke-Batch {
 function Build-Lib {
   # Objects are cleared first. Without this a rebuild adds to whatever a previous run left,
   # so the count no longer describes this build and a file that has started failing still
-  # appears to be present. That ambiguity wasted a cycle already.
+  # appears to be present.
   if (Test-Path $obj) { Remove-Item $obj -Recurse -Force }
   New-Item -ItemType Directory -Force -Path $obj | Out-Null
   Set-Content -Path (Join-Path $build 'objects.txt') -Value $null

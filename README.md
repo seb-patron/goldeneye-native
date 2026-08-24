@@ -1,64 +1,140 @@
 # Goldeneye-Native
 
-A native port of GoldenEye 007. The game's C source comes from the
-[`n64decomp/007`](https://github.com/n64decomp/007) decompilation and is compiled directly for
-the host with clang; a platform layer supplies windowing, input, audio and a Fast3D display-list
-renderer on top of SDL2 and OpenGL. There is no MIPS interpreter, no dynamic recompiler and no
-static recompilation step - the binary is the game, built as ordinary C.
+**GoldenEye 007, compiled as a native program.** Not an emulator. Not a static recompilation.
+The game's own C source, from the [`n64decomp/007`](https://github.com/n64decomp/007)
+decompilation, built directly for your machine with a modern platform layer underneath it.
+
+There is no MIPS interpreter and no dynamic recompiler. The binary *is* the game. Every
+system in it is ordinary C that can be read, changed and rebuilt, which is the whole
+difference: things an emulator can only work around from the outside, this can fix at the
+source.
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
-## What works
+| | |
+|---|---|
+| **macOS** | Apple Silicon and Intel. Builds and plays. |
+| **Linux** | x86-64. Builds and plays. |
+| **Windows** | Builds, links and runs; world geometry is being fixed. Active bring-up. |
 
-All 27 loadable stages boot, render and exit cleanly: 21 load directly, and six are multiplayer-only
-and need two or more players. There are no known crashes, hangs, or stages that fail to start or end properly.
+Same source tree, same features, one `build` script each.
 
-MacOS Apple Silicon/X86, and Debian install scripts included. 
+## What you get
 
-The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no setup,
-and nine cut during development. Reaching one now prints which stage it is and what is missing, then
-exits. Previously they were worse than useless: two spun at full CPU while ignoring SIGTERM, three
-crashed, and one of those varied between hanging, SIGBUS and SIGSEGV depending on what the heap
-happened to contain. Loading a multiplayer-only stage on its own says so and names the flag, rather
-than reporting it as missing data.
+- **Every stage.** All 27 loadable missions boot, render and exit cleanly. Twenty-one load
+  directly; six are multiplayer-only and need two or more players.
+- **Multiplayer.** Split screen, radar, all 64 selectable characters.
+- **Keyboard and mouse**, on by default. Mouse look with sensitivity and invert, left button
+  fires, right aims, ESC releases the cursor. Gamepads work alongside it, not instead of it.
+- **A launcher.** Pick a level, a ruleset, cheats, resolution and field of view before you
+  play, instead of editing a config file.
+- **Rulesets and horde mode.** Enemy health, damage, accuracy, ammo, player health and
+  explosion strength as percentages, with presets. Horde spawns replacements where a guard
+  falls and grows the waves as you clear them.
+- **Lua mod scripting.** Drop a `mod.lua` in `mods/` and get `onFrame`, `onPlayerSpawn` and
+  `onWeaponFire` with a read API into live game state. No rebuild.
+- **The cheats the game already had**, by name, from the launcher or a config file.
+- **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
+  anisotropic filtering, adjustable field of view, and three texture filters including the
+  N64's real three-point sampling.
 
-Multiplayer works, including split screen, the radar and all 64 selectable characters. The pause
-watch renders all five pages. Saves persist.
+## On frame timing, and a thank you
 
-Two to four players can also share a single-player mission, split screen, with `coop = 2`. The
-mission loads with its own geometry, props and objectives, every player spawns into it, and the
-viewports render: Dam draws 5139 triangles at two players and 8412 at four, against 2042 solo.
+The most-cited problem with GoldenEye above its original frame rate is real, and
+**[Graslu](https://github.com/Graslu) raised it publicly and was right to.**
 
-It is bring-up, and one limitation is measured rather than suspected. Under `GETV_STATE` both
-players report the same spawn point to within a couple of units of height, and neither moves
-under scripted input that moves the solo player 16,930 units on the same level. So they are
-present and drawn, not yet playable. Objectives, AI and cutscenes are authored around one Bond
+The short version: `waitForNextFrame()` is already real-time based, so the clock does not
+drift. What breaks is everything the game counts *per iteration* rather than per second, and
+122 of the 135 files under `src/game` do per-frame work. Real hardware managed 20 to 30
+frames per second, and automatic fire rates, turret delay and guard reaction stepping were
+tuned against that. Run the same loop at a locked 60 and they simply happen more often.
+
+**Where this port stands: `framerate = 30` gives a simulation running at the cadence the game
+was authored for, with a correct time base.** That is the faithful configuration and it is one
+setting away. High-refresh rendering with correct gameplay timing needs the simulation
+separated from the draw, which is real work and is not done. The full analysis, including why
+this is fixable here and structurally is not in an emulator, is in
+[`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
+
+No code from the 1964 or Mouse Injector lineage is used here. Those are GPL-2.0 and
+quarantined; see [`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit above is for
+identifying the problem, which is the more valuable contribution and is not a licensable
+thing.
+
+## Questions people actually ask
+
+**Can I play GoldenEye 007 on a modern PC, Mac or Linux machine without an emulator?**
+Yes. That is what this is. You supply your own ROM, the build extracts the assets from it,
+and what you run afterwards is a native executable.
+
+**Does it support mouse and keyboard?** Yes, and it is the default. Mouse look with
+sensitivity and Y-invert, WASD movement, ESC to release the cursor.
+
+**Does it run at 60fps? Can it run higher?** It renders at 60 by default and the resolution
+is arbitrary. Above 60 the game's per-frame systems run faster than they were tuned for; see
+the section above. `framerate = 30` is the faithful setting.
+
+**Is there widescreen?** Resolution and aspect are configurable. Whether the widescreen path
+widens the field of view or stretches the image has not been measured yet, and that is
+recorded honestly in the roadmap rather than claimed either way.
+
+**Can I mod it?** Yes, three ways: Lua scripts in `mods/`, roughly 275 `GETV_*` behaviour
+gates, and `goldeneye.cfg`. Texture replacement is on the roadmap, not implemented.
+
+**Is multiplayer online?** No. Split-screen multiplayer works. LAN and online are roadmap
+items and are downstream of the frame-timing work.
+
+**Can two people play the single-player missions?** Partly, and it is honest to call it alpha.
+Two to four players spawn into a solo mission with its own geometry, props and objectives, and
+every viewport renders. They do not move yet. Details below.
+
+**Do I need the ROM?** Yes, your own copy. Nothing in this repository contains game data.
+
+## What works, in detail
+
+All 27 loadable stages boot, render and exit cleanly: 21 load directly, and six are
+multiplayer-only and need two or more players. There are no known crashes, hangs, or stages
+that fail to start or end properly.
+
+The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no
+setup, and nine cut during development. Reaching one now prints which stage it is and what is
+missing, then exits. Previously they were worse than useless: two spun at full CPU while
+ignoring SIGTERM, three crashed, and one of those varied between hanging, SIGBUS and SIGSEGV
+depending on what the heap happened to contain. Loading a multiplayer-only stage on its own
+says so and names the flag, rather than reporting it as missing data.
+
+Multiplayer works, including split screen, the radar and all 64 selectable characters. The
+pause watch renders all five pages. Saves persist.
+
+Two to four players can also share a single-player mission, split screen, with `coop = 2`.
+The mission loads with its own geometry, props and objectives, every player spawns into it,
+and the viewports render: Dam draws 5139 triangles at two players and 8412 at four, against
+2042 solo.
+
+It is alpha, and the limitation is measured rather than suspected. Under `GETV_STATE` the
+players spawn correctly and separated, and none of them moves under scripted input that
+carries the solo player 16,930 units on the same level. Player 0 is affected too, which rules
+out the obvious explanations; four have been eliminated with measurements and the remaining
+search is recorded in the roadmap. Objectives, AI and cutscenes are authored around one Bond
 and none of that has been adapted either.
 
-Four rendering options are implemented and off by default, since the N64 look is the product:
-`msaa`, `anisotropic`, `fov` and `depth_bits`. The rest of the keys in
-[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) are still reserved. The game renders at 60 fps with configurable
-resolution and supersampling.
+Whether it plays correctly from start to finish is untested, and the frame-timing section
+above is a concrete reason to expect it is not yet feature complete.
 
-Whether it plays 100% correctly from start to finish is untested, and the known issue
-below on tick-coupled gameplay is a concrete reason to expect that it is not yet feature complete.
-
-That gap is now measurable rather than merely stated. `tools/playtest.py` drives a stage with
+That gap is measurable rather than merely stated. `tools/playtest.py` drives a stage with
 scripted input and reads the machine-readable run state the game emits under `GETV_STATE`:
-whether the player reached gameplay at all, how far they moved, how many objectives the mission
-has, whether any changed, and whether it completed.
+whether the player reached gameplay at all, how far they moved, how many objectives the
+mission has, whether any changed, and whether it completed.
 
 Its current result: **all 21 solo missions reach gameplay and the player moves**, between 408
-and 19,584 units over a 900-frame run, with objective counts matching the missions. No objective
-advanced, which is expected when the input is "walk forward" and nothing else. So the port is
-further than "renders" and well short of "plays": reaching a playable state is now measured
-across every mission, and completing one is not.
+and 19,584 units over a 900-frame run, with objective counts matching the missions. No
+objective advanced, which is expected when the input is "walk forward" and nothing else. So
+the port is further than "renders" and well short of "plays": reaching a playable state is
+measured across every mission, and completing one is not.
 
 One reading to know about. Cuba is the credits sequence and reports no objectives, so
-`objectiveIsAllComplete()` is trivially true there and the tool prints `complete=yes`. It is an
-empty set, not a finished mission.
-
-Today it builds and plays on MacOS (Silicon or X86). Windows and Linux are in pipeline asap; the game layer itself is not platform-specific, so the remaining work is confined to the platform layer and the build script, and is listed in [`docs/PORTING.md`](docs/PORTING.md). ZX Spectrum Emulator intentionally not wired up.
+`objectiveIsAllComplete()` is trivially true there and the tool prints `complete=yes`. It is
+an empty set, not a finished mission.
 
 ## What this is not
 
@@ -165,6 +241,33 @@ fail rather than being papered over. Seven further N64-hardware and SGI-dev-host
 excluded by name in the build script for the same reason. Any second name in a `mac FAILED:` line
 is a real problem.
 
+### Linux
+
+`getv/build_linux.sh` takes the same targets. Needs a C compiler, SDL2 and GL headers:
+
+```
+sudo apt install build-essential pkg-config libsdl2-dev libgl1-mesa-dev
+CC=gcc ./getv/build_linux.sh all
+```
+
+Optional: `tools/fetch_lua.sh` for mod scripting and `tools/fetch_imgui.sh` for the launcher
+and dev overlay. Both are optional at every level; without them the build omits the feature
+and the entry points compile away.
+
+### Windows
+
+Native, with mingw-w64. No MSYS2, no Cygwin, no WSL. One command installs the whole
+toolchain, SDL2, GLEW, Lua and Dear ImGui:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_deps_windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File getv\build_windows.ps1 -Target all
+```
+
+The build is driven from PowerShell rather than bash on purpose: it needs only the compiler,
+not a working POSIX emulation layer. `getv/build_windows.sh` exists for hosts with a healthy
+MSYS2.
+
 ## Run
 
 ```bash
@@ -233,7 +336,10 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 | [`docs/CHEATS.md`](docs/CHEATS.md) | The game's own cheat system, exposed by name. |
 | [`docs/MODDING.md`](docs/MODDING.md) | How the tree is arranged and where the seams are. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Current state, known issues, planned work. |
-| [`docs/PORTING.md`](docs/PORTING.md) | What Windows and Linux would take, per file. |
+| [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md) | The frame-rate question, what causes it, and what a complete fix needs. |
+| [`docs/VISION.md`](docs/VISION.md) | The long arc, scored against what the tree does today. |
+| [`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md) | What to borrow, what is already borrowed, and what must not be touched. |
+| [`docs/PORTING.md`](docs/PORTING.md) | The platform layer, per file. |
 | [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) | The fifteen fetched files: what, whence, and why not vendored. |
 | [`docs/LICENSING.md`](docs/LICENSING.md) | Where every part came from and which terms are settled. |
 | [`docs/ASSET_LOADING.md`](docs/ASSET_LOADING.md) | Level asset loading: map, holes, plan. |
