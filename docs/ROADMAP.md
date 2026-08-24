@@ -117,6 +117,19 @@ stubbed N64 hardware file that fails on every platform.
 
 ## Known issues
 
+**FIXED: the scripted-input harness can now fire.** `GE_SK_Z` drove the gamepad's *left*
+trigger, and `port_os.c:467` binds `GE_ACT_FIRE` to `GE_SRC_RT`, the right one -- the left is
+AIM. So scripted `Z` aimed instead of shooting, and no key in the parser reached the fire
+button at all. The key names in that parser are the N64's, and on the N64 Z *is* fire, which
+is what made the wiring look right. `Z` now drives the right trigger and explicit `LT`/`RT`
+keys were added. Verified: `GETV_SCRIPT="...,400:Z:300"` produces `shots=14`.
+
+Two things this unblocks are now possible rather than done: measuring sustained weapon fire
+rate (the PP7 empties its 7-round magazine and stops, so a real rate needs an automatic
+weapon or working infinite ammo), and verifying a horde wave from a genuine kill.
+
+The original note follows, kept because the reasoning is what found it.
+
 **The scripted-input harness cannot fire a weapon.** `GETV_SCRIPT` drives the stick and the
 menus correctly -- the player walks (15542 -> 17442 over 240 frames), START advances the
 front end, and `Z` engages the sight (`sightmode` 0 -> 2). But no button ever sets

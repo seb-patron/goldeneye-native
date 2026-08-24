@@ -98,6 +98,8 @@ static int geSynthFrame = 0;
  * i.e. per game frame -- the same clock GETV_EXIT_FRAME counts)
  * keys   '+'-joined, case-insensitive:
  * A B X Y START BACK Z L R DU DD DL DR CU CD CL CR
+ * LT RT   the analogue triggers. Z is the same as RT, because that is
+ * where FIRE is bound by default; L and R are the shoulder buttons.
  * SX=<n> SY=<n> N64 stick counts, -80..80 (SY+ = up, as the game reads it)
  * hold frames to hold, default 4
  *
@@ -127,7 +129,12 @@ enum {
  GE_SK_START = 1u << 4, GE_SK_BACK = 1u << 5, GE_SK_Z = 1u << 6,
  GE_SK_L = 1u << 7, GE_SK_R = 1u << 8,
  GE_SK_DU = 1u << 9, GE_SK_DD = 1u << 10, GE_SK_DL = 1u << 11, GE_SK_DR = 1u << 12,
- GE_SK_CU = 1u << 13, GE_SK_CD = 1u << 14, GE_SK_CL = 1u << 15, GE_SK_CR = 1u << 16
+ GE_SK_CU = 1u << 13, GE_SK_CD = 1u << 14, GE_SK_CL = 1u << 15, GE_SK_CR = 1u << 16,
+ /* The analogue triggers, addressable in their own right. GE_SK_Z drives the right one
+  * because that is where FIRE lives (port_os.c binds GE_ACT_FIRE to GE_SRC_RT by default),
+  * but a script that wants a trigger without caring what is bound to it needs to be able to
+  * say so. */
+ GE_SK_LT = 1u << 17, GE_SK_RT = 1u << 18
 };
 
 static struct GeScriptEntry geScript[GE_SCRIPT_MAX];
@@ -178,6 +185,7 @@ static int geScriptKeyword(const char *tok, size_t len, struct GeScriptEntry *e)
  GE_SK_MATCH("X", GE_SK_X) GE_SK_MATCH("Y", GE_SK_Y)
  GE_SK_MATCH("START", GE_SK_START) GE_SK_MATCH("BACK", GE_SK_BACK)
  GE_SK_MATCH("Z", GE_SK_Z)
+ GE_SK_MATCH("LT", GE_SK_LT) GE_SK_MATCH("RT", GE_SK_RT)
  GE_SK_MATCH("L", GE_SK_L) GE_SK_MATCH("R", GE_SK_R)
  GE_SK_MATCH("DU", GE_SK_DU) GE_SK_MATCH("DD", GE_SK_DD)
  GE_SK_MATCH("DL", GE_SK_DL) GE_SK_MATCH("DR", GE_SK_DR)
@@ -296,7 +304,22 @@ static void geScriptApply(int port, int frame, struct GePadState *out)
  if (keys & GE_SK_Y)     { out->y = 1; }
  if (keys & GE_SK_START) { out->start = 1; }
  if (keys & GE_SK_BACK)  { out->back = 1; }
- if (keys & GE_SK_Z)     { out->ltrigger = 1; out->lt_raw = 32767; }
+ /* GE_SK_Z drives the RIGHT trigger, not the left.
+  *
+  * The key names in this parser are the N64's, and on the N64 Z is the fire button --
+  * bondview2.c picks `shootButtons = Z_TRIG` for every control style except KISSY and
+  * GOODNIGHT. But this harness emits a *gamepad* state, which port_os.c then maps to N64
+  * buttons, and it binds GE_ACT_FIRE to GE_SRC_RT (port_os.c:467) while AIM takes the left
+  * trigger. Wiring "Z" to ltrigger therefore aimed instead of firing.
+  *
+  * That was not a small thing. No key in this parser reached the fire button at all, so a
+  * scripted run could walk, open menus and aim, and could never shoot. It silently blocked
+  * measuring weapon fire rates, verifying a horde wave from a real kill, and any future
+  * agent that has to play rather than watch. The symptom was `trigger_down` stuck at 0 with
+  * a loaded PP7 in hand, which reads like a game bug and was a harness bug. */
+ if (keys & GE_SK_Z)     { out->rtrigger = 1; out->rt_raw = 32767; }
+ if (keys & GE_SK_RT)    { out->rtrigger = 1; out->rt_raw = 32767; }
+ if (keys & GE_SK_LT)    { out->ltrigger = 1; out->lt_raw = 32767; }
  if (keys & GE_SK_L)     { out->lshoulder = 1; }
  if (keys & GE_SK_R)     { out->rshoulder = 1; }
  if (keys & GE_SK_DU)    { out->dup = 1; }
