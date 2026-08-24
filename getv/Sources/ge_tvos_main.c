@@ -13,7 +13,9 @@
 // Entry comes from libSDL2main.a: its main() calls UIApplicationMain, installs
 // SDLUIKitDelegate, then calls SDL_main below.
 
-/* REG_RIP/REG_PC on glibc's ucontext_t need this defined before any system header. */
+/* glibc hides dladdr() (dlfcn.h) and the REG_* mcontext indices (sys/ucontext.h)
+ * behind _GNU_SOURCE, so it has to be defined before the first system header.
+ * Darwin exposes both unconditionally and does not need it. */
 #if defined(__linux__) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
 #endif
@@ -88,84 +90,123 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
      * exact, and `sym + off` maps straight onto `otool -tV` output for that offset.
      * Registers are dumped too: the difference between a NULL base, a pointer truncated
      * to 32 bits, and a real overrun is usually visible in them. */
-#if defined(__APPLE__)
-    if (uctx) {
-        ucontext_t *uc = (ucontext_t *) uctx;
-        Dl_info di;
-#if defined(__x86_64__)
-        /* Intel Mac: no pointer authentication, so the register struct's fields are
-         * read directly -- there is no get_pc/get_lr/get_sp helper family here, that
-         * indirection exists only on arm64 to strip PAC bits. */
-        _STRUCT_X86_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
-        void *pc = (void *)(uintptr_t) ss->__rip;
-
-        if (dladdr(pc, &di) && di.dli_sname) {
-            printf("[getv] FAULT PC: %p = %s + %ld   (image %s)\n", pc, di.dli_sname,
-                   (long)((uintptr_t) pc - (uintptr_t) di.dli_saddr),
-                   di.dli_fname ? di.dli_fname : "?");
-        } else {
-            printf("[getv] FAULT PC: %p (no symbol)\n", pc);
-        }
-        printf("[getv] regs:\n[getv]   rax=0x%016llx  rbx=0x%016llx  rcx=0x%016llx  rdx=0x%016llx\n"
-               "[getv]   rdi=0x%016llx  rsi=0x%016llx  rbp=0x%016llx  rsp=0x%016llx\n"
-               "[getv]   r8= 0x%016llx  r9= 0x%016llx  r10=0x%016llx  r11=0x%016llx\n"
-               "[getv]   r12=0x%016llx  r13=0x%016llx  r14=0x%016llx  r15=0x%016llx\n",
-               (unsigned long long) ss->__rax, (unsigned long long) ss->__rbx,
-               (unsigned long long) ss->__rcx, (unsigned long long) ss->__rdx,
-               (unsigned long long) ss->__rdi, (unsigned long long) ss->__rsi,
-               (unsigned long long) ss->__rbp, (unsigned long long) ss->__rsp,
-               (unsigned long long) ss->__r8,  (unsigned long long) ss->__r9,
-               (unsigned long long) ss->__r10, (unsigned long long) ss->__r11,
-               (unsigned long long) ss->__r12, (unsigned long long) ss->__r13,
-               (unsigned long long) ss->__r14, (unsigned long long) ss->__r15);
-        printf("[getv]    rip=0x%016llx  rsp=0x%016llx\n",
-               (unsigned long long) ss->__rip, (unsigned long long) ss->__rsp);
-#else
-        _STRUCT_ARM_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
-        void *pc = (void *)(uintptr_t) __darwin_arm_thread_state64_get_pc(*ss);
-        int i;
-
-        if (dladdr(pc, &di) && di.dli_sname) {
-            printf("[getv] FAULT PC: %p = %s + %ld   (image %s)\n", pc, di.dli_sname,
-                   (long)((uintptr_t) pc - (uintptr_t) di.dli_saddr),
-                   di.dli_fname ? di.dli_fname : "?");
-        } else {
-            printf("[getv] FAULT PC: %p (no symbol)\n", pc);
-        }
-        printf("[getv] regs:");
-        for (i = 0; i <= 28; i++) {
-            printf("%s x%-2d=0x%016llx", (i % 4 == 0) ? "\n[getv]   " : "  ",
-                   i, (unsigned long long) ss->__x[i]);
-        }
-        printf("\n[getv]    lr=0x%016llx  sp=0x%016llx\n",
-               (unsigned long long) __darwin_arm_thread_state64_get_lr(*ss),
-               (unsigned long long) __darwin_arm_thread_state64_get_sp(*ss));
-#endif
-    }
-#elif defined(__linux__)
-    /* glibc ucontext_t. Untested -- no Linux machine has run this build (see
-     * docs/PORTING.md section 6). Fault PC only; the register set differs enough
-     * between x86_64 and aarch64 that a full dump isn't worth guessing at here. */
+    /* The shape of the machine context is per-OS and per-architecture, so the PC and
+     * the register file are pulled out in an #ifdef ladder and everything after it --
+     * symbolisation, formatting -- is shared. Four hosts have a branch here: Darwin on
+     * arm64 and x86_64, glibc on aarch64 and x86_64. Anything else still gets the fault
+     * address, the boot mark and the backtrace; it just loses the PC and the registers,
+     * which is the right outcome, because a guessed PC is worse than no PC. */
     if (uctx) {
         ucontext_t *uc = (ucontext_t *) uctx;
         void *pc = NULL;
         Dl_info di;
-#if defined(__x86_64__)
-        pc = (void *) (uintptr_t) uc->uc_mcontext.gregs[REG_RIP];
-#elif defined(__aarch64__)
-        pc = (void *) (uintptr_t) uc->uc_mcontext.pc;
+
+        (void) uc;
+#if defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
+        pc = (void *)(uintptr_t) __darwin_arm_thread_state64_get_pc(uc->uc_mcontext->__ss);
+#elif defined(__APPLE__) && defined(__x86_64__)
+        /* Intel Mac: no pointer authentication, so the fields are read straight out of
+         * the thread state. The get_pc/get_lr/get_sp helper family exists only on arm64,
+         * where it strips the PAC bits. */
+        pc = (void *)(uintptr_t) uc->uc_mcontext->__ss.__rip;
+#elif defined(__linux__) && defined(__aarch64__)
+        /* glibc/aarch64: mcontext_t is `struct sigcontext` by value, with a flat
+         * regs[31] plus named sp/pc, and no PAC bits to strip. */
+        pc = (void *)(uintptr_t) uc->uc_mcontext.pc;
+#elif defined(__linux__) && defined(__x86_64__)
+        pc = (void *)(uintptr_t) uc->uc_mcontext.gregs[REG_RIP];
 #endif
-        if (pc && dladdr(pc, &di) && di.dli_sname) {
+
+        if (pc == NULL) {
+            printf("[getv] FAULT PC: unavailable (no register-context branch for this "
+                   "OS/architecture)\n");
+        } else if (dladdr(pc, &di) && di.dli_sname) {
             printf("[getv] FAULT PC: %p = %s + %ld   (image %s)\n", pc, di.dli_sname,
                    (long)((uintptr_t) pc - (uintptr_t) di.dli_saddr),
                    di.dli_fname ? di.dli_fname : "?");
-        } else if (pc) {
+        } else {
             printf("[getv] FAULT PC: %p (no symbol)\n", pc);
         }
-    }
+
+#if defined(__APPLE__) && (defined(__arm64__) || defined(__aarch64__))
+        {
+            _STRUCT_ARM_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
+            int i;
+
+            printf("[getv] regs:");
+            for (i = 0; i <= 28; i++) {
+                printf("%s x%-2d=0x%016llx", (i % 4 == 0) ? "\n[getv]   " : "  ",
+                       i, (unsigned long long) ss->__x[i]);
+            }
+            printf("\n[getv]    lr=0x%016llx  sp=0x%016llx\n",
+                   (unsigned long long) __darwin_arm_thread_state64_get_lr(*ss),
+                   (unsigned long long) __darwin_arm_thread_state64_get_sp(*ss));
+        }
+#elif defined(__APPLE__) && defined(__x86_64__)
+        {
+            _STRUCT_X86_THREAD_STATE64 *ss = &uc->uc_mcontext->__ss;
+
+            printf("[getv] regs:\n"
+                   "[getv]   rax=0x%016llx  rbx=0x%016llx  rcx=0x%016llx  rdx=0x%016llx\n"
+                   "[getv]   rdi=0x%016llx  rsi=0x%016llx  rbp=0x%016llx  rsp=0x%016llx\n"
+                   "[getv]   r8= 0x%016llx  r9= 0x%016llx  r10=0x%016llx  r11=0x%016llx\n"
+                   "[getv]   r12=0x%016llx  r13=0x%016llx  r14=0x%016llx  r15=0x%016llx\n",
+                   (unsigned long long) ss->__rax, (unsigned long long) ss->__rbx,
+                   (unsigned long long) ss->__rcx, (unsigned long long) ss->__rdx,
+                   (unsigned long long) ss->__rdi, (unsigned long long) ss->__rsi,
+                   (unsigned long long) ss->__rbp, (unsigned long long) ss->__rsp,
+                   (unsigned long long) ss->__r8,  (unsigned long long) ss->__r9,
+                   (unsigned long long) ss->__r10, (unsigned long long) ss->__r11,
+                   (unsigned long long) ss->__r12, (unsigned long long) ss->__r13,
+                   (unsigned long long) ss->__r14, (unsigned long long) ss->__r15);
+            printf("[getv]    rip=0x%016llx  rsp=0x%016llx\n",
+                   (unsigned long long) ss->__rip, (unsigned long long) ss->__rsp);
+        }
+#elif defined(__linux__) && defined(__aarch64__)
+        {
+            int i;
+
+            /* The same x0-x28 window as the Darwin branch, deliberately: the two dumps
+             * have to be diffable when one fault is reproduced on both hosts. x29/x30
+             * come out below as fp/lr rather than as numbered registers. */
+            printf("[getv] regs:");
+            for (i = 0; i <= 28; i++) {
+                printf("%s x%-2d=0x%016llx", (i % 4 == 0) ? "\n[getv]   " : "  ",
+                       i, (unsigned long long) uc->uc_mcontext.regs[i]);
+            }
+            printf("\n[getv]    lr=0x%016llx  sp=0x%016llx\n",
+                   (unsigned long long) uc->uc_mcontext.regs[30],
+                   (unsigned long long) uc->uc_mcontext.sp);
+        }
+#elif defined(__linux__) && defined(__x86_64__)
+        {
+            /* No flat register array to loop over here, so the names are spelled out,
+             * System V argument order first (rdi, rsi, rdx, rcx, r8, r9), because that
+             * is the order a wrong argument is read in. There is no link register: the
+             * return address is on the stack, and backtrace() below is what recovers it. */
+            static const struct { const char *name; int idx; } gp[] = {
+                { "rdi", REG_RDI }, { "rsi", REG_RSI }, { "rdx", REG_RDX },
+                { "rcx", REG_RCX }, { "r8 ", REG_R8  }, { "r9 ", REG_R9  },
+                { "rax", REG_RAX }, { "rbx", REG_RBX }, { "rbp", REG_RBP },
+                { "r10", REG_R10 }, { "r11", REG_R11 }, { "r12", REG_R12 },
+                { "r13", REG_R13 }, { "r14", REG_R14 }, { "r15", REG_R15 },
+            };
+            int i;
+
+            printf("[getv] regs:");
+            for (i = 0; i < (int)(sizeof(gp) / sizeof(gp[0])); i++) {
+                printf("%s %s=0x%016llx", (i % 4 == 0) ? "\n[getv]   " : "  ",
+                       gp[i].name,
+                       (unsigned long long) uc->uc_mcontext.gregs[gp[i].idx]);
+            }
+            printf("\n[getv]    rsp=0x%016llx  eflags=0x%016llx\n",
+                   (unsigned long long) uc->uc_mcontext.gregs[REG_RSP],
+                   (unsigned long long) uc->uc_mcontext.gregs[REG_EFL]);
+        }
 #else
-    (void) uctx;
+        printf("[getv] regs: no register-dump branch for this OS/architecture\n");
 #endif
+    }
 
     // What the renderer was executing, if anything. See gfx_pc.c's trace ring.
     { extern void gfx_dump_trace(void); gfx_dump_trace(); }
