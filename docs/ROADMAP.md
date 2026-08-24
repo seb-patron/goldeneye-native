@@ -1,6 +1,6 @@
 # Roadmap
 
-Current state, known issues, and planned work. Updated 2026-08-23.
+Current state, known issues, and planned work. Updated 2026-08-24.
 
 ## Where the port is
 
@@ -17,7 +17,52 @@ objective completion, and finishing a level end to end. The port renders and rea
 playable state everywhere; whether it can be played through from start to finish is
 untested.
 
+## Platforms
+
+**macOS (arm64 and x86_64)** and **Linux (x86_64)** both build and run. Linux was brought up
+on 2026-08-24 against gcc 13 on Linux Mint 22.3 and produces a 20M ELF; the game batch builds
+167/1, identical to macOS, and the one failure (`src/tlb_manage.c`) is a deliberately stubbed
+N64 hardware file that fails on both. Fifteen stages ran there with no signals.
+
+Three defects had to be fixed to get there, and all three were invisible to Clang on Darwin:
+
+- `bondtypes.h` decided endianness from `__LITTLE_ENDIAN__` alone, which is a Clang predefine.
+  GCC reports byte order through `__BYTE_ORDER__`, so a GCC build silently took the big-endian
+  branch, left the `GE_SUBWORD` field groups unreversed, and mismatched every struct overlaid
+  on setup-file data. The `_Static_assert`s in `propobj.c` turned that into six compile errors
+  rather than corrupt objects at runtime, which is what they exist for.
+- `include/stdarg.h` shadows the compiler's own header and defined `va_list` without
+  `__gnuc_va_list`, which glibc's `stdio.h` requires. 27 translation units failed on it.
+- `get_ptr_item_statistics()` indexes `gitem_structs[]` unchecked, and the guard AI arrives
+  with `item = -1`. Reading in front of the array is undefined behaviour and the hosts
+  disagreed: Darwin returned the safe defaults by luck, glibc returned a null pointer and the
+  caller faulted, so a guard opening fire killed the process on Linux only.
+
+The build script also could not fail: it took its exit status from `head` rather than the
+compiler and tested an output binary that a previous run had left behind, so a link with 27
+missing translation units still reported success. Both are fixed.
+
 ## Known issues
+
+**Doors that never resolved a position.** `proplvreset` sets `door->prop = NULL` when
+`getposstan()` cannot resolve a door's pad against the stan, and the rest of the game then
+uses `door->prop` in 92 places without checking. Interacting with such a door faulted at
+address 0x10 -- the offset of `pos` within `PropRecord` on this build. The three door sound
+functions and `sub_GAME_7F053A3C` now return early, so the crash is gone, but **the failing
+`getposstan()` is the real defect and is unfixed**. A door in that state is still not drawn
+and still cannot be used properly. How many doors across the game are affected has not been
+measured, and that measurement is the next step.
+
+**Out-of-range `attack_item`.** The guard AI reaches `bondwalkItemGetAutomaticFiringRate()`
+with `item = -1`. The lookup is now range-checked and returns the game's own defaults, so it
+is no longer a crash, but a weapon id of -1 arriving there is a bug further upstream that has
+not been traced. `GETV_ITEMSTATS=1` reports each rejected id once; it fires on most stages.
+
+**Cannot advance from one level to the next.** Reported after completing level one: the
+"next" control does not proceed to level two. Not yet reproduced under instrumentation, and
+no root cause. The mission-complete path is `objective_status.c`; `GETV_STATE=<n>` prints
+objective counts, individual statuses and a completion flag each n frames, which is the
+intended way to bisect this.
 
 **Depot ground colour.** The ground on Depot renders saturated blue-cyan where it should
 be near-neutral dark asphalt. The texel pattern matches the original exactly, and the
