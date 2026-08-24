@@ -160,6 +160,28 @@ index e7222e0..937d72b 100644
      typedef u32 size_t;
      typedef s32 ssize_t;
      typedef u32 uintptr_t;
+diff --git a/include/stdarg.h b/include/stdarg.h
+index 3303fdc..82b3924 100644
+--- a/include/stdarg.h
++++ b/include/stdarg.h
+@@ -6,6 +6,17 @@
+ // When building with GCC, use the official vaarg macros to avoid warnings
+ // and possibly bad codegen.
+ #ifdef __GNUC__
++/* glibc's stdio.h reaches for __gnuc_va_list, which normally arrives from the
++ * compiler's own stdarg.h. This file shadows that header, because the decomp's
++ * include/ sits ahead of the system directories on the search path, so the name has
++ * to be supplied here. _VA_LIST_DEFINED is claimed at the same time to stop glibc
++ * re-typedefing va_list on top of the macro below, which would expand to
++ * `typedef __builtin_va_list __builtin_va_list`. Darwin's headers never reference
++ * __gnuc_va_list, which is why none of this surfaced until a GNU/Linux build existed. */
++#ifndef _VA_LIST_DEFINED
++typedef __builtin_va_list __gnuc_va_list;
++#define _VA_LIST_DEFINED
++#endif
+ #define va_list __builtin_va_list
+ #define va_start __builtin_va_start
+ #define va_arg __builtin_va_arg
 diff --git a/include/stdlib.h b/include/stdlib.h
 index 5342979..c60dc98 100644
 --- a/include/stdlib.h
@@ -577,10 +599,10 @@ index 45bd0ec..403dba2 100644
 +_Static_assert((BODIES) -1 < 0, "BODIES is unsigned again: the intro table will not wrap");
 +_Static_assert((PROP)   -1 < 0, "PROP is unsigned again: prop sentinel tests will not fire");
 diff --git a/src/bondtypes.h b/src/bondtypes.h
-index 53fd4fa..b07bd82 100644
+index 53fd4fa..f16c369 100644
 --- a/src/bondtypes.h
 +++ b/src/bondtypes.h
-@@ -24,12 +24,35 @@
+@@ -24,12 +24,45 @@
   */
  #ifndef _BONDTYPES_H_
  #define _BONDTYPES_H_
@@ -597,7 +619,17 @@ index 53fd4fa..b07bd82 100644
 + * host-endian s32 VALUES (assets/obseg/setup/*.c). See the long note above
 + * PropDefHeaderRecord.
 + * ------------------------------------------------------------------------- */
-+#if defined(GE_PORT_NATIVE) && defined(__LITTLE_ENDIAN__)
++/* __LITTLE_ENDIAN__ is a Clang/Apple predefine; GCC does not define it and instead
++ * reports byte order through __BYTE_ORDER__. Testing only the Clang spelling meant a
++ * GCC build silently took the big-endian branch below, left these field groups
++ * unreversed, and mismatched every struct overlaid on setup-file data. MSVC defines
++ * neither, so _WIN32 is accepted directly: every Windows target is little-endian.
++ * The _Static_asserts at the top of src/game/propobj.c are what catch a regression
++ * here, and they are the reason this surfaced as a compile error rather than as
++ * corrupted object data at runtime. */
++#if defined(GE_PORT_NATIVE) && (defined(__LITTLE_ENDIAN__) || defined(_WIN32) || \
++    (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
++     __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
 +#  define GE_SUBWORD2(a, b)             b a
 +#  define GE_SUBWORD3(a, b, c)          c b a
 +#  define GE_SUBWORD4(a, b, c, d)       d c b a
@@ -619,7 +651,7 @@ index 53fd4fa..b07bd82 100644
  
          /**
   * Syntax Sugar for clarification of intent
-@@ -245,20 +268,12 @@ typedef union
+@@ -245,20 +278,12 @@ typedef union
              f32 f[3];
          };
      } coord3d;
@@ -645,7 +677,7 @@ index 53fd4fa..b07bd82 100644
  
      /**
       16bit Co-Ordinate used for Integer co-ordinates eg, pumping straight to RSP.
-@@ -574,7 +589,11 @@ typedef union
+@@ -574,7 +599,11 @@ typedef union
  
      typedef struct ModelAnimation
      {
@@ -658,7 +690,7 @@ index 53fd4fa..b07bd82 100644
          u16 unk04; // number of frames in the animation
          u8 unk06;
          u8 unk07; // bit 0 is a loop flag: 0 means freeze anim at end, 1 means loop anim
-@@ -678,6 +697,32 @@ typedef union
+@@ -678,6 +707,32 @@ typedef union
  
          s16 index; /* 0x6 Collisions Only - points to vertex */
  
@@ -691,7 +723,7 @@ index 53fd4fa..b07bd82 100644
          union
          {
              struct
-@@ -686,10 +731,12 @@ typedef union
+@@ -686,10 +741,12 @@ typedef union
                  s16 t; /* 0xa */
              };
  
@@ -707,7 +739,7 @@ index 53fd4fa..b07bd82 100644
          };
  
          union
-@@ -718,6 +765,15 @@ typedef union
+@@ -718,6 +775,15 @@ typedef union
          };
      } Vertex;
  
@@ -723,7 +755,7 @@ index 53fd4fa..b07bd82 100644
      #pragma region OpenFlight Records
      /*
       The following structures are derived from the MultiGen OpenFlight binary data
-@@ -1063,7 +1119,10 @@ typedef union
+@@ -1063,7 +1129,10 @@ typedef union
          {
              union {
                  coord3d pos;       /* 0x00 */
@@ -735,7 +767,7 @@ index 53fd4fa..b07bd82 100644
              };
  
              f32 BoundingVolumeRadius; /* 0x40 */
-@@ -1089,7 +1148,7 @@ typedef union
+@@ -1089,7 +1158,7 @@ typedef union
              f32     Scale;       /*0x1c*/
              u16     RwDataIndex; /*0x20*/
              u16     reserved;    /*0x22 padding*/
@@ -744,7 +776,7 @@ index 53fd4fa..b07bd82 100644
          } ModelRoData_GunfireRecord;
  
          typedef struct ModelRwData_GunfireRecord
-@@ -1508,8 +1567,10 @@ typedef union
+@@ -1508,8 +1577,10 @@ typedef union
               * Offset 0x32.
              */
              s16               frameb;
@@ -757,7 +789,7 @@ index 53fd4fa..b07bd82 100644
              f32               endframe;
  
              f32               speed; /*0x40*/
-@@ -1535,8 +1596,9 @@ typedef union
+@@ -1535,8 +1606,9 @@ typedef union
              */
              s16               frame2b;
  
@@ -769,7 +801,7 @@ index 53fd4fa..b07bd82 100644
              f32               unk6c;
              // 0x70
              f32               speed2;
-@@ -1556,10 +1618,17 @@ typedef union
+@@ -1556,10 +1628,17 @@ typedef union
              // 0x90
              f32               animloopframe; /*0x90*/
              f32               animloopmerge; /*0x94*/
@@ -789,7 +821,7 @@ index 53fd4fa..b07bd82 100644
              f32               playspeed; // used by ACT_STAND in chrlv
              f32               animrate;
              f32               unkac;
-@@ -2324,11 +2393,33 @@ typedef union
+@@ -2324,11 +2403,33 @@ typedef union
      } BeamRecord;
  
  
@@ -825,7 +857,7 @@ index 53fd4fa..b07bd82 100644
              8x    destroyed
              4x    datathief/defuser/decoder used on obj (activated?)
              2x
-@@ -2338,12 +2429,13 @@ typedef union
+@@ -2338,12 +2439,13 @@ typedef union
              x2
              x1    damaged
          */
@@ -842,7 +874,7 @@ index 53fd4fa..b07bd82 100644
          }
  
      #pragma endregion GlobalPropDef
-@@ -2579,6 +2671,8 @@ typedef union
+@@ -2579,6 +2681,8 @@ typedef union
      typedef struct ObjectRecord
      {
          inherits    PropDefHeaderRecord;
@@ -851,7 +883,7 @@ index 53fd4fa..b07bd82 100644
          s16         obj; //canonical name, use with PROP_ enum eg PROP_ALARM1
          /* ID 0x6
              0000+ or 2710+ (10,000+) to use standard presets.
-@@ -2587,7 +2681,8 @@ typedef union
+@@ -2587,7 +2691,8 @@ typedef union
              if control nibble 4x is set at 0xB,
              then this number matches the ID of a guard
          */
@@ -861,7 +893,7 @@ index 53fd4fa..b07bd82 100644
          /*0x8
              8x    indicates right-handed gun assignment
              4x    08 weapon does not provide ammunition when collected
-@@ -2863,13 +2958,14 @@ typedef union
+@@ -2863,13 +2968,14 @@ typedef union
           *
           * Offset 0x98.
           */
@@ -878,7 +910,7 @@ index 53fd4fa..b07bd82 100644
  
          /**
           * nonzero to lock.
-@@ -2916,16 +3012,18 @@ typedef union
+@@ -2916,16 +3022,18 @@ typedef union
           * States are defined in enum DOORSTATE, but asm expects a single byte.
           * Offset 0xbc.
           */
@@ -903,7 +935,7 @@ index 53fd4fa..b07bd82 100644
  
          /**
          * Connected door. Opening/closing this door will also open the linkedDoor.
-@@ -3098,7 +3196,7 @@ typedef union
+@@ -3098,7 +3206,7 @@ typedef union
      typedef struct CCTVRecord
      {
          inherits ObjectRecord;
@@ -912,7 +944,7 @@ index 53fd4fa..b07bd82 100644
          Mtxf     unk84;
          f32 unkC4;
          f32 unkC8;
-@@ -3140,9 +3238,10 @@ typedef union
+@@ -3140,9 +3248,10 @@ typedef union
      typedef struct WeaponObjRecord
      {
          inherits                ObjectRecord;
@@ -926,7 +958,7 @@ index 53fd4fa..b07bd82 100644
          //u8 thrown;        // Dragon and Laptop Gun /*0x83*/
          //s8 unk60;         /*0x60*/
          //s8 dualweaponnum; /*0x61*/
-@@ -3170,21 +3269,26 @@ typedef union
+@@ -3170,21 +3279,26 @@ typedef union
      typedef struct GuardRecord
      {
          inherits   PropDefHeaderRecord;
@@ -963,7 +995,7 @@ index 53fd4fa..b07bd82 100644
          ChrRecord *Data;         /*0x18*/
      } GuardRecord;
  
-@@ -3309,9 +3413,10 @@ typedef union
+@@ -3309,9 +3423,10 @@ typedef union
      {
          inherits PropDefHeaderRecord;
          s32      chrnum; //0x4
@@ -977,7 +1009,7 @@ index 53fd4fa..b07bd82 100644
      } GuardAttributeRecord;
      #define New_GuardAttributeRecord(ID1, ID2)                    \
          {                                                 \
-@@ -3356,8 +3461,9 @@ typedef union
+@@ -3356,8 +3471,9 @@ typedef union
      typedef struct TagObjectRecord
      {
          inherits                PropDefHeaderRecord;
@@ -989,7 +1021,7 @@ index 53fd4fa..b07bd82 100644
          struct TagObjectRecord *NextTag;
          ObjectRecord *          TaggedObject;
      } TagObjectRecord;
-@@ -3454,8 +3560,9 @@ typedef union
+@@ -3454,8 +3570,9 @@ typedef union
      typedef struct PhotographObjectRecord
      {
          inherits PropDefHeaderRecord;
@@ -1001,7 +1033,7 @@ index 53fd4fa..b07bd82 100644
          u32      unk8;
          PropRecord *lastprop;
      } PhotographObjectRecord;
-@@ -3567,8 +3674,9 @@ typedef union
+@@ -3567,8 +3684,9 @@ typedef union
      {
          inherits    ObjectRecord;
          AIRecord *  ailist;       /*0x80*/
@@ -1013,7 +1045,7 @@ index 53fd4fa..b07bd82 100644
          f32         speed;        /*0x88 ?*/
          f32         wheelxrot;    /*0x8c ? changes when onscreen*/
          f32         wheelyrot;    /*0x90 ?*/
-@@ -3594,8 +3702,9 @@ typedef union
+@@ -3594,8 +3712,9 @@ typedef union
      {
          inherits      ObjectRecord;
          AIRecord *    ailist;          /*0x80*/
@@ -1025,7 +1057,7 @@ index 53fd4fa..b07bd82 100644
          f32           rotoryrot;       /*0x88 changes when onscreen even after destruction*/
          f32           rotaryspeed;     /*0x8c*/
          f32           rotaryspeedaim;  /*0x90 CONFIRMED*/
-@@ -4217,4 +4326,12 @@ struct font {
+@@ -4217,4 +4336,12 @@ struct font {
  	struct fontchar chars[94]; // can be 135 in PAL
  };
  
@@ -5361,7 +5393,7 @@ index 82300b4..6ee52d6 100644
 +
  #endif
 diff --git a/src/game/bondview.c b/src/game/bondview.c
-index acfea50..0618fbc 100644
+index acfea50..d930d96 100644
 --- a/src/game/bondview.c
 +++ b/src/game/bondview.c
 @@ -1,4 +1,8 @@
@@ -5541,6 +5573,51 @@ index acfea50..0618fbc 100644
          currentPlayerEquipWeaponWrapper(GUNLEFT, starting_weapon[GUNLEFT]);
          currentPlayerEquipWeaponWrapper(GUNRIGHT, starting_weapon[GUNRIGHT]);
  
+@@ -1631,6 +1720,44 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
+         g_CurrentPlayer->pos.f[0] = pos->f[0];
+         g_CurrentPlayer->pos.f[1] = pos->f[1];
+         g_CurrentPlayer->pos.f[2] = pos->f[2];
++#ifdef GE_PORT_NATIVE
++        /* Co-op spawn separation.
++         *
++         * A single-player mission has one start pad, so under GETV_COOP every player is
++         * placed on it. Measured on Dam: player 0 at 20202.2,60.6,16902.1 and player 1 at
++         * 20203.7,55.3,16902.1, the same spot to within a couple of units of height, and
++         * neither moves under input that carries the solo player 16930 units.
++         *
++         * Fan the extra players out around the pad rather than stacking them. The offset is
++         * in the X/Z plane only: Y is left to stanGetPositionYValue below, which resamples
++         * the floor, so a player nudged sideways still lands on the ground rather than
++         * inside it.
++         *
++         * GETV_COOP_SPREAD sets the radius in world units, default 60. Player 0 is never
++         * moved, so solo play and the first co-op player keep the mission's own start. */
++        {
++            extern s32 gePortCoopPlayers(void);
++            if (gePortCoopPlayers() >= 2) {
++                s32 idx = get_cur_playernum();
++                if (idx > 0) {
++                    static f32 spread = -1.0f;
++                    if (spread < 0.0f) {
++                        const char *e = getenv("GETV_COOP_SPREAD");
++                        spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 60.0f;
++                        if (spread < 0.0f) { spread = 0.0f; }
++                    }
++                    /* Four fixed directions, so two players end up opposite each other
++                     * rather than both drifting the same way. */
++                    switch (idx & 3) {
++                    case 1: g_CurrentPlayer->pos.f[0] += spread; break;
++                    case 2: g_CurrentPlayer->pos.f[2] += spread; break;
++                    case 3: g_CurrentPlayer->pos.f[0] -= spread; break;
++                    default: break;
++                    }
++                }
++            }
++        }
++#endif
+         g_CurrentPlayer->pos2.f[0] = pos2->f[0];
+         g_CurrentPlayer->pos2.f[1] = pos2->f[1];
+         g_CurrentPlayer->pos2.f[2] = pos2->f[2];
 diff --git a/src/game/bondview.h b/src/game/bondview.h
 index 3539224..a38297d 100644
 --- a/src/game/bondview.h
@@ -22926,7 +23003,7 @@ index e5fdbc2..50beb36 100644
      {
          objective_count = objective->menu;
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..6b7ebe9 100644
+index 4ebf14b..04fb819 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -29,6 +29,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
@@ -23093,7 +23170,20 @@ index 4ebf14b..6b7ebe9 100644
          }
      }
      return 0;
-@@ -283,6 +416,19 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
+@@ -153,7 +286,12 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
+ 
+ 
+ //horrible hack to get ai matching, but it does correctly refrence this func with 2 params
++/* ELF weak alias, ignored on Mach-O. Gated for the same reason as the libultra ones: on
++ * Linux it is honoured, and an alias emitted from a header-less hack is not something to
++ * leave to the linker. Nothing in the port calls objectiveGetStatus_WEAK. */
++#ifndef GE_PORT_NATIVE
+ #pragma weak    objectiveGetStatus_WEAK = get_status_of_objective
++#endif
+ 
+ /*
+  * Return Status of objective.
+@@ -283,6 +421,19 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
                              break;
                          }
                      }
@@ -23113,7 +23203,7 @@ index 4ebf14b..6b7ebe9 100644
                      if (status == OBJECTIVESTATUS_COMPLETE)
                      {
                          if (currentstatus != OBJECTIVESTATUS_COMPLETE)
-@@ -351,6 +497,23 @@ void display_objective_status_text_on_status_change(void)
+@@ -351,6 +502,23 @@ void display_objective_status_text_on_status_change(void)
  
      for (i = 0; i <= objective_count; i++) {
          status = get_status_of_objective(i);
@@ -23137,7 +23227,7 @@ index 4ebf14b..6b7ebe9 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +686,52 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +691,52 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -29286,6 +29376,44 @@ index ca8d6f7..895ba85 100644
          paramPtr->next = drvr->paramList;
          drvr->paramList = paramPtr;
      }
+diff --git a/src/libultra/gu/cosf.c b/src/libultra/gu/cosf.c
+index 096a29a..35e8923 100644
+--- a/src/libultra/gu/cosf.c
++++ b/src/libultra/gu/cosf.c
+@@ -30,8 +30,14 @@
+  * ====================================================================
+  */
+ 
++/* These are ELF weak aliases. Mach-O has no equivalent and clang ignores them, which is
++ * why they have been harmless so far. On Linux they are honoured, and the second one is
++ * actively dangerous: it would put a weak global `cosf` in libge.a competing with libm's.
++ * The define below is what the file actually relies on, and it works everywhere. */
++#ifndef GE_PORT_NATIVE
+ #pragma weak fcos = __cosf
+ #pragma weak cosf = __cosf
++#endif
+ #define	fcos __cosf
+ 
+ /* coefficients for polynomial approximation of cos on +/- pi/2 */
+diff --git a/src/libultra/gu/sinf.c b/src/libultra/gu/sinf.c
+index ba22955..14925c9 100644
+--- a/src/libultra/gu/sinf.c
++++ b/src/libultra/gu/sinf.c
+@@ -30,8 +30,14 @@
+  * ====================================================================
+  */
+ 
++/* These are ELF weak aliases. Mach-O has no equivalent and clang ignores them, which is
++ * why they have been harmless so far. On Linux they are honoured, and the second one is
++ * actively dangerous: it would put a weak global `sinf` in libge.a competing with libm's.
++ * The define below is what the file actually relies on, and it works everywhere. */
++#ifndef GE_PORT_NATIVE
+ #pragma weak fsin = __sinf
+ #pragma weak sinf = __sinf
++#endif
+ #define	fsin __sinf
+ 
+ /* coefficients for polynomial approximation of sin on +/- pi/2 */
 diff --git a/src/libultrare/audio/env.c b/src/libultrare/audio/env.c
 index f0910d8..d9de367 100644
 --- a/src/libultrare/audio/env.c
