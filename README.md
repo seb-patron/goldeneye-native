@@ -28,16 +28,14 @@ problem actually fixed rather than worked around.
 *FXAA off left, on right, on the PP7 barrel. It is a screen-space approximation, not MSAA, but
 on geometry this sparse it is nearly free.*
 
-## Quick start
+## Getting it running
 
-```bash
-git clone https://github.com/SegfaultEvan/goldeneye-native
-cd goldeneye-native
-./getv/build_mac.sh all        # or build_linux.sh / build_windows.ps1
-```
+Four things: this repository, the [decompilation](https://github.com/n64decomp/007), your own
+ROM, and one build command. The ROM is read once to extract assets and never touched again.
 
-You supply your own ROM. The build reads it once to extract assets; what you run afterwards
-never touches it. Full steps in [`docs/SETUP.md`](docs/SETUP.md).
+**[`docs/SETUP.md`](docs/SETUP.md) is the guide** -- every prerequisite, every command, the
+expected output of each, and what to do when one of them is wrong. The asset-generation step is
+the one that cannot be shortened.
 
 ## The frame-rate problem
 
@@ -240,10 +238,11 @@ are unresolved. The SDL2 2.30.9 source tree is supplied by you in `deps/SDL2-2.3
 from source, because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link
 into an arm64 binary.
 
-## Quick start
+## Setup: sources and assets
 
-Prerequisites: macOS 13+ on Apple silicon, Xcode Command Line Tools, CMake, Python 3, and the
-stock `/bin/bash` 3.2. Nothing newer is needed.
+You need a C compiler, Python 3 and CMake. macOS wants Xcode Command Line Tools and works with
+the stock `/bin/bash` 3.2; Linux wants SDL2 and GL headers; Windows needs none of that beyond
+what `fetch_deps_windows.ps1` installs for you.
 
 ```bash
 tools/fetch-thirdparty.sh fetch                                       # the fifteen files
@@ -267,92 +266,147 @@ a tree that fails to compile or silently misbehaves.
 
 ![Split screen in a concrete interior with weapons and armour on the floor](docs/images/screenshot-05.jpg)
 
-## Build
+## Build: compiling
 
-`getv/build_mac.sh` takes one of `sdl`, `lib`, `port`, `app`, `all`, `run` or `env`.
-
-- `sdl` builds SDL2 2.30.9 for arm64 into `~/.n64tvos/sdl2-mac` - deliberately outside the
-  repository, because the repository path contains a space and that has broken header search
-  paths here before. Once per machine.
-- `lib` compiles the game, assets, audio and platform layer into `build-mac/obj`.
-- `port` recompiles only `getv/port/**` and the two harness objects. About 23 s.
-- `app` archives the objects into `build-mac/libge.a` and links `build-mac/goldeneye`.
-- `all` is `lib` followed by `app`.
-- `run` launches the linked binary, forwarding any arguments.
-- `env` prints the resolved SDK, SDL prefix, target triple and output paths.
-
-There is no incremental check - every `lib` is a full recompile of all 992 objects. Measured at
-21 s wall for `all` on an Apple M1 with warm caches. Compilation is parallel; `GETV_JOBS` caps the
-job count and defaults to 6.
-
-Expected output from `./build_mac.sh all`:
-
-```
-  mac FAILED: src/tlb_manage.c
-mac game: 167 built, 1 failed
-mac assets: 746 built, 0 failed
-mac audio: 40 built, 0 failed
-mac port layer: 23 built, 0 failed
-```
-
-**The one failure is expected.** `src/tlb_manage.c` programs the N64's MIPS R4300 translation
-lookaside buffer. There is no TLB to program here and nothing links against it, so it is left to
-fail rather than being papered over. Seven further N64-hardware and SGI-dev-host files
-(`usb.c`, `rmon.c`, `sched.c`, `ramrom.c`, `init.c`, `indy_comms.c`, `indy_commands.c`) are
-excluded by name in the build script for the same reason. Any second name in a `mac FAILED:` line
-is a real problem.
-
-### Linux
-
-`getv/build_linux.sh` takes the same targets. Needs a C compiler, SDL2 and GL headers:
-
-```
-sudo apt install build-essential pkg-config libsdl2-dev libgl1-mesa-dev
-CC=gcc ./getv/build_linux.sh all
-```
-
-Optional: `tools/fetch_lua.sh` for mod scripting and `tools/fetch_imgui.sh` for the launcher
-and dev overlay. Both are optional at every level; without them the build omits the feature
-and the entry points compile away.
+Three scripts, same targets: `lib`, `port`, `app`, `all`, `run`, `env`. `all` is the one you
+want. `port` recompiles only the platform layer, which is about 23 seconds against a full
+rebuild.
 
 ### Windows
 
-Native, with mingw-w64. No MSYS2, no Cygwin, no WSL. One command installs the whole
-toolchain, SDL2, GLEW, Lua and Dear ImGui:
+Native mingw-w64. No MSYS2, no Cygwin, no WSL. One command installs the toolchain, SDL2, GLEW,
+Lua and Dear ImGui:
 
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_deps_windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File getv\build_windows.ps1 -Target all
 ```
 
-The build is driven from PowerShell rather than bash on purpose: it needs only the compiler,
-not a working POSIX emulation layer. `getv/build_windows.sh` exists for hosts with a healthy
-MSYS2.
+PowerShell rather than bash on purpose: it needs a compiler, not a working POSIX layer.
+`getv/build_windows.sh` exists for hosts with a healthy MSYS2. `-Target dist` stages a folder
+that runs on a machine with no toolchain at all.
+
+### Linux
+
+```bash
+sudo apt install build-essential pkg-config libsdl2-dev libgl1-mesa-dev
+./getv/build_linux.sh all
+```
+
+Uses clang if you have it, gcc otherwise.
+
+### macOS
+
+```bash
+./getv/build_mac.sh sdl     # once per machine
+./getv/build_mac.sh all
+```
+
+`sdl` builds SDL2 2.30.9 into `~/.n64tvos/sdl2-mac`, outside the repository, because the
+repository path contains a space and that has broken header search here before.
+
+### Optional everywhere
+
+`tools/fetch_lua.sh` for mod scripting, `tools/fetch_imgui.sh` for the launcher and dev
+overlay. Without them the build omits the feature and the entry points compile away.
+
+### What a good build looks like
+
+```
+game:        167 built, 1 failed
+assets:      746 built, 0 failed
+audio:        40 built, 0 failed
+port layer:   31 built, 0 failed
+```
+
+**The one failure is expected.** `src/tlb_manage.c` programs the R4300's translation lookaside
+buffer. There is no TLB here and nothing links against it, so it fails rather than being
+papered over. Seven more N64-hardware and SGI-dev-host files are excluded by name for the same
+reason. Windows excludes three rather than one. **Any second name in a `FAILED:` line is a real
+problem.**
+
+There is no incremental check: every `lib` is a full recompile of all 992 objects, 21 seconds
+on an M1 with warm caches. `GETV_JOBS` caps parallelism, default 6.
 
 ## Run
 
 ```bash
-./build-mac/goldeneye
+./getv/build-mac/goldeneye            # --launcher opens the launcher first
 ```
 
-Keyboard is bound to controller port 0 by default: WASD to move, arrow keys to look, Space or
-Left Ctrl to fire, E or Return to use, Q to aim, Z and X for the shoulder buttons, Tab to pause,
-IJKL for the d-pad, F11 for fullscreen. A connected gamepad works alongside it - whichever input
-is held wins, so plugging in a pad never degrades the keyboard and vice versa.
+Mouse and keyboard are on by default.
+
+| | |
+|---|---|
+| Move | `W` `A` `S` `D` |
+| Look | mouse, or the arrow keys |
+| Fire | left mouse, `Space` or `L Ctrl` |
+| Aim | right mouse or `Q` |
+| Use | `E` or `F` |
+| Crouch / stand | `C` or `L Shift` / `V` |
+| Weapon | `R` |
+| Pause and watch | `Tab` |
+| Release the cursor | `Esc` |
+
+A gamepad works alongside, not instead: whichever input is being held wins, so plugging a pad
+in never takes the keyboard away.
+
+## Mods and modes
+
+Everything here is off unless you turn it on, and nothing needs a rebuild.
+
+**CRT.** A real one, not a filter slapped on top. Scanlines, aperture mask, barrel curve and
+vignette are four independent terms over the same post-process target FXAA uses, so you tune a
+look instead of picking a preset. It ships as a Lua mod in `mods/crt_screen/` that you can read,
+change or untick.
+
+**Horde.** Guards respawn where they fell and the waves grow as you clear them. Any level
+becomes a survival map, including the ones that were never meant to be.
+
+**Rulesets.** Enemy health, damage, accuracy, ammo, player health and explosion strength, each a
+percentage. Presets for classic, hardcore, survival, chaos and horde. Make guards one-shot
+snipers, or make yourself one.
+
+**Cheats by name.** The game's own, from the launcher or a config file. No GameShark codes, no
+memory patching, because we have the source: `paintball`, `dk_mode`, `infinite_ammo`,
+`no_radar`, `enemy_rockets` and the rest, set as flags the game itself reads.
+
+**Start anywhere with anything.** Any mission, any weapon, dual wielded if you like. Dam with
+two RC-P90s is a config line.
+
+**Lua.** Drop a `mod.lua` in `mods/` and you get `onFrame`, `onPlayerSpawn` and `onWeaponFire`
+with a read API into live game state, plus `ge.postfx{}` to write the CRT parameters every
+frame. No rebuild, no recompile.
+
+**Presentation.** FXAA, supersampling, MSAA, anisotropic filtering, arbitrary resolution and
+three texture filters including the N64's own three-point.
+
+**Bots and an agent API.** Alpha, and honest about it: the input path and state readout exist
+and a first bot runs against them, but it does not play yet. The interesting part is that
+GoldenEye already ships a behaviour VM -- 250 AI opcodes with a program counter, branches and
+subroutine calls, driving every guard in the campaign -- so bots are assembly over machinery
+that already works. See [`docs/BOTS.md`](docs/BOTS.md).
 
 ## Configuration
 
-On first run, with no configuration file present anywhere, the game writes a commented template to
-`~/Library/Application Support/GoldenEye/goldeneye.cfg` and immediately reads it back. This is not
-a convenience: several of the port's tuned defaults - `invert_look` being the case in point - only
-exist in that template, and a default that lives in a file nobody has generated is not a default.
-Edit that file to taste, or regenerate it with `--write-config`.
+Most of it is in the launcher. For the rest there is one file, written on first run and read
+back immediately:
 
-Save data is separate, and lands in
-`~/Library/Application Support/Goldeneye-Native/eeprom.bin`. It is 512 bytes: GoldenEye saves to
-the cartridge's serial EEPROM, and writes are atomic.
+| | |
+|---|---|
+| Windows | `%APPDATA%\Goldeneye-Native\goldeneye.cfg` |
+| macOS | `~/Library/Application Support/Goldeneye-Native/goldeneye.cfg` |
+| Linux | `~/.local/share/Goldeneye-Native/goldeneye.cfg` |
 
-A few keys worth knowing:
+A `goldeneye.cfg` sitting next to the binary wins over that, which is what the Windows `dist`
+folder ships. `--config=<path>` or `GETV_CONFIG` override both. `--write-config` regenerates
+the template.
+
+The file is generated rather than assumed because some tuned defaults live only in it, and a
+default nobody has generated is not a default.
+
+Saves are separate: `eeprom.bin` in the same directory, 512 bytes, written atomically, because
+GoldenEye saves to the cartridge's serial EEPROM.
 
 | Key | Values | Default |
 |---|---|---|
@@ -363,10 +417,9 @@ A few keys worth knowing:
 | `controls` | any of Rare's eight styles, by number or name | `2.2 galore` |
 | `roster` | `8`, `64` | `8` |
 
-Every setting is documented in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). The named cheat
-system is in [`docs/CHEATS.md`](docs/CHEATS.md). If you want to change the game rather than play
-it, start at [`docs/MODDING.md`](docs/MODDING.md); the roughly 250 `GETV_*` environment gates are
-the practical extension surface, and each defaults to preserving stock behaviour.
+Everything else is in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md), cheats by name in
+[`docs/CHEATS.md`](docs/CHEATS.md), and modding in [`docs/MODDING.md`](docs/MODDING.md). Around
+275 `GETV_*` gates are the real extension surface; each defaults to stock behaviour.
 
 ## Layout
 
