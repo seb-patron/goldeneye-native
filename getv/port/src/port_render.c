@@ -278,6 +278,77 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortEventFrame(rendered);
     }
 
+    /* GETV_FLOORMAP=<n>: print the walkable floor around player 0, once, as a grid.
+     *
+     * "The bot cannot leave x=-1361" is a claim about geometry, and reading it off a stream of
+     * per-frame traces is guesswork. This asks the engine directly, over a grid, and draws the
+     * answer -- so the shape of the room, the exit and the barrier are all visible at once.
+     *
+     * n is the half-width in cells; the cell size is GETV_FLOORMAP_STEP (default 60, about the
+     * radius the stan query snaps within). Printed once, at a fixed frame, so two runs compare.
+     *
+     * Legend: '@' the player, '#' no standable tile, '.' floor at the player's level, and
+     * '^'/'v' floor more than a step above or below -- height matters, since a tile a bot cannot
+     * climb to is not a route even though the query says it is standable.
+     */
+    {
+        static int done = -1;
+        if (done < 0) {
+            const char *e = getenv("GETV_FLOORMAP");
+            done = (e && *e && *e != '0') ? -atoi(e) : 0;   /* negative = pending, magnitude = n */
+        }
+        if (done < 0 && rendered >= 600) {
+            extern int gePortProbeStandable(float x, float y, float z, float radius,
+                                            float *out_y, int *out_room);
+            int n = -done;
+            const char *se = getenv("GETV_FLOORMAP_STEP");
+            float cell = (se && *se) ? (float) atof(se) : 60.0f;
+            GePlayerState ps;
+
+            done = 1;
+            if (gePlayerStateGet(0, &ps) && ps.present) {
+                float base = ps.y;
+                /* The query SNAPS to the nearest standable tile within the radius rather than
+                 * testing the point, so the radius decides what the map means. Large and every
+                 * cell finds something; small and it answers the question actually being asked.
+                 * GETV_FLOORMAP_RADIUS makes that explicit instead of tying it to the cell. */
+                const char *re = getenv("GETV_FLOORMAP_RADIUS");
+                float probe_r = (re && *re) ? (float) atof(re) : 8.0f;
+                int gx, gz;
+
+                gePortProbeStandable(ps.x, ps.y, ps.z, 60.0f, &base, NULL);
+                printf("[getv][floormap] player (%.0f %.0f %.0f) floor y=%.0f  cell=%.0f  "
+                       "+x right, +z down\n",
+                       (double) ps.x, (double) ps.y, (double) ps.z, (double) base, (double) cell);
+                for (gz = -n; gz <= n; gz++) {
+                    char row[192];
+                    int c = 0;
+                    for (gx = -n; gx <= n && c < 190; gx++) {
+                        float fy;
+                        float px = ps.x + (float) gx * cell;
+                        float pz = ps.z + (float) gz * cell;
+                        char ch;
+                        if (gx == 0 && gz == 0) {
+                            ch = '@';
+                        } else if (!gePortProbeStandable(px, base, pz, probe_r, &fy, NULL)) {
+                            ch = '#';
+                        } else if (fy - base > 40.0f) {
+                            ch = '^';
+                        } else if (base - fy > 90.0f) {
+                            ch = 'v';
+                        } else {
+                            ch = '.';
+                        }
+                        row[c++] = ch;
+                    }
+                    row[c] = '\0';
+                    printf("[getv][floormap] %s\n", row);
+                }
+                fflush(stdout);
+            }
+        }
+    }
+
     /* GETV_STATEAPI=1: the player API's state readout, once a second, per slot.
      *
      * The point is the `fields` word rather than the values. Each accessor refuses instead of
