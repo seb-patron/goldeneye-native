@@ -12312,7 +12312,7 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..e5fd35f 100644
+index cb8e24a..dcfb3fd 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
 @@ -1,3 +1,4 @@
@@ -12358,7 +12358,7 @@ index cb8e24a..e5fd35f 100644
  
      #ifdef BUGFIX_R1
      jpD_800484CC = (f32) deltaFrames;
-@@ -72,6 +95,133 @@ void updateFrameCounters(s32 deltaFrames)
+@@ -72,6 +95,163 @@ void updateFrameCounters(s32 deltaFrames)
   * Waits until the appropriate time has passed before updating the frame counters.
   * This function effectively controls the frame rate by waiting for the next tick.
   */
@@ -12460,6 +12460,36 @@ index cb8e24a..e5fd35f 100644
 +        if (ge_sim_div < 1) ge_sim_div = 1;
 +        if (ge_sim_div > 8) ge_sim_div = 8;
 +
++        /* Above 60Hz the clock choice stops being a fidelity preference and becomes a
++         * correctness one.
++         *
++         * With the default SYNTHETIC counter, osGetCount() advances a fixed amount per call,
++         * so every rendered frame counts as exactly one video field and the game's wall-clock
++         * speed IS the render rate -- at 120Hz the world runs at double speed. GETV_SIMDIV
++         * does not rescue that: it changes how OFTEN the simulation ticks, and the skipped
++         * fields are accumulated into the tick, so total game time per real second still
++         * follows the render rate.
++         *
++         * GETV_REALCLOCK=1 makes a field a unit of REAL time, which is what decouples game
++         * speed from render rate. It costs determinism (port_os.c:180), which is why it is
++         * not the default at 60Hz where it changes nothing.
++         *
++         * ⚠️ UNVERIFIED ON THIS HARDWARE. The machine this was written on is a 60Hz panel and
++         * the headless harness is compute-bound at ~56fps, so GETV_FPS changes nothing that
++         * can be measured here. This warning encodes the reasoning; it is not a test result. */
++        {
++            const char *f = getenv("GETV_FPS");
++            const char *rc = getenv("GETV_REALCLOCK");
++            s32 hz = (f && *f) ? atoi(f) : 0;
++            if (hz > 60 && !(rc && *rc == '1')) {
++                osSyncPrintf("[getv][simdiv] WARNING: GETV_FPS=%d with the synthetic clock. "
++                             "Every rendered frame counts as one video field, so the game "
++                             "will run at %d/60 = %.2fx speed. Set GETV_REALCLOCK=1 to make a "
++                             "field a unit of real time. A divider does NOT fix this.\n",
++                             (s32) hz, (s32) hz, (double) hz / 60.0);
++            }
++        }
++
 +        /* Warn when the resulting simulation rate cannot carry the fastest weapon. This is the
 +         * whole of the "divider 4 is broken" report: it was never the divider, it was a 15Hz
 +         * simulation being asked for 29.2 rounds a second. */
@@ -12492,7 +12522,7 @@ index cb8e24a..e5fd35f 100644
  void waitForNextFrame(void) //maybe WaitForTick
  {
    u32 nextFrameTime; //next frame time?
-@@ -84,7 +234,32 @@ void waitForNextFrame(void) //maybe WaitForTick
+@@ -84,7 +264,32 @@ void waitForNextFrame(void) //maybe WaitForTick
      #endif
    } while (nextFrameTime < frameDelay);
  

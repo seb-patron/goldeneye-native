@@ -355,6 +355,37 @@ not exercise because it is not vsync-locked. `auto` encodes the intended relatio
 guard catches the clearly-wrong cases; proving the high-refresh case needs a real high-refresh
 display, and until someone runs one this stays an open item rather than a solved one.
 
+### 🔴 The clock is the real high-refresh answer, and a divider is not
+
+Chasing the divider-4 ceiling led somewhere more important. `osGetCount()` is **synthetic by
+default** (`port_os.c:180`): it advances a fixed amount per call, so **every rendered frame
+counts as exactly one video field** and the game's wall-clock speed **is** the render rate. At
+120Hz the world runs at 2x.
+
+⚠️ **A divider does not rescue that**, and it is worth being explicit because it looks like it
+should. `GETV_SIMDIV` changes how OFTEN the simulation ticks; the skipped fields are
+accumulated and handed to the tick, so total game time per real second still follows the render
+rate. The divider fixes *cadence*, not *rate*.
+
+**`GETV_REALCLOCK=1` is what decouples them** -- it makes a field a unit of real time. It costs
+determinism, which is why it is not the default at 60Hz, where it changes nothing.
+
+A warning now fires when `GETV_FPS > 60` and the clock is synthetic, naming the exact speed
+multiplier. Verified firing at 120Hz, and silent both with `GETV_REALCLOCK=1` and at 60Hz.
+
+### What could NOT be tested, and why
+
+This machine is a **MacBookPro17,1** -- the 2020 M1 13-inch, a 60Hz panel; ProMotion arrived
+on the 2021 14/16-inch. And the headless harness is **compute-bound at ~56fps**, so `GETV_FPS`
+changes nothing measurable: 901 frames took 15.9-16.1s at `GETV_FPS` 60 and 120, with and
+without `GETV_REALCLOCK`, all four giving 5.0 shots per real second.
+
+So every statement about behaviour above 60Hz in this document is **reasoning from the code,
+not a measurement**. The guards encode that reasoning so a misconfiguration announces itself,
+but proving it needs a real high-refresh display. Anyone who has one: run
+`GETV_FPS=120 GETV_REALCLOCK=1 GETV_SIMDIV=auto` and check whether the world moves at the
+right speed. That single run closes the last open question here.
+
 **Divider 4 is limited, not quantised.** `shots`, `beams`, `traces` and `objhit` all show the
 same 22.5% drift and move together, because they are all downstream of `shots` and inherit the
 saturation ceiling above: a weapon cannot fire more often than the simulation ticks.
