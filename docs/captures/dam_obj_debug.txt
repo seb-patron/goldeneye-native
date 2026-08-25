@@ -1,0 +1,203 @@
+[obj] IFObjectNotDestroyed tag=5 tagrec=0xbaf959538 tagged=0xbaf959550 rtbits=0x10 obj=0xbaf959550 prop=0x108011598 healthy=1
+[obj] IFObjectNotDestroyed tag=4 tagrec=0xbaf959670 tagged=0xbaf959688 rtbits=0x10 obj=0xbaf959688 prop=0x1080115f0 healthy=1
+[obj] IFObjectNotDestroyed tag=6 tagrec=0xbaf957f90 tagged=0xbaf957fa8 rtbits=0x10 obj=0xbaf957fa8 prop=0x1080110c8 healthy=1
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf950098 type=25 ObjRefID=1 TextID=25 MinDiff=2 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a0 type=25 ObjRefID=2 TextID=25 MinDiff=3 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] n=0 rec=0xbaf9500a8 type=25 ObjRefID=3 TextID=24 MinDiff=23 cur=0 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=0/3 ptr=0xbaf950078 text=11286 diff=1 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000001
+[obj] n=1 rec=0xbaf9500b4 type=23 ObjRefID=1 TextID=11287 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=1 rec=0xbaf9500cc type=26 ObjRefID=256 TextID=27 MinDiff=8192 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500d4 type=27 ObjRefID=8192 TextID=27 MinDiff=2048 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] n=1 rec=0xbaf9500dc type=27 ObjRefID=2048 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=1/3 ptr=0xbaf9500b4 text=11287 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=2 rec=0xbaf9500e8 type=23 ObjRefID=2 TextID=11288 MinDiff=2 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=2 rec=0xbaf950100 type=26 ObjRefID=1024 TextID=27 MinDiff=512 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] n=2 rec=0xbaf950108 type=27 ObjRefID=512 TextID=24 MinDiff=23 cur=1 running=0 regs1=0x00000000 sz=2
+[obj] SUMMARY i=2/3 ptr=0xbaf9500e8 text=11288 diff=2 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000002
+[obj] n=3 rec=0xbaf950114 type=23 ObjRefID=3 TextID=11289 MinDiff=0 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=3 rec=0xbaf95012c type=26 ObjRefID=4096 TextID=24 MinDiff=9 cur=0 running=1 regs1=0x00000000 sz=2
+[obj] SUMMARY i=3/3 ptr=0xbaf950114 text=11289 diff=0 seldiff=0 status=0 prev=0 regs1=0x00000000 unkD_raw=0 unkD_fixed=0 word3=0x00000000
+[obj] n=0 rec=0xbaf950078 type=23 ObjRefID=0 TextID=11286 MinDiff=1 cur=1 running=1 regs1=0x00000000 sz=6
+[obj] n=0 rec=0xbaf950090 type=25 ObjRefID=0 TextID=25 MinDiff=1 cur=0 running=1 regs1=0x00000000 sz=2

@@ -15,6 +15,7 @@
  */
 #include <stdint.h>   /* gfx_pc.h uses uint32_t but does not include it */
 #include <stdio.h>
+#include "ge_player_api.h"
 
 #include <PR/gbi.h>
 
@@ -267,6 +268,31 @@ void gePortRenderDisplayList(void *firstGdl)
     {
         extern void gePortBotRouteFrame(int frame);
         gePortBotRouteFrame(rendered);
+    }
+
+    /* GETV_STATEAPI=1: the player API's state readout, once a second, per slot.
+     *
+     * The point is the `fields` word rather than the values. Each accessor refuses instead of
+     * writing a zero, so a field missing from the list means the game had no answer -- and a
+     * consumer that cannot see that difference will happily train on it. Printing the list is
+     * the cheapest way to catch an accessor that silently stopped answering. */
+    {
+        static int st = -1;
+        if (st < 0) { const char *e = getenv("GETV_STATEAPI"); st = (e && *e && *e != '0'); }
+        if (st && (rendered % 60) == 0) {
+            int slot;
+            for (slot = 0; slot < 4; slot++) {
+                GePlayerState ps;
+                if (!gePlayerStateGet(slot, &ps) || !ps.present) { continue; }
+                printf("[getv][state] p%d fields=0x%02x pos=(%.0f %.0f %.0f) ang=%.1f room=%d "
+                       "hp=%.1f arm=%.1f dead=%d wpn=%d ammo=%d/%d k=%d d=%d shots=%d\n",
+                       slot, ps.fields, (double) ps.x, (double) ps.y, (double) ps.z,
+                       (double) ps.angle, ps.room, (double) ps.health, (double) ps.armour,
+                       ps.dead, ps.weapon, ps.ammo_clip, ps.ammo_reserve,
+                       ps.kills, ps.deaths, ps.shots);
+            }
+            fflush(stdout);
+        }
     }
 
     {

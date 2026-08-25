@@ -357,10 +357,43 @@ int gePlayerStateGet(int slot, GePlayerState *out)
         }
     }
 
-    /* Everything else needs accessors written where `struct player` is visible, i.e. inside the
-     * decompilation next to gePortPlayerPos. Until those land, the field stays absent from
-     * `fields` rather than being reported as zero -- an agent trained on a health of 0.0 that
-     * actually means "not implemented" would be learning from a lie. */
+    /* The rest, from the accessors in objective_status.c. Each refuses rather than writing a
+     * zero, so a field only appears in `fields` when the game actually had an answer -- an
+     * agent trained on a health of 0.0 that really meant "not implemented" would be learning
+     * from a lie, and that distinction is the whole point of the flags word. */
+    {
+        extern int gePortPlayerRoom(int idx, int *out_room);
+        extern int gePortPlayerHealth(int idx, float *hp, float *armour, int *dead);
+        extern int gePortPlayerWeapon(int idx, int *weapon, int *clip, int *reserve);
+        extern int gePortPlayerScore(int idx, int *kills, int *deaths, int *shots);
+
+        int room, weapon, clip, reserve, kills, deaths, shots, dead;
+        float hp, armour;
+
+        if (gePortPlayerRoom(slot, &room)) {
+            out->room = room;
+            out->fields |= GE_ST_ROOM;
+        }
+        if (gePortPlayerHealth(slot, &hp, &armour, &dead)) {
+            out->health = hp;
+            out->armour = armour;
+            out->dead   = dead;
+            out->fields |= GE_ST_HEALTH;
+        }
+        if (gePortPlayerWeapon(slot, &weapon, &clip, &reserve)) {
+            out->weapon       = weapon;
+            out->ammo_clip    = clip;
+            out->ammo_reserve = reserve;
+            out->fields |= GE_ST_WEAPON;
+        }
+        if (gePortPlayerScore(slot, &kills, &deaths, &shots)) {
+            out->kills  = kills;
+            out->deaths = deaths;
+            out->shots  = shots;
+            out->fields |= GE_ST_SCORE;
+        }
+    }
+
     return 1;
 }
 
