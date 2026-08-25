@@ -1,5 +1,5 @@
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..00143a6 100644
+index 4ebf14b..b392c75 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -1,7 +1,11 @@
@@ -235,7 +235,7 @@ index 4ebf14b..00143a6 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +695,571 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +695,707 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -640,6 +640,142 @@ index 4ebf14b..00143a6 100644
 +    return bondviewTestLineUnobstructed(&tile, from_x, from_z, to_x, to_z,
 +                                        CDTYPE_BG | CDTYPE_PATHBLOCKER,
 +                                        &a, &b) != 0;
++}
++
++
++/* Put player 0 on a given spot, for measurement. NOT a gameplay teleport.
++ *
++ * This exists because the walkability line test is seeded from a stan tile and the seed decides
++ * the answer -- 98%, 73% or 0% walkable on the same 2926 Bunker 1 pairs depending only on where
++ * the test started from. The only seed known to be correct is the tile a body is actually
++ * standing on, so the way to measure an edge honestly is to stand at one end of it.
++ *
++ * change_player_pos_to_target is the game's own placement, the one spawn uses, and it takes the
++ * tile explicitly rather than snapping -- so the caller controls which surface the player lands
++ * on instead of the query guessing.
++ *
++ * ⚠️ RETURNS WHERE IT ACTUALLY LANDED, and callers must check. A placement that is clamped or
++ * refused leaves the player at the old position, and a validator that assumes it moved then
++ * seeds every subsequent edge from the wrong place and reports confident, plausible, wrong
++ * verdicts -- while the run completes and prints a percentage. That failure has already happened
++ * twice on this project in other forms.
++ */
++int gePortTeleportProbe(f32 x, f32 y, f32 z, f32 *out_x, f32 *out_y, f32 *out_z)
++{
++    extern struct player *g_playerPointers[4];
++    extern void change_player_pos_to_target(struct collision434 *col, coord3d *pos, StandTile *stan);
++    struct player *p = g_playerPointers[0];
++    StandTile *tile;
++    coord3d target;
++    f32 qx = x, qy = y, qz = z;
++
++    if (p == NULL) { return 0; }
++
++    /* Snap ONCE, deliberately, and keep what it found. The caller wants the surface nearest the
++     * node; what it must not have is a different surface chosen per edge later. */
++    tile = sub_GAME_7F0AFB78(&qx, &qy, &qz, 60.0f);
++    if (tile == NULL) { return 0; }
++
++    target.f[0] = qx;
++    target.f[1] = qy;
++    target.f[2] = qz;
++    change_player_pos_to_target(&p->field_488, &target, tile);
++
++    if (p->prop != NULL) {
++        p->prop->pos.x = qx;
++        p->prop->pos.y = qy;
++        p->prop->pos.z = qz;
++    }
++
++    if (out_x != NULL) { *out_x = p->field_488.collision_position.f[0]; }
++    if (out_y != NULL) { *out_y = p->field_488.collision_position.f[1]; }
++    if (out_z != NULL) { *out_z = p->field_488.collision_position.f[2]; }
++    return 1;
++}
++
++
++/* WHAT is in the way, not merely whether something is. The sensing primitive.
++ *
++ * gePortProbeWalkable answers yes or no, and a bot that only knows "blocked" behaves the same
++ * way at a wall, a crate and a closed door -- when the right response to each is completely
++ * different: turn, shoot or step around, press the action button. Every obstacle recovery
++ * written so far has been a guess for exactly this reason.
++ *
++ * bondviewTestLineUnobstructed takes a collision-type mask, so asking it once per category tells
++ * the caller what kind of thing stopped the line. Four calls, and the answer is a bitmask rather
++ * than a verdict, so a caller can decide which categories it cares about instead of accepting
++ * ours -- a door is an obstacle to a route planner and an opportunity to a bot with a hand.
++ *
++ * Returns GE_SENSE_CLEAR (0) when nothing blocks.
++ *
++ * ⚠️ Seeded from the tile under `from`, so it inherits the seeding rule the edge validator
++ * learned the hard way: this is honest when asked from where a body is standing and guesswork
++ * when asked about a point nobody is at.
++ */
++int gePortSenseLine(f32 from_x, f32 from_z, f32 to_x, f32 to_z)
++{
++    extern struct player *g_playerPointers[4];
++    extern s32 bondviewTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z,
++                                            f32 dest_x, f32 dest_z, s32 cdtypes,
++                                            struct coord3d *coord_p, struct coord3d *coord_dest);
++    static const s32 kinds[4] = {
++        CDTYPE_BG,                                   /* 1: level geometry -- turn or go around */
++        CDTYPE_DOORS,                                /* 2: openable -- press the action button */
++        CDTYPE_OBJS | CDTYPE_PATHBLOCKER,            /* 4: crates and scenery -- shoot or skirt */
++        CDTYPE_CHRS | CDTYPE_PLAYERS                 /* 8: a body -- wait, or shoot it */
++    };
++    StandTile *seed;
++    coord3d a, b;
++    f32 qx = from_x, qy = 0.0f, qz = from_z;
++    s32 result = 0;
++    s32 i;
++
++    seed = sub_GAME_7F0AFB78(&qx, &qy, &qz, 60.0f);
++    if (seed == NULL && g_playerPointers[0] != NULL) {
++        seed = g_playerPointers[0]->field_488.current_tile_ptr;
++    }
++    if (seed == NULL) { return 0; }
++
++    a.f[0] = from_x; a.f[1] = 0.0f; a.f[2] = from_z;
++    b.f[0] = to_x;   b.f[1] = 0.0f; b.f[2] = to_z;
++
++    for (i = 0; i < 4; i++) {
++        StandTile *t = seed;
++        if (bondviewTestLineUnobstructed(&t, from_x, from_z, to_x, to_z, kinds[i], &a, &b) == 0) {
++            result |= (1 << i);
++        }
++    }
++    return result;
++}
++
++/* Can this character see the player? The AI's own question, asked from the character.
++ *
++ * Sight in this engine is a clear line plus a facing cone; the line is what the AI opcodes
++ * ultimately reduce to. Characters and players are excluded from the mask deliberately -- another
++ * guard standing between them does not make the player unseen, it makes the shot awkward.
++ *
++ * ⚠️ This is line of sight, NOT whether the guard is currently looking. Alertness and
++ * lastseetarget60 from the enemy API answer that, and conflating the two produces a bot that
++ * hides from a guard facing the other way and strolls past one that is staring at it.
++ */
++int gePortSenseVisibleTo(s32 chr_index, s32 player_index)
++{
++    extern ChrRecord *g_ChrSlots;
++    extern s32 g_NumChrSlots;
++    extern struct player *g_playerPointers[4];
++    ChrRecord *chr;
++    struct player *p;
++
++    if (chr_index < 0 || chr_index >= (s32) g_NumChrSlots) { return 0; }
++    if (player_index < 0 || player_index > 3) { return 0; }
++
++    chr = &g_ChrSlots[chr_index];
++    p = g_playerPointers[player_index];
++    if (chr->model == NULL || chr->prop == NULL || p == NULL || p->prop == NULL) { return 0; }
++
++    return (gePortSenseLine(chr->prop->pos.x, chr->prop->pos.z,
++                            p->prop->pos.x, p->prop->pos.z)
++            & (1 | 4)) == 0;   /* geometry and solid props block sight; doors and bodies do not */
 +}
 +
 +

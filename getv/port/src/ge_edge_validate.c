@@ -37,6 +37,7 @@
 #include "ge_world_api.h"
 
 extern int gePortProbeWalkable(float from_x, float from_z, float to_x, float to_z);
+extern int gePortTeleportProbe(float x, float y, float z, float *ox, float *oy, float *oz);
 
 static int ge_ev_done;
 
@@ -52,7 +53,7 @@ void gePortEdgeValidateFrame(int frame)
     const char *out_path;
     char def_path[512];
     float max_d;
-    int want_frame, n, i, j, pairs = 0, walkable = 0, asym = 0, first_row = 1;
+    int want_frame, n, i, j, pairs = 0, walkable = 0, asym = 0, first_row = 1, unplaced = 0;
     FILE *fp;
 
     if (ge_ev_done || on == NULL || *on == '\0' || *on == '0') { return; }
@@ -102,7 +103,26 @@ void gePortEdgeValidateFrame(int frame)
 
     for (i = 0; i < n; i++) {
         GeWorldWaypoint a;
+        float lx, ly, lz, ex, ez;
+
         if (!geWorldWaypoint(i, &a)) { continue; }
+
+        /* STAND AT THIS NODE BEFORE MEASURING ITS EDGES.
+         *
+         * The line test is seeded from a stan tile and the seed decides the answer -- the same
+         * 2926 Bunker 1 pairs came back 98%, 73% or 0% walkable depending only on where the test
+         * started. The only seed known to be correct is the tile a body is standing on, so the
+         * honest way to measure an edge is to stand at one end of it.
+         *
+         * ⚠️ VERIFY THE MOVE LANDED. A refused or clamped placement leaves the player where it
+         * was, and every edge measured afterwards is seeded from the wrong place -- while the run
+         * completes and prints a percentage that looks like a result. Nodes that cannot be
+         * stood on are counted and reported rather than measured from wherever the player
+         * happened to be. */
+        if (!gePortTeleportProbe(a.x, a.y, a.z, &lx, &ly, &lz)) { unplaced++; continue; }
+        ex = lx - a.x;
+        ez = lz - a.z;
+        if (((ex * ex) + (ez * ez)) > (90.0f * 90.0f)) { unplaced++; continue; }
 
         for (j = 0; j < n; j++) {
             GeWorldWaypoint b;
@@ -134,12 +154,13 @@ void gePortEdgeValidateFrame(int frame)
     }
 
     if (first_row) { fprintf(fp, "  \"edges\": ["); }
-    fprintf(fp, "\n  ],\n  \"pairs\": %d,\n  \"walkable\": %d,\n  \"asymmetric\": %d\n}\n",
-            pairs, walkable, asym);
+    fprintf(fp, "\n  ],\n  \"pairs\": %d,\n  \"walkable\": %d,\n  \"asymmetric\": %d,\n"
+                "  \"seed\": \"stood at each node\",\n  \"unplaced_nodes\": %d\n}\n",
+            pairs, walkable, asym, unplaced);
     fclose(fp);
     printf("[getv][edges] %s: %d pair(s) within %.0f units, %d walkable (%d%%), "
-           "%d asymmetric -> %s\n",
+           "%d asymmetric, %d node(s) UNPLACEABLE -> %s\n",
            geWorldLevel(), pairs, (double) max_d, walkable,
-           pairs ? (walkable * 100 / pairs) : 0, asym, out_path);
+           pairs ? (walkable * 100 / pairs) : 0, asym, unplaced, out_path);
     fflush(stdout);
 }

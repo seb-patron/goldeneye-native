@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include "ge_player_api.h"
 #include "ge_world_api.h"
+#include "ge_sense_api.h"
 
 #include <PR/gbi.h>
 
@@ -284,6 +285,39 @@ void gePortRenderDisplayList(void *firstGdl)
     {
         extern void gePortEdgeValidateFrame(int frame);
         gePortEdgeValidateFrame(rendered);
+    }
+
+    /* GETV_SENSEDUMP=1: what is around the player, once a second.
+     *
+     * The interaction half of the API. Waypoints say where things are; this says what is in the
+     * way and who is looking, which is what a bot needs every tick and could not ask before. */
+    {
+        static int sd = -1;
+        if (sd < 0) { const char *e = getenv("GETV_SENSEDUMP"); sd = (e && *e && *e != '0'); }
+        if (sd && (rendered % 60) == 0) {
+            GePlayerState ps;
+            if (gePlayerStateGet(0, &ps) && ps.present && (ps.fields & GE_ST_ANGLE)) {
+                GeSenseContact ahead;
+                float clear;
+                char what[64];
+
+                geSenseAhead(ps.x, ps.z, ps.angle, 300.0f, &ahead);
+                what[0] = '\0';
+                if (ahead.what == GE_SENSE_CLEAR) { strcpy(what, "clear"); }
+                else {
+                    if (ahead.what & GE_SENSE_WALL)   { strcat(what, "WALL "); }
+                    if (ahead.what & GE_SENSE_DOOR)   { strcat(what, "DOOR "); }
+                    if (ahead.what & GE_SENSE_OBJECT) { strcat(what, "OBJECT "); }
+                    if (ahead.what & GE_SENSE_BODY)   { strcat(what, "BODY "); }
+                }
+                clear = geSenseClearestHeading(ps.x, ps.z, ps.angle, 180.0f, 300.0f);
+                printf("[getv][sense] f=%d ahead=%-18s at %5.0fu   clearest=%+6.0f deg   "
+                       "watchers=%d\n",
+                       rendered, what, (double) ahead.distance,
+                       (double) (clear - ps.angle), geSenseWatchers(0));
+                fflush(stdout);
+            }
+        }
     }
 
     /* GETV_WORLDDUMP=1: what the level knowledge can answer, once, from where the player is.
