@@ -29,6 +29,12 @@
 
 #include "ge_player_api.h"
 
+/* Declared at the top because gePortDemoPads calls both and sits above their definitions. Same
+ * shape as the ge_lua.c break: GCC demotes an implicit declaration to a warning and Clang makes
+ * it an error, so a call above its definition builds on exactly one of our two machines. */
+static void ge_dm_init(void);
+static void ge_dm_advance(void);
+
 #define GE_DEMO_HDR 0xF0
 
 static unsigned char *ge_dm_blob;
@@ -55,8 +61,65 @@ static signed char ge_dm_pad[4][2];
 static unsigned int ge_dm_btn[4];
 static int ge_dm_live;
 
+/* Advance one recorded frame. Called from ge_playback, which is where pads are CONSUMED.
+ *
+ * 🔑 THIS IS THE WHOLE FIX. It used to advance from the render loop, and the two run at different
+ * rates against a 20-deep sample ring, so the pads published were read a tick or more out of
+ * step: feeding pad 0 alone walked the player somewhere wrong, and feeding both barely moved it.
+ * A replay is a promise that frame N of the recording is frame N of the run, and only the code
+ * that consumes a tick can keep it.
+ */
+static void ge_dm_advance(void)
+{
+    const unsigned char *rec;
+    int p;
+
+    if (ge_dm_blob == NULL || ge_dm_done) { return; }
+
+    if (ge_dm_left <= 0) {
+        unsigned char count, randseed;
+
+        if (ge_dm_off + 4 > ge_dm_size) { goto finished; }
+        count = ge_dm_blob[ge_dm_off + 1];
+        randseed = ge_dm_blob[ge_dm_off + 2];
+        ge_dm_off += 4;
+        if (count == 0 || ge_dm_off + (long) count * ge_dm_pads * 4 > ge_dm_size) { goto finished; }
+
+        /* The recorded RNG byte against ours. ramromreplay ABORTS on a mismatch; we count and
+         * keep going, because how far a replay stays in step is the interesting number and the
+         * first frame it does not is only the start of the answer. */
+        if ((unsigned char) (gePlayerSeedFingerprint() & 0xFF) != randseed) { ge_dm_mismatch++; }
+        ge_dm_left = count;
+    }
+
+    rec = ge_dm_blob + ge_dm_off;
+    for (p = 0; p < ge_dm_pads && p < 4; p++) {
+        ge_dm_pad[p][0] = (signed char) rec[p * 4 + 0];
+        ge_dm_pad[p][1] = (signed char) rec[p * 4 + 1];
+        ge_dm_btn[p] = (unsigned int) rec[p * 4 + 2] | ((unsigned int) rec[p * 4 + 3] << 8);
+    }
+    ge_dm_live = 1;
+    ge_dm_off += (long) ge_dm_pads * 4;
+    ge_dm_left--;
+    ge_dm_frame++;
+    return;
+
+finished:
+    ge_dm_done = 1;
+    ge_dm_live = 0;
+    printf("[getv][demo] finished: %d frames replayed, %d seed mismatch(es)\n",
+           ge_dm_frame, ge_dm_mismatch);
+    fflush(stdout);
+}
+
 int gePortDemoPads(int pad, signed char *sx, signed char *sy, unsigned int *btn)
 {
+    /* Advance once per tick, on the first pad asked for. ge_playback walks pads 0..3 in one
+     * pass, so advancing per call would consume four recorded frames per tick. */
+    if (pad == 0) {
+        if (!ge_dm_ready) { ge_dm_init(); }
+        ge_dm_advance();
+    }
     if (!ge_dm_live || pad < 0 || pad >= ge_dm_pads) { return 0; }
     if (sx != NULL)  { *sx = ge_dm_pad[pad][0]; }
     if (sy != NULL)  { *sy = ge_dm_pad[pad][1]; }
@@ -114,62 +177,17 @@ static void ge_dm_init(void)
 
 void gePortDemoFrame(int frame)
 {
-    GePlayerInput in;
-    const unsigned char *rec;
-
+    /* Trace only. The advance moved to ge_dm_advance, called from ge_playback -- see the note
+     * there. Leaving the render hook advancing as well would consume two frames per tick. */
     (void) frame;
     if (!ge_dm_ready) { ge_dm_init(); }
     if (ge_dm_blob == NULL || ge_dm_done) { return; }
-
-    if (ge_dm_left <= 0) {
-        unsigned char count, randseed;
-
-        if (ge_dm_off + 4 > ge_dm_size) { ge_dm_done = 1; goto finished; }
-        count = ge_dm_blob[ge_dm_off + 1];
-        randseed = ge_dm_blob[ge_dm_off + 2];
-        ge_dm_off += 4;
-        if (count == 0 || ge_dm_off + (long) count * ge_dm_pads * 4 > ge_dm_size) {
-            ge_dm_done = 1;
-            goto finished;
+    if (ge_dm_trace && ge_dm_frame > 0 && (ge_dm_frame % 300) == 0) {
+        static int last;
+        if (last != ge_dm_frame) {
+            last = ge_dm_frame;
+            printf("[getv][demo] frame %d, %d seed mismatch(es)\n", ge_dm_frame, ge_dm_mismatch);
+            fflush(stdout);
         }
-
-        /* The recorded RNG byte against ours. ramromreplay aborts playback on a mismatch; we
-         * COUNT instead and keep going, because the interesting output of a replay is how far it
-         * stays in step, not the first frame it does not. */
-        if ((unsigned char) (gePlayerSeedFingerprint() & 0xFF) != randseed) { ge_dm_mismatch++; }
-        ge_dm_left = count;
     }
-
-    /* Pads interleaved per frame; pad 0 is the one the game reads turn from. */
-    rec = ge_dm_blob + ge_dm_off;
-    {
-        int p;
-        for (p = 0; p < ge_dm_pads && p < 4; p++) {
-            ge_dm_pad[p][0] = (signed char) rec[p * 4 + 0];
-            ge_dm_pad[p][1] = (signed char) rec[p * 4 + 1];
-            /* button_low then button_high, as recorded. */
-            ge_dm_btn[p] = (unsigned int) rec[p * 4 + 2] | ((unsigned int) rec[p * 4 + 3] << 8);
-        }
-        ge_dm_live = 1;
-    }
-    memset(&in, 0, sizeof in);
-    in.stick_x = ge_dm_pad[0][0];
-    in.stick_y = ge_dm_pad[0][1];
-
-    ge_dm_off += (long) ge_dm_pads * 4;
-    ge_dm_left--;
-    ge_dm_frame++;
-
-    gePlayerPost(0, gePlayerTick() + 1, &in, 1);
-
-    if (ge_dm_trace && (ge_dm_frame % 300) == 0) {
-        printf("[getv][demo] frame %d, %d seed mismatch(es)\n", ge_dm_frame, ge_dm_mismatch);
-        fflush(stdout);
-    }
-    return;
-
-finished:
-    printf("[getv][demo] finished: %d frames replayed, %d seed mismatch(es)\n",
-           ge_dm_frame, ge_dm_mismatch);
-    fflush(stdout);
 }
