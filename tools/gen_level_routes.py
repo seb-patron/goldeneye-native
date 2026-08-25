@@ -286,15 +286,20 @@ def turn_by_turn(know, path, guards, rooms=None):
             # answer.
             through = None
             if exposure == "adjacent_room" and portals:
-                a = (pb[0], pb[1] + EYE_HEIGHT, pb[2])
-                bb = (gp[0], gp[1] + EYE_HEIGHT, gp[2])
+                # Named eye_* rather than a/b: `a` is the step's origin NODE in the enclosing
+                # loop, and reusing the name here silently replaced it with a position, so every
+                # step recorded coordinates where a node index belonged. Nothing complained --
+                # the JSON stayed well-formed and only broke when something tried to look the
+                # node up.
+                eye_here = (pb[0], pb[1] + EYE_HEIGHT, pb[2])
+                eye_them = (gp[0], gp[1] + EYE_HEIGHT, gp[2])
                 through = False
                 for op in portals:
                     if step_room not in op["rooms"] or grm not in op["rooms"]:
                         continue
                     poly = op["poly"]
                     for i in range(1, len(poly) - 1):
-                        if _tri_hit(a, bb, poly[0], poly[i], poly[i + 1]):
+                        if _tri_hit(eye_here, eye_them, poly[0], poly[i], poly[i + 1]):
                             through = True
                             break
                     if through:

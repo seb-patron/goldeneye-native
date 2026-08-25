@@ -261,6 +261,14 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortBotAiFrame(rendered);
     }
 
+    /* A slot policy that walks an actual route, using the world API for knowledge. Same seam as
+     * gePortBotFrame above -- it just knows where it is going. Inert unless GETV_BOT_ROUTE
+     * names a slot. */
+    {
+        extern void gePortBotRouteFrame(int frame);
+        gePortBotRouteFrame(rendered);
+    }
+
     {
         static int trace = -1;
         if (trace == -1) {

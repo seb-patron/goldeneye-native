@@ -345,6 +345,18 @@ int gePlayerStateGet(int slot, GePlayerState *out)
     out->z = pos[2];
     out->fields |= GE_ST_POSITION;
 
+    /* Heading, from the same forward vector the walk code steers by. gePortPlayerAngle lives
+     * in the decomp because struct player is a game type; it refuses a zero vector rather than
+     * reporting a heading of zero, so an absent angle stays absent from `fields`. */
+    {
+        extern int gePortPlayerAngle(int idx, float *out_deg);
+        float deg;
+        if (gePortPlayerAngle(slot, &deg)) {
+            out->angle = deg;
+            out->fields |= GE_ST_ANGLE;
+        }
+    }
+
     /* Everything else needs accessors written where `struct player` is visible, i.e. inside the
      * decompilation next to gePortPlayerPos. Until those land, the field stays absent from
      * `fields` rather than being reported as zero -- an agent trained on a health of 0.0 that
