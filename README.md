@@ -64,7 +64,9 @@ Same source tree, same features, one `build` script each.
 ![FXAA off, left; on, right. The PP7 barrel at 4x](docs/images/fxaa-comparison.png)
 
 *FXAA off on the left, on on the right, zoomed on the PP7 barrel. The stair-stepping along the
-slide is what a 1997 renderer at a 2026 resolution looks like without it.*
+slide is what a 1997 renderer at a 2026 resolution looks like without it. FXAA is a post-2009
+screen-space approximation and it is not MSAA, but on geometry this sparse it costs almost
+nothing and there is nothing subtle for it to ruin.*
 
 - **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
   anisotropic filtering, adjustable field of view, and three texture filters including the
@@ -127,6 +129,12 @@ memory from outside, which is fragile and specific to one build.
 This is built from a **decompilation**: the game as readable, editable C. It compiles to a
 normal executable for your operating system. There is no N64 being simulated, so there is no
 emulation overhead, no core to configure, no plugin to pick, and no ROM loaded at runtime.
+
+The renderer helps more than it sounds like it should. The N64's RDP is a fixed-function
+pipeline with a two-cycle colour combiner and 4KB of TMEM, which is close enough to the GL
+most of us grew up on that translating display lists into draw calls is mostly bookkeeping
+rather than reinvention. That is why the graphics side of a port like this comes up quickly
+and then spends years on the last five per cent.
 
 Practically, that means things like these are ordinary code changes rather than impossible:
 
