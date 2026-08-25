@@ -358,6 +358,30 @@ def record_schemas():
     return out
 
 
+# Three record types are laid out differently in the raw exports than in the annotated ones.
+# These are measured, not tuned. Runway settles it on its own: its five Vehicle records sit at
+# 1883, 1942, 2001, 2060 and 2119 -- a constant stride of 59 against the annotated files' 44 --
+# and the fifth is followed at exactly +59 by the array terminator. Five records at a fixed
+# stride landing on the terminator is not a coincidence a wrong number produces.
+#
+# Door and Collectable were found the same way, by asking where the next valid header actually
+# begins rather than by trying sizes until something fit: Door 63 against a declared 64 over 28
+# observations, Collectable 35 against 34 over 18, both unanimous.
+#
+# The confirmation is that nothing here was fitted to the pickups. With these three sizes, Dam,
+# Frigate and Depot each independently produce sixteen AmmoBox, nine Collectable and two Armour
+# -- the exact normalised loadout already verified from the annotated conversions. And the word
+# arithmetic closes exactly in all four files, e.g. Dam 70*32 + 1*63 + 16*45 + 9*35 + 2*34 + 1
+# terminator = 3407, plus one sentinel word = 3408, the array's true length.
+RAW_SIZE_OVERRIDE = {"Door": 63, "Collectable": 35, "Vehicle": 59}
+
+
+def raw_schema():
+    """The propDefs schema as the raw exports lay it out."""
+    return {t: (nm, RAW_SIZE_OVERRIDE.get(nm, sz))
+            for t, (nm, sz) in record_schemas()["propDefs"].items()}
+
+
 def parse_props_raw(text, stem):
     """Walk a raw hex propDefs array using the derived schema.
 
@@ -372,7 +396,7 @@ def parse_props_raw(text, stem):
     if not words:
         return [], {}
 
-    schema = record_schemas()["propDefs"]
+    schema = raw_schema()
     props, tags, i, idx, clean = [], {}, 0, 0, False
     while i < len(words):
         t = words[i] & 0xFF
@@ -381,7 +405,10 @@ def parse_props_raw(text, stem):
             break                      # drifted: stop rather than walk off into garbage
         name, size = entry
         if name == "EndProps":
-            clean = True               # walked the whole array and landed on its terminator
+            # Landing on the terminator is not enough on its own -- a drifted walk can hit one
+            # early. It has to land on the terminator AT THE END, with nothing after it but the
+            # array's sentinel word. That is what makes a clean walk mean something.
+            clean = len(words) - i <= 2
             break
         if size >= 2 and i + 1 < len(words):
             w1 = words[i + 1]

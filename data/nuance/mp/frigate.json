@@ -3,7 +3,7 @@
  "arena": true,
  "notes": [
   "The Frigate arena is a ship interior: narrow corridors, hatches and several decks connected by stairs. It is the tightest multi-level stage in the game, and it plays like Basement stacked vertically.",
-  "DATA CAVEAT: this stage exports its prop records as raw words the extractor cannot yet walk cleanly, so it has no pickup census. Pads and geometry are reliable; no entry here claims an armour or ammunition count.",
+  "This stage exports its prop records as bare hex with no type comments; the extractor now walks them with a schema measured from the raw exports, and the walk closes exactly on the array terminator, so its census is trustworthy.",
   "See mp/_general.json for the cross-arena layer."
  ],
  "nuance": [
@@ -15,6 +15,36 @@
    "claim": "Almost the entire stage is narrow corridor, so engagements are head-on at short range and there is very little flanking available on a single deck.",
    "applies": { "mode": "any" },
    "action": { "verb": "fight_from_chokepoint", "at": "corridor" }
+  },
+  {
+   "id": "frigate-mp-doors-everywhere",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "The ship is second only to Bunker for door density, so almost every metre of movement passes a threshold and there is nowhere that is not a chokepoint.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+   "because": "The arena carries twenty-seven Door records across only two hundred and six pads."
+  },
+  {
+   "id": "frigate-mp-standard-loadout-in-a-tight-space",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "The usual conversion loadout is packed into one of the smallest stages, so armour and ammunition are never far away and attrition strategies do not work.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "body_armour" },
+   "because": "Two Armour, sixteen AmmoBox and nine Collectable records across two hundred and six pads."
+  },
+  {
+   "id": "frigate-mp-monitors-are-cover",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Banks of screens break up the few open compartments, giving the only cover the ship offers away from its corridors.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "lean_from_cover", "at": "monitor_bank" },
+   "because": "The arena carries six MultiMonitor and two SingleMonitor records."
   },
   {
    "id": "frigate-mp-decks-are-the-flank",

@@ -84,16 +84,49 @@ python3 tools/gen_bot_archetypes.py --out build/bots
 
 Exit code is non-zero if anything fails to resolve.
 
+## The assembler
+
+`tools/asm_bot_ai.py` compiles each archetype into an actual AI list.
+
+Both halves of the encoding are read from `bondaicommands.h` at run time rather than
+transcribed: `#define <name>_ID 0xNN` gives the opcode byte, and the macro body gives the
+operand layout -- a bare parameter is one byte, `CharArrayFrom16Rev(x)` is two, little-endian.
+An opcode whose number or arity changes upstream therefore breaks the build here instead of
+producing a bot that runs the wrong instruction.
+
+Labels are ids, not offsets. The game's own lists declare targets with `label(n)` and jump to
+`n`, so no address fixups are needed -- but the assembler still checks that every referenced
+label is declared and none is declared twice, because a jump to a missing label is a bot that
+silently falls through.
+
+Each list is generated as the same loop shape the game's own guard lists use: set the dials,
+then a sleep-and-poll main label, a perception check that branches to engage, and a return to
+main. What varies per archetype is which dials are written, which perception checks are wired,
+and what the engage branch does -- the same axis Perfect Dark's simulants vary along. Aggression
+becomes a literal dice roll via `random_generate_seed` and `if_random_seed_greater_than`, so a
+timid archetype breaks off more often than a committed one.
+
+```bash
+python3 tools/asm_bot_ai.py --out build/bots/ai
+```
+
+18 lists, 596 bytes total. Outputs are a `.bin` per archetype, a `bot_ai_lists.c` written with
+the game's own macros so it can be read and compiled directly, and a manifest.
+
+**Every list is round-tripped**: the emitted bytes are disassembled with the same instruction
+set and must reproduce exactly what was assembled. Emitting bytes and trusting them is how you
+ship a list whose operand is a byte out, which makes the interpreter read the next opcode from
+the middle of an operand and do something arbitrary. This makes that a build failure.
+
+The arity checking earned its keep immediately: the first run rejected every `guard_try_*` call
+because they take exactly one operand -- the label to jump to when the action cannot be performed -- and the generator was passing two.
+
 ## What this does not yet do
 
-The archetypes are specifications, not implementations. Nothing yet compiles them into AI lists
-or attaches them to multiplayer characters. The remaining work is:
+1. Attaching a compiled list to a multiplayer character slot. The campaign path spawns
+   characters from setup records; the arena path needs an equivalent.
+2. Wiring target selection (`weakest`, `leader`, `last_attacker`, `fixed_rival`) to scoreboard
+   and damage state, which the opcode table does not expose on its own.
 
-1. An assembler from archetype JSON to AI-list bytecode.
-2. Attaching a compiled list to a multiplayer character slot -- the campaign path spawns
-   characters from setup records, and the arena path will need an equivalent.
-3. Wiring target selection (`weakest`, `leader`, `last_attacker`, `fixed_rival`) to
-   scoreboard and damage state, which the opcode table does not expose on its own.
-
-Item 3 is the only one that needs new engine code. The other two are assembly and plumbing over
-machinery that already runs.
+Item 2 is the only part that needs genuinely new engine code. Item 1 is plumbing over machinery
+that already runs.

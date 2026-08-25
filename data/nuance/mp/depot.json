@@ -3,7 +3,7 @@
  "arena": true,
  "notes": [
   "The Depot arena is a rail yard: large open ground between warehouse interiors and rolling stock. It is one of the biggest stages, and it mixes the two extremes -- exposed yard and tight interior -- more sharply than any other.",
-  "DATA CAVEAT: this stage exports its prop records as raw words the extractor cannot yet walk cleanly, so it has no pickup census. Pads and geometry are reliable; no entry here claims an armour or ammunition count.",
+  "This stage exports its prop records as bare hex with no type comments; the extractor now walks them with a schema measured from the raw exports, and the walk closes exactly on the array terminator, so its census is trustworthy.",
   "It was also the last arena to get any data at all: its setup stem is Ump_setupdepot where the campaign file is Usetupdepo, so the derived name missed and it silently had no arena file until that was fixed.",
   "See mp/_general.json for the cross-arena layer."
  ],
@@ -17,6 +17,36 @@
    "applies": { "mode": "any" },
    "action": { "verb": "rotate_between", "anchor": "yard_and_interior" },
    "because": "Three hundred and eighty-nine pads, second only to Dam among the arenas."
+  },
+  {
+   "id": "depot-mp-doors-gate-the-interiors",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "The warehouse side of the stage is heavily partitioned, so once a fight goes indoors it becomes a threshold fight regardless of how open the yard outside is.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "fight_from_chokepoint", "at": "warehouse_doorway" },
+   "because": "The arena carries twenty-two Door records against only twenty-five StandardProp records."
+  },
+  {
+   "id": "depot-mp-standard-loadout",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Pickups are the normalised conversion set, so armour is worth taking but not worth holding, and the map is decided by which half of it you choose to fight in.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "body_armour" },
+   "because": "Two Armour, sixteen AmmoBox and nine Collectable records, the same loadout as every other converted arena."
+  },
+  {
+   "id": "depot-mp-vehicle-cover",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "There is drivable or solid rolling stock in the yard, which is the one piece of hard cover out in the open.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "lean_from_cover", "at": "rolling_stock" },
+   "because": "The arena carries a Vehicle record in addition to its static props."
   },
   {
    "id": "depot-mp-yard-is-exposed",

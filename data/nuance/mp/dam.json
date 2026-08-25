@@ -3,7 +3,7 @@
  "arena": true,
  "notes": [
   "The Dam arena is the largest multiplayer stage in the game by pad count, and it is almost entirely outdoors: a long dam wall, guard towers and open approaches.",
-  "DATA CAVEAT: this stage exports its prop records as raw words that the extractor cannot yet walk cleanly, so there is no pickup census for it. Its pads and geometry are reliable; nothing here claims an armour or ammunition count, and any entry that would need one is marked community rather than verified.",
+  "This stage exports its prop records as bare hex with no type comments. The extractor now walks them with a schema measured from the raw exports themselves, and the walk closes exactly on the array terminator, so its pickup census is as trustworthy as any annotated stage.",
   "See mp/_general.json for the cross-arena layer."
  ],
  "nuance": [
@@ -16,6 +16,26 @@
    "applies": { "mode": "any" },
    "action": { "verb": "control_area", "around": "high_traffic_routes" },
    "because": "Four hundred and fourteen pads, more than any other arena including Caverns."
+  },
+  {
+   "id": "dam-mp-standard-loadout",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Pickups are the normalised conversion set spread across the largest arena in the game, so reaching armour is a long committed trip rather than a detour and holding it is impractical.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "body_armour" },
+   "because": "The arena carries the standard conversion loadout of two Armour, sixteen AmmoBox and nine Collectable records, spread over four hundred and fourteen pads."
+  },
+  {
+   "id": "dam-mp-ammo-is-not-the-constraint",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Ammunition is plentiful relative to how rarely players are in contact on a map this size, so suppressing fire across the wall is affordable.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "contest_pickup", "item": "ammo" },
+   "because": "Sixteen AmmoBox records across four hundred and fourteen pads, the same count as much smaller arenas."
   },
   {
    "id": "dam-mp-the-wall-is-a-shooting-gallery",

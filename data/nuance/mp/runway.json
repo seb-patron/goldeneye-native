@@ -3,7 +3,7 @@
  "arena": true,
  "notes": [
   "The Runway arena is a wide open airstrip flanked by cliffs, with a handful of structures. It is the most exposed stage in the game and one of the smallest by pad count, which is a punishing combination: nowhere to hide and nowhere far to run.",
-  "DATA CAVEAT: this stage exports its prop records as raw words the extractor cannot yet walk cleanly, so it has no pickup census. Pads and geometry are reliable; no entry here claims an armour or ammunition count.",
+  "This stage is the one genuine outlier in the game: it carries NO armour, NO ammunition boxes and NO collectables at all, where every other converted arena carries the same two/sixteen/nine loadout. That is not a gap in the extraction -- its records are fully accounted for, with every word of the array assigned, and there is simply no room in it for pickups.",
   "See mp/_general.json for the cross-arena layer."
  ],
  "nuance": [
@@ -16,6 +16,46 @@
    "applies": { "mode": "any" },
    "action": { "verb": "expect_alarm", "reason": "constant_contact" },
    "because": "One hundred and ninety-two pads makes this one of the smallest arenas, and it is outdoors throughout."
+  },
+  {
+   "id": "runway-mp-no-pickups-at-all",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "There is no armour, no ammunition and no collectables anywhere on this stage, so everything a player has comes from the chosen weapon set and nothing else. It is the only arena in the game where this is true.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "avoid", "target": "pickup_routes" },
+   "because": "The arena carries zero Armour, AmmoBox and Collectable records, against two, sixteen and nine on every other converted arena."
+  },
+  {
+   "id": "runway-mp-map-control-is-meaningless",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "With nothing to pick up, there is no ground worth holding: the usual armour-rotation game does not exist here and position is only ever about sightlines.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "avoid", "target": "armour_control_plan" },
+   "because": "No Armour or AmmoBox records exist on the stage, so there is no resource to contest."
+  },
+  {
+   "id": "runway-mp-weapon-set-decides-the-match",
+   "kind": "mode",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Because nothing is picked up, the weapon set chosen in the lobby is the entire loadout for the whole match, which makes this stage far more sensitive to that choice than any other.",
+   "applies": { "weapon_set": "any" },
+   "action": { "verb": "prefer_weapon", "weapon": "starting_set" },
+   "because": "The stage has no pickup records of any kind, so nothing can change what a player is holding."
+  },
+  {
+   "id": "runway-mp-vehicles-on-the-strip",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Several vehicles sit on the strip, and on a stage with almost no other cover they are the main things breaking line of sight.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "lean_from_cover", "at": "vehicle" },
+   "because": "The arena carries five Vehicle records, more than any other stage."
   },
   {
    "id": "runway-mp-the-strip-is-a-killing-field",
