@@ -248,6 +248,41 @@ STAN_STEM = {
 }
 
 
+def floor_under(tiles, pos):
+    """Height of the floor a body at `pos` would stand on, or None if nothing is beneath it.
+
+    WHY THIS IS EMITTED AT ALL: mac-getv's runtime edge validator has to seed each line-of-sight
+    test from a stan tile, and the engine's own lookup SNAPS to the nearest standable tile -- which
+    can be on the far side of a wall. Seeded three different ways, the same 2926 Bunker 1 pairs
+    came out 98%, 73% and 0% walkable. Those are not three estimates; they are one measurement and
+    two artefacts.
+
+    A node's own floor height is a cheap check on that. If the tile the engine snapped to sits at a
+    materially different height from the floor directly under the node, the snap has left the
+    node's surface -- detectable per edge, offline, before spending a run on it. It cannot prove an
+    edge walkable; it says which seeds to distrust.
+
+    HIGHEST CONTAINED TILE AT OR BELOW THE POINT. Not the lowest, and the distinction is the whole
+    function. Taking the lowest reports a pad on cradle's antenna platform as standing 2078 units
+    above its floor, because the tile under it in plan view is the ground far below. Real
+    containment, wrong question. See tools/audit_route_heights.py, where that cost two corrections.
+    """
+    x, y, z = pos[0], pos[1], pos[2]
+    best = None
+    for t in tiles:
+        if not t["is_floor"]:
+            continue
+        p3 = t["poly3"]
+        xs = [p[0] for p in p3]
+        zs = [p[2] for p in p3]
+        if x < min(xs) or x > max(xs) or z < min(zs) or z > max(zs):
+            continue
+        ty = sum(p[1] for p in p3) // len(p3)
+        if ty <= y and (best is None or ty > best):
+            best = ty
+    return best
+
+
 def find_stan(level):
     stem = STAN_STEM.get(level, level)
     hits = glob.glob(os.path.join(STAN_DIR, "Tbg_%s_all_p_stanZ.c" % stem))
@@ -300,11 +335,15 @@ def main():
                 adj.setdefault(o["room"], set()).add(t["room"])
 
         wp_rooms = {}
+        wp_floor = {}
         for w in know.get("waypoints", []):
             if not w.get("pos"):
                 continue
             room, dist = nearest_room(tiles, w["pos"])
             wp_rooms[str(w["index"])] = room
+            fy = floor_under(tiles, w["pos"])
+            if fy is not None:
+                wp_floor[str(w["index"])] = fy
 
         prop_rooms = {}
         for p in know.get("props", []):
@@ -324,6 +363,267 @@ def main():
             overlap = len(stan_rooms & prooms)
 
         rooms = sorted({t["room"] for t in tiles})
+
+        # ---------------------------------------------------------------- the navigation mesh
+        #
+        # Two floor tiles are neighbours if they SHARE AN EDGE. Derived from the geometry rather
+        # than read from the format, and that is deliberate.
+        #
+        # The obvious route was the per-point field parse_stan calls "links". It is not a tile
+        # link: a tile id is 0x1de322 and that field holds 0x0014 or 0x0000, and StandTilePoint's
+        # own comment says the bit work is done by hand. Emitting it as adjacency produced 651
+        # disconnected components across 866 Bunker 1 tiles, largest 17 -- a shattered graph that
+        # would have looked like a navmesh in the JSON.
+        #
+        # A shared edge needs no format knowledge to be right. Two triangles that share two
+        # vertices abut, and a body can cross between them. Matched on exact integer coordinates,
+        # which is safe here because the tiles come from one table and share their vertices rather
+        # than each rounding its own.
+        edge_owner = {}
+        for t in tiles:
+            if not t["is_floor"]:
+                continue
+            p3 = t["poly3"]
+            for i in range(len(p3)):
+                a, b = p3[i], p3[(i + 1) % len(p3)]
+                key = (a, b) if a <= b else (b, a)   # undirected
+                edge_owner.setdefault(key, []).append(t["tile"])
+
+        nav = {}
+        nav_portal = 0      # edges added across doorways rather than by shared geometry
+        for owners in edge_owner.values():
+            # An edge with one owner is a boundary; with two it is a doorway between tiles. More
+            # than two means coincident geometry, which is joined rather than dropped -- a body
+            # can still cross it and refusing would carve holes in the mesh.
+            for x in owners:
+                for y in owners:
+                    if x != y:
+                        nav.setdefault(x, set()).add(y)
+
+        # ---------------------------------------------------------------- steps and stairways
+        #
+        # Shared vertices join tiles that were authored as one surface. They do NOT join a stair
+        # tread to the landing above it, or two floors of the same room: those abut in plan view
+        # and are separated in height, sharing no vertex at all.
+        #
+        # That is why Bunker 1's room 30 came out as SIX components despite being one room -- it
+        # spans y 197..483, and its storeys never touch in the vertex table. The single portal out
+        # of it then attached to a 4-tile fragment rather than the 200-tile body, so the level's
+        # main mass reached room 30 through a dead end. Chasing that is what found this.
+        #
+        # So: two floor tiles are also neighbours if their FOOTPRINTS overlap in plan and their
+        # heights differ by no more than a body can step. That is what climbing a stair is.
+        #
+        # GE_STEP is deliberately smaller than the follower's 90-unit drop limit. This edge means
+        # "a body can walk between these", and a 90-unit drop is survivable rather than walkable;
+        # putting it in the mesh would route bots off ledges.
+        GE_STEP = 40
+
+        # Grid-bucketed, because the naive comparison is 2555 squared on surface and 26 levels of
+        # that is not a run anyone waits for. Tiles are small relative to the cell, so a tile need
+        # only be checked against its own cell and the eight around it.
+        CELL = 200
+        buckets = {}
+        floor_tiles = [t for t in tiles if t["is_floor"]]
+        for t in floor_tiles:
+            p3 = t["poly3"]
+            t["_bb"] = (min(p[0] for p in p3), min(p[2] for p in p3),
+                        max(p[0] for p in p3), max(p[2] for p in p3))
+            t["_y"] = sum(p[1] for p in p3) // len(p3)
+            for gx in range(t["_bb"][0] // CELL, t["_bb"][2] // CELL + 1):
+                for gz in range(t["_bb"][1] // CELL, t["_bb"][3] // CELL + 1):
+                    buckets.setdefault((gx, gz), []).append(t)
+
+        # WALL SEGMENTS, so a step edge can be refused if it crosses one.
+        #
+        # This is not optional. Without it, step adjacency took mean coverage from 73% to 97% and
+        # Bunker 1 to a single component -- and 19.4% of Bunker 1's edges crossed a wall in plan
+        # view, 18.9% on Dam. A connectivity number cannot tell those apart, and a porous mesh is
+        # worse than a fragmented one: a fragmented mesh fails visibly, a porous one walks bots
+        # into geometry and looks like a steering bug.
+        #
+        # Tiles either side of a thin wall touch in plan and sit at similar heights, which is
+        # exactly what the step test accepts. The wall table is the thing that knows better.
+        wall_segs = {}
+        for t in tiles:
+            if t["is_floor"]:
+                continue
+            p3 = t["poly3"]
+            for i in range(len(p3)):
+                a3, b3 = p3[i], p3[(i + 1) % len(p3)]
+                if (a3[0], a3[2]) == (b3[0], b3[2]):
+                    continue                      # vertical edge: no extent in plan
+                seg = ((a3[0], a3[2]), (b3[0], b3[2]))
+                lo_x, hi_x = min(seg[0][0], seg[1][0]), max(seg[0][0], seg[1][0])
+                lo_z, hi_z = min(seg[0][1], seg[1][1]), max(seg[0][1], seg[1][1])
+                for gx in range(lo_x // CELL, hi_x // CELL + 1):
+                    for gz in range(lo_z // CELL, hi_z // CELL + 1):
+                        wall_segs.setdefault((gx, gz), []).append(seg)
+
+        def _cross(o, u, v):
+            return (u[0] - o[0]) * (v[1] - o[1]) - (u[1] - o[1]) * (v[0] - o[0])
+
+        def crosses_wall(pa, pb):
+            lo_x, hi_x = min(pa[0], pb[0]), max(pa[0], pb[0])
+            lo_z, hi_z = min(pa[1], pb[1]), max(pa[1], pb[1])
+            seen_seg = set()
+            for gx in range(lo_x // CELL, hi_x // CELL + 1):
+                for gz in range(lo_z // CELL, hi_z // CELL + 1):
+                    for s in wall_segs.get((gx, gz), ()):
+                        if id(s) in seen_seg:
+                            continue
+                        seen_seg.add(id(s))
+                        d1, d2 = _cross(s[0], s[1], pa), _cross(s[0], s[1], pb)
+                        d3, d4 = _cross(pa, pb, s[0]), _cross(pa, pb, s[1])
+                        if (d1 > 0) != (d2 > 0) and (d3 > 0) != (d4 > 0):
+                            return True
+            return False
+
+        nav_step = 0
+        nav_refused = 0
+        checked = set()
+        for cell in buckets.values():
+            for i in range(len(cell)):
+                a = cell[i]
+                for j in range(i + 1, len(cell)):
+                    b = cell[j]
+                    key = (a["tile"], b["tile"]) if a["tile"] < b["tile"] else (b["tile"], a["tile"])
+                    if key in checked:
+                        continue
+                    checked.add(key)
+                    if abs(a["_y"] - b["_y"]) > GE_STEP:
+                        continue
+                    # Footprints must actually meet in plan. Touching counts: adjacent treads
+                    # share a boundary rather than overlapping area.
+                    if (a["_bb"][0] > b["_bb"][2] or b["_bb"][0] > a["_bb"][2] or
+                            a["_bb"][1] > b["_bb"][3] or b["_bb"][1] > a["_bb"][3]):
+                        continue
+                    if b["tile"] in nav.get(a["tile"], ()):
+                        continue                      # already joined by a shared edge
+
+                    pa = ((a["_bb"][0] + a["_bb"][2]) // 2, (a["_bb"][1] + a["_bb"][3]) // 2)
+                    pb = ((b["_bb"][0] + b["_bb"][2]) // 2, (b["_bb"][1] + b["_bb"][3]) // 2)
+                    if crosses_wall(pa, pb):
+                        nav_refused += 1
+                        continue
+
+                    nav.setdefault(a["tile"], set()).add(b["tile"])
+                    nav.setdefault(b["tile"], set()).add(a["tile"])
+                    nav_step += 1
+
+        # ---------------------------------------------------------------- stairways
+        #
+        # A stairway is a run of connected tiles that climbs. Now that the mesh joins tiles a body
+        # can step between, that is a walk over it collecting edges whose rise is real but within
+        # a step -- which is what a tread is.
+        #
+        # This is emitted rather than left for a consumer to rediscover because "where are the
+        # stairs" is a question a bot asks constantly and the answer is expensive to derive at
+        # runtime. It also names the direction: a route that has to go UP wants a different tile
+        # than one going down, and the mesh alone does not say which end is which.
+        #
+        # MIN_RISE excludes the merely uneven. Floors are not perfectly flat and a 1-2 unit
+        # difference between abutting tiles is authoring noise, not a step; without the floor
+        # would come out as thousands of one-tread staircases.
+        MIN_RISE = 6
+
+        tile_y = {t["tile"]: t["_y"] for t in floor_tiles}
+        tile_room = {t["tile"]: t["room"] for t in floor_tiles}
+
+        rising = {}          # tile -> [higher neighbours within one step]
+        for a_id, ns in nav.items():
+            if a_id not in tile_y:
+                continue
+            for b_id in ns:
+                if b_id not in tile_y:
+                    continue
+                d = tile_y[b_id] - tile_y[a_id]
+                if MIN_RISE <= d <= GE_STEP:
+                    rising.setdefault(a_id, []).append(b_id)
+
+        # Walk each run from its BOTTOM: a tile with a rising neighbour and no tile rising into
+        # it. Starting anywhere else would emit the same staircase several times, once per tread.
+        has_below = set()
+        for a_id, ups in rising.items():
+            for b_id in ups:
+                has_below.add(b_id)
+
+        stairs = []
+        for a_id in sorted(rising):
+            if a_id in has_below:
+                continue
+            chain = [a_id]
+            cur = a_id
+            guard = 0
+            while cur in rising and guard < 200:
+                guard += 1
+                # Steepest continuation, so a landing that branches does not send the run
+                # sideways into a neighbouring flat.
+                nxt = max(rising[cur], key=lambda t: tile_y[t] - tile_y[cur])
+                if nxt in chain:
+                    break                      # a loop: stop rather than spin
+                chain.append(nxt)
+                cur = nxt
+            if len(chain) >= 3:
+                stairs.append({
+                    "tiles": chain,
+                    "room": tile_room.get(chain[0]),
+                    "from_y": tile_y[chain[0]],
+                    "to_y": tile_y[chain[-1]],
+                    "rise": tile_y[chain[-1]] - tile_y[chain[0]],
+                })
+
+        # ---------------------------------------------------------------- bridge the doorways
+        #
+        # Shared edges alone leave the mesh in pieces, and the pieces are ROOMS: on Bunker 1, 60
+        # of 66 components sit entirely inside one room. That is not a defect in the geometry --
+        # a doorway is a GAP between two tile groups, not a shared edge, so no amount of edge
+        # matching will join them.
+        #
+        # The portal table is the game's own account of which rooms connect and where. Each
+        # portal joins the floor tile nearest its opening on each side, which is the tile a body
+        # actually stands on as it goes through.
+        #
+        # Nearest to the OPENING, not nearest to the other tile: a room can be long, and its
+        # closest tile to the neighbouring room may be nowhere near the door. That would produce
+        # an edge no body could walk, which is the failure this whole exercise exists to remove.
+        floor_by_room = {}
+        for t in tiles:
+            if t["is_floor"]:
+                floor_by_room.setdefault(t["room"], []).append(t)
+
+        # `openings` is None when the background model has no portal table -- several levels have
+        # none. Guarded rather than assumed: the first version iterated it directly and died
+        # mid-run, and because the crash printed above the summary it would have been easy to read
+        # the stale files left behind as though the bridging had worked.
+        for op in (openings or []):
+            rs = op.get("rooms") or []
+            poly = op.get("poly") or []
+            if len(rs) != 2 or not poly:
+                continue
+            cx = sum(p[0] for p in poly) / len(poly)
+            cz = sum(p[2] for p in poly) / len(poly)
+
+            picked = []
+            for r in rs:
+                cand = floor_by_room.get(r) or []
+                if not cand:
+                    picked = []
+                    break
+                best, bestd = None, None
+                for t in cand:
+                    c = t["poly3"]
+                    tx = sum(p[0] for p in c) / len(c)
+                    tz = sum(p[2] for p in c) / len(c)
+                    d = (tx - cx) ** 2 + (tz - cz) ** 2
+                    if bestd is None or d < bestd:
+                        best, bestd = t["tile"], d
+                picked.append(best)
+
+            if len(picked) == 2 and picked[0] != picked[1]:
+                nav.setdefault(picked[0], set()).add(picked[1])
+                nav.setdefault(picked[1], set()).add(picked[0])
+                nav_portal += 1
         doc = {
             "level": level,
             "stan": os.path.basename(sp),
@@ -372,14 +672,46 @@ def main():
             # differ by 157 units (pos.y=329 against a floor at 172), so comparing a player
             # position to one of these directly reports a phantom cliff in every direction at
             # once. Measured by mac-getv, who lost a test cycle to it.
-            "floors": [{"r": t["room"],
+            # THE LINKS ARE THE NAVIGATION MESH AND THEY WERE BEING THROWN AWAY.
+            #
+            # parse_stan has always read each tile's links to its neighbours; they were used to
+            # derive ROOM adjacency and then discarded. That is the game's own account of where a
+            # character can walk, at tile granularity -- and it is what a bot needs to get round a
+            # crate, up a stairway, or through a doorway.
+            #
+            # The pad graph is not that. Bunker 1 has 45 waypoints against 866 floor tiles: pads
+            # are where the designers put PROPS, so routing on them is routing between points of
+            # interest and hoping the straight line between two of them is walkable. Half of
+            # today's work has been discovering that it frequently is not. The tile graph has no
+            # such hope in it -- an edge exists because the game says a body can cross it.
+            #
+            #   t  tile id, as the game numbers it
+            #   l  links to other FLOOR tiles: the walkable edges
+            #
+            # Links to non-floor tiles are dropped rather than kept and filtered later, because a
+            # consumer that forgot to filter would route a body through a wall and the data would
+            # look like it said that was fine.
+            "floors": [{"t": t["tile"],
+                        "r": t["room"],
                         "c": [sum(p[0] for p in t["poly3"]) // len(t["poly3"]),
                               sum(p[1] for p in t["poly3"]) // len(t["poly3"]),
                               sum(p[2] for p in t["poly3"]) // len(t["poly3"])],
                         "bb": [min(p[0] for p in t["poly3"]), min(p[2] for p in t["poly3"]),
-                               max(p[0] for p in t["poly3"]), max(p[2] for p in t["poly3"])]}
+                               max(p[0] for p in t["poly3"]), max(p[2] for p in t["poly3"])],
+                        "l": sorted(nav.get(t["tile"], ()))}
                        for t in tiles if t["is_floor"]],
+            # Stairways, as runs of tiles that climb. Derived from shared-edge and step adjacency
+            # only -- the portal bridges are added after this and are deliberately excluded, since
+            # a doorway between two heights is a threshold, not a tread.
+            "stairs": stairs,
             "waypoint_room": wp_rooms,
+            # Floor height under each waypoint, keyed by waypoint INDEX. A seed check for the
+            # runtime edge validator: if the tile the engine snapped to is at a materially
+            # different height from this, the snap left the node's own surface. See floor_under.
+            #
+            # Absent for a waypoint with nothing beneath it, which is a finding rather than a
+            # default -- a node floating over no floor is worth seeing, and a 0 would hide it.
+            "waypoint_floor": wp_floor,
             "prop_room": prop_rooms,
         }
         with open(os.path.join(out_dir, level + ".rooms.json"), "w", encoding="utf-8") as fh:

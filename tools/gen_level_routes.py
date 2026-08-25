@@ -535,6 +535,49 @@ def prune_unwalkable(graph, measured):
     return dropped
 
 
+def prune_by_height(graph, rooms, know, max_step=40.0):
+    """Drop edges whose ends are more than one step apart in height.
+
+    The graph has been planar since it was built: every node carries y and nothing routed on it,
+    so a route could join a walkway to the floor beneath it as readily as to the next tile along.
+    The line test cannot catch that -- it is a plan-view test, and a floor twelve feet down has
+    an unobstructed line to the railing above it.
+
+    waypoint_floor, from the Surface's extractor, is the height of the floor DIRECTLY BENEATH each
+    node, which is the number this needs. Not the node's own y: a pad can sit above its floor, and
+    comparing pad heights compares two things that are each some distance off the surface a body
+    would stand on.
+
+    ⚠️ Only prunes where BOTH ends have a floor recorded. A node with no floor beneath it is
+    already the more interesting problem -- 33 to 240 per level cannot be stood on at all -- and
+    treating "unknown" as "too steep" would delete the graph around exactly those places instead
+    of leaving them visible.
+
+    max_step is what a walking body climbs between adjacent nodes. Stairs are chains of small
+    rises, so a real flight survives this and a railing-to-floor shortcut does not.
+    """
+    wf = (rooms or {}).get("waypoint_floor") or {}
+    if not wf:
+        return 0, 0
+
+    dropped = unknown = 0
+    for a in list(graph.keys()):
+        fa = wf.get(str(a))
+        keep = []
+        for b in graph[a]:
+            fb = wf.get(str(b))
+            if fa is None or fb is None:
+                unknown += 1
+                keep.append(b)
+                continue
+            if abs(float(fa) - float(fb)) > max_step:
+                dropped += 1
+                continue
+            keep.append(b)
+        graph[a] = keep
+    return dropped, unknown
+
+
 def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
@@ -918,6 +961,13 @@ def main():
         # Uses the Surface's walkable_verdicts module rather than a second copy of the same
         # logic here. We each built half of this independently -- their reader against my
         # validator -- and two implementations of one rule is how they drift apart.
+        # Heights first: an edge that climbs a storey is wrong whatever the line test says, and
+        # the line test is a plan-view test that cannot see it.
+        _hdrop, _hunk = prune_by_height(graph, rooms, know)
+        if _hdrop or _hunk:
+            print("  %-10s heights: %d edge(s) too steep, %d with no floor recorded"
+                  % (level, _hdrop, _hunk))
+
         _measured = load_walkable_verdicts(out_dir, level)
         if _measured is not None:
             _dropped = prune_unwalkable(graph, _measured)
