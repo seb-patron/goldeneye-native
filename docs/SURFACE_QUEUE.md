@@ -24,7 +24,7 @@ Now carries the player accessors, the control-style helpers, both navigation pro
 
 ---
 
-## 1. THE SENSING API IS THE PRIORITY — build out what a bot can perceive 🔴
+## 1. THE SENSING API IS THE PRIORITY: build out what a bot can perceive 🔴
 
 This is the half of the platform that was missing, and it matters more than routing. Waypoints
 say where things are. **Interaction** is knowing you are against a wall rather than a crate,
@@ -48,7 +48,7 @@ clearest +40 deg`.
 **1a. Facing, so sight means attention.** `geSenseVisibleTo` is line of sight only. A guard facing
 away has a clear line and is not looking. GoldenEye's AI uses a facing cone plus distance
 attenuation and `hearingscale` for sound. Add `geSenseNoticedBy(enemy, player)` that combines
-line, cone and alertness — and keep the two separate rather than replacing one with the other,
+line, cone and alertness, and keep the two separate rather than replacing one with the other,
 because "could see me if it turned" is a different and useful question.
 
 ⚠️ Train currently reports 17–19 watchers of 40 guards. That is what an unobstructed line down a
@@ -56,10 +56,10 @@ row of carriages looks like, **not** seventeen guards watching. Do not tune the 
 that number smaller; add the cone.
 
 **1b. Contact, not just prediction.** Everything so far predicts along a ray. A bot also needs to
-know it is *touching* something right now — the difference between "there is a wall ahead" and
+know it is *touching* something right now: the difference between "there is a wall ahead" and
 "I am pressed against it and my last four moves did nothing".
 
-**1c. Reachability with a body, not a line. 🔴 THIS IS THE CURRENT BLOCKER — and do not build it
+**1c. Reachability with a body, not a line. 🔴 THIS IS THE CURRENT BLOCKER, and do not build it
 the way this item originally said.** A line test passes through a gap narrower than the player.
 Evan has a capture of exactly that: the bot trying to fit between a crate and a wall.
 
@@ -90,7 +90,7 @@ which `stanTestVolume` already accounts for.
 **Done when:** `gePortCanStandAt` returns false for the point between the crate and the wall in
 Evan's capture, and the Train CLI player walks past the crate it currently traps itself on.
 
-**1d. Interaction verbs.** `geSenseUsable(x, z)` — is there a door, switch or pickup within reach
+**1d. Interaction verbs.** `geSenseUsable(x, z)`: is there a door, switch or pickup within reach
 of this spot, and what is it. The prop API knows where they are; nothing says "you can act on
 this from here".
 
@@ -100,7 +100,7 @@ actually are, and what it could interact with without moving.
 
 ---
 
-## 2. Heights — the graph is planar and levels are not
+## 2. Heights: the graph is planar and levels are not
 
 Every node carries `y` and nothing routes on it. Bunker 1's spawn is at y=340 and both of its
 portals are at y=93, so the bot beelines at a doorway 247 units below it, through a floor. Your
@@ -112,12 +112,12 @@ position and you get a phantom cliff in every direction at once.
 
 ## 3. Eight levels have no node in their spawn room
 
-`aztec, cradle, dam, depot, runway, statue, surface, surface2` — no graph node within 4000 units
+`aztec, cradle, dam, depot, runway, statue, surface, surface2`: no graph node within 4000 units
 of where the player actually starts, and `dam` is 20,254 away. That is not a wrong pad, it is a
 graph that does not cover the level's own start, and for Dam a different coordinate space
 entirely. `docs/captures/spawns.json` has the measured truth for all twenty.
 
-Do **not** fix this by widening the threshold — the refusal is deliberate and named per level.
+Do **not** fix this by widening the threshold. The refusal is deliberate and named per level.
 
 ## 4. Bot behaviour beyond following a line
 
@@ -131,7 +131,7 @@ export.
 ## Later, in no strict order
 
 **Netplay on a measured tick.** Discovery and the transports are in. What is not proven is that
-two peers stay identical over a long run — the seed fingerprint exists for exactly this and has
+two peers stay identical over a long run: the seed fingerprint exists for exactly this and has
 not been used in anger.
 
 **Bot personalities against real levels.** Eighteen archetypes exist and were tested against a
@@ -149,10 +149,10 @@ is the default. 1.1 Honey is one pad and would exercise a genuinely different in
 
 ---
 
-## Standing corrections — do not re-derive these
+## Standing corrections: do not re-derive these
 
 - `gePlayerSlotIsDrivable` must **not** return `!IS_TWO_PAD`. Every slot is 2.x by default, so
-  that disables every bot on every level. (Taken and fixed — noted so it does not come back.)
+  that disables every bot on every level. (Taken and fixed; noted so it does not come back.)
 - `GETV_SCRIPT` does not move the player at all. Verified against controls. Use `gePlayerPost`.
 - `player->pos` is not the world position; `prop->pos` is.
 - Doors are **not** walls. `CDTYPE_DOORS` in a walkability mask makes every room read as sealed.
