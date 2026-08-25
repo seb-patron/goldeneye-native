@@ -13689,7 +13689,7 @@ index 1ce99c4..2d06f51 100644
 +
  #endif
 diff --git a/src/game/gunfire.c b/src/game/gunfire.c
-index e9a970f..c60bdbb 100644
+index e9a970f..2e625c6 100644
 --- a/src/game/gunfire.c
 +++ b/src/game/gunfire.c
 @@ -37,6 +37,198 @@
@@ -14896,7 +14896,62 @@ index e9a970f..c60bdbb 100644
          }
  
          matrix_4x4_7F058C88();
-@@ -2560,7 +3390,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -2515,6 +3345,54 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
+ /**
+  * Address: 7F064B28
+  */
++/* Is an automatic weapon due to fire this tick?
++ *
++ * Retail asks `field_88C % rate == 0`, and field_88C counts TICKS. Under GETV_SIMDIV a tick
++ * is worth n fields of real time, so the rate stays constant per tick and halves per second
++ * as the divider rises. Measured on the FN P90, 240 frames of held trigger:
++ *
++ *     SIMDIV   shots/frame   shots/tick
++ *        1        0.487        0.487
++ *        2        0.250        0.500
++ *        4        0.125        0.500
++ *
++ * Constant per tick, halving per second. That is the frame-quantisation this is here to fix.
++ *
++ * field_890 is the same counter measured in FIELDS -- it accumulates g_ClockTimer and is
++ * reset at every point field_88C is -- so asking whether it crossed a multiple of the rate
++ * gives the same cadence in real time at any divider. No new state is needed: the previous
++ * value is the current one minus this tick's delta.
++ *
++ * At divider 1 g_ClockTimer is 1 per tick, so field_890 tracks field_88C exactly and the
++ * crossing test reduces to the modulo it replaces. That equivalence is verified by
++ * measurement, not assumed -- see docs/FRAME_TIMING.md.
++ *
++ * GETV_TIMEFIRE=0 restores the tick modulo for an A/B. */
++static s32 gePortAutoFireDue(struct hand *handptr, s32 rate)
++{
++    static s32 on = -1;
++    s32 cur;
++    s32 prev;
++
++    if (on < 0) {
++        const char *e = getenv("GETV_TIMEFIRE");
++        on = (e && *e) ? (*e != '0') : 1;
++    }
++
++    if (rate <= 0) return 1;
++
++    if (!on) return (((s32) handptr->field_88C % rate) == 0);
++
++    cur = (s32) handptr->field_890;
++    if (cur == 0) return 1;                 /* the shot on the tick the trigger went down */
++
++    prev = cur - (s32) g_ClockTimer;
++    if (prev < 0) prev = 0;
++
++    return (prev / rate) != (cur / rate);
++}
++
++
+ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+ {
+ #if defined(VERSION_US)
+@@ -2560,7 +3438,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
      struct PropRecord *temp_v0_8;
      Weapon1PTransformKeyframe *sp74;
      f32 temp_f0_2;
@@ -14906,7 +14961,7 @@ index e9a970f..c60bdbb 100644
      f32 temp_v1_9;
      struct hand *temp_v1_5;
      f32 un_f32_num = 0.0f;
-@@ -2616,7 +3447,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -2616,7 +3495,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
      Weapon1PTransformKeyframe *sp74;
      struct PropRecord *temp_v0_8;
      f32 temp_f0_2;
@@ -14916,7 +14971,16 @@ index e9a970f..c60bdbb 100644
      f32 temp_v1_9;
      struct hand *temp_v1_5;
      f32 un_f32_num = 0.0f;
-@@ -3089,6 +3921,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -3020,7 +3900,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+                         && (currentPlayerGetIsAiming() == 0)
+                         && (((s32) handptr->volley % 3) != 0)))
+                 {
+-                    if (((s32) handptr->field_88C % bondwalkItemGetAutomaticFiringRate(var_s1)) == 0)
++                    if (gePortAutoFireDue(handptr, bondwalkItemGetAutomaticFiringRate(var_s1)))
+                     {
+                         if ((getPlayerCount() == 1) || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0)))
+                         {
+@@ -3089,6 +3969,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
  
                  handptr->weapon_ammo_in_magazine -= 1;
                  handptr->volley += 1;
@@ -14924,7 +14988,7 @@ index e9a970f..c60bdbb 100644
              }
  
              if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
-@@ -4986,7 +5819,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+@@ -4986,7 +5867,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
      Mtxf rotmtx;
  #endif
      f32 rand;
@@ -14933,7 +14997,7 @@ index e9a970f..c60bdbb 100644
      f32 frac;
  #if VERSION_EU
      s32 randlimit;
-@@ -5303,7 +6136,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+@@ -5303,7 +6184,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
      Mtxf rotmtx;
  #endif
      f32 rand;
@@ -14942,7 +15006,7 @@ index e9a970f..c60bdbb 100644
      f32 frac;
  #if VERSION_EU
      s32 randlimit;
-@@ -5558,18 +6391,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5558,18 +6439,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      ModelFileHeader *model_header = casing->header;
      RenderPosView   *model_matrices = dynAllocate(model_header->numMatrices * sizeof(RenderPosView));
      ModelHead        model;
@@ -14987,7 +15051,7 @@ index e9a970f..c60bdbb 100644
  
  #if defined(VERSION_EU)
      matrix_4x4_copy_eu(casing->rot_mtx, casing_model_mtx.m);
-@@ -5585,13 +6442,13 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5585,13 +6490,13 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      matrix_4x4_multiply_homogeneous(
          camGetWorldToScreenMtxf(),
          &casing_model_mtx,
@@ -15003,7 +15067,7 @@ index e9a970f..c60bdbb 100644
  
      // Offset 0x30 is m[3][0]; advancing the pointer checks translation X, Y and Z.
      while (axis_offset != 12)
-@@ -5622,7 +6479,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5622,7 +6527,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
               (g_CurrentPlayer->tileColor.g << 16)) |
              (g_CurrentPlayer->tileColor.b << 8);
  
@@ -15012,7 +15076,7 @@ index e9a970f..c60bdbb 100644
  
          *gdl = render_data.gdl;
  
-@@ -5849,7 +6706,12 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
+@@ -5849,7 +6754,12 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
   */
  Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7)
  {
@@ -15026,7 +15090,7 @@ index e9a970f..c60bdbb 100644
  }
  
  
-@@ -5932,15 +6794,20 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -5932,15 +6842,20 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
      s32 rightx;
      s32 reserveammo;
      s32 magammo;
@@ -15049,7 +15113,7 @@ index e9a970f..c60bdbb 100644
              weapon_left = getCurrentPlayerWeaponId(GUNLEFT);
              weapon_right = getCurrentPlayerWeaponId(GUNRIGHT);
  
-@@ -5969,12 +6836,33 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -5969,12 +6884,33 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                      && g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                      && !bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                  {
@@ -15084,7 +15148,7 @@ index e9a970f..c60bdbb 100644
                          gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_r, (getPlayer_c_screenleft() + getPlayer_c_screenwidth()) - (f32)rightx, -1.0f,
  #if defined(VERSION_EU)
                              (viGetViewTop() + viGetViewHeight()) - 30, 0,
-@@ -6035,12 +6923,19 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -6035,12 +6971,19 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                      && g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                      && !bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                  {
@@ -15105,7 +15169,7 @@ index e9a970f..c60bdbb 100644
                          gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_l, getPlayer_c_screenleft() + (f32)leftx, -1.0f,
  #if defined(VERSION_EU)
                              (viGetViewTop() + viGetViewHeight()) - 30, 1,
-@@ -6108,7 +7003,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
+@@ -6108,7 +7051,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
      s32 ammotype;
      s32 reserveammo;
      s32 magammo;
@@ -15116,7 +15180,7 @@ index e9a970f..c60bdbb 100644
      s32 textwidth;
      s32 pad;
  
-@@ -6124,14 +7021,34 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
+@@ -6124,14 +7069,34 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
              && g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
              && !bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
          {
@@ -15152,7 +15216,7 @@ index e9a970f..c60bdbb 100644
  
                  // Draw the ammo icon
  #if defined(VERSION_EU)
-@@ -6201,13 +7118,21 @@ void gunSetSightVisible(s32 reason, bool visible)
+@@ -6201,13 +7166,21 @@ void gunSetSightVisible(s32 reason, bool visible)
  }
  
  

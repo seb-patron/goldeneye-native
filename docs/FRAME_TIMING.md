@@ -198,8 +198,49 @@ a single frame moved bucket. It is a one-frame timing shift at a room boundary, 
 any framerate change does anyway. Worth re-checking if AI behaviour is ever reported odd under
 a divider, and not worth blocking on now.
 
-## Still open
+## Step 3: the frame-quantised systems -- started 2026-08-24
 
-**Step 3, the frame-quantised systems.** Fire rates, reload timing, turret delay and reaction
-stepping still count iterations rather than time. This is the remaining piece and each
-conversion needs checking against retail behaviour.
+### Automatic fire rate: converted
+
+`gunfire.c:3855` asked `field_88C % automaticFiringRate == 0`, and `field_88C` counts TICKS.
+Under a divider a tick is worth n fields, so the rate held constant per tick and halved per
+second as the divider rose. Measured on the FN P90, 80 frames of held trigger:
+
+| | SIMDIV=1 | SIMDIV=2 | SIMDIV=4 |
+|---|---|---|---|
+| `GETV_TIMEFIRE=0`, retail tick modulo | 0.487 | 0.250 | 0.125 |
+| **`GETV_TIMEFIRE=1`, time-based (default)** | **0.487** | **0.487** | 0.250 |
+
+`field_890` is the same counter in FIELDS -- it accumulates `g_ClockTimer` and is reset at
+every point `field_88C` is -- so asking whether it crossed a multiple of the rate gives the
+same cadence in real time at any divider. No new state: the previous value is the current one
+minus this tick's delta.
+
+**Divider 1 is identical at 0.487 both ways**, which is the check that matters. At divider 1
+`g_ClockTimer` is 1 per tick, so `field_890` tracks `field_88C` exactly and the crossing test
+reduces to the modulo it replaces. Verified rather than argued.
+
+### 🔴 The ceiling, which is real and is not a bug in the fix
+
+Divider 4 recovers only half the rate, and the arithmetic says exactly why:
+
+```
+SIMDIV=4 over 80 frames:  20 ticks available, 20 shots delivered = 1.00 shots/tick
+the P90 wants 39 shots in that window
+```
+
+It is **saturated**. A weapon cannot fire more often than the simulation ticks, and at divider
+4 the simulation runs at 15Hz while the P90 wants roughly 29 rounds a second. Recovering the
+rest means emitting several shots on one tick, each with its own ray, recoil and sound, which
+is a much deeper change than a cadence conversion and is not being smuggled in here.
+
+**Practical consequence: divider 2 is fully correct for fire rate, divider 4 is not.** That is
+worth knowing before anyone ships a 4.
+
+### Still open
+
+Reload timing, turret delay and reaction stepping are still tick-counted. The method is now
+established -- find the tick counter, check whether a field-denominated twin already exists
+beside it, and A/B the conversion across dividers with the divider-1 case as the proof of
+equivalence -- and each remaining conversion needs checking against retail behaviour
+individually.
