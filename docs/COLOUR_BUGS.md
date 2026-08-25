@@ -144,3 +144,53 @@ default 2).
 everywhere except three `HIT_GLASS` / `HIT_GLASS_XLU` pairs, so the pun was accidentally right
 2695 times. Shooting translucent glass got the wrong impact group; nothing else did. **This is
 not the paintball cause** and must not be reported as one.
+
+
+---
+
+## 6. ✅ SOLVED: the paintball impact flash was a struct offset, not a texture
+
+**`glass2.c:648` read the bullet spark's colour at hardcoded byte offsets `0x28..0x2b`.**
+
+`s_bullet_spark` carries a `void *unk0C`. That is 4 bytes on the N64 and 8 here, so every
+field after it shifts and the struct grows:
+
+| | N64 | this port |
+|---|---|---|
+| `sizeof(s_bullet_spark)` | 0x2c | **0x38** |
+| colour bytes at | 0x28 | **0x30** |
+| what the code read | 0x28 | 0x28 = **`unk20`, a float** |
+
+So every bullet spark took its RGBA from the raw bytes of a float. Measured, with the named
+fields and the old pun printed side by side on the same sparks:
+
+```
+byname = (255,255,200,255)   every spark -- a warm white, which is what a spark is
+oldpun = (97,59,47,194)  (96,116,190,65)  (93,181,212,65)  (8,220,6,66) ...
+                                            cyan            NEON GREEN
+```
+
+Arbitrary, different per spark because `unk20` differs per spark, and appearing wherever a
+shot lands. Reported as "pink and neon green paintball", which is exactly what those bytes
+decode to. Fixed by reading `thing->unk28..unk2B` by name.
+
+### Why this took so long to find
+
+🔴 **Every previous investigation looked at the impact DECAL, and the decal was innocent.**
+Section 4 proves it cannot draw those colours: no surface can select the one impact row with
+random colours. All the effort went into `g_ImpactTypes`, the paintball cheat, RGBA16, RGBA32
+and CI palettes -- and every one of those negatives was correct. The spark is a **different
+object drawn at the same instant**, and nobody had separated the two.
+
+🔑 **The user's own reproduction is what cracked it**: "pointed the PP7 at the ground and
+fired". Sparks land on every surface; the decal rows differ by surface. That distinction is
+what pointed at an object the harness had never been measuring.
+
+⚠️ **The lesson worth generalising: a byte offset into a struct is only valid for the ABI it
+was written against.** This port has already been bitten by `long` width, by bitfield order
+and now by pointer width moving every field behind it. Grep for the SHAPE --
+`((u8 *) x)[0xNN]` -- not for this instance.
+
+⚠️ Historical note: paintball genuinely was a GameShark function on hardware, which is why
+the cheat exists in the codebase at all. That made the symptom read as a cheat firing on its
+own, and it never was: `cheatIsActive(CHEAT_PAINTBALL)` measures 0 throughout.

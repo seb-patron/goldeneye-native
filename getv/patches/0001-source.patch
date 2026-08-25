@@ -13784,7 +13784,7 @@ index a9453df..b88c58a 100644
      return gdl;
  }
 diff --git a/src/game/glass2.c b/src/game/glass2.c
-index a2d72f9..6825cb9 100644
+index a2d72f9..10758d7 100644
 --- a/src/game/glass2.c
 +++ b/src/game/glass2.c
 @@ -12,6 +12,10 @@
@@ -13798,6 +13798,50 @@ index a2d72f9..6825cb9 100644
  #define BULLET_SPARKS_MAX 20
  #define BULLET_MOVING_SPARKS_MAX 50
  #define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
+@@ -641,10 +645,39 @@ void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
+     vertices = dynAllocateVertices(4);
+     room = thing->unk06;
+     roompos = getRoomPositionByIndex(room);
+-    vtx.v.cn[0] = ((u8 *) thing)[0x28];
+-    vtx.v.cn[1] = ((u8 *) thing)[0x29];
+-    vtx.v.cn[2] = ((u8 *) thing)[0x2a];
+-    vtx.v.cn[3] = ((u8 *) thing)[0x2b];
++    /* 🔴 The bullet-spark colour, read BY NAME rather than at a hardcoded byte offset.
++     *
++     * This was ((u8 *) thing)[0x28..0x2b]. s_bullet_spark carries a `void *unk0C`, which is
++     * 4 bytes on the N64 and 8 here, so every field after it shifts and the struct grows from
++     * 0x2c to 0x38. The colour bytes moved to 0x30 while this code kept reading 0x28 -- and
++     * 0x28 is now `unk20`, a FLOAT.
++     *
++     * So every bullet spark took its RGBA from the raw bytes of a float. That is the
++     * "paintball" impact flash: arbitrary saturated colours, different per spark because
++     * unk20 differs per spark, and appearing wherever a shot lands.
++     *
++     * Reported for a long time as a texture or palette fault, which it never was. The impact
++     * DECAL is provably incapable of it -- no surface can select the one impact row with
++     * random colours (docs/COLOUR_BUGS.md section 4) -- and the decal is what every previous
++     * investigation looked at. The spark is a different object drawn at the same instant.
++     *
++     * ⚠️ A byte offset into a struct is only ever valid for the ABI it was written against.
++     * Grep for the shape, not for this instance. */
++    {
++        static s32 tr = -1;
++        if (tr < 0) { const char *e = getenv("GETV_SPARKTRACE"); tr = (e && *e && *e != '0'); }
++        if (tr) {
++            osSyncPrintf("[getv][spark] byname=(%u,%u,%u,%u) oldpun=(%u,%u,%u,%u)\n",
++                         (u32) thing->unk28, (u32) thing->unk29,
++                         (u32) thing->unk2A, (u32) thing->unk2B,
++                         (u32) ((u8 *) thing)[0x28], (u32) ((u8 *) thing)[0x29],
++                         (u32) ((u8 *) thing)[0x2a], (u32) ((u8 *) thing)[0x2b]);
++        }
++    }
++    vtx.v.cn[0] = thing->unk28;
++    vtx.v.cn[1] = thing->unk29;
++    vtx.v.cn[2] = thing->unk2A;
++    vtx.v.cn[3] = thing->unk2B;
+     frame = (s32) (((f32) thing->age) * (*(&thing->unk08)));
+     
+     x = *((f32 *) (&thing->unk10));
 diff --git a/src/game/gun.c b/src/game/gun.c
 index 79e69c8..9ebad7b 100644
 --- a/src/game/gun.c
