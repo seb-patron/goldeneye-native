@@ -220,3 +220,8 @@ core.*
 # machine cloning this tree happily committed all twelve files. A shared rule is the only
 # kind that actually holds.
 docs/research/
+
+# Ingested walkthrough text. Third-party prose from other people's sites, kept locally for
+# analysis only -- the tool that produces it travels, the text does not.
+build/levels/*.walkthrough.json
+docs/research/TRAIN_WALKTHROUGH.txt

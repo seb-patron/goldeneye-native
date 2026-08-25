@@ -61,4 +61,93 @@ int geSenseVisibleTo(int enemy_index, int player_slot);
 /* How many living enemies have line of sight to this player right now. */
 int geSenseWatchers(int player_slot);
 
+/* ---------------------------------------------------------------- 1a: attention, not sight
+ *
+ * geSenseVisibleTo is a LINE. A guard facing away has a clear line and is not looking, and a bot
+ * that treats those as the same hides from someone who never noticed it.
+ *
+ * Both are kept. Train reporting 17-19 watchers of 40 guards is what an unobstructed line down a
+ * row of carriages looks like -- the fix is the cone, not tightening the line test until the
+ * number flatters.
+ *
+ * Returns a bitmask so a caller can tell WHICH condition failed: a guard with a line but facing
+ * away is one you can walk behind, and one facing you through a wall is one you must not step in
+ * front of. A bool throws away the half that decides what to do next. */
+#define GE_NOTICE_NONE     0u
+#define GE_NOTICE_LINE     (1u << 0)   /* unobstructed line of sight                      */
+#define GE_NOTICE_FACING   (1u << 1)   /* the player is inside the enemy's view cone      */
+#define GE_NOTICE_ALERT    (1u << 2)   /* the enemy is alert enough to be watching at all */
+#define GE_NOTICE_SEEN     (GE_NOTICE_LINE | GE_NOTICE_FACING | GE_NOTICE_ALERT)
+
+/* The facing could not be read AT ALL -- distinct from facing-away, and the distinction is the one
+ * that matters. Facing away means you can walk behind it; unknown means you cannot assume that. A
+ * build without the facing accessor must not read as "nobody is looking". Same rule as
+ * GePlayerState's absent fields: absent is not zero. */
+#define GE_NOTICE_FACE_UNKNOWN (1u << 3)
+
+/* Half-angle of a character's view cone. Generous rather than tight: a guard that half-notices you
+ * is a real event, and a flatteringly narrow cone makes a bot confident exactly where it should
+ * not be. */
+#define GE_NOTICE_CONE_DEG 60.0f
+
+unsigned int geSenseNoticedBy(int enemy_index, int player_slot);
+
+/* How many enemies have all three, against geSenseWatchers which counts lines only. The PAIR is
+ * the point: a wide gap means many enemies could turn and see you. */
+int geSenseNoticing(int player_slot);
+
+/* ---------------------------------------------------------------- 1b: contact, not prediction
+ *
+ * "There is a wall 40 units ahead" is a prediction. "I have been pushing forward for half a second
+ * and gone nowhere" is a fact, and it is the one that means stuck. They disagree often: a body
+ * wedged on a corner the ray misses, or a doorway the ray fits through and the body does not.
+ *
+ * Fed the slot's position once a frame; answers from history rather than geometry. No ray. */
+void geSenseContactUpdate(int player_slot, float x, float z, int commanded_move);
+
+/* Non-zero when the slot was commanded to move and has not moved for `ticks` frames. A legitimate
+ * stall of a frame or two happens whenever the collision update clips a corner, hence the window
+ * rather than an instant. */
+int geSenseIsStuck(int player_slot, int ticks);
+
+/* Distance actually travelled over the remembered window. Separates "wedged" from "moving slowly",
+ * which look identical at a single instant. */
+float geSenseRecentTravel(int player_slot);
+
+/* ---------------------------------------------------------------- 1c: a body is not a line
+ *
+ * A ray passes through gaps narrower than the player, so geSenseAhead can report clear down a
+ * corridor a body cannot enter -- which reads as the follower refusing a path the data says is
+ * fine.
+ *
+ * Sweeps three parallel lines a body-radius apart and takes the NEAREST obstruction, because a
+ * body stops at whichever shoulder meets something first. Judges on GE_SENSE_SOLID for the same
+ * reason geSenseClearestHeading does. */
+#define GE_BODY_RADIUS 30.0f
+
+int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSenseContact *out);
+
+/* ---------------------------------------------------------------- 1d: what can I act on
+ *
+ * The prop data knows where doors, switches and pickups ARE. Nothing said whether a bot standing
+ * here can act on one, which is the only form of the question a bot can use. */
+#define GE_USABLE_NONE   0u
+#define GE_USABLE_DOOR   (1u << 0)
+#define GE_USABLE_PICKUP (1u << 1)   /* collectable: a key, a weapon, ammo */
+#define GE_USABLE_SWITCH (1u << 2)
+
+/* Reach of the action button. From chraction.c:9138, where a character opens a door by walking
+ * within 200 units of it -- the game's own number rather than a guess. */
+#define GE_USABLE_REACH 200.0f
+
+typedef struct GeUsable {
+    unsigned int kind;      /* GE_USABLE_* */
+    int          prop;      /* index into the prop table, so a caller can ask for more */
+    float        x, y, z;
+    float        distance;
+} GeUsable;
+
+/* What is within reach of this point, nearest first. Returns how many were written. */
+int geSenseUsable(float x, float y, float z, GeUsable *out, int max);
+
 #endif /* GE_SENSE_API_H */
