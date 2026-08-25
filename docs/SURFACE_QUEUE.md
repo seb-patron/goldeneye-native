@@ -1,89 +1,91 @@
 # Surface agent: next queue
 
-The Windows bring-up is done and the stan ordering find was the hard part of it. This is the
-next block of work, in order. Everything here is owned by the Surface so it does not collide
-with the Mac's lane; see `WORK_SPLIT.md`.
+The post-process pass landed and is merged: FXAA and CRT now run on macOS and Linux too,
+measured on both. Two portability fixes were needed in `ge_launcher.cpp` on the way --
+`struct stat` without `<sys/stat.h>` and `self_path` used 280 lines above its definition.
+MinGW forgives both and Clang does not, so **build-tests one platform, ships three**.
 
-**Before starting anything: merge `mac-work`.** It carries the input layer (mouse look, the
-trigger fix), the frame-timing decoupling, and your own stan fix propagated to Linux, which
-had the same bug and nobody had noticed.
+**Before starting: merge `mac-work`.** It carries the post-process merge, the RGBA16 and
+RGBA32 colour probes, `GETV_IMPACT`, and the Linux compiler-selection fix.
 
 ---
 
-## 1. Controller 1/2/3/4 bindings
+## 1. The player API -- the headline item
 
-The plumbing exists and is half-finished. `port_os.c` has a per-action binding table
-(`GETV_BIND_FIRE` and friends, defaulting to `GE_SRC_RT` for fire), four player slots, and
-`GETV_PADS`. What is missing is that the bindings are **global**, so player 2 cannot be bound
-differently from player 1.
+This is the hook that **three separate features all need**, which is why it comes before any
+of them rather than being built three times:
 
-Wanted: per-player binding, `GETV_P2_BIND_FIRE` style, falling back to the global when unset.
-Small, and split-screen is unpleasant without it.
+- **bots** need to drive a player slot
+- **an external AI** needs to drive a player slot and see what it is doing
+- **LAN/WAN netplay** needs to serialise exactly the same thing across a wire
 
-Verify with `GETV_PADS=2` and two real pads if you have them, or one pad plus the keyboard.
+So build the seam once, in these two halves:
 
-## 2. CRT presentation mod
+**Input injection, per player slot.** Most of this exists and is not yet a real interface.
+`GETV_SCRIPT` already injects `A B X Y START BACK Z L R DU DD DL DR CU CD CL CR` plus
+`SX=`/`SY=` at a chosen frame, and `port_os.c` already carries four player slots and a
+per-action binding table. What is missing is a **callable** entry point -- something a bot,
+a socket or a Lua mod can hand a controller state to for player n on a given tick, rather
+than a string parsed at startup.
 
-The best first plugin, because it needs nothing from the game: no texture identity, no asset
-override, no game state. It is one fullscreen fragment shader over a target that already
-exists.
+**State readout.** Also mostly present and scattered across `GETV_STATE`, `GETV_GUN_DEBUG`
+and `GETV_CULLSTAT` as printf output. Wanted: the same facts returned as data -- position,
+angle, health, armour, current weapon, ammo, and the visible-character list.
 
-`gfx_opengl.c` creates `ss_fbo` with a depth attachment for the supersample path. The scene
-is already rendering into a texture there; the CRT pass reads it and writes the backbuffer.
+⚠️ **Design it against a real consumer, exactly like the post-process pass.** Take one bot
+that walks to a pad and fires, and let its needs decide the shape. An API designed in the
+abstract will be wrong in ways nobody notices until the third consumer.
 
-Wanted, in one shader, each independently switchable:
+⚠️ **Tick-accurate, not wall-clock.** Input must be applied on a numbered simulation tick.
+This is the property netplay is built on, and it is cheap now and expensive to retrofit.
 
-- scanlines, with adjustable strength and spacing
-- barrel distortion, subtle by default
-- a vignette
-- optional slight bloom on bright pixels
+## 2. Bots -- reuse GoldenEye's own AI first
 
-Gate it behind `GETV_CRT=1` with `GETV_CRT_*` for the parameters, off by default, and expose
-it in the launcher's video tab. It is a presentation mod and belongs under GoldenEye+, not in
-faithful mode.
+🔑 **Before mining the Perfect Dark port for a bot system: GoldenEye already has one.**
+`chr.c` and `chraction.c` are a complete guard AI with a documented opcode list, and the
+game already runs it for every guard in every level. A bot is much closer to "run the
+existing AI on a player slot" than to "port PD's bots", and the AI is already written
+against this game's own stan, pads and weapons.
 
-⚠️ **Do not fold this into `gfx_opengl.c` as a special case.** Build it as the first consumer
-of a general post-process pass, because FXAA is the second and HD textures will want the same
-plumbing. Designing the plugin path against a real consumer is the whole reason this is first.
+Mine PD for what GoldenEye genuinely lacks -- difficulty tuning, bot personalities, the
+character-select plumbing for adding bots to a match -- not for the AI itself.
 
-## 3. FXAA
+⚠️ **AI opcodes branch on RENDER VISIBILITY** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so a
+bot on an unrendered split-screen viewport will behave differently from one on screen. Check
+this early; it will otherwise look like a bot bug and be a culling question.
 
-One more pass on the plumbing item 2 builds. No data dependencies. `GETV_FXAA=1`.
+## 3. Then netplay, on top of item 1
+
+Not before it. Netplay needs deterministic simulation plus serialised per-tick input, and
+the fixed-timestep work on the Mac side is the other half of that prerequisite. Attempting
+it before both are in place is the standard way these projects acquire desync bugs nobody
+can reproduce.
 
 ## 4. Depth attachment as a texture
 
-`ss_depth` is a renderbuffer, so nothing can sample it. Converting it to a texture unlocks
-SSAO, depth of field, and anything else depth-aware. No visible result on its own, which is
-exactly why it keeps getting skipped, and it blocks the entire Tier 2 list behind it.
+Still open, still skipped, still blocking the depth-aware Tier 2 list. `ss_depth` is a
+renderbuffer so nothing can sample it. No visible result on its own, which is exactly why it
+keeps losing to more interesting work.
 
-## 5. Windows packaging
+## 5. Windows `dist` packaging
 
-The build produces `goldeneye.exe` plus four DLLs and a font directory. Someone who wants to
-play should get one folder that works.
-
-- a `-Target dist` that stages exe, DLLs, `assets/fonts/` including `OFL.txt`, a default
-  `goldeneye.cfg` and a short README into `build-windows/dist/`
-- verify it runs from a copy on a machine with no toolchain installed, which is the only test
-  that means anything here
+A `-Target dist` staging exe, DLLs, `assets/fonts/` including `OFL.txt`, a default
+`goldeneye.cfg` and a short README into `build-windows/dist/`. Verify from a copy on a
+machine with no toolchain, which is the only test that means anything here.
 
 ## What NOT to touch
 
-`getv/port/src/port_input.c`, `getv/port/src/port_os.c` beyond the binding table,
-`vendor/ge-decomp/**`, and `docs/` other than your own Windows documents. Those are the Mac's
-lane and are being actively edited.
-
-`getv/build_windows.ps1` is shared. It is small and the conflicts read clearly, but pull
-before editing it.
+`getv/port/src/port_input.c`, `vendor/ge-decomp/**`, `getv/port/fast3d/gfx_pc.c`, and
+`docs/` other than your own Windows documents and this file. The Mac is actively in the
+colour-decode path and in `port_input.c`.
 
 ## Standing rules
 
-- Never commit generated output as a fix. The stan `extern` change was correct and was
-  applied to all 29 generated files, which is lost the moment assets are regenerated and
-  invisible to every other machine because `vendor/` is gitignored. It now lives in
-  `tools/uniquify_asset_symbols.py`. Anything that must survive belongs in a generator.
-- `docs/research/` must stay untracked. It was committed here once because the exclusion
-  lived in `.git/info/exclude`, which does not travel. It is in `.gitignore` now.
-- Never push to GitHub. The user does that themselves.
-- Measure before and after, and use `GETV_EXIT_FRAME` so two runs are comparable.
-- `GETV_CULLSTAT` is the metric that catches world-state bugs. Triangle counts are not:
-  Linux looked healthy at 2658 triangles while the player stood in an empty room.
+- Never commit generated output as a fix. Anything that must survive belongs in a generator
+  under `tools/`, because `vendor/` is gitignored and does not travel.
+- Never push to GitHub. The user does that themselves, from their own terminal.
+- `GETV_EXIT_FRAME` on every measurement, so two runs are comparable.
+- **A probe that changes nothing has told you something.** `GETV_RGBA32BE` gave three
+  byte-identical frames because the format is never uploaded. Check coverage before reading
+  an identical result as proof of safety -- a five-level census here looked like proof and
+  had none.
