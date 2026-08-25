@@ -628,6 +628,86 @@ def prune_by_height(graph, rooms, know, max_step=40.0):
     return dropped, unknown
 
 
+def level_scales():
+    """levelscale per level, parsed from the decomp so there is one copy of these constants.
+
+    🔑 asset = runtime * levelscale. The measured spawns come out of the RUNNING GAME and are
+    runtime; every JSON here is asset space. Train's spawn reads x=779 where its tile map ends at
+    x=213, so an unconverted spawn starts the route outside the level and the nearest node is
+    thousands of units away -- which the distance guard then correctly refuses, leaving no spawn
+    at all. The failure looks like missing data and is a missing multiplication.
+    """
+    import re as _re
+    path = os.path.join(ROOT, "vendor", "ge-decomp", "src", "game", "bg.c")
+    out = {}
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        src = fh.read()
+    for m in _re.finditer(r'\{LEVELID_(\w+),\s*"[^"]+",\s*"[^"]+",\s*([0-9.]+),', src):
+        out[m.group(1).lower()] = float(m.group(2))
+    return out
+
+
+def tile_graph_as_waypoints(know, rooms):
+    """Replace the PAD waypoint set with the FLOOR TILE mesh.
+
+    🔑 THIS IS THE FIX FOR THE THING THAT BLOCKED THE BOT ALL WEEK. Pads are prop markers, not
+    places to walk: measured with the teleport probe, 139 of Train's 180 pads cannot be stood on,
+    and across the twenty solo levels it runs 33 to 240 each. A follower handed targets a body
+    cannot occupy is short by however far the pad sits off the floor, every time, and no amount of
+    steering fixes it.
+
+    Tiles are standable by construction -- they ARE the floor -- they carry a real height, and
+    their adjacency is the engine's own, already wall-filtered with portal bridges to each room's
+    largest component. Routing Train over them gives 117 of 117 steps monotonic along its axis
+    against 0.8:1 for a level that is genuinely open, so the graph discriminates rather than
+    merely existing.
+
+    Pads keep doing what they are for: marking props, doors and spawns.
+
+    ⚠️ Tile ids are the extractor's and pad indices are ours, and they overlap. Tiles are offset
+    past the highest pad index so a route step can never be ambiguous about which set it names --
+    two id spaces sharing a range is how a graph silently routes through the wrong nodes.
+    """
+    floors = (rooms or {}).get("floors") or []
+    if not floors:
+        return None, None
+
+    pads = know.get("waypoints", []) or []
+    base = (max((w["index"] for w in pads), default=-1)) + 1
+
+    nodes, graph = [], {}
+    for f in floors:
+        tid = f.get("t")
+        c = f.get("c")
+        if tid is None or not c:
+            continue
+        idx = base + int(tid)
+        nodes.append({
+            "index": idx,
+            "pad": None,
+            # Tile centres are ASSET space, like everything else in rooms.json. The pack scales
+            # at its own boundary, so these stay in asset space to match what pack_world expects.
+            "pos": [float(c[0]), float(c[1]), float(c[2])],
+            "pad_name": "tile_%d" % tid,
+            # NOT marked synthetic. That flag means "rebuilt from scratch each run" and the strip
+            # pass deletes everything carrying it -- which silently removed all 682 tiles a moment
+            # after they were added, leaving no graph and no spawn, and printing nothing.
+            "tile": True,
+            "room": f.get("r"),
+        })
+        graph[idx] = [base + int(n) for n in (f.get("l") or [])]
+
+    # Neighbours that name a tile we skipped would be dangling edges, and a router following one
+    # gets a KeyError or, worse, silently drops the step.
+    live = {n["index"] for n in nodes}
+    for k in list(graph):
+        graph[k] = [v for v in graph[k] if v in live]
+
+    return nodes, graph
+
+
 def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
@@ -959,6 +1039,32 @@ def main():
         # the router would avoid exactly the doorways this pass exists to add.
         # (assigned below, once the graph is final)
 
+        # ROUTE ON TILES, NOT PADS, when the extractor has given us a mesh. Everything downstream
+        # -- spawn injection, doors, portals, the height gate, the engine verdicts -- works on
+        # whatever graph it is handed, so this is a swap rather than a rewrite.
+        # Convert the measured spawn into ASSET space before it meets any JSON geometry.
+        _sc = level_scales().get(level)
+        if _sc and level in measured and measured[level].get("pos"):
+            _p = measured[level]["pos"]
+            measured = dict(measured)
+            measured[level] = dict(measured[level],
+                                   pos=[_p[0] * _sc, _p[1] * _sc, _p[2] * _sc],
+                                   space="asset (converted from the measured runtime position)")
+
+        _tnodes, _tgraph = tile_graph_as_waypoints(know, rooms)
+        if _tnodes:
+            # Pads are REPLACED, not appended. Keeping them as routing candidates leaves the
+            # objective resolving to the nearest PAD -- which has no tile edges, so the route
+            # comes out one step long and unwalkable, which is what happened the first time.
+            # Props travel in the pack's own props section now, so nothing needs pads here.
+            know["waypoints"] = _tnodes
+            # Pad adjacency is dropped deliberately. Mixing the two graphs would let a route hop
+            # from a walkable tile to a pad hanging in the air and back, which is exactly the
+            # class of edge the tile mesh exists to remove.
+            graph = dict(_tgraph)
+            print("  %-10s routing on %d floor tiles (pads kept as markers only)"
+                  % (level, len(_tnodes)))
+
         # 🔑 STRIP ANY SYNTHETIC NODES FROM A PREVIOUS RUN FIRST.
         #
         # They are persisted back into the knowledge file so pack_world can see them, which means
@@ -1086,7 +1192,22 @@ def main():
             legs = []
             here = start
             for t, p in targets:
+                # Re-resolve the goal against the graph we are ACTUALLY routing on.
+                #
+                # nav_node comes from the prop export and names a PAD, because that is what
+                # existed when it was computed. Routing on tiles leaves those ids pointing at
+                # nodes the graph no longer contains, so every objective comes back unreachable
+                # with no error -- the ids are valid integers, they simply name a different set.
+                # An id space is only meaningful next to the graph it indexes.
                 goal = p["nav_node"]
+                if goal not in graph and p.get("pos"):
+                    gx, gz = p["pos"][0], p["pos"][2]
+                    best, bd = None, None
+                    for _n, _pp in node_positions.items():
+                        d = ((_pp[0] - gx) ** 2) + ((_pp[2] - gz) ** 2)
+                        if bd is None or d < bd:
+                            best, bd = _n, d
+                    goal = best
                 path = bfs(graph, here, goal, pos=node_positions) if here is not None else None
                 legs.append({
                     "tag": t, "type": p.get("type"), "pad": p.get("pad"),
