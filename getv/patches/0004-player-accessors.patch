@@ -1,5 +1,5 @@
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..4758515 100644
+index 4ebf14b..00143a6 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -1,7 +1,11 @@
@@ -235,7 +235,7 @@ index 4ebf14b..4758515 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +695,551 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +695,571 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -727,9 +727,29 @@ index 4ebf14b..4758515 100644
 +    out[13] = (chr->actiontype != ACT_DEAD) ? 1.0f : 0.0f;
 +
 +    /* A MASK of what was filled, not a bool. A build that could reach position but not alertness
-+     * should say so, rather than letting a bot read every guard as oblivious. This one fills all
-+     * four groups: POSITION | HEALTH | ALERT | BELIEF. */
-+    return 1 | 2 | 4 | 8;
++     * should say so, rather than letting a bot read every guard as oblivious.
++     *
++     * 🔑 BELIEF IS CONDITIONAL, AND THAT IS THE POINT OF THE MASK.
++     *
++     * lastknowntargetpos is (0,0,0) on a guard that has never seen or heard anyone, and zero is a
++     * REAL COORDINATE -- it is a corner of the level. Reporting it as a belief makes every
++     * unalerted guard on the map appear to be heading for the origin, and geEnemyThreatAt counts
++     * them all. Measured on Train: waypoint 0 came back "contested by 40" out of roughly 40
++     * guards, on a level where nobody had seen the player yet, and the follower spent its whole
++     * run in 180-frame holds instead of walking.
++     *
++     * lastseetarget60 and lastheartarget60 are when the guard last saw or heard the target. Both
++     * zero means it never has, so there is no belief to report and the flag stays clear. A caller
++     * checking GE_EN_BELIEF then gets the honest answer rather than a coordinate that happens to
++     * exist. */
++    {
++        s32 mask = 1 | 2 | 4;
++
++        if (chr->lastseetarget60 != 0 || chr->lastheartarget60 != 0) {
++            mask |= 8;
++        }
++        return mask;
++    }
 +}
 +
 +
