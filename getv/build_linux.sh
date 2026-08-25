@@ -100,20 +100,27 @@ if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
   IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
 fi
 
-# The C++ compiler, needed only for the two .cpp files in the port layer. Derived from $CC so
-# that CC=clang gets clang++ rather than silently mixing toolchains, which on Linux means
-# mixing libstdc++ and libc++ and failing at link with unresolved std:: symbols.
-if [ -n "${CXX:-}" ]; then :
-elif [ "${CC:-cc}" = "clang" ]; then CXX=clang++
-elif [ "${CC:-cc}" = "gcc" ];   then CXX=g++
-else CXX=c++
-fi
 BIN="$BUILD/goldeneye"
 
-# clang by default. gcc is expected to work and is not the recommended first attempt:
-# see warn_flags(). Override with CC=gcc.
-CC="${CC:-clang}"
+# Prefer clang, but fall back to gcc when it is absent rather than refusing to build. gcc
+# works: it is what the Mint box uses and what produced the Windows port. See warn_flags()
+# for how the two differ. Override either way with CC=.
+if [ -z "${CC:-}" ]; then
+  if command -v clang >/dev/null 2>&1; then CC=clang
+  elif command -v gcc >/dev/null 2>&1; then CC=gcc
+  else echo "error: no clang or gcc on PATH (set CC=)"; exit 1; fi
+fi
 command -v "$CC" >/dev/null 2>&1 || { echo "error: compiler '$CC' not found (set CC=)"; exit 1; }
+
+# The C++ compiler, needed only for the two .cpp files in the port layer. Derived from $CC,
+# and derived AFTER it is resolved: doing this first left an unset CC pairing clang with
+# plain c++, which on most distributions is g++ -- the libc++/libstdc++ mix this is meant to
+# prevent, arrived at by the default path.
+if [ -n "${CXX:-}" ]; then :
+elif [ "$CC" = "clang" ]; then CXX=clang++
+elif [ "$CC" = "gcc" ];   then CXX=g++
+else CXX=c++
+fi
 case "$("$CC" --version 2>/dev/null | head -1)" in
   *clang*) CC_KIND=clang ;;
   *)       CC_KIND=gcc ;;
