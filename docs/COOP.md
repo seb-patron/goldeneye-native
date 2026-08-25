@@ -60,6 +60,39 @@ two players -- only the spawn path differs.
 does not.** The fix is to find what MP does at spawn that co-op skips, rather than to keep
 offsetting fields by hand. That is a reference implementation sitting in the same tree.
 
+## When it goes wrong: before the first frame
+
+`GETV_MOVETRACE=1`, first occurrence per player on stage 27 co-op:
+
+```
+p=1  pos=(0.0, 0.0)  cam=(-3404.3, 4539.1)
+p=0  pos=(0.0, 0.0)  cam=(-3404.3, 4539.1)
+```
+
+Both cameras already hold the same value while both positions are still zero. That value is
+player 0's spawn point. So player 1's camera is **never** given player 1's position -- it is
+not set correctly and then clobbered, it starts wrong.
+
+`init_player_BONDdata` is not where this happens. It runs for both players in both modes and
+leaves pos and cam at zero in both, so it is identical between co-op and MP and can be ruled
+out.
+
+## Where to look next
+
+The writer that seeds `field_488.pos` from the spawn pad, between `init_player_BONDdata` and
+the first rendered frame. In multiplayer it runs per player and gives each its own pad. In
+co-op it produces player 0's value for both.
+
+`field_488` is assigned wholesale in only two places, `bondview2.c:1220` and `:9953`, both
+copying to and from `previous_collision_info` within one player, and neither is on the spawn
+path -- 1220 is the death replay. So the seed is a field-by-field write somewhere on the spawn
+path, or an alias through `RenderPosView *`, of which `bondview2.c:11046` takes one from
+`bodyModel->render_pos`.
+
+The measurement to confirm any candidate: make the camera column match the position column for
+both players in the reproduce command below. Multiplayer already does, so a fix is correct
+when co-op looks like MP.
+
 ## What was tried and did not work
 
 Offsetting `field_488.pos`, `field_488.pos3` and `previous_collision_info` inside the co-op
