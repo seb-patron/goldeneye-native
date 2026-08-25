@@ -193,6 +193,22 @@ compile_commands.json
 core
 core.*
 
+# Diagnostic output from a run, which lands in whatever directory the binary was started
+# from -- usually the repository root. GETV_CULLSTAT / GETV_ROOMTRACE / GETV_GUN_DEBUG logs
+# are megabytes each (run.log reached 4 MB in one 9000-frame run) and GETV_SHOTFRAME writes
+# uncompressed BMPs at the output resolution.
+#
+# Anchored to the root with a leading slash, deliberately: docs/images/ is tracked and must
+# stay that way, and a bare *.png would swallow it.
+#
+# docs/COLLABORATION.md is explicit that this belongs here rather than in
+# .git/info/exclude -- that file is per-clone and does not travel, which is how twelve
+# unpublished files reached the other machine once already.
+/*.log
+/*.bmp
+/*.png
+/*.err
+
 # macOS AppleDouble sidecars. They travel in tarballs, and a compiler will happily
 # try to build one.
 ._*

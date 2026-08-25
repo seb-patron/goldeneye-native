@@ -102,30 +102,57 @@ def globals_of(rel):
             syms.append(p[2][1:])
     return syms
 
-
-# Getools opens each stan file with a bare `StandTile <name>_tile_0;` under a "forward
-# declarations" comment. In C that is a tentative definition, not a declaration, so the
-# compiler allocates tile_0 at that point in the file and the 24-byte StandFileHeader lands
-# between tile_0 and tile_1.
+# A file-scope `Type name;` that has a real `Type name = {...}` later in the SAME file is a
+# tentative definition, not a forward declaration. C allocates the object at the point of the
+# tentative definition, so the object lands where the "declaration" is rather than where its
+# initialiser is.
 #
-# The engine walks the tiles as one contiguous run, adding each tile's byte size and
-# computing pointers as base + (link << 3), so anything wedged between them breaks the walk
-# at the first step. On Windows it produced a one-tile level: the player spawned in room 0,
-# which has no geometry, and the world did not draw at all.
+# In the stan assets that is load-bearing and wrong. Every generated stan file opens with
 #
-# Adding extern makes it a declaration and the storage is allocated where the definition
-# actually appears. Applied here rather than to the generated files directly, because those
-# are regenerated from the ROM and any edit to them is lost on the next run.
-_FWD_TILE = re.compile(r'^(StandTile\s+[A-Za-z_][A-Za-z0-9_]*_tile_0\s*;)\s*$', re.M)
+#     StandTile Tbg_sev_all_p_stanZ_tile_0;      <- under a "// forward declarations" comment
+#     StandFileHeader Tbg_sev_all_p_stanZ = { NULL, &..._tile_0, ... };
+#     StandTile Tbg_sev_all_p_stanZ_tile_0 = { ... };
+#     StandTile Tbg_sev_all_p_stanZ_tile_1 = { ... };
+#
+# and the stan format requires the tiles to be ONE CONTIGUOUS RUN in declaration order -- the
+# engine walks it by adding each tile's byte size and resolves links as base + (link << 3).
+# The tentative definition put tile_0 first and left the 24-byte StandFileHeader sitting
+# between tile_0 and tile_1, breaking the run at the first step.
+#
+# This pass is here rather than in the asset output because vendor/ is gitignored: the
+# generated assets do not travel between machines, each side regenerates its own, and a fix
+# applied to the output is destroyed by the next regeneration. See docs/WINDOWS_STAN_ORDERING.md.
+#
+# Only rewritten when a real definition of the same name exists later in the file, which is
+# what makes the line a tentative definition rather than a genuine extern reference. Lines
+# containing '(' are skipped so function declarations are never touched, and the match is
+# anchored at column 0 so nothing inside a function body can match.
+FWD_RE = re.compile(r'^([A-Za-z_]\w*(?:[ \t]+[A-Za-z_]\w*)*)([ \t]+\*?)([A-Za-z_]\w*)[ \t]*;[ \t]*$')
 
-
-def _extern_forward_decls(text):
-    return _FWD_TILE.sub(lambda m: 'extern ' + m.group(1), text)
+def externise_forward_decls(s):
+    out, n = [], 0
+    for line in s.splitlines(True):
+        body = line.rstrip('\r\n')
+        m = FWD_RE.match(body)
+        if m and '(' not in body and '=' not in body:
+            typ, name = m.group(1), m.group(3)
+            first = typ.split()[0]
+            if first not in ('extern', 'static', 'typedef', 'return', 'goto') and \
+               re.search(r'^\s*(?:\w+[ \t]+)*\*?' + re.escape(name) + r'[ \t]*(?:\[[^\]]*\])?[ \t]*=',
+                         s, re.M):
+                line = 'extern ' + line.lstrip()
+                n += 1
+        out.append(line)
+    return ''.join(out), n
 
 
 def main():
     d = sys.argv[1]
     dry = '--dry-run' in sys.argv
+    # --forward-decls-only: run just the tentative-definition pass, which is pure text and
+    # needs no compiler. The rename pass shells out to clang and nm; those are not present on
+    # every machine that has to build these assets, and this pass must be runnable there too.
+    fwd_only = '--forward-decls-only' in sys.argv
     # --recurse: the model assets are laid out as <dir>/<name>/Model.c -- 103 different
     # props all defining ModelNode_0x048, each its own translation unit, which is the
     # real collision. A flat glob misses them entirely, and the flat prefix rule would
@@ -153,24 +180,40 @@ def main():
             prefix = parent + '_' + stem      # uzimag_Model, desk_lamp2_Model, ...
         else:
             prefix = stem if parent == os.path.basename(d.rstrip('/')) else parent + '_' + stem
-        syms = globals_of(rel)
-        if syms is None:
-            skipped.append(rel)
-            print('SKIP (does not compile):', rel); continue
-        # The file's own asset symbol is looked up by name by the engine -- leave it.
-        keep = {stem}
-        todo = sorted([s for s in syms if s not in keep and not s.startswith(prefix+'_')],
-                      key=len, reverse=True)
-        if not todo:
-            print('ok (already namespaced):', rel); continue
-        s = open(f).read()
+        todo = []
+        if not fwd_only:
+            syms = globals_of(rel)
+            if syms is None:
+                skipped.append(rel)
+                print('SKIP (does not compile):', rel); continue
+            # The file's own asset symbol is looked up by name by the engine -- leave it.
+            keep = {stem}
+            todo = sorted([s for s in syms if s not in keep and not s.startswith(prefix+'_')],
+                          key=len, reverse=True)
+
+        # Explicit utf-8, and newline='' on the write. Python's default encoding is the
+        # locale's, which is cp1252 on Windows, and the generated headers contain non-ASCII --
+        # so a plain open() raises UnicodeDecodeError on every asset there while working fine
+        # on the Mac. newline='' stops Python translating LF to CRLF on the way out, which
+        # would rewrite every line of every asset it touched (docs/COLLABORATION.md: nothing
+        # here sets core.autocrlf, and git must not be handed rewritten endings).
+        s = open(f, encoding='utf-8').read()
         for sym in todo:
             s = re.sub(r'\b'+re.escape(sym)+r'\b', prefix+'_'+sym, s)
-        s = _extern_forward_decls(s)
+        # Always, even when the rename found nothing to do: a re-run over an
+        # already-namespaced tree must still fix the tentative definitions, or the pass is
+        # a no-op exactly on the trees that have been set up once already.
+        s, nfwd = externise_forward_decls(s)
+
+        if not todo and not nfwd:
+            print('ok (already namespaced):', rel); continue
         if not dry:
-            open(f,'w').write(s)
-        renamed.append((rel, len(todo)))
-        print(f'{rel}: {len(todo)} symbols namespaced')
+            open(f, 'w', encoding='utf-8', newline='').write(s)
+        renamed.append((rel, len(todo) + nfwd))
+        bits = []
+        if todo: bits.append(f'{len(todo)} symbols namespaced')
+        if nfwd: bits.append(f'{nfwd} tentative definition(s) made extern')
+        print(f'{rel}: ' + ', '.join(bits))
 
     # Terminal summary; see the module docstring. A silent SKIP is how UsetuparchZ.c and
     # UsetuplenZ.c stayed collided.

@@ -194,6 +194,35 @@ retail scheme has neither. Swapping them is one line: `fire = lt`, `aim = rt`.
 gesture is hold-inventory plus tap-fire. The synthesised single-button version is faithful to that
 gesture but has not been verified against real hardware, so it stays opt-in.
 
+### Per-player bindings
+
+Prefix any of the six with `p1.` to `p4.` to set it for one player only:
+
+```
+fire     = lt        # all four players
+p2.fire  = rb        # except player 2
+p3.aim   = x
+```
+
+Resolution is three steps, in order: `p<n>.<action>` if set, else the bare `<action>`, else the
+default in the table above. So the plain keys still mean "all four players" and nothing that was
+configured before this existed changes.
+
+Split-screen is the reason. With one global table, moving fire off the right trigger for a player
+on a Nintendo pad moved it for everyone, so a mixed set of controllers could not be accommodated
+at all.
+
+The environment spelling is `GETV_P2_BIND_FIRE`, alongside the existing `GETV_BIND_FIRE`.
+
+What each player actually resolved to is printed at startup. Player 1 is always shown; the others
+appear only when they differ from it, so an override is impossible to miss and the common case
+stays one line:
+
+```
+[getv] input: bindings resolved, player 1 -- fire=lt aim=lt use=b weapon_next=a weapon_prev=none pause=start
+[getv] input: bindings resolved, player 2 -- fire=rb aim=lt use=b weapon_next=a weapon_prev=none pause=start
+```
+
 ### `deadzone`
 
 Stick deadzone as a percentage of the raw SDL axis, `0` to `40`. Out-of-range values are clamped

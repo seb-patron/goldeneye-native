@@ -82,6 +82,8 @@ static int ge_lua_ready;
 extern int getPlayerCount(void);
 extern int bossGetStageNum(void);
 
+#include "ge_postfx.h"
+
 static int ge_l_log(lua_State *L)
 {
     const char *s = luaL_checkstring(L, 1);
@@ -130,11 +132,69 @@ static int ge_l_player_pos(lua_State *L)
     return 3;
 }
 
+/* ge.postfx{ crt = true, scanline = 0.28, ... } -> the whole table back
+ *
+ * The first piece of the API that WRITES rather than reads, and the reason the CRT ships as
+ * a mod: mods/crt_screen is a real consumer of a general post-process pass rather than a
+ * special case inside the renderer.
+ *
+ * Every field is optional and unmentioned fields keep their current value, so a mod can set
+ * one number without having to restate the other six. Called with no table it just reports,
+ * which is what makes `print(ge.postfx().crt)` a usable way to see what is active. */
+static int ge_l_postfx(lua_State *L)
+{
+    GePostfx fx = *gePostfxGet();
+
+    if (lua_gettop(L) >= 1 && lua_istable(L, 1)) {
+        /* A flag accepts a boolean or a number, because `crt = 1` is what someone coming
+         * from goldeneye.cfg will write and refusing it would be pedantry. */
+#define GE_FX_FLAG(name, dst)                                                       \
+        do {                                                                        \
+            lua_getfield(L, 1, name);                                               \
+            if (!lua_isnil(L, -1)) {                                                \
+                (dst) = lua_isboolean(L, -1) ? lua_toboolean(L, -1)                 \
+                                             : (lua_tonumber(L, -1) != 0);          \
+            }                                                                       \
+            lua_pop(L, 1);                                                          \
+        } while (0)
+#define GE_FX_NUM(name, dst)                                                        \
+        do {                                                                        \
+            lua_getfield(L, 1, name);                                               \
+            if (!lua_isnil(L, -1)) { (dst) = (float) lua_tonumber(L, -1); }         \
+            lua_pop(L, 1);                                                          \
+        } while (0)
+
+        GE_FX_FLAG("crt",      fx.crt);
+        GE_FX_FLAG("fxaa",     fx.fxaa);
+        GE_FX_NUM ("scanline", fx.scanline);
+        GE_FX_NUM ("mask",     fx.mask);
+        GE_FX_NUM ("curve",    fx.curve);
+        GE_FX_NUM ("vignette", fx.vignette);
+        GE_FX_NUM ("lines",    fx.lines);
+#undef GE_FX_FLAG
+#undef GE_FX_NUM
+
+        gePostfxSet(&fx);
+        fx = *gePostfxGet();      /* read back, so the caller sees the clamped values */
+    }
+
+    lua_newtable(L);
+    lua_pushboolean(L, fx.crt);       lua_setfield(L, -2, "crt");
+    lua_pushboolean(L, fx.fxaa);      lua_setfield(L, -2, "fxaa");
+    lua_pushnumber(L, fx.scanline);   lua_setfield(L, -2, "scanline");
+    lua_pushnumber(L, fx.mask);       lua_setfield(L, -2, "mask");
+    lua_pushnumber(L, fx.curve);      lua_setfield(L, -2, "curve");
+    lua_pushnumber(L, fx.vignette);   lua_setfield(L, -2, "vignette");
+    lua_pushnumber(L, fx.lines);      lua_setfield(L, -2, "lines");
+    return 1;
+}
+
 static const luaL_Reg ge_api[] = {
     { "log",          ge_l_log },
     { "stage",        ge_l_stage },
     { "player_count", ge_l_player_count },
     { "player_pos",   ge_l_player_pos },
+    { "postfx",       ge_l_postfx },
     { NULL, NULL }
 };
 
@@ -257,6 +317,27 @@ void gePortLuaInit(void)
     if (dir == NULL || *dir == '\0') dir = "mods";
 
     d = opendir(dir);
+
+    /* Relative paths are resolved against the working directory, which is not where the mods
+     * are. A distributed folder launched from a shortcut, or from a terminal anywhere other
+     * than the install directory, has a working directory with no mods/ in it, so every mod
+     * silently failed to load -- the same cause as the config file being missed in
+     * ge_config.c, and found the same way, by running the staged dist from elsewhere.
+     *
+     * GETV_EXEDIR is published by ge_config.c, which is the one place that sees argv[0].
+     * Second, not first: an explicit relative GETV_MODDIR should still mean what the user
+     * typed when they are standing in the right directory. */
+    if (d == NULL && dir[0] != '/' && dir[0] != '\\' &&
+        !(dir[0] != '\0' && dir[1] == ':')) {
+        const char *exedir = getenv("GETV_EXEDIR");
+        if (exedir != NULL && *exedir != '\0') {
+            static char alt[1024];
+            snprintf(alt, sizeof(alt), "%s/%s", exedir, dir);
+            d = opendir(alt);
+            if (d != NULL) dir = alt;
+        }
+    }
+
     if (d == NULL) return;      /* no mods directory is the normal case, and is silent */
 
     ge_L = luaL_newstate();

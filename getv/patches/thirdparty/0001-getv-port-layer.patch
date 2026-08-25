@@ -1,6 +1,6 @@
 diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
 --- a/getv/port/audio/ge_mixer.c	2026-08-24 16:50:33.470244700 -0700
-+++ b/getv/port/audio/ge_mixer.c	2026-08-24 16:50:33.539224400 -0700
++++ b/getv/port/audio/ge_mixer.c	2026-08-24 18:03:21.841368100 -0700
 @@ -1,7 +1,35 @@
 +/* GoldenEye tvOS port -- the RSP audio microcode (aspMain), in software.
 + *
@@ -573,7 +573,7 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
  }
 diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 --- a/getv/port/audio/ge_mixer.h	2026-08-24 16:50:34.124056200 -0700
-+++ b/getv/port/audio/ge_mixer.h	2026-08-24 16:50:34.184146400 -0700
++++ b/getv/port/audio/ge_mixer.h	2026-08-24 18:03:21.989510600 -0700
 @@ -1,8 +1,26 @@
 -#ifndef MIXER_H
 -#define MIXER_H
@@ -686,7 +686,7 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 +#endif /* GE_MIXER_H */
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
 --- a/getv/port/fast3d/gfx_cc.c	2026-08-24 16:50:26.100133000 -0700
-+++ b/getv/port/fast3d/gfx_cc.c	2026-08-24 16:50:26.163427800 -0700
++++ b/getv/port/fast3d/gfx_cc.c	2026-08-24 18:03:20.213738500 -0700
 @@ -1,11 +1,17 @@
  #include "gfx_cc.h"
  
@@ -708,7 +708,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
      cc_features->opt_texture_edge = (shader_id & SHADER_OPT_TEXTURE_EDGE) != 0;
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
 --- a/getv/port/fast3d/gfx_cc.h	2026-08-24 16:50:26.747491000 -0700
-+++ b/getv/port/fast3d/gfx_cc.h	2026-08-24 16:50:26.810354500 -0700
++++ b/getv/port/fast3d/gfx_cc.h	2026-08-24 18:03:20.377959000 -0700
 @@ -4,6 +4,20 @@
  #include <stdint.h>
  #include <stdbool.h>
@@ -799,7 +799,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
  }
 diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 --- a/getv/port/fast3d/gfx_opengl.c	2026-08-24 16:50:27.394651400 -0700
-+++ b/getv/port/fast3d/gfx_opengl.c	2026-08-24 16:50:27.460367700 -0700
++++ b/getv/port/fast3d/gfx_opengl.c	2026-08-24 18:03:20.516399600 -0700
 @@ -2,6 +2,7 @@
  
  #include <stdint.h>
@@ -1243,44 +1243,32 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +static int    pp_broken = 0;         /* set once if the target or shader will not build */
 +static GLint  pp_u_tex, pp_u_res, pp_u_scan, pp_u_mask, pp_u_curve, pp_u_vig, pp_u_fxaa,
 +              pp_u_lines, pp_u_gain;
-+static float  pp_scan, pp_mask, pp_curve, pp_vig, pp_lines, pp_gain;
-+static float  pp_fxaa;
 +
-+static float ge_envf(const char *k, float dflt) {
-+    const char *e = getenv(k);
-+    return (e && *e) ? (float)atof(e) : dflt;
-+}
++/* The parameters live in getv/port/src/ge_postfx.c, which is ordinary tracked source rather
++ * than this patched file, and they are read EVERY FRAME rather than latched here at init.
++ *
++ * That is what makes the CRT a mod instead of a launcher checkbox: mods/crt_screen/mod.lua
++ * calls ge.postfx{...} at load, and could equally call it from onFrame(). Latching the values
++ * at startup -- which is what this did first -- meant nothing could change them afterwards
++ * and the effect could only ever be an environment gate. */
++#include "ge_postfx.h"
 +
-+/* GETV_CRT=1 is a preset, not a switch with hidden constants: it sets the four CRT terms to
-+ * a sane starting point and each stays individually overridable. Tuning a look means moving
-+ * one number at a time, and a preset that cannot be taken apart cannot be tuned. */
-+static void ge_postfx_config(void) {
-+    int crt = (int)ge_envf("GETV_CRT", 0.0f);
-+    pp_scan  = ge_envf("GETV_CRT_SCANLINE",  crt ? 0.28f : 0.0f);
-+    pp_mask  = ge_envf("GETV_CRT_MASK",      crt ? 0.18f : 0.0f);
-+    /* 0.025, not 0.06. At 0.06 the corners pull far enough in that the black surround is the
-+     * first thing the eye lands on, and a bezel is not the effect being asked for. */
-+    pp_curve = ge_envf("GETV_CRT_CURVE",     crt ? 0.025f : 0.0f);
-+    pp_vig   = ge_envf("GETV_CRT_VIGNETTE",  crt ? 0.22f : 0.0f);
-+    pp_lines = ge_envf("GETV_CRT_LINES",     240.0f);   /* the console's own line count */
-+    pp_fxaa  = (ge_envf("GETV_FXAA", 0.0f) > 0.0f) ? 1.0f : 0.0f;
-+
-+    /* Exact inverse of the mean attenuation the two terms apply; see the shader. */
-+    pp_gain = 1.0f / ((1.0f - pp_scan * 0.5f) * (1.0f - pp_mask * (2.0f / 3.0f)));
-+
-+    /* Supersampling alone is enough to need the target, because the resolve is what performs
-+     * the downsample. */
-+    pp_want = (gfx_supersample > 1 || pp_fxaa > 0.0f ||
-+               pp_scan > 0.0f || pp_mask > 0.0f || pp_curve > 0.0f || pp_vig > 0.0f) ? 1 : 0;
-+
-+    if (pp_want) {
-+        /* What the context really has, not what was asked for. */
-+        GLint s = 0;
-+        glGetIntegerv(GL_SAMPLES, &s);
-+        pp_samples = (s > 1) ? (int)s : 0;
-+        printf("[getv][postfx] on: supersample=%u msaa=%d fxaa=%d scan=%.2f mask=%.2f curve=%.2f vig=%.2f\n",
-+               gfx_supersample, pp_samples, (int)pp_fxaa, pp_scan, pp_mask, pp_curve, pp_vig);
++/* Announce once, and again whenever the answer changes, so turning the mod on mid-run leaves
++ * a line in the log rather than silently starting to allocate a framebuffer. */
++static void ge_postfx_report(int want) {
++    static int last = -1;
++    if (want == last) { return; }
++    last = want;
++    if (want) {
++        const GePostfx *p = gePostfxGet();
++        printf("[getv][postfx] on: supersample=%u msaa=%d fxaa=%d scan=%.2f mask=%.2f "
++               "curve=%.2f vig=%.2f lines=%.0f\n",
++               gfx_supersample, pp_samples, p->fxaa, p->scanline, p->mask,
++               p->curve, p->vignette, p->lines);
++    } else {
++        printf("[getv][postfx] off\n");
 +    }
++    fflush(stdout);
 +}
 +
 +static GLuint ge_pp_compile(GLenum type, const char *src, const char *what) {
@@ -1541,18 +1529,30 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    glDisable(GL_BLEND);
 +    glViewport(0, 0, ow, oh);
 +
-+    glUseProgram(pp_prog);
-+    glActiveTexture(GL_TEXTURE0);
-+    glBindTexture(GL_TEXTURE_2D, pp_color);
-+    glUniform1i(pp_u_tex,   0);
-+    glUniform2f(pp_u_res,   (GLfloat)pp_w, (GLfloat)pp_h);
-+    glUniform1f(pp_u_scan,  pp_scan);
-+    glUniform1f(pp_u_mask,  pp_mask);
-+    glUniform1f(pp_u_curve, pp_curve);
-+    glUniform1f(pp_u_vig,   pp_vig);
-+    glUniform1f(pp_u_fxaa,  pp_fxaa);
-+    glUniform1f(pp_u_lines, pp_lines);
-+    glUniform1f(pp_u_gain,  pp_gain);
++    {
++        const GePostfx *p = gePostfxGet();
++        /* The CRT terms are gated on p->crt here rather than being zeroed in ge_postfx.c, so
++         * that turning the master switch off and on again does not lose the numbers. */
++        const float scan  = p->crt ? p->scanline : 0.0f;
++        const float mask  = p->crt ? p->mask     : 0.0f;
++        const float curve = p->crt ? p->curve    : 0.0f;
++        const float vig   = p->crt ? p->vignette : 0.0f;
++        /* Exact inverse of the mean attenuation the two terms apply; see the shader. */
++        const float gain  = 1.0f / ((1.0f - scan * 0.5f) * (1.0f - mask * (2.0f / 3.0f)));
++
++        glUseProgram(pp_prog);
++        glActiveTexture(GL_TEXTURE0);
++        glBindTexture(GL_TEXTURE_2D, pp_color);
++        glUniform1i(pp_u_tex,   0);
++        glUniform2f(pp_u_res,   (GLfloat)pp_w, (GLfloat)pp_h);
++        glUniform1f(pp_u_scan,  scan);
++        glUniform1f(pp_u_mask,  mask);
++        glUniform1f(pp_u_curve, curve);
++        glUniform1f(pp_u_vig,   vig);
++        glUniform1f(pp_u_fxaa,  p->fxaa ? 1.0f : 0.0f);
++        glUniform1f(pp_u_lines, p->lines);
++        glUniform1f(pp_u_gain,  gain);
++    }
 +
 +    glBindBuffer(GL_ARRAY_BUFFER, pp_vbo);
 +    glEnableVertexAttribArray(0);
@@ -1616,7 +1616,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
      // check GL version
      int vmajor, vminor;
      bool is_es = false;
-@@ -639,6 +1228,21 @@
+@@ -639,6 +1228,28 @@
      
      glDepthFunc(GL_LEQUAL);
      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1633,12 +1633,19 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +            if (v >= 1 && v <= 4) gfx_supersample = (unsigned)v;
 +        }
 +    }
-+    ge_postfx_config();
++    gePostfxInit();
++    /* What the context really has, not what was asked for: GETV_MSAA is an SDL attribute and
++     * requesting is not getting. */
++    {
++        GLint s = 0;
++        glGetIntegerv(GL_SAMPLES, &s);
++        pp_samples = (s > 1) ? (int)s : 0;
++    }
 +#endif
  }
  
  static void gfx_opengl_on_resize(void) {
-@@ -647,6 +1251,26 @@
+@@ -647,6 +1258,31 @@
  static void gfx_opengl_start_frame(void) {
      frame_count++;
  
@@ -1654,6 +1661,11 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +#endif
 +
 +#ifdef GE_POSTFX
++    /* Asked every frame. Supersampling needs the target too, because the resolve is what
++     * performs the downsample. */
++    pp_want = (gfx_supersample > 1 || gePostfxWanted()) ? 1 : 0;
++    ge_postfx_report(pp_want);
++
 +    if (pp_want > 0 &&
 +        ge_pp_ensure((int)gfx_current_dimensions.width, (int)gfx_current_dimensions.height)) {
 +        glBindFramebuffer(GL_FRAMEBUFFER, (pp_samples > 1) ? pp_fbo_ms : pp_fbo);
@@ -1665,7 +1677,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
      glDisable(GL_SCISSOR_TEST);
      glDepthMask(GL_TRUE); // Must be set to clear Z-buffer
      glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-@@ -654,7 +1278,101 @@
+@@ -654,7 +1290,101 @@
      glEnable(GL_SCISSOR_TEST);
  }
  
@@ -1769,7 +1781,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
  static void gfx_opengl_finish_render(void) {
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 --- a/getv/port/fast3d/gfx_pc.c	2026-08-24 16:50:28.742606300 -0700
-+++ b/getv/port/fast3d/gfx_pc.c	2026-08-24 16:50:28.805581800 -0700
++++ b/getv/port/fast3d/gfx_pc.c	2026-08-24 18:03:20.828014300 -0700
 @@ -20,6 +20,7 @@
  
  #include "gfx_pc.h"
@@ -6795,7 +6807,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
          gfx_wapi->swap_buffers_end();
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
 --- a/getv/port/fast3d/gfx_pc.h	2026-08-24 16:50:29.404077000 -0700
-+++ b/getv/port/fast3d/gfx_pc.h	2026-08-24 16:50:29.467106800 -0700
++++ b/getv/port/fast3d/gfx_pc.h	2026-08-24 18:03:20.968160400 -0700
 @@ -10,6 +10,11 @@
  };
  
@@ -6810,7 +6822,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
  extern "C" {
 diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rendering_api.h
 --- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-24 16:50:30.041008200 -0700
-+++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-24 16:50:30.108516300 -0700
++++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-24 18:03:21.124416000 -0700
 @@ -11,8 +11,8 @@
      bool (*z_is_from_0_to_1)(void);
      void (*unload_shader)(struct ShaderProgram *old_prg);
@@ -6824,7 +6836,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rend
      void (*select_texture)(int tile, uint32_t texture_id);
 diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 --- a/getv/port/fast3d/gfx_sdl2.c	2026-08-24 16:50:32.009468700 -0700
-+++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-24 16:50:32.072316400 -0700
++++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-24 18:03:21.550135000 -0700
 @@ -16,7 +16,14 @@
  #include <SDL2/SDL.h>
  #define GL_GLEXT_PROTOTYPES 1

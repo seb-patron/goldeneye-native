@@ -713,6 +713,39 @@ static int apply(const char *key_in, const char *val, int over)
  key_bind("GETV_BIND_WEAPON_PREV", key, val, over); return 1;
     }
  if (strcmp(key, "pause") == 0) { key_bind("GETV_BIND_PAUSE", key, val, over); return 1; }
+
+    /* Per-player bindings: `p2.fire = rb`. The bare `fire` above stays the setting for all
+     * four, and a p<n>. key overrides it for that player only -- the same two-level fallback
+     * port_os.c applies, expressed the way a config file wants to read.
+     *
+     * Written as a prefix test rather than 24 more lines: the six action names are already
+     * enumerated above and duplicating them per player is four times the surface for the
+     * same behaviour, with four times the chance of one going stale. */
+    if (key[0] == 'p' && key[1] >= '1' && key[1] <= '4' && key[2] == '.') {
+        static const struct { const char *name; const char *suffix; } acts[] = {
+            { "fire", "FIRE" }, { "aim", "AIM" }, { "use", "USE" },
+            { "weapon_next", "WEAPON_NEXT" }, { "weapon_prev", "WEAPON_PREV" },
+            { "pause", "PAUSE" }
+        };
+        const char *act = key + 3;
+        size_t i;
+        for (i = 0; i < sizeof acts / sizeof acts[0]; i++) {
+            if (strcmp(act, acts[i].name) == 0) {
+                char gate[64];
+                snprintf(gate, sizeof gate, "GETV_P%c_BIND_%s", key[1], acts[i].suffix);
+                key_bind(gate, key, val, over);
+                return 1;
+            }
+        }
+    }
+    /* ---- mods ---------------------------------------------------------------- */
+    /* Both are passed through verbatim: a directory path and a list of names have no
+     * enumerable value set to validate against, and rejecting an unrecognised mod name here
+     * would mean the config could not be written before the mod was installed. ge_lua.c
+     * matches names whole and simply loads everything it does not recognise as disabled. */
+ if (strcmp(key, "moddir") == 0)   { put("GETV_MODDIR", val, over); return 1; }
+ if (strcmp(key, "mods_off") == 0) { put("GETV_MODS_OFF", val, over); return 1; }
+
  if (strcmp(key, "deadzone") == 0) { key_deadzone(val, over); return 1; }
  if (strcmp(key, "invert_look") == 0 || strcmp(key, "invertlook") == 0) {
  key_invert_look(val, over); return 1;
@@ -867,12 +900,32 @@ static int locate(const char *argv0, const char *cliPath)
  if (try_path(cliPath)) { return 1; }
 
  if (argv0 != NULL) {
- const char *slash = strrchr(argv0, '/');
+        /* Both separators. This looked for '/' only, which on Windows means argv[0] --
+         * "C:\...\goldeneye.exe" -- contains no match at all, so step 3 silently degraded to
+         * a bare "goldeneye.cfg" relative to the WORKING directory and then fell through to
+         * the per-user config in step 4.
+         *
+         * That is invisible while the working directory happens to be the one holding the
+         * binary, which is what a shell in the build directory and a double-click from
+         * Explorer both give. Launch the same folder from a shortcut with a different "start
+         * in", or from a terminal anywhere else, and the goldeneye.cfg sitting beside the
+         * executable was ignored -- which makes a distributed folder's own config file
+         * decorative. Found by running -Target dist from outside its directory. */
+ const char *fw = strrchr(argv0, '/');
+ const char *bw = strrchr(argv0, '\\');
+ const char *slash = (bw != NULL && (fw == NULL || bw > fw)) ? bw : fw;
  if (slash != NULL) {
  size_t n = (size_t)(slash - argv0);
  if (n < sizeof buf - sizeof(GE_CFG_BASENAME) - 2) {
  memcpy(buf, argv0, n);
  buf[n] = '\0';
+                /* Published for everything else that has to find a file beside the binary
+                 * but never sees argv -- ge_lua.c's mods directory is the first. This layer
+                 * already exists to turn one lookup into an environment gate, so the
+                 * alternative would be a second, platform-specific way to ask the same
+                 * question. Not overridden if already set, so a caller can point it
+                 * elsewhere. */
+                if (getenv("GETV_EXEDIR") == NULL) { put("GETV_EXEDIR", buf, 0); }
  strcat(buf, "/" GE_CFG_BASENAME);
  if (try_path(buf)) { return 1; }
             }
@@ -970,6 +1023,9 @@ static void usage(void)
 "filtering=point|bilinear|three-point                               [three-point]\n"
 "gamepad=auto|xbox|playstation|switch|generic changes PROMPT GLYPHS only  [auto]\n"
 "fire=aim=use=weapon_next=weapon_prev=pause=a|b|x|y|lb|rb|lt|rt|start|back|none\n"
+"p1.<action> .. p4.<action>  the same six, for one player only; falls back to the\n"
+"                            bare key above, then to the default\n"
+"moddir=<dir>  mods_off=<name,name>  Lua mods: where to scan, and which to skip\n"
 "names are POSITIONAL (a = bottom face button), not label\n"
 "[fire=rt aim=lt use=b weapon_next=a weapon_prev=none pause=start]\n"
 "deadzone=0..40 stick deadzone, percent, clamped to range          [20]\n"
@@ -1050,6 +1106,14 @@ static const char *DEFAULT_CFG =
 "#                         # is correct; it is the retail DEFAULT that is hostile to a\n"
 "#                         # modern stick. Comment this line out for retail behaviour\n"
 "#                         # (save file decides); set 0 to force non-inverted.\n"
+"\n"
+"# --- mods ------------------------------------------------------------------\n"
+"# Every subdirectory of moddir containing a mod.lua is loaded at startup.\n"
+"# mods_off is a DENYLIST: a mod dropped into the folder later is enabled by\n"
+"# default, and only the names listed here are skipped. The launcher's Mods page\n"
+"# writes this key.\n"
+"# moddir   = mods\n"
+"# mods_off = spawn_logger, frame_counter\n"
 "\n"
 "# --- misc ------------------------------------------------------------------\n"
 "audio       = 1\n"

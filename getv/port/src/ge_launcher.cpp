@@ -40,8 +40,18 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+/* The headers ge_lua.c uses to walk the mods directory, and for the same reason: the launcher
+ * has to discover exactly what the loader would.
+ *
+ * <sys/types.h> and the explicit <sys/stat.h> are the Mac's fix -- MinGW pulls `struct stat`
+ * in transitively and Clang does not, so this compiled here and failed there. <dirent.h>
+ * stays UNCONDITIONAL rather than moving into the non-Windows branch: mod_scan() calls
+ * opendir/readdir on every platform, MinGW ships the header, and putting it behind #else
+ * trades a Clang break for a MinGW one. Build-tests one platform, ships three -- in both
+ * directions. */
 #include <sys/types.h>
-#include <sys/stat.h>   /* struct stat: MinGW gets it transitively, Clang does not */
+#include <sys/stat.h>
+#include <dirent.h>
 
 /* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so that
  * PR/os.h's struct fields of that name can parse; MSVCRT exposes the value through
@@ -61,7 +71,6 @@
 #include <process.h>   /* _execv */
 #else
 #include <unistd.h>
-#include <dirent.h>
 #endif
 
 /* Windows needs an extension loader before any GL header. opengl32.dll exports GL 1.1 and
@@ -90,9 +99,11 @@
 
 namespace {
 
-/* Defined further down, used above it. */
+/* Defined further down with the exec helpers, used well above it to resolve a relative mods
+ * path against the binary's own directory. Declared at the top of the namespace rather than
+ * immediately before its first use: the mid-file form compiled under MinGW and Clang
+ * rejected it. */
 bool self_path(char *out, size_t n);
-
 
 /* ---------------------------------------------------------------- the model
  *
@@ -210,6 +221,30 @@ const int   kRulesetCount = 5;
  * offer mods that silently never load. */
 #define GE_MAX_MODS 32
 
+/* The six bindable actions and the eleven sources, mirroring port_os.c's GE_ACT_* and
+ * GE_SRC_* enums. Kept as strings rather than as a shared header because the launcher is a
+ * separate process that never links the input layer -- it only composes environment keys.
+ *
+ * `key` is the suffix used to build GETV_BIND_<KEY> and GETV_P<n>_BIND_<KEY>. `dflt` is
+ * what port_os.c falls back to, repeated here so the UI can show what "default" actually
+ * means instead of a blank. */
+struct BindAction { const char *label; const char *key; const char *dflt; };
+const BindAction kActions[] = {
+    { "Fire",         "FIRE",        "rt"    },
+    { "Aim",          "AIM",         "lt"    },
+    { "Use",          "USE",         "b"     },
+    { "Next weapon",  "WEAPON_NEXT", "a"     },
+    { "Prev weapon",  "WEAPON_PREV", "none"  },
+    { "Pause",        "PAUSE",       "start" },
+};
+const int kActionCount = (int)(sizeof kActions / sizeof kActions[0]);
+
+/* Positional, matching geParseSrc() in port_os.c. Names are what the player types in
+ * goldeneye.cfg, so they are shown verbatim rather than prettified -- "lt" here and "lt" in
+ * the file is the whole point. */
+const char *kSources[] = { "a", "b", "x", "y", "lb", "rb", "lt", "rt", "start", "back", "none" };
+const int   kSourceCount = (int)(sizeof kSources / sizeof kSources[0]);
+
 struct Model {
     /* profile */
     /* 0 = "97 Console" (the game as shipped), 1 = GoldenEye+. The profile is only a display
@@ -237,12 +272,13 @@ struct Model {
     bool fullscreen;
     char resolution[64];
 
-    /* presentation. The four CRT terms are held as whole percent and divided by 100 on the
-     * way out, because every control in this window is an integer slider and a float one
-     * would be the only one of its kind. */
+    /* FXAA only. The CRT terms used to live here too, behind their own page; they moved to
+     * mods/crt_screen/mod.lua when the CRT became a mod. Two controls for one effect is worse
+     * than either alone -- the mod calls ge.postfx() at load and would have silently won over
+     * anything set here -- and the tuning is more useful in the mod, where editing it is the
+     * worked example of how a mod changes something. FXAA stays: it is an image-quality
+     * setting like MSAA, not a look. */
     bool fxaa;
-    bool crt;
-    int  crt_scan, crt_mask, crt_curve, crt_vig;
 
     /* mods, discovered by scanning rather than typed. `found` is what is on disk now; `on`
      * is per-entry and parallel to it. */
@@ -250,6 +286,15 @@ struct Model {
     char mod_name[GE_MAX_MODS][64];
     bool mod_on[GE_MAX_MODS];
     char mod_scanned[512];        /* the directory `found` was filled from, for the UI */
+
+    /* Bindings. -1 means "not set": for bind_all that is port_os.c's default, for bind_p it
+     * is "inherit whatever bind_all resolved to". Holding the unset state rather than
+     * resolving it on load is what lets the UI show three distinct things -- an explicit
+     * choice, an inherited one, and the built-in default -- and what stops the launcher
+     * pinning all 24 keys the first time anyone opens the page. */
+    int  bind_all[6];
+    int  bind_p[4][6];
+    int  bind_tab;                /* 0 = all players, 1..4 = that player */
 
     /* misc */
     bool cheat_on[kCheatCount];
@@ -356,6 +401,16 @@ void mod_apply_off(Model &m)
     }
 }
 
+/* Index of `v` in kSources, or -1 for NULL, empty or anything unrecognised. */
+int bind_index(const char *v)
+{
+    if (v == NULL || *v == '\0') return -1;
+    for (int i = 0; i < kSourceCount; i++) {
+        if (strcmp(v, kSources[i]) == 0) return i;
+    }
+    return -1;
+}
+
 void model_load(Model &m)
 {
     memset(&m, 0, sizeof m);
@@ -412,19 +467,7 @@ void model_load(Model &m)
     m.fullscreen  = env_bool("GETV_FULLSCREEN", false);
     env_str("GETV_WINDOW", m.resolution, sizeof m.resolution, "1280x960");
 
-    /* Defaults mirror ge_postfx_config() in gfx_opengl.c. They are repeated rather than
-     * shared because the launcher is a separate process that has not loaded the renderer,
-     * and a launcher showing different numbers from the ones the game will use is worse than
-     * a duplicated constant. */
-    m.fxaa      = env_bool("GETV_FXAA", false);
-    m.crt       = env_bool("GETV_CRT", false);
-    {
-        const char *e;
-        e = getenv("GETV_CRT_SCANLINE"); m.crt_scan  = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 28;
-        e = getenv("GETV_CRT_MASK");     m.crt_mask  = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 18;
-        e = getenv("GETV_CRT_CURVE");    m.crt_curve = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 3;
-        e = getenv("GETV_CRT_VIGNETTE"); m.crt_vig   = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 22;
-    }
+    m.fxaa = env_bool("GETV_FXAA", false);
 
     {
         const char *c = getenv("GETV_CHEATS");
@@ -435,6 +478,25 @@ void model_load(Model &m)
             }
         }
     }
+    /* Bindings. Unrecognised spellings are left as "not set" rather than guessed at: the
+     * launcher must not silently rewrite a key it did not understand into something else. */
+    {
+        /* GETV_LAUNCHER_BINDTAB=<0..4> opens the Controls page on that scope. Same reason as
+         * GETV_LAUNCHER_PAGE: the probe never clicks, so the per-player view is otherwise
+         * unreachable without a human driving the mouse. */
+        m.bind_tab = env_int("GETV_LAUNCHER_BINDTAB", 0);
+        if (m.bind_tab < 0 || m.bind_tab > 4) m.bind_tab = 0;
+        for (int a = 0; a < kActionCount; a++) {
+            char key[64];
+            snprintf(key, sizeof key, "GETV_BIND_%s", kActions[a].key);
+            m.bind_all[a] = bind_index(getenv(key));
+            for (int p = 0; p < 4; p++) {
+                snprintf(key, sizeof key, "GETV_P%d_BIND_%s", p + 1, kActions[a].key);
+                m.bind_p[p][a] = bind_index(getenv(key));
+            }
+        }
+    }
+
     m.dev_overlay = env_bool("GETV_IMGUI", false);
     env_str("GETV_MODDIR", m.moddir, sizeof m.moddir, "");
     /* After moddir is known: the scan needs it to decide where to look. */
@@ -485,24 +547,10 @@ void model_store(const Model &m)
     put_str("GETV_WINDOW", m.resolution);
 
     setenv("GETV_FXAA", m.fxaa ? "1" : "0", 1);
-    setenv("GETV_CRT",  m.crt  ? "1" : "0", 1);
-    /* Only when CRT is on. Sent unconditionally they would pin the four terms at whatever the
-     * sliders happened to read, so turning CRT on later would not pick up the preset -- the
-     * same reasoning as the nine ruleset percentages above. */
-    if (m.crt) {
-        static const char *kCrtKeys[4] = {
-            "GETV_CRT_SCANLINE", "GETV_CRT_MASK", "GETV_CRT_CURVE", "GETV_CRT_VIGNETTE"
-        };
-        const int cv[4] = { m.crt_scan, m.crt_mask, m.crt_curve, m.crt_vig };
-        for (int i = 0; i < 4; i++) {
-            char b[32];
-            snprintf(b, sizeof b, "%.3f", (double) cv[i] / 100.0);
-            setenv(kCrtKeys[i], b, 1);
-        }
-    } else {
-        unsetenv("GETV_CRT_SCANLINE");  unsetenv("GETV_CRT_MASK");
-        unsetenv("GETV_CRT_CURVE");     unsetenv("GETV_CRT_VIGNETTE");
-    }
+    /* GETV_CRT and the four GETV_CRT_* terms are deliberately NOT written here. The CRT is
+     * mods/crt_screen now, and the launcher turns it on and off through the mod list like any
+     * other mod. The gates still exist for anyone driving the game from a shell -- ge_postfx.c
+     * reads them -- they simply are not this window's to set. */
 
     {
         char list[512];
@@ -513,6 +561,23 @@ void model_store(const Model &m)
             strncat(list, kCheats[i].name, sizeof list - strlen(list) - 1);
         }
         put_str("GETV_CHEATS", list);
+    }
+
+    /* Only what was actually chosen is written; everything else is unset. Writing all 24 keys
+     * would freeze today's defaults into the environment, so a later change to port_os.c's
+     * defaults would never reach anyone who had opened this page once. Same reasoning as the
+     * nine ruleset percentages. */
+    for (int a = 0; a < kActionCount; a++) {
+        char key[64];
+        snprintf(key, sizeof key, "GETV_BIND_%s", kActions[a].key);
+        if (m.bind_all[a] >= 0) setenv(key, kSources[m.bind_all[a]], 1);
+        else                    unsetenv(key);
+
+        for (int p = 0; p < 4; p++) {
+            snprintf(key, sizeof key, "GETV_P%d_BIND_%s", p + 1, kActions[a].key);
+            if (m.bind_p[p][a] >= 0) setenv(key, kSources[m.bind_p[p][a]], 1);
+            else                     unsetenv(key);
+        }
     }
 
     setenv("GETV_IMGUI", m.dev_overlay ? "1" : "0", 1);
@@ -1154,7 +1219,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
             dl->AddLine(ImVec2(navW, headerH), ImVec2(navW, H - footerH), kLine, 1.0f);
 
             static const char *const kPages[] =
-                { "MISSION", "RULES", "CHEATS", "VIDEO", "CRT SCREEN", "MODS" };
+                { "MISSION", "RULES", "CONTROLS", "CHEATS", "VIDEO", "MODS" };
             const int kPageCount = (int)(sizeof kPages / sizeof kPages[0]);
             ImGui::SetCursorScreenPos(ImVec2(0, headerH + 20));
             ImGui::PushStyleColor(ImGuiCol_ChildBg, v4(kPanel));
@@ -1292,6 +1357,99 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
             }
 
             else if (page == 2) {
+                float cw = ImGui::GetContentRegionAvail().x;
+
+                Section("BINDINGS FOR");
+                /* ALL first, then the four players. The tab IS the scope, so the thing being
+                 * edited is never ambiguous -- which matters here more than usual, because
+                 * "fire" on this page can mean two different keys. */
+                static const char *const kWho[] = { "ALL", "P1", "P2", "P3", "P4" };
+                Segmented("bindwho", &m.bind_tab, kWho, 5, 96.0f);
+                Hint(m.bind_tab == 0
+                     ? "Applies to every player. A player with its own choice below overrides "
+                       "this one."
+                     : "Applies to this player only. Anything left on \"same as all\" follows "
+                       "the ALL tab.");
+
+                Section("ACTIONS");
+                {
+                    const float labelw = 170.0f;
+                    for (int a = 0; a < kActionCount; a++) {
+                        int *slot = (m.bind_tab == 0) ? &m.bind_all[a]
+                                                      : &m.bind_p[m.bind_tab - 1][a];
+
+                        /* What this action will actually do if nothing more is chosen: the
+                         * ALL tab's value if there is one, otherwise port_os.c's default.
+                         * Shown so an inherited row still says something concrete rather than
+                         * leaving the player to work it out. */
+                        const char *eff = (m.bind_all[a] >= 0) ? kSources[m.bind_all[a]]
+                                                               : kActions[a].dflt;
+
+                        ImVec2 p = ImGui::GetCursorScreenPos();
+                        ImGui::GetWindowDrawList()->AddText(
+                            g_fBody, 18.0f, ImVec2(p.x, p.y + 6.0f), kText, kActions[a].label);
+
+                        ImGui::SetCursorScreenPos(ImVec2(p.x + labelw, p.y));
+                        ImGui::PushID(a);
+                        ImGui::SetNextItemWidth(160.0f);
+
+                        char preview[64];
+                        if (*slot >= 0) {
+                            snprintf(preview, sizeof preview, "%s", kSources[*slot]);
+                        } else if (m.bind_tab == 0) {
+                            snprintf(preview, sizeof preview, "default (%s)", kActions[a].dflt);
+                        } else {
+                            snprintf(preview, sizeof preview, "same as all (%s)", eff);
+                        }
+
+                        if (ImGui::BeginCombo("##src", preview)) {
+                            bool unset = (*slot < 0);
+                            char none_label[64];
+                            if (m.bind_tab == 0) {
+                                snprintf(none_label, sizeof none_label,
+                                         "default (%s)", kActions[a].dflt);
+                            } else {
+                                snprintf(none_label, sizeof none_label,
+                                         "same as all (%s)", eff);
+                            }
+                            if (ImGui::Selectable(none_label, unset)) *slot = -1;
+                            ImGui::Separator();
+                            for (int s = 0; s < kSourceCount; s++) {
+                                bool sel = (*slot == s);
+                                if (ImGui::Selectable(kSources[s], sel)) *slot = s;
+                                if (sel) ImGui::SetItemDefaultFocus();
+                            }
+                            ImGui::EndCombo();
+                        }
+                        ImGui::PopID();
+
+                        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + 40.0f));
+                        ImGui::Dummy(ImVec2(0, 0));
+                    }
+                    (void) cw;
+                }
+
+                ImGui::Dummy(ImVec2(0, 6));
+                if (Btn("RESET THIS TAB", ImVec2(180, 32), false)) {
+                    for (int a = 0; a < kActionCount; a++) {
+                        if (m.bind_tab == 0) m.bind_all[a] = -1;
+                        else                 m.bind_p[m.bind_tab - 1][a] = -1;
+                    }
+                }
+
+                Section("NOTES");
+                Hint("Button names are positional, not printed labels. \"a\" is always the "
+                     "bottom face button, including on Nintendo pads where it is marked B. "
+                     "The gamepad profile changes prompts only, so it cannot make \"a\" mean "
+                     "a different physical button.");
+                ImGui::Dummy(ImVec2(0, 6));
+                Hint("Crouch is deliberately absent. In the two-controller styles it is not a "
+                     "button at all -- it is controller 2's stick Y crossing +/-30 while "
+                     "aiming, the same axis that walks you otherwise. Binding a button to it "
+                     "would mean synthesising a stick deflection that fights the move stick.");
+            }
+
+            else if (page == 3) {
                 Section("CHEATS");
                 Hint("The game's own cheats. Those marked IN-GAME still need switching on from "
                      "the pause menu -- their effect lives in the turn-on handler, which needs "
@@ -1322,7 +1480,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 }
             }
 
-            else if (page == 3) {
+            else if (page == 4) {
                 float vw = ImGui::GetContentRegionAvail().x;
 
                 Section("DISPLAY");
@@ -1359,34 +1517,6 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
                 Section("DEVELOPER");
                 ImGui::Checkbox("Show the developer overlay in game", &m.dev_overlay);
-            }
-
-            /* Its own page rather than a fifth section on Video. Five stacked sections put the
-             * CRT controls below the fold at every window size the display here can show, and
-             * a control nobody scrolls to is a control nobody has. */
-            else if (page == 4) {
-                Section("CRT SCREEN");
-                ImGui::Checkbox("Emulate a CRT", &m.crt);
-                if (m.crt) {
-                    Hint("Scanlines, an aperture mask, a curved tube and a vignette, applied "
-                         "as one pass over the finished frame. Brightness is compensated "
-                         "exactly for what the scanlines and mask absorb, so this changes the "
-                         "texture of the image without changing its exposure.");
-                    ImGui::Dummy(ImVec2(0, 12));
-                    float cw = ImGui::GetContentRegionAvail().x;
-                    SliderRow("Scanlines",     &m.crt_scan,  0, 100, "%", cw, true);
-                    SliderRow("Aperture mask", &m.crt_mask,  0, 100, "%", cw, true);
-                    SliderRow("Tube curve",    &m.crt_curve, 0, 10,  "%", cw, true);
-                    SliderRow("Vignette",      &m.crt_vig,   0, 100, "%", cw, true);
-                    ImGui::Dummy(ImVec2(0, 6));
-                    Hint("Scanlines are drawn at 240 lines, the console's own count, rather "
-                         "than one per output pixel -- a tube's line pitch is a property of "
-                         "the tube and not of the signal fed to it.");
-                } else {
-                    Hint("Not an enhancement, so it is offered under either profile: it "
-                         "changes how the finished frame is presented, not what the game "
-                         "draws.");
-                }
             }
 
             else if (page == 5) {
