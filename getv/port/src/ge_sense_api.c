@@ -365,3 +365,34 @@ int geSenseUsable(float x, float y, float z, GeUsable *out, int max)
     }
     return written;
 }
+
+float geSenseClearestHeadingForBody(float x, float z, float heading_deg, float span, float reach,
+                                    float *out_room)
+{
+    /* Same outward sweep as the line version so the smallest correction still wins, but every
+     * candidate is tested with the body probe. Falls back to the ROOMIEST direction rather than
+     * the input heading when nothing is fully clear: a boxed-in caller given its own heading
+     * back walks into the thing it asked about, whereas the roomiest is at least the least-bad
+     * move and the caller can see how little room that was. */
+    static const float step[9] = { 0.0f, 20.0f, 40.0f, 60.0f, 90.0f, 120.0f, 145.0f, 165.0f, 180.0f };
+    float best_h = heading_deg, best_room = -1.0f;
+    int i, sgn;
+
+    for (i = 0; i < 9; i++) {
+        if (step[i] > span) { break; }
+        for (sgn = 1; sgn >= -1; sgn -= 2) {
+            GeSenseContact c;
+            float h = heading_deg + (step[i] * (float) sgn);
+
+            geSenseAheadForBody(x, z, h, reach, &c);
+            if ((c.what & GE_SENSE_SOLID) == 0) {
+                if (out_room != NULL) { *out_room = reach; }
+                return h;
+            }
+            if (c.distance > best_room) { best_room = c.distance; best_h = h; }
+            if (step[i] == 0.0f) { break; }
+        }
+    }
+    if (out_room != NULL) { *out_room = (best_room < 0.0f) ? 0.0f : best_room; }
+    return best_h;
+}

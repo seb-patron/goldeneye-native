@@ -480,7 +480,7 @@ steer:
         /* GE_SENSE_SOLID, not "anything": the line starts at the bot's own feet, so its own
          * collision sets GE_SENSE_BODY on every reading and testing for "not clear" makes every
          * direction on every level look blocked. */
-        if (geSenseAhead(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
+        if (geSenseAheadForBody(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
             && ((c.what & GE_SENSE_SOLID) || (c.what & GE_SENSE_DOOR))) {
 
             /* COMMIT TO A RESPONSE AND HOLD IT.
@@ -519,8 +519,12 @@ steer:
                 /* Wall, crate or body: steer to the nearest heading that is actually open rather
                  * than to a side picked from the sign of the error. Full circle, because a bot in
                  * a corner has its heading pointed at the obstacle by definition. */
-                float open_h = geSenseClearestHeading(st.x, st.z, ge_br_heading,
-                                                      180.0f, GE_BR_LOOKAHEAD);
+                /* BODY-AWARE. The line version has no width, so the crate/wall gap the bot
+                 * keeps wedging itself into passes it and gets reported as the clearest heading
+                 * available -- the router then commits to the one direction it cannot fit
+                 * through, and the trace says it chose correctly every time. */
+                float open_h = geSenseClearestHeadingForBody(st.x, st.z, ge_br_heading,
+                                                             180.0f, GE_BR_LOOKAHEAD, NULL);
                 float turn = ge_br_norm180(open_h - ge_br_heading);
 
                 /* Hold this heading for the manoeuvre rather than re-deciding next tick. */

@@ -192,82 +192,78 @@ anywhere, so the blast radius should be nil.
 
 **Done when:** a rocket explosion on a clean build with no environment set renders orange, and
 the doc's magenta measurement no longer reproduces.
+## 🔴 7. THE GUN BARREL INTRO IS SCRAMBLED — cache hypothesis REFUTED by measurement
 
-## 🔴 7. THE GUN BARREL INTRO IS SCRAMBLED — and the cause is a real cache bug, read in the code
-
-Evan captured the intro against a reference. Bond and the white spotlight circle render
+Evan captured the intro against an N64 reference. Bond and the white spotlight circle render
 perfectly. **Everything that is a texture is destroyed** — monochrome, streaked into horizontal
 bands, and the red at the top is gone entirely.
 
-That split is the whole diagnosis. Bond and the circle are geometry with a vertex/prim ramp and
-touch no texture memory. So the geometry, matrices, lighting and combiner are all fine, and the
-defect is confined to texture upload.
+That split still localises it: Bond and the circle are geometry with a vertex/prim ramp and touch
+no texture memory, so geometry, matrices, lighting and the combiner are all fine. The defect is
+confined to texture *data*.
 
-### Why it streaks horizontally
+### What the image is made of, and this part stands
 
-`title2.c:23`, `titleRenderFolderMenuBackgroundLines`, with the decomp's own comment:
+`title2.c:23`, with the decomp's own comment: the 440×299 background is far too large for the
+N64's 4KB TMEM, so it is read **one 440×1 row at a time** — 299 separate `gDPLoadTextureBlock`
+calls per frame, `G_IM_FMT_I` / `G_IM_SIZ_8b`, `image += 440` per row, each drawn as a
+one-pixel-tall `gSPTextureRectangle`. The red comes from `gDPSetPrimColor` ramping top to bottom
+under `G_CC_MODULATEI`, so the texture is a **luminance mask** and the prim colour supplies the
+hue. That is why losing the texture also loses the red.
 
-> The 440x299 8-bit background texture is far too large to fit in the N64's 4KB texture cache
-> (TMEM), so instead the texture is read one 440 x 1 pixel row at a time.
+### ❌ I said the texture cache was the cause. It is not. Measured, both arms.
 
-So the background is **299 separate `gDPLoadTextureBlock` calls in a single frame**, each a
-440×1 `G_IM_FMT_I` / `G_IM_SIZ_8b` strip, `image += 440` per row, each drawn as a one-pixel-tall
-`gSPTextureRectangle`. The red comes from `gDPSetPrimColor` ramping top to bottom under
-`G_CC_MODULATEI` — the texture is a luminance mask and the prim colour supplies the hue, which
-is why losing the texture also loses the red.
+The hypothesis was that `gfx_pc.c:595` resets `pool_pos` without clearing `hashmap[]`, and that
+299 textures a frame against `MAX_CACHED_TEXTURES` 512 was wrapping the pool mid-intro.
 
-Horizontal banding is therefore the expected failure signature: the image *is* horizontal
-strips, and each strip is a separate texture that can independently get the wrong data.
+Raised it to 4096, rebuilt, captured frames 1350 and 1500 on both arms with `GETV_SHOTFRAME`:
 
-### 🔑 The defect, confirmed by reading `gfx_pc.c:595`
-
-```c
-if (gfx_texture_cache.pool_pos == MAX_CACHED_TEXTURES) {
-    // Pool is full. We just invalidate everything and start over.
-    gfx_texture_cache.pool_pos = 0;
-    node = &gfx_texture_cache.hashmap[hash];
-}
+```
+f1350: byte-IDENTICAL     f1500: byte-IDENTICAL
 ```
 
-It resets `pool_pos` and **never clears `gfx_texture_cache.hashmap[]`**. The old chains still
-point into the pool, and the nodes they point at are about to be handed out again and rewritten
-with different `texture_addr`, `fmt` and `siz` — while keeping the same GL `texture_id`. A later
-lookup can walk a stale chain into a node that has been repurposed, and select a GL texture
-holding some other row's pixels.
+And the profiler says why, on both arms alike:
 
-`MAX_CACHED_TEXTURES` is **512** (`gfx_pc.c:250`). The barrel alone wants 299 entries in one
-frame, before Bond's model, the logo and everything else. The cache is never reset per frame, so
-it wraps continuously and the wrap lands mid-intro.
+```
+[prof] f1353 | texlookup=299 hit=299 import=0
+```
 
-⚠️ **This is inherited from sm64ex and is not GoldenEye-specific.** Mario 64 never asks for 299
-textures in a frame, so upstream never hit it. Anything else in this port that uploads many
-distinct textures per frame is exposed to the same bug.
+**299 lookups, 299 hits, zero imports.** The cache is at a 100% hit rate on the barrel frame and
+is not thrashing at all. The strips are all resident and all found. Cache size is irrelevant here
+and the change was reverted.
 
-**Do, in this order, because the first step is nearly free and settles it:**
+⚠️ **Where I went wrong, recorded so nobody repeats it.** I read
+`[getv][texfmt] I 8b : 45793` as per-frame churn. It is a **cumulative** count since process
+start, across ~185 frames of startup. The per-frame number is 299 and they all hit. A cumulative
+counter read as a rate is how this cost a build.
 
-1. Raise `MAX_CACHED_TEXTURES` to 4096 (the value the `EXTERNAL_DATA` branch already uses at
-   `gfx_pc.c:247`) and re-run the intro. If the barrel comes back, the diagnosis is confirmed
-   and the rest is a proper fix rather than a hunt.
-2. Then fix it properly: clear the hashmap when the pool wraps, so a wrap costs re-uploads and
-   never wrong pixels. `memset(gfx_texture_cache.hashmap, 0, sizeof ...)` at the reset.
-3. Add a counter for pool wraps per frame and print it under the existing profiling, so this
-   announces itself next time instead of being read out of a screenshot.
+### The `gfx_pc.c:595` defect is still real, and is now a separate, smaller item
 
-⚠️ Do **not** reach for `GETV_RGBA16BE` here. The barrel background is `G_IM_FMT_I` / 8b, not
-RGBA16 — item 6 is a separate bug that happens to also live in texture handling. The Rareware
-logo in the same sequence *is* RGBA16 and is item 6's best test frame; see
-[`docs/COLOUR_BUGS.md`](COLOUR_BUGS.md).
+Resetting `pool_pos` without clearing `hashmap[]` is a genuine bug in inherited sm64ex code. It
+is simply not *this* bug. Worth fixing on its own terms, at low priority, with a per-frame
+pool-wrap counter so it can announce itself instead of being guessed at.
 
-**Done when:** the intro's barrel spiral renders as the reference does, grey spiral on black
-with the red wash at the top, and a per-frame pool-wrap counter reads zero through the intro.
+### Where to look next — a lead, not a conclusion
 
-⚠️ **One soft spot in the above, so nobody chases the wrong function.** The 299-strip routine I
-quoted, `titleRenderFolderMenuBackgroundLines`, is named for the *folder select menu*, and
-`sub_GAME_7F01B6E0` next to it (320×1 RGBA16, 218 rows) is marked unreferenced. The intro barrel
-may route through a third sibling. What is established is the **technique** — a too-large
-background drawn as hundreds of one-pixel strips, one texture load each — and that the technique
-is what collides with a 512-entry cache. Confirm which function the intro actually calls before
-editing one; the cache fix in step 1 does not depend on knowing.
+`import=0` at the barrel frame means the strips were imported earlier and cached, so the wrong
+pixels were already wrong when they went in. That points upstream of the renderer:
+
+1. **The source pointer.** The noise in Evan's full-screen capture has glyph-like structure in the
+   top band, which is what arbitrary RAM looks like read as I8 intensity. If the background asset
+   is not loaded where the strip routine expects, it walks 299 rows of whatever is there. Start at
+   [`docs/ASSET_LOADING.md`](ASSET_LOADING.md).
+2. **`import_texture_i8`** (`gfx_pc.c:1169`) and its `ge_src_cap_1bpb` clamp.
+
+**Do first, because it separates the two cheaply:** dump one strip's 440 source bytes at import
+and compare against the same row extracted from the ROM asset offline. Equal means the renderer
+is at fault; different means the pointer or the asset is, and the renderer is innocent.
+
+⚠️ **One soft spot.** `titleRenderFolderMenuBackgroundLines` is named for the *folder select
+menu*, and `sub_GAME_7F01B6E0` beside it is marked unreferenced. The intro barrel may call a third
+sibling. Confirm which function the intro actually reaches before editing one.
+
+**Done when:** the intro's barrel renders as the reference does — grey spiral on black with the
+red wash at the top.
 
 ---
 
@@ -311,3 +307,8 @@ driving slot 1 or a person.
 - **The Fast3D texture cache wraps without clearing its hashmap** (`gfx_pc.c:595`), 512 entries.
   Any frame uploading hundreds of distinct textures can render one texture's pixels under
   another's address. Inherited from sm64ex; not a GoldenEye bug.
+- **`[getv][texfmt]` counts are CUMULATIVE since process start, not per frame.** Reading 45,793
+  I8 imports as per-frame churn cost a build and a wrong roadmap item. The per-frame number is in
+  `[prof]` under `GETV_PROF=1`: `texlookup=299 hit=299 import=0` on the barrel.
+- **The texture cache is not a suspect until `[prof]` says `import>0`.** It runs at a 100% hit
+  rate on the intro. `gfx_pc.c:595` is still a real bug and still not the cause of anything seen.

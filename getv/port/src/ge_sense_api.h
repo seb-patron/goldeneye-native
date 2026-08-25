@@ -127,6 +127,21 @@ float geSenseRecentTravel(int player_slot);
 
 int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSenseContact *out);
 
+/* The clearest heading judged with a BODY, not a line.
+ *
+ * 🔴 geSenseClearestHeading is a line test and a line has no width, so a crate/wall gap narrower
+ * than the player passes it -- and the sweep then reports that gap as the best way out. A router
+ * that commits to it wedges itself in the one direction it cannot fit through, and every trace
+ * says it chose correctly. The sensor is lying, the policy is fine.
+ *
+ * Anything steering a body must use this one. The line version remains for questions genuinely
+ * about a line, such as whether a shot or a sightline reaches.
+ *
+ * `out_room` receives how far the chosen heading is clear for, so a caller that must move
+ * through a tight place knows how much it bought. */
+float geSenseClearestHeadingForBody(float x, float z, float heading_deg, float span, float reach,
+                                    float *out_room);
+
 /* ---------------------------------------------------------------- 1d: what can I act on
  *
  * The prop data knows where doors, switches and pickups ARE. Nothing said whether a bot standing
