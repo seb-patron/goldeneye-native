@@ -649,6 +649,81 @@ def level_scales():
     return out
 
 
+# Prop kinds that stop a body. Doors are NOT here: a door is a passage, and removing its tile
+# would seal every room the route needs to cross. Collectables, ammo and hats are walk-through
+# pickups. Guards move and are the follower's problem, not the graph's.
+BLOCKING_PROPS = ("StandardProp", "Glass", "TintedGlass", "Alarm", "Cctv",
+                  "SingleMonitor", "MultiMonitor", "HangingMonitor", "Drone")
+
+
+def subtract_props_from_tiles(know, rooms, graph):
+    """Remove floor tiles a solid prop stands on.
+
+    🔑 THE TILE MESH IS FLOOR GEOMETRY AND PROPS SIT ON TOP OF IT. A tile with a crate on it is
+    still a tile, so the router happily plans through furniture and the follower walks into it --
+    which is exactly what stopped the bot two waypoints into Train, with the navmesh insisting
+    there was floor there and being right about the floor.
+
+    Uses the prop's CENTRE against each tile's footprint, which needs no extents and no model
+    scale. That is the honest version of what is available: a prop wider than its tile still
+    overhangs its neighbours and this will not catch that.
+
+    ⚠️ SO THIS IS A FLOOR, NOT A CEILING. It removes the tile a crate stands on, not the space a
+    crate occupies. Real extents -- scaled and rotation-aware through obj->mtx -- would subtract
+    the footprint properly, and that is the Surface's S1a. This is the part that can be done
+    correctly today rather than approximately.
+
+    ⚠️ And it must not disconnect the level. A tile removed from a corridor one tile wide severs
+    the route entirely, which is worse than routing through a crate -- so a removal that would
+    orphan its neighbours is refused and counted.
+    """
+    floors = (rooms or {}).get("floors") or []
+    props = know.get("props", []) or []
+    if not floors or not props:
+        return 0, 0
+
+    tiles = {w["index"]: w for w in know.get("waypoints", []) if w.get("tile")}
+    if not tiles:
+        return 0, 0
+
+    # tile index -> footprint, from the same floors list the nodes were built from.
+    base = min(tiles) - min(f["t"] for f in floors if f.get("t") is not None)
+    boxes = {}
+    for f in floors:
+        t = f.get("t")
+        bb = f.get("bb")
+        if t is None or not bb:
+            continue
+        boxes[base + int(t)] = bb
+
+    blocked = set()
+    for pr in props:
+        if str(pr.get("type")) not in BLOCKING_PROPS or not pr.get("pos"):
+            continue
+        px, pz = pr["pos"][0], pr["pos"][2]
+        for idx, bb in boxes.items():
+            if bb[0] <= px <= bb[2] and bb[1] <= pz <= bb[3]:
+                blocked.add(idx)
+                break
+
+    removed = kept = 0
+    for idx in blocked:
+        nbrs = graph.get(idx, [])
+        # Refuse a removal that would strand a neighbour with nothing left. Severing a
+        # one-tile-wide corridor is a worse outcome than planning through a crate, because the
+        # follower can push past furniture and cannot cross a gap in the graph.
+        strands = any(len([x for x in graph.get(n, []) if x != idx]) == 0 for n in nbrs)
+        if strands:
+            kept += 1
+            continue
+        for n in nbrs:
+            graph[n] = [x for x in graph.get(n, []) if x != idx]
+        graph[idx] = []
+        removed += 1
+
+    return removed, kept
+
+
 def tile_graph_as_waypoints(know, rooms):
     """Replace the PAD waypoint set with the FLOOR TILE mesh.
 
@@ -1064,6 +1139,12 @@ def main():
             graph = dict(_tgraph)
             print("  %-10s routing on %d floor tiles (pads kept as markers only)"
                   % (level, len(_tnodes)))
+
+        if _tnodes:
+            _rm, _kept = subtract_props_from_tiles(know, rooms, graph)
+            if _rm or _kept:
+                print("  %-10s props block %d tile(s); %d kept to avoid severing the graph"
+                      % (level, _rm, _kept))
 
         # 🔑 STRIP ANY SYNTHETIC NODES FROM A PREVIOUS RUN FIRST.
         #

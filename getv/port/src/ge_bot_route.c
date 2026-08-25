@@ -139,6 +139,33 @@ static float ge_br_norm180(float a)
     return a;
 }
 
+/* Is there really a door in front of us, or did the ray just clip a door frame?
+ *
+ * geSenseLine reports WALL|DOOR|OBJECT together whenever the ray grazes a doorway edge, and
+ * taking the DOOR bit from that made the bot drive into a wall with the action button held --
+ * for an entire run, while its actual target sat at a bearing of -60. The bitmask says what the
+ * line touched, not what is in front of you.
+ *
+ * The prop table knows where doors ARE, so ask it. Within the engine's own 200-unit interact
+ * range (doorTestForInteract, propobj.c:14411) and roughly ahead, because that function also
+ * wants the door ON SCREEN.
+ */
+static int ge_br_door_ahead(const GePlayerState *st)
+{
+    GeWorldProp d;
+    float dx, dz, bearing, off;
+
+    if (!geWorldNearestProp(GE_PROP_DOOR, st->x, st->y, st->z, &d)) { return 0; }
+    dx = d.x - st->x;
+    dz = d.z - st->z;
+    if (((dx * dx) + (dz * dz)) > (200.0f * 200.0f)) { return 0; }
+
+    bearing = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
+    off = ge_br_norm180(bearing - st->angle);
+    return ((float) fabs((double) off) <= 45.0f);
+}
+
+
 void gePortBotRouteInit(void)
 {
     const char *e;
@@ -503,7 +530,7 @@ steer:
                 if (sx3 < -GE_BR_STICK_MAX) { sx3 = -GE_BR_STICK_MAX; }
                 in.stick_x = (signed char) sx3;
                 in.stick_y = (signed char) (GE_BR_WALK * 0.6f);
-            } else if (c.what & GE_SENSE_DOOR) {
+            } else if ((c.what & GE_SENSE_DOOR) && ge_br_door_ahead(&st)) {
                 /* Walk INTO it while pressing use. Stopping to open a door and then deciding to
                  * walk is two decisions where the game wants one, and the door shuts again. */
                 in.buttons |= GE_IN_USE;
