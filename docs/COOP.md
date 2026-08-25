@@ -88,6 +88,30 @@ co-op    MP 113 frames, NONE 787                        moves nothing
 real MP  MP 113 frames, NONE 787                        moves nothing
 ```
 
+### Fixed: co-op reaches first person
+
+`bondviewAdvanceCameraMode()` now hands `CAMERAMODE_MP` straight to FP when co-op is on,
+running the same three lines the SWIRL arm does -- drop the player's own body, fade the
+characters in, set FP -- and skipping the swirl itself, which is a single-player animation
+that drags every player along its path when two exist.
+
+```
+before   MP 113 frames, NONE 787      camera frozen at the default position
+after    MP 113 frames, FP 787        first person, positions sane
+```
+
+Real multiplayer is untouched, since the branch is gated on `gePortCoopPlayers() >= 2`.
+
+**This did not make them walk.** Positions are correct and stable rather than frozen at a
+default or falling through the level, and the pipeline demonstrably works -- `property_pos`
+moves and `g_CurrentPlayer->pos` follows it one frame later -- but scripted input still does
+not drive it.
+
+One measurement worth carrying forward: `speedforwards` reads 0.000 in **solo** as well, at a
+frame where solo is visibly moving 6 units per frame. So `speedforwards` is not what carries a
+walking player, and the earlier finding that it reaches 0.900 in co-op says less than it
+appeared to. Whatever moves a solo player is something else, and finding it is the next step.
+
 ### What routing co-op through the campaign path does
 
 `GETV_COOP_CAMERA=1`, **off by default**, sends co-op down `CAMERAMODE_INTRO` instead. The
