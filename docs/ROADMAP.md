@@ -84,6 +84,52 @@ left unscaled is wrong by `1/levelscale`, which is 6.7× on Train.
 ⚠️ **The model box is unrotated.** Report the radius as well and say which is which; do not
 silently pick one.
 
+### 🔴 The root cause, found in the router: the policy is fine, the sensor lies to it
+
+Evan's second capture shows the bot still wedging, and the reason is not the avoidance policy.
+`ge_bot_route.c:520` picks the escape heading with:
+
+```c
+float open_h = geSenseClearestHeading(st.x, st.z, ge_br_heading, 180.0f, GE_BR_LOOKAHEAD);
+```
+
+**`geSenseClearestHeading` is a line test, and a line has no width.** The gap between the crate
+and the wall passes it. So the sensor reports that gap as *the clearest heading available*, the
+router commits to it for `GE_BR_AVOID_TICKS` — correctly, per the standing correction about
+re-deciding every tick — and drives into a gap the body cannot enter. The commitment that stops
+oscillation is what makes this grind instead of twitch.
+
+Everything downstream of the sensor is already right. The router holds an absolute world bearing
+(`atan2(dx, dz)`, `ge_bot_route.c:121`), commits to an avoidance heading rather than re-picking a
+side each frame, scales forward speed down by heading error so it does not drive full-pelt into
+what it is avoiding, and prefers a door over an object because a door frame reads as OBJECT. None
+of that needs changing.
+
+**So the fix is one substitution, not a rewrite:** `geSenseClearestHeading` must reject headings
+whose *corridor* is narrower than `chrwidth`, not merely headings whose centre-line is blocked.
+Sweep `gePortCanStandAt` along each candidate heading at the sample points `geSenseAhead` already
+uses. A heading is open when a *body* fits along it, not when a ray survives it.
+
+**Done when:** on Evan's capture the crate/wall gap is not returned by `geSenseClearestHeading`,
+and the bot turns and walks around the crate instead of into the gap.
+
+### On absolute directions, since Evan raised it
+
+The router is already absolute — `ge_br_heading` is `atan2(dx, dz)` in world space, matching the
+extractor, so "left" never enters the steering maths. That is why the fix above is a sensor change
+and not a steering change.
+
+⚠️ **The axis names matter here and have already cost three sign errors** (see the standing
+correction on stick sign). In this engine the horizontal plane is **X/Z** and **up is Y** —
+`prop->pos.x` / `prop->pos.z` are the ground plane and `stanGetPositionYValue` returns height. So
+compass directions map to ±X and ±Z, and the vertical axis people mean when they say "the Z axis"
+is **Y** here. Anything reasoning about floors, stairs or elevation is a Y question and belongs
+with item 2's height work, not with horizontal routing.
+
+The single place the absolute bearing becomes a stick deflection is
+`sx = -turn * GE_BR_TURN_GAIN`. That negation is the entire "positive stick decreases heading"
+convention. Keep it in exactly one place so it can only ever be wrong once.
+
 ## 🔴 2. NAVMESH NODES — Surface
 
 Pads are prop markers, not places to walk. Measured with the teleport probe: **139 of Train's 180

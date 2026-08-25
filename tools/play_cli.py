@@ -92,7 +92,12 @@ class Player:
         #
         # Only at something that can see us: a guard facing elsewhere is not spending ammunition
         # on us and shooting it just makes noise. Nearest first, since it is doing the damage.
-        threats = sorted((d, b) for (d, b, sees) in s.get("enemies", []) if sees and d < 2000)
+        # 900, not 2000. At 2000 there is ALWAYS a guard somewhere in a carriage that can see
+        # you, so fighting outranks everything forever and the player never opens the door two
+        # metres in front of it -- measured: it stood at a door 96 units away trading shots for a
+        # whole run. Distant guards are a fact of the level, not an emergency; the ones close
+        # enough to be doing real damage are.
+        threats = sorted((d, b) for (d, b, sees) in s.get("enemies", []) if sees and d < 900)
         if threats:
             d, b = threats[0]
             if abs(b) > 12:
