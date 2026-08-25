@@ -9,6 +9,31 @@ The measuring instrument is the CLI (`GETV_CLI=1`). If a person can play a level
 the API is complete and the rest is policy. Today a person gets the objective from 14,649 to
 13,315, holding 62% health and returning fire, and then wedges. We know where and why.
 
+## Staying 1:1 — check it, do not assume it
+
+`tools/sync_surface.sh` verifies both halves and prints OK or MISMATCH:
+
+```
+== 1:1 CHECK ==
+  commits   mac=cb0d534e0f  surface=cb0d534e0f  OK
+  decomp    mac=5f4c9f41fee5  surface=5f4c9f41fee5  OK
+```
+
+Being in sync has **two independent parts and only one travels in a bundle**:
+
+1. **Commits.** Carried by the bundle. Compared on FULL hashes — git picks short-hash length per
+   repo, so the two sides can abbreviate the same commit differently and a naive compare reports
+   a tree mismatching itself. A check that cries wolf gets ignored.
+2. **`vendor/**`.** **Gitignored, so decomp symbols do NOT travel.** The Surface lost a day to a
+   build that compiled and would not link for exactly this. Compared by SHA-1 of
+   `objective_status.c`, because a name check proves one symbol arrived and a hash proves the
+   whole file did.
+
+⚠️ **`git apply` reports "Skipped patch" on the Surface's vendor tree** — its ignore rules exclude
+that path — so a patch that verifies clean can still land nothing while every signal says it
+worked. **Deliver the file by scp and verify the hash.** Patches are for the record, not the
+transport.
+
 ## The division, and why it is this one
 
 **The Surface renders at roughly one frame per second.** It cannot measure anything at runtime,
@@ -231,6 +256,61 @@ Fire rates and reaction stepping counted in time rather than iterations. Open-en
 conversion needs checking against retail.
 
 ---
+
+---
+
+# PHASES — what comes after the bot works
+
+Ordered by dependency, not appetite. Nothing in a later phase should start while an earlier one
+is blocking, because every one of them is easier once a bot can be pointed at a level and left
+to run.
+
+## Phase 2 — the API becomes a platform
+
+**Bot personalities against real levels.** Eighteen archetypes exist and were only ever tested
+against a placeholder. With measured routes, difficulty can mean something: reaction time,
+accuracy, whether a bot breaks contact when hurt.
+
+**Horde mode.** The cheat system already gives guards any weapon and the graph knows where they
+can come from. That is most of a wave spawner, and it is the first thing that is *fun* rather
+than correct.
+
+**Co-op verified with two humans.** M4. `GETV_SCRIPT` moves nobody, so this needs the player API
+driving slot 1 or a person at the second pad.
+
+**Netplay determinism over a long run.** S5. Two peers staying identical over thousands of ticks
+is unproven and `gePlayerSeedFingerprint` exists for exactly that.
+
+## Phase 3 — presentation and platforms
+
+**The Metal backend, ported from akratch/mgb64.** MIT, archived, and the one capability they have
+that we lack — see the prior-art note below.
+
+🔑 **This is the tvOS unlock, and tvOS was this project's original goal.** GL ES is deprecated on
+Apple platforms and Metal is the supported path; the OpenGL renderer we run today is a dead end
+there however well it works on desktop.
+
+⚠️ **Port it, do not copy it.** Theirs is written against their platform layer. The
+sm64ex-versus-libultraship lesson has already cost this project five separate bugs: a reference
+implementation written for a different tree is actively misleading even when it descends from the
+same code. Budget it as a rewrite with a working reference, not a transplant.
+
+**Then tvOS itself.** The build/sign/deploy loop already exists from the earlier work and rendered
+frames on the Apple TV. What killed it was the renderer, which is what Metal fixes.
+
+**Frame timing step 3.** M5. Fire rates and reaction stepping counted in time rather than
+iterations. Open-ended, and each conversion needs checking against retail.
+
+**Z-fighting and the visual bugs.** M6 and the colour-decode family in `COLOUR_BUGS.md`.
+
+## Phase 4 — the thing this is actually for
+
+**A mod surface people outside this repo can use.** The world API, sensing, the event bus and Lua
+already exist. What is missing is documentation aimed at someone who has never read the decomp,
+and a mod that does something a person would want rather than something that proves a seam works.
+
+**An agent that plays the game.** The CLI is the interface and it already works. Everything past
+that is policy, and policy is cheap once perception is honest.
 
 ## Prior art: akratch/mgb64 — worth mining, and MIT
 
