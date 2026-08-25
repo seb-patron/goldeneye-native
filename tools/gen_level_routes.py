@@ -327,6 +327,56 @@ def turn_by_turn(know, path, guards, rooms=None):
     return steps
 
 
+def measured_spawn_node(know, graph, level, spawns):
+    """The graph node nearest to where the game ACTUALLY puts the player.
+
+    spawn_node() below picks a well-connected hub and labels the result assumed, on the reasoning
+    that only the first leg depends on it. That reasoning does not hold: a bot is not at the hub,
+    it is at the spawn, so every leg of the route is measured from somewhere the bot has never
+    been. Measured against the running game, all twenty levels were wrong, by 1,469 to 27,850
+    units -- and the failure is silent, because a route from the wrong start is still perfectly
+    well formed. The bot walks confidently into a wall.
+
+    tools/dump_spawns.py produces the truth by booting each level and asking the game, which is
+    the only authority: which start pad the engine picks, and where the stan query finally places
+    the body, are runtime decisions that no amount of asset reading will settle.
+
+    Returns None when there is no measurement for this level, so the caller falls back and keeps
+    labelling the result assumed. A missing measurement must not silently become a confident one.
+    """
+    rec = (spawns or {}).get(level)
+    if not rec or not rec.get("pos"):
+        return None
+
+    sx, _sy, sz = rec["pos"]
+    best, best_d = None, None
+    for w in know.get("waypoints", []):
+        pos = w.get("pos")
+        if not pos:
+            continue
+        # Horizontal distance only. Vertical disagreement between the spawn and the waypoint
+        # plane is normal -- the spawn is an eye/body position and waypoints sit on the floor --
+        # and including it picks a node on the wrong storey in any level with stacked geometry.
+        d = ((pos[0] - sx) ** 2) + ((pos[2] - sz) ** 2)
+        if best_d is None or d < best_d:
+            best, best_d = w["index"], d
+
+    if best is None:
+        return None
+
+    # ⚠️ A nearest node that is nowhere near the spawn means the graph does not cover where the
+    # player starts, and Dam is exactly that case: its spawn is 27,850 units from the assumed
+    # one and its waypoints are not in world coordinates at all. Snapping to the nearest node
+    # would produce a confident route through the wrong space. Refuse instead, loudly.
+    if best_d > (4000.0 ** 2):
+        print("  %-10s SPAWN NOT IN GRAPH: nearest node %d is %.0f units away -- "
+              "coordinate space mismatch, not a wrong pad. Falling back."
+              % (level, best, best_d ** 0.5))
+        return None
+
+    return best
+
+
 def spawn_node(know, graph):
     """Where a run starts, as a graph node.
 
@@ -377,8 +427,21 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=os.path.join("build", "levels"))
+    ap.add_argument("--spawns", default=os.path.join("build", "levels", "spawns.json"),
+                    help="measured spawns from tools/dump_spawns.py; absent means fall back to "
+                         "the assumed hub and keep saying so")
     args = ap.parse_args()
     out_dir = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
+
+    spawn_path = args.spawns if os.path.isabs(args.spawns) else os.path.join(ROOT, args.spawns)
+    measured = {}
+    if os.path.exists(spawn_path):
+        with open(spawn_path) as sf:
+            measured = json.load(sf).get("spawns", {})
+        print("using %d measured spawn(s) from %s" % (len(measured), args.spawns))
+    else:
+        print("no measured spawns at %s -- every start stays an assumption. "
+              "Run tools/dump_spawns.py." % args.spawns)
 
     tac_files = sorted(glob.glob(os.path.join(out_dir, "*.tactics.json")))
     if not tac_files:
@@ -426,7 +489,10 @@ def main():
             rooms = dict(rooms)
             rooms["room_graph"] = {k: sorted(v) for k, v in rg.items()}
         props_by_tag = {p["tag"]: p for p in know.get("props", []) if p.get("tag") is not None}
-        start = spawn_node(know, graph)
+        start = measured_spawn_node(know, graph, level, measured)
+        start_measured = start is not None
+        if start is None:
+            start = spawn_node(know, graph)
 
         routes = []
         for obj in tact.get("objectives", []):
@@ -483,7 +549,7 @@ def main():
             "level": level,
             "spawn_node": start,
             "spawn_pos": node_pos(know, start) if start is not None else None,
-            "spawn_is_assumed": True,
+            "spawn_is_assumed": not start_measured,
             "counts": {"objectives": len(routes),
                        "routable": sum(1 for r in routes if r.get("routable"))},
             "routes": routes,

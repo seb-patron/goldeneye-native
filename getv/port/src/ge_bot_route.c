@@ -47,11 +47,22 @@
 /* Below this much movement in a tick the heading estimate is noise rather than direction. */
 #define GE_BR_MOVE_EPSILON   1.5f
 
+/* How long to tolerate "walking but not moving" before treating it as an obstacle, and how long
+ * to steer around one. The first is generous because a legitimate stall happens for a tick or
+ * two whenever the collision update clips a corner; the second is roughly the time it takes to
+ * turn 90 degrees at full deflection, since the yaw is 3.5 degrees a tick. */
+#define GE_BR_STUCK_TICKS   30
+#define GE_BR_DETOUR_TICKS  26
+
 static int   ge_br_ready;
 static int   ge_br_slot = -1;
 static int   ge_br_obj  = -1;
 static int   ge_br_trace;
 static int   ge_br_step;            /* which step of the route we are on */
+static int   ge_br_joined;          /* has the bot reached the route's first node yet */
+static int   ge_br_stuck;           /* consecutive ticks commanded forward with no movement */
+static int   ge_br_detour;          /* ticks left steering around an obstacle */
+static float ge_br_detour_sign;     /* which way round it -- kept until the detour ends */
 static int   ge_br_steps;
 static int   ge_br_have_heading;
 static float ge_br_heading;         /* degrees, atan2(dx, dz), matching the extractor */
@@ -176,11 +187,48 @@ void gePortBotRouteFrame(int frame)
     }
     if (!geWorldRouteStep(ge_br_obj, ge_br_step, &step)) { return; }
 
+    /* JOIN THE ROUTE BEFORE WALKING IT.
+     *
+     * A route is a chain of waypoints joined by edges the graph says are walkable. The bot does
+     * not spawn on one. Even with the measured spawn it lands some hundreds of units off the
+     * nearest node -- Silo 40, Bunker 1 583, Caverns 3,390 -- and heading straight for step 0's
+     * DESTINATION means crossing whatever lies between, on no edge at all. That is a straight
+     * line through walls, and it is what the bot was doing: on Bunker 1 it closed 1332 to 1176
+     * and then pushed into geometry for the rest of the run.
+     *
+     * So the first target is step 0's ORIGIN, not its destination. Reaching it puts the bot on
+     * the graph, and from there every subsequent target is one edge away along a path the
+     * extractor already decided was walkable.
+     *
+     * Only for the first step. Once joined, aiming at each step's origin again would be a
+     * wasted round trip, because the previous step's destination IS this step's origin. */
+    if (ge_br_step == 0 && !ge_br_joined) {
+        int i, found = 0;
+        for (i = 0; i < geWorldWaypointCount(); i++) {
+            if (geWorldWaypoint(i, &wp) && wp.id == step.from) { found = 1; break; }
+        }
+        if (found) {
+            float jx = wp.x - st.x, jz = wp.z - st.z;
+            if ((jx * jx + jz * jz) <= (GE_BR_ARRIVE * GE_BR_ARRIVE)) {
+                ge_br_joined = 1;
+                if (ge_br_trace) {
+                    printf("[getv][botroute] joined the route at node %d\n", step.from);
+                    fflush(stdout);
+                }
+            }
+        } else {
+            /* No origin node in the table means the route and the waypoint set disagree, and
+             * walking the chain anyway would be walking a chain that is not there. */
+            ge_br_joined = 1;
+        }
+    }
+
     /* The step names waypoints; the position comes from the waypoint table. */
     {
         int i, found = 0;
+        int want = (ge_br_step == 0 && !ge_br_joined) ? step.from : step.to;
         for (i = 0; i < geWorldWaypointCount(); i++) {
-            if (geWorldWaypoint(i, &wp) && wp.id == step.to) { found = 1; break; }
+            if (geWorldWaypoint(i, &wp) && wp.id == want) { found = 1; break; }
         }
         if (!found) { return; }
     }
@@ -190,6 +238,16 @@ void gePortBotRouteFrame(int frame)
     dist = (float) sqrt((double) (dx * dx + dz * dz));
 
     if (dist <= GE_BR_ARRIVE) {
+        /* Arriving at the JOIN target means the bot is on the graph, not that it has finished
+         * step 0. Advancing here would silently skip the first edge of every route. */
+        if (ge_br_step == 0 && !ge_br_joined) {
+            ge_br_joined = 1;
+            if (ge_br_trace) {
+                printf("[getv][botroute] joined the route at node %d\n", step.from);
+                fflush(stdout);
+            }
+            return;
+        }
         ge_br_step++;
         if (ge_br_trace) {
             printf("[getv][botroute] reached waypoint %d (step %d/%d)\n",
@@ -243,6 +301,54 @@ void gePortBotRouteFrame(int frame)
     align = 1.0f - (float) fabs((double) err) / GE_BR_ALIGN_DEG;
     if (align < 0.0f) { align = 0.0f; }
     in.stick_y = (signed char) (GE_BR_WALK * align);
+
+    /* WALLS.
+     *
+     * A route is a chain of waypoints; it is not a promise that the straight line to the next
+     * one is clear, and between the spawn and the graph there is no edge at all. The bot walked
+     * into geometry and stayed there: on Bunker 1 it closed 583 to 430 and then held position
+     * for the rest of the run with speedforwards at 0.818 and the collision update refusing its
+     * offset every single frame.
+     *
+     * Nothing in the state readout says "blocked", so it is inferred: commanded forward, aligned
+     * with the target, and not actually moving. That combination cannot happen in open floor.
+     *
+     * The response is the cheap half of a bug-following walk -- turn a fixed amount and keep
+     * walking, so the bot slides along the obstacle rather than pressing into it. The direction
+     * is CHOSEN ONCE and held for the whole detour: re-deciding each tick makes it oscillate
+     * against the wall, which is the same antipode instability that made the inverted steering
+     * sign look like a freeze.
+     *
+     * This is deliberately not a pathfinder. It gets a bot off a wall it is scraping; it will
+     * not solve a concave dead end, and it should not pretend to.
+     */
+    {
+        float moved = (st.x - ge_br_px) * (st.x - ge_br_px)
+                    + (st.z - ge_br_pz) * (st.z - ge_br_pz);
+
+        if (ge_br_detour > 0) {
+            ge_br_detour--;
+            in.stick_x = (signed char) (ge_br_detour_sign * GE_BR_STICK_MAX);
+            in.stick_y = (signed char) GE_BR_WALK;
+        } else if (in.stick_y > 0 && moved < (GE_BR_MOVE_EPSILON * GE_BR_MOVE_EPSILON)) {
+            ge_br_stuck++;
+            if (ge_br_stuck >= GE_BR_STUCK_TICKS) {
+                /* Turn towards the side the target is already on, so the detour makes progress
+                 * around the obstacle instead of away from the route. */
+                ge_br_detour_sign = (err < 0.0f) ? -1.0f : 1.0f;
+                ge_br_detour = GE_BR_DETOUR_TICKS;
+                ge_br_stuck = 0;
+                if (ge_br_trace) {
+                    printf("[getv][botroute] blocked at (%.0f %.0f) -- detouring %s\n",
+                           (double) st.x, (double) st.z,
+                           (ge_br_detour_sign < 0.0f) ? "left" : "right");
+                    fflush(stdout);
+                }
+            }
+        } else {
+            ge_br_stuck = 0;
+        }
+    }
 
     /* Post for the NEXT tick: the playback handler has already run for this frame, so posting
      * "now" is posting into the past and gePlayerPost correctly refuses it. */
