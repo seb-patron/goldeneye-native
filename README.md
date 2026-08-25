@@ -1,19 +1,12 @@
 # Goldeneye-Native
 
-**GoldenEye 007, compiled as a native program for Windows, macOS and Linux.** Not an emulator.
-The game's own C, from the [`n64decomp/007`](https://github.com/n64decomp/007) decompilation,
-built for your machine. The binary *is* the game, so things an emulator can only work around
-from outside get fixed at the source.
+**GoldenEye 007 as a native executable. Windows, macOS, Linux. No emulator.**
+
+Built from the [`n64decomp/007`](https://github.com/n64decomp/007) decompilation, so the
+binary *is* the game. Mouse and keyboard, any resolution, mods in Lua, and the frame-rate
+problem actually fixed rather than worked around.
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
-
-| | |
-|---|---|
-| **macOS** | Apple Silicon and Intel |
-| **Linux** | x86-64 |
-| **Windows** | x86-64, MinGW-w64 |
-
-One source tree, one build script each.
 
 ## What you get
 
@@ -27,15 +20,13 @@ One source tree, one build script each.
 - **Lua mods.** Drop a `mod.lua` in `mods/`, get `onFrame` and friends, no rebuild.
 - **Start any mission with any gun**, dual wielding included.
 - **FXAA, CRT, supersampling, MSAA, arbitrary resolution.** All off by default.
-- **The frame-rate problem fixed**, not worked around. [Details below](#on-frame-timing-and-a-thank-you).
 
 ![The launcher's Controls page](docs/images/launcher-controls.png)
 
 ![FXAA off, left; on, right](docs/images/fxaa-comparison.png)
 
-*FXAA off left, on right, zoomed on the PP7 barrel. FXAA is a screen-space approximation and
-not MSAA, but on geometry this sparse it is nearly free and there is nothing fine for it to
-smear.*
+*FXAA off left, on right, on the PP7 barrel. It is a screen-space approximation, not MSAA, but
+on geometry this sparse it is nearly free.*
 
 ## Quick start
 
@@ -48,33 +39,24 @@ cd goldeneye-native
 You supply your own ROM. The build reads it once to extract assets; what you run afterwards
 never touches it. Full steps in [`docs/SETUP.md`](docs/SETUP.md).
 
-## On frame timing, and a thank you
+## The frame-rate problem
 
-**[Graslu](https://github.com/Graslu) raised this publicly and was right to.**
+**[Graslu](https://github.com/Graslu) called this out publicly and was right.**
 
-GoldenEye counts things per iteration, not per second. 122 of the 135 files under `src/game`
-do per-frame work, and fire rates and guard reaction were tuned against the 20 to 30fps real
-hardware managed. Lock the loop at 60 and they all happen twice as often.
+GoldenEye counts per iteration, not per second. 122 of its 135 game files do per-frame work,
+tuned against the 20 to 30fps real hardware managed. Lock the loop at 60 and everything
+happens twice as often.
 
-Fixed in three parts:
+Fixed: the simulation runs on its own divider, the camera interpolates between ticks, and the
+frame-counted systems count time now. An FN P90 held for 80 frames fires 39 rounds at every
+divider. It used to be 39, 20 and 10. A twelve-level sweep flags nothing.
 
-- The simulation ticks on its own divider while drawing continues every frame.
-  `GETV_SIMDIV=auto` picks it from your refresh rate.
-- The camera interpolates between ticks. At a 4x divider the frame-to-frame spread is 0.1843
-  against a full-rate 0.1855, so a quarter-rate simulation renders as smoothly as a full one.
-- The frame-counted systems count time now. An FN P90 held for 80 frames fires 39 rounds at
-  every divider. Before, it was 39, 20 and 10.
+Above 60Hz set `GETV_REALCLOCK=1` or the world runs fast; the game warns you. That path is
+reasoned from the code and not measured, because this was built on a 60Hz panel.
 
-A twelve-level sweep at divider 2 flags nothing. `tools/divider_audit.py` re-runs it.
-
-One gap, stated plainly: above 60Hz the default clock counts a rendered frame as a video
-field, so 120Hz doubles game speed unless `GETV_REALCLOCK=1` is set. The game warns you. That
-path is reasoned from the code and **not measured**, because this was built on a 60Hz panel.
-Full working in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
-
-No 1964 or Mouse Injector code is used. Those are GPL-2.0 and quarantined; see
-[`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit is for identifying the problem, which
-is not a licensable thing.
+Working, measurements and method in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md). No 1964 or
+Mouse Injector code is used; those are GPL-2.0 and quarantined
+([`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md)).
 
 ## If you came here looking for a GoldenEye emulator
 
@@ -102,7 +84,7 @@ So these are ordinary code changes rather than impossible:
 - mouse and keyboard, because the input layer is ours
 - mod scripting in Lua, because we control the frame loop
 - **the frame-rate problem**, which is a real bug in the original scripting and is the one
-  thing everybody asks about. See [frame timing](#on-frame-timing-and-a-thank-you).
+  thing everybody asks about. See [frame timing](#the-frame-rate-problem).
 
 You still need your own ROM. The build reads it once to extract assets. What you run
 afterwards does not touch it.
