@@ -26,10 +26,11 @@ import time
 NUM = r"(-?\d+)"
 RE_YOU = re.compile(r"^you\s+\(" + NUM + r"\s+" + NUM + r"\s+" + NUM + r"\)\s+facing\s+" + NUM
                     + r"\s+room\s+" + NUM + r"\s+hp\s+" + NUM)
-RE_AHEAD = re.compile(r"^ahead\s+(\S.*?)\s{2,}(\d+)\s+away\s+clearest turn\s+([+-]?\d+)")
+RE_AHEAD = re.compile(r"^ahead\s+(\S.*?)\s{2,}(\d+)\s+away\s+clearest turn\s+([+-]?\d+)\s*\((\d+) room\)")
 RE_OBJ = re.compile(r"^obj\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_DOOR = re.compile(r"^Door\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_NEAR = re.compile(r"^near\s+(\S+)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
+RE_ENEMY = re.compile(r"^enemy\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)(\s+SEES YOU)?")
 
 TURN_PER_TICK = 3.5
 
@@ -43,6 +44,8 @@ class Player:
         self.arrived = False
         self.hold = 0
         self.near_fresh = True
+        self.queue = []
+        self.enemy_fresh = True
 
     def send(self, cmd):
         self.log.write("> %s\n" % cmd)
@@ -74,9 +77,27 @@ class Player:
             self.hold -= 1
             return None
 
+        # A queued follow-up runs before anything is reconsidered: that is what makes turn-then-go
+        # one decision instead of two that argue with each other.
+        if self.queue:
+            return self.queue.pop(0)
+
         obj_d, obj_turn = s["obj"]
         if self.best_obj is None or obj_d < self.best_obj:
             self.best_obj = obj_d
+
+        # SHOOT BACK. The player walked the first carriage at 100% health and reached the second
+        # at 22%, because it had a loaded PP7 and never used it. Guards do not stop shooting
+        # because you are busy navigating, and a route that ends in a corpse is not a route.
+        #
+        # Only at something that can see us: a guard facing elsewhere is not spending ammunition
+        # on us and shooting it just makes noise. Nearest first, since it is doing the damage.
+        threats = sorted((d, b) for (d, b, sees) in s.get("enemies", []) if sees and d < 2000)
+        if threats:
+            d, b = threats[0]
+            if abs(b) > 12:
+                return self.turn_cmd(max(-45, min(45, b)))
+            return "fire"
 
         # A door directly in the way is the way through. Doors are how these levels connect.
         what = s.get("ahead_what", "")
@@ -84,12 +105,20 @@ class Player:
         if "door" in what and ahead_d < 400:
             return "use 40"
 
-        # Something solid close enough to walk into: take the turn the report already worked out.
+        # Something solid close enough to walk into: take the turn the report worked out, and
+        # then WALK IT. A turn on its own leaves the player pointing at open ground and standing
+        # still, so the next report sees the same obstacle and turns again -- which is how it
+        # spent a whole run rotating beside one crate. Turn and go, as one plan.
         if ("wall" in what or "object" in what) and ahead_d < 250:
             clear = s.get("clearest", 0)
+            room = s.get("room", 0)
             if clear:
+                self.queue.append("w %d" % max(40, min(120, room // 4)))
                 return self.turn_cmd(clear)
-            return "d 20"
+            # Nothing clear anywhere: back off rather than press on. Pressing is what wedges a
+            # body into a corner it then cannot sense its way out of.
+            self.queue.append("d 26")
+            return "s 40"
 
         # AVOID THE FURNITURE. The nearest-of-each-kind lines say where to GO; they never mention
         # the crate two metres ahead, because a crate is nobody's landmark. The near list does,
@@ -120,6 +149,7 @@ class Player:
             self.state["ahead_what"] = m.group(1).strip()
             self.state["ahead_dist"] = int(m.group(2))
             self.state["clearest"] = int(m.group(3))
+            self.state["room"] = int(m.group(4))
             return
         m = RE_OBJ.match(line)
         if m:
@@ -127,8 +157,17 @@ class Player:
             # The report is complete once the objective line lands: act on it.
             cmd = self.decide()
             self.near_fresh = True
+            self.enemy_fresh = True
             if cmd:
                 self.send(cmd)
+            return
+        m = RE_ENEMY.match(line)
+        if m:
+            if self.enemy_fresh:
+                self.state["enemies"] = []
+                self.enemy_fresh = False
+            self.state.setdefault("enemies", []).append(
+                (int(m.group(1)), int(m.group(2)), bool(m.group(3))))
             return
         m = RE_NEAR.match(line)
         if m:

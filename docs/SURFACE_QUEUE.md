@@ -59,8 +59,36 @@ that number smaller; add the cone.
 know it is *touching* something right now — the difference between "there is a wall ahead" and
 "I am pressed against it and my last four moves did nothing".
 
-**1c. Reachability with a body, not a line.** A line test passes through a gap narrower than the
-player. Sweep the player's collision radius, or sample parallel lines either side.
+**1c. Reachability with a body, not a line. 🔴 THIS IS THE CURRENT BLOCKER — and do not build it
+the way this item originally said.** A line test passes through a gap narrower than the player.
+Evan has a capture of exactly that: the bot trying to fit between a crate and a wall.
+
+The original suggestion here was to sweep the player's collision radius or sample parallel lines
+either side. **Don't.** The engine already ships the exact test, and the guard AI runs it before
+every step it takes:
+
+```c
+s32 stanTestVolume(StandTile **tile, f32 x, f32 z, f32 width,
+                   s32 cdtypes, f32 ymin, f32 ymax);          /* stan.c:2073 */
+s32 stanTestLineUnobstructed(StandTile **tile, f32 x0, f32 z0, f32 x1, f32 z1,
+                             s32 cdtypes, f32 height, f32 a, f32 b, f32 c);  /* stan.c:1686 */
+```
+
+`chr.c:1468` calls the line test, then the volume test at the destination, and treats a
+**negative** `stanTestVolume` return as "a body of `width` fits here". Non-negative is the index
+of what is in the way. The width is `chrwidth`, `20.0f` at `chr.c:1936`, and `chraction.c:4119`
+shows the engine's own margin at `chrwidth * 1.2f`. Use the mask `chraction.c:3448` uses:
+`CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER`.
+
+⚠️ The tile argument is an **input**, same trap as `bondviewTestLineUnobstructed` in the standing
+corrections. Seed it from the querying body's current tile or everything reads obstructed.
+
+**Do:** `gePortCanStandAt(x, z)` and `gePortPathClear(x0, z0, x1, z1)` over those two. Parallel
+line sampling would have approximated this and missed doors, characters and path blockers, all of
+which `stanTestVolume` already accounts for.
+
+**Done when:** `gePortCanStandAt` returns false for the point between the crate and the wall in
+Evan's capture, and the Train CLI player walks past the crate it currently traps itself on.
 
 **1d. Interaction verbs.** `geSenseUsable(x, z)` — is there a door, switch or pickup within reach
 of this spot, and what is it. The prop API knows where they are; nothing says "you can act on

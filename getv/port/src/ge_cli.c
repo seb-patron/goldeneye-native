@@ -154,7 +154,11 @@ static void ge_cli_report(int frame)
 
     if (st.fields & GE_ST_ANGLE) {
         char what[48];
-        geSenseAhead(st.x, st.z, st.angle, 400.0f, &ahead);
+        /* BODY WIDTH, not a point ray. A single line fits through a gap narrower than the player
+         * and reports clear, which is how the CLI player walked confidently into the corner of a
+         * crate the report said it could pass. Three parallel lines a body-radius apart, nearest
+         * obstruction wins, because a body stops at whichever shoulder meets something first. */
+        geSenseAheadForBody(st.x, st.z, st.angle, 400.0f, &ahead);
         what[0] = '\0';
         if (ahead.what == GE_SENSE_CLEAR) { strcpy(what, "clear"); }
         else {
@@ -162,9 +166,39 @@ static void ge_cli_report(int frame)
             if (ahead.what & GE_SENSE_DOOR)   { strcat(what, "door "); }
             if (ahead.what & GE_SENSE_OBJECT) { strcat(what, "object "); }
         }
-        printf("ahead  %-16s %4.0f away   clearest turn %+.0f\n", what, (double) ahead.distance,
-               (double) ge_cli_norm180(
-                   geSenseClearestHeading(st.x, st.z, st.angle, 180.0f, 400.0f) - st.angle));
+        {
+            /* Clearest heading judged with the SAME body probe the report uses. Asking a
+             * point-ray sweep for the way out while reporting body-width obstruction sends the
+             * reader down gaps the report has just said are blocked -- two different questions
+             * answered as though they were one. */
+            static const float sweep[9] = { 0.0f, 20.0f, 40.0f, 60.0f, 90.0f,
+                                            120.0f, 145.0f, 165.0f, 180.0f };
+            float best_turn = 0.0f, best_room = -1.0f;
+            int k, sgn;
+
+            for (k = 0; k < 9; k++) {
+                for (sgn = 1; sgn >= -1; sgn -= 2) {
+                    GeSenseContact c2;
+                    float h = st.angle + (sweep[k] * (float) sgn);
+                    geSenseAheadForBody(st.x, st.z, h, 400.0f, &c2);
+                    if ((c2.what & GE_SENSE_SOLID) == 0) {
+                        best_turn = sweep[k] * (float) sgn;
+                        best_room = 400.0f;
+                        k = 9;
+                        break;
+                    }
+                    /* Nothing fully clear yet: remember the roomiest, so a boxed-in reader is
+                     * told the least-bad way rather than "no way out". */
+                    if (c2.distance > best_room) {
+                        best_room = c2.distance;
+                        best_turn = sweep[k] * (float) sgn;
+                    }
+                    if (sweep[k] == 0.0f) { break; }
+                }
+            }
+            printf("ahead  %-16s %4.0f away   clearest turn %+.0f (%.0f room)\n",
+                   what, (double) ahead.distance, (double) best_turn, (double) best_room);
+        }
     }
 
     /* Landmarks, as bearings a person can steer by. */

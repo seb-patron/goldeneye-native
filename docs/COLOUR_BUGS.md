@@ -44,6 +44,27 @@ frames, which reads like proof of safety and is not: `GETV_LIGHTTRACE` reports *
 uploads** in those idle frames. The only RGBA16 consumer observed anywhere is the explosion
 flare, where the count moves 8 → 9 as the explosion appears.
 
+### 🔑 Update: a second RGBA16 consumer exists, and it is trivially reachable
+
+The paragraph above asks for "frames that actually exercise RGBA16 elsewhere". There are two,
+in the intro, before any level loads:
+
+```c
+/* title.c:363 and title.c:367 -- the Rareware logo */
+gDPLoadTextureBlock(gdl++, &D_02004FE8, G_IM_FMT_RGBA, G_IM_SIZ_16b, 32, 32, 0,
+                    (G_TX_NOMIRROR | G_TX_WRAP), (G_TX_NOMIRROR | G_TX_WRAP), 5, 5,
+                    G_TX_NOLOD, G_TX_NOLOD);
+```
+
+Two 32×32 RGBA16 tiles under `G_TX_WRAP` with `masks = maskt = 5`, drawn under
+`G_CC_MODULATEI` with a `gDPSetPrimColor` ramp. So the census claim should read "no RGBA16
+consumer was observed **in the idle level frames sampled**", which is a statement about the
+sample and not about the game.
+
+This makes promoting mode 1 to default cheaper to justify than the paragraph above assumes:
+capture the Rareware logo at modes 0, 1 and 2 and you have a second consumer, a wrapped tile
+and a colour ramp all in one frame, with no level load involved.
+
 So what is established is "mode 1 fixes explosions" and "nothing else measured uses RGBA16
 yet". Promoting it needs frames that actually exercise RGBA16 elsewhere -- the wall-hole
 impact rows 8..15 in `s_impactimages` are RGBA/16b and are the obvious next subject.
