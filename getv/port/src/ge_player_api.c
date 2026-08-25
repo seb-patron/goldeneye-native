@@ -360,6 +360,33 @@ unsigned int gePlayerSeedFingerprint(void) { return ge_seed_fp; }
 
 int gePlayerSlotCount(void) { return (int) getPlayerCount(); }
 
+
+/* GE_STYLE_* for a slot, and whether a bot can drive it.
+ *
+ * Both read the SLOT. cur_player_get_control_type() reads g_CurrentPlayer, a per-viewport
+ * cursor, so asking it about slot 2 while slot 0 is being drawn returns slot 0's answer.
+ *
+ * ⚠️ gePlayerSlotIsDrivable returns 1 for the two-controller styles, and that is a deliberate
+ * disagreement with the earlier reading that a 2.x slot cannot be steered. It could not be, once:
+ * those styles read MOVEMENT from a second controller at playernum + getPlayerCount(), so a
+ * caller writing only the slot's own pad drove the turn and never the walk. ge_playback now
+ * routes the walk axis to the pad the engine actually reads, so 2.x slots ARE drivable -- which
+ * matters, because this port DEFAULTS to 2.2 Galore and every bot runs on one.
+ *
+ * It still refuses an out-of-range or empty slot, and a style the engine has not set yet. */
+int gePlayerControlType(int slot)
+{
+    extern int gePortPlayerControlStyle(int idx);
+
+    if (slot < 0 || slot >= GE_MAX_SLOTS) { return -1; }
+    return gePortPlayerControlStyle(slot);
+}
+
+int gePlayerSlotIsDrivable(int slot)
+{
+    return gePlayerControlType(slot) >= 0;
+}
+
 int gePlayerStateGet(int slot, GePlayerState *out)
 {
     f32 pos[3];

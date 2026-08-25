@@ -35,6 +35,8 @@
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
+#include "ge_enemy_api.h"
+#include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
 
 /* Straight from tools/routesim.py. Changing one of these without re-running the model is how a
  * validated law quietly becomes an unvalidated one. */
@@ -51,6 +53,17 @@
  * to steer around one. The first is generous because a legitimate stall happens for a tick or
  * two whenever the collision update clips a corner; the second is roughly the time it takes to
  * turn 90 degrees at full deflection, since the yaw is 3.5 degrees a tick. */
+/* How close an enemy's BELIEF has to be to the next waypoint for it to count as contested.
+ * Deliberately wider than the arrival radius: the question is not "is a guard standing on it"
+ * but "is anyone heading there", and a belief is a destination. (From the Surface.) */
+#define GE_BR_THREAT_RADIUS 300.0f
+
+/* Cap on how long the bot waits for a contested waypoint to clear, in frames. There must be a
+ * cap: holding until a route clears sounds prudent and produces a bot that stands still forever,
+ * because nothing about waiting makes a guard change its mind -- and a frozen bot is
+ * indistinguishable from a crashed one. Three seconds, then commit. (From the Surface.) */
+#define GE_BR_MAX_HOLD 180
+
 #define GE_BR_STUCK_TICKS   30
 #define GE_BR_DETOUR_TICKS  26
 
@@ -61,6 +74,7 @@ static int   ge_br_trace;
 static int   ge_br_step;            /* which step of the route we are on */
 static int   ge_br_joined;          /* has the bot reached the route's first node yet */
 static int   ge_br_stuck;           /* consecutive ticks commanded forward with no movement */
+static int   ge_br_held;            /* frames spent waiting on a contested waypoint */
 static int   ge_br_detour;          /* ticks left steering around an obstacle */
 static float ge_br_detour_sign;     /* which way round it -- kept until the detour ends */
 static int   ge_br_steps;
@@ -68,6 +82,16 @@ static int   ge_br_have_heading;
 static float ge_br_heading;         /* degrees, atan2(dx, dz), matching the extractor */
 static float ge_br_px, ge_br_py, ge_br_pz;
 static int   ge_br_have_prev;
+
+/* Advance toward a contested waypoint, or hold? Returns 1 to advance.
+ *
+ * Pure on purpose: the interesting part is the policy, and a policy tangled up with posting input
+ * and reading world state can only be tested by running the game. See tests/test_bot_policy.c. */
+static int ge_br_should_advance(int threat, int held_frames)
+{
+    if (threat <= 0) { return 1; }             /* nobody is heading there */
+    return (held_frames >= GE_BR_MAX_HOLD);    /* waited long enough; commit rather than freeze */
+}
 
 static float ge_br_norm180(float a)
 {
@@ -231,6 +255,32 @@ void gePortBotRouteFrame(int frame)
             if (geWorldWaypoint(i, &wp) && wp.id == want) { found = 1; break; }
         }
         if (!found) { return; }
+    }
+
+    /* Is anyone else heading for this waypoint? With no enemy source installed geEnemyThreatAt
+     * returns 0 and the bot behaves exactly as before, so the policy is inert rather than wrong
+     * on a build whose game-side shim has not landed. (From the Surface.) */
+    {
+        int threat = geEnemyThreatAt(wp.x, wp.y, wp.z, GE_BR_THREAT_RADIUS);
+        if (!ge_br_should_advance(threat, ge_br_held)) {
+            ge_br_held++;
+            if (ge_br_trace && (ge_br_held % 30) == 1) {
+                printf("[getv][botroute] holding: waypoint %d contested by %d (%d/%d frames)\n",
+                       step.to, threat, ge_br_held, GE_BR_MAX_HOLD);
+                fflush(stdout);
+            }
+            /* Post neutral rather than posting nothing. A slot that goes quiet falls back to
+             * whatever was held, and the bot would keep walking while believing it had stopped. */
+            memset(&in, 0, sizeof in);
+            gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
+            return;
+        }
+        if (ge_br_held > 0 && ge_br_trace) {
+            printf("[getv][botroute] advancing on waypoint %d after %d frames held\n",
+                   step.to, ge_br_held);
+            fflush(stdout);
+        }
+        ge_br_held = 0;
     }
 
     dx = wp.x - st.x;

@@ -327,6 +327,123 @@ def turn_by_turn(know, path, guards, rooms=None):
     return steps
 
 
+def _seg_hits(ax, az, bx, bz, cx, cz, dx, dz):
+    """Do segments AB and CD cross? Standard orientation test, no tolerance games."""
+    def o(px, pz, qx, qz, rx, rz):
+        v = (qz - pz) * (rx - qx) - (qx - px) * (rz - qz)
+        return 0 if v == 0 else (1 if v > 0 else 2)
+
+    o1, o2 = o(ax, az, bx, bz, cx, cz), o(ax, az, bx, bz, dx, dz)
+    o3, o4 = o(cx, cz, dx, dz, ax, az), o(cx, cz, dx, dz, bx, bz)
+    return o1 != o2 and o3 != o4
+
+
+def path_is_clear(walls, a, b, headroom=180.0):
+    """Can you walk in a straight line from a to b without crossing a wall?
+
+    Proximity is not walkability, and on Bunker 1 the difference is the whole bug: the nearest
+    node to the spawn is 583 units away THROUGH A WALL, so joining the graph by distance alone
+    produced an edge the bot spent 109 detours failing to cross.
+
+    Walls arrive as triangles with a bbox. The test is done in plan view -- does the path cross
+    any edge of the triangle projected onto XZ -- because a wall is vertical and its projection is
+    what a walking body meets.
+
+    ⚠️ The height filter is what stops this rejecting everything. Floors and ceilings are in the
+    same triangle soup as walls, and a floor's projection covers the whole room, so without a
+    vertical overlap test every path in the level reads as blocked. Only geometry spanning the
+    walker's own band can stop them.
+    """
+    ax, ay, az = a
+    bx, by, bz = b
+    lo = min(ay, by) - 20.0
+    hi = max(ay, by) + headroom
+
+    for w in walls:
+        bb = w.get("bbox")
+        poly = w.get("poly")
+        if not bb or not poly or len(poly) < 2:
+            continue
+        # Vertical band first: cheapest rejection, and the one that matters most.
+        if bb[4] < lo or bb[1] > hi:
+            continue
+        # Then the plan-view bounding box of the path against the wall's.
+        if max(ax, bx) < bb[0] or min(ax, bx) > bb[3]:
+            continue
+        if max(az, bz) < bb[2] or min(az, bz) > bb[5]:
+            continue
+        for i in range(len(poly)):
+            p, q = poly[i], poly[(i + 1) % len(poly)]
+            if _seg_hits(ax, az, bx, bz, p[0], p[2], q[0], q[2]):
+                return False
+    return True
+
+
+def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3):
+    """Add the measured spawn to the graph as a real node, joined to its nearest neighbours.
+
+    The waypoint set is built from the level's PADS, and no pad marks where the player starts --
+    so the graph does not cover the spawn, and on Bunker 1 it does not even cover the ROOM: the
+    player stands in stan room 29 and no waypoint belongs to it. A bot therefore begins off the
+    graph and has to cross unmapped floor before any route applies to it, which is not a routing
+    problem the follower can solve with a heuristic.
+
+    This adds the node the extractor could not know about, because the answer only exists at
+    runtime. Nodes are given indices above every existing one so nothing renumbers.
+
+    ⚠️ THE EDGES ARE AN ASSUMPTION AND ARE MARKED ONE. Proximity is not walkability: a node four
+    hundred units away through a wall is nearer than one six hundred away down the corridor, and
+    nothing here can tell them apart -- the same-room test that would is unavailable, since the
+    stan room the player reports and the room ids the waypoints carry are different numbering
+    spaces (Bunker 1: player in 29, waypoints in {2,4,...,30}). Several links are added rather
+    than one so a blocked first choice is not the only choice.
+    """
+    rec = (spawns or {}).get(level)
+    if not rec or not rec.get("pos"):
+        return None
+
+    waypoints = [w for w in know.get("waypoints", []) if w.get("pos")]
+    if not waypoints:
+        return None
+
+    sx, sy, sz = rec["pos"]
+    # Horizontal only: the spawn is a body position and waypoints sit on the floor plane, so
+    # including the vertical picks a node on the wrong storey wherever geometry stacks.
+    ranked = sorted(waypoints,
+                    key=lambda w: (w["pos"][0] - sx) ** 2 + (w["pos"][2] - sz) ** 2)
+
+    # Prefer neighbours the walls say are actually reachable. Falls back to raw proximity when
+    # none are, so a level with no wall data still gets a connected spawn rather than an orphan.
+    walls = (rooms_for_walls or {}).get("walls") or []
+    clear = [w for w in ranked if path_is_clear(walls, [sx, sy, sz], w["pos"])] if walls else []
+    chosen = clear[:links] if clear else ranked[:links]
+    picked_by = "clear line" if clear else ("no clear line -- nearest" if walls else "no walls data")
+
+    index = max(w["index"] for w in know["waypoints"]) + 1
+    know["waypoints"].append({
+        "index": index,
+        "pad": None,
+        "pos": [sx, sy, sz],
+        "pad_name": "spawn",
+        "synthetic": True,
+        "edges_are_assumed": True,
+    })
+
+    graph.setdefault(index, [])
+    for w in chosen:
+        if w["index"] not in graph[index]:
+            graph[index].append(w["index"])
+        graph.setdefault(w["index"], [])
+        if index not in graph[w["index"]]:
+            graph[w["index"]].append(index)
+
+    first = chosen[0]
+    nearest = ((first["pos"][0] - sx) ** 2 + (first["pos"][2] - sz) ** 2) ** 0.5
+    print("  %-10s spawn node %d -> node %d at %4.0f units (%s, %d of %d neighbours clear)"
+          % (level, index, first["index"], nearest, picked_by, len(clear), len(ranked)))
+    return index
+
+
 def measured_spawn_node(know, graph, level, spawns):
     """The graph node nearest to where the game ACTUALLY puts the player.
 
@@ -489,7 +606,11 @@ def main():
             rooms = dict(rooms)
             rooms["room_graph"] = {k: sorted(v) for k, v in rg.items()}
         props_by_tag = {p["tag"]: p for p in know.get("props", []) if p.get("tag") is not None}
-        start = measured_spawn_node(know, graph, level, measured)
+        # Prefer a real node AT the spawn over the nearest node to it: starting the route where
+        # the bot actually is removes the unmapped first leg entirely.
+        start = inject_spawn_node(know, graph, level, measured, rooms)
+        if start is None:
+            start = measured_spawn_node(know, graph, level, measured)
         start_measured = start is not None
         if start is None:
             start = spawn_node(know, graph)

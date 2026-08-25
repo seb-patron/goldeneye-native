@@ -86,6 +86,7 @@ extern int bossGetStageNum(void);
 #include "ge_postfx.h"
 #include "ge_player_api.h"
 #include "ge_world_api.h"
+#include "ge_enemy_api.h"
 #include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
 #include "ge_event.h"
 
@@ -333,6 +334,109 @@ static int ge_l_guards_near(lua_State *L)
     return 1;
 }
 
+/* Push one GeEnemy as a table. Fields the source did not fill are ABSENT, not zero -- a mod must
+ * be able to tell "this guard is unhurt" from "this build cannot read health", because acting on
+ * the second as though it were the first walks you into a full-health guard. */
+static void ge_l_push_enemy(lua_State *L, const GeEnemy *e)
+{
+    lua_newtable(L);
+    lua_pushinteger(L, e->id);              lua_setfield(L, -2, "id");
+    lua_pushboolean(L, e->alive);           lua_setfield(L, -2, "alive");
+
+    if (e->fields & GE_EN_POSITION) {
+        lua_pushnumber(L, (lua_Number) e->x); lua_setfield(L, -2, "x");
+        lua_pushnumber(L, (lua_Number) e->y); lua_setfield(L, -2, "y");
+        lua_pushnumber(L, (lua_Number) e->z); lua_setfield(L, -2, "z");
+    }
+    if (e->fields & GE_EN_HEALTH) {
+        lua_pushnumber(L, (lua_Number) e->health);     lua_setfield(L, -2, "health");
+        lua_pushnumber(L, (lua_Number) e->max_health); lua_setfield(L, -2, "max_health");
+    }
+    if (e->fields & GE_EN_ALERT) {
+        lua_pushinteger(L, e->alertness);                    lua_setfield(L, -2, "alertness");
+        lua_pushnumber(L, (lua_Number) e->hearing_scale);    lua_setfield(L, -2, "hearing_scale");
+        lua_pushinteger(L, e->saw_target_ago);               lua_setfield(L, -2, "saw_target_ago");
+        lua_pushinteger(L, e->heard_target_ago);             lua_setfield(L, -2, "heard_target_ago");
+    }
+    if (e->fields & GE_EN_BELIEF) {
+        /* Where this enemy THINKS its target is. The gap between this and where the player
+         * actually stands is what a mod should be reading to decide whether it has broken
+         * contact. See docs/ENEMY_API.md. */
+        lua_pushnumber(L, (lua_Number) e->believed_x); lua_setfield(L, -2, "believed_x");
+        lua_pushnumber(L, (lua_Number) e->believed_y); lua_setfield(L, -2, "believed_y");
+        lua_pushnumber(L, (lua_Number) e->believed_z); lua_setfield(L, -2, "believed_z");
+    }
+    if (e->distance > 0.0f) {
+        lua_pushnumber(L, (lua_Number) e->distance); lua_setfield(L, -2, "distance");
+    }
+}
+
+/* ge.enemies_near(x, y, z [, radius] [, max]) -> array, nearest first.
+ *
+ * LIVE characters, unlike ge.guards_near which reports extraction-time spawn points. Dead ones are
+ * already filtered out. An empty array with no enemy source installed is the honest answer, not an
+ * error -- see geEnemySourceInstalled. */
+static int ge_l_enemies_near(lua_State *L)
+{
+    GeEnemy e[24];
+    int n, i, max;
+    float x = (float) luaL_checknumber(L, 1);
+    float y = (float) luaL_checknumber(L, 2);
+    float z = (float) luaL_checknumber(L, 3);
+    float r = (float) luaL_optnumber(L, 4, 700.0);
+
+    max = (int) luaL_optinteger(L, 5, (lua_Integer) (sizeof e / sizeof e[0]));
+    if (max > (int) (sizeof e / sizeof e[0])) { max = (int) (sizeof e / sizeof e[0]); }
+    if (max < 1) { max = 1; }
+
+    lua_newtable(L);
+    n = geEnemiesNear(x, y, z, r, e, max);
+    for (i = 0; i < n; i++) {
+        ge_l_push_enemy(L, &e[i]);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* ge.enemy(id) -> table, or nil.
+ *
+ * By chrnum, not by slot index. A mod following "the guard that shot me" needs an identity that
+ * survives some other character dying and freeing a lower slot. */
+static int ge_l_enemy(lua_State *L)
+{
+    GeEnemy e;
+    int id = (int) luaL_checkinteger(L, 1);
+    if (!geEnemyById(id, &e)) { lua_pushnil(L); return 1; }
+    ge_l_push_enemy(L, &e);
+    return 1;
+}
+
+/* ge.enemy_count() -> slots, live_source
+ *
+ * The second return says whether a source is installed at all, so a mod can tell "no enemies here"
+ * apart from "this build cannot see enemies" and log something useful instead of standing still. */
+static int ge_l_enemy_count(lua_State *L)
+{
+    lua_pushinteger(L, geEnemyCount());
+    lua_pushboolean(L, geEnemySourceInstalled());
+    return 2;
+}
+
+/* ge.threat_at(x, y, z [, radius]) -> how many living enemies believe their target is here.
+ *
+ * NOT the same question as enemies_near, and the difference is the point: a spot can be crowded
+ * and safe if nobody is looking at it, or empty and lethal because several guards are converging
+ * on it. This scores a DESTINATION -- which is what to ask before committing to a waypoint. */
+static int ge_l_threat_at(lua_State *L)
+{
+    float x = (float) luaL_checknumber(L, 1);
+    float y = (float) luaL_checknumber(L, 2);
+    float z = (float) luaL_checknumber(L, 3);
+    float r = (float) luaL_optnumber(L, 4, 300.0);
+    lua_pushinteger(L, geEnemyThreatAt(x, y, z, r));
+    return 1;
+}
+
 /* ge.player_state(slot) -> table, or nil for an empty slot.
  *
  * Only the fields the game can actually report are present. Position is there; angle, health,
@@ -358,7 +462,33 @@ static int ge_l_player_state(lua_State *L)
                                     lua_setfield(L, -2, "health");
                                     lua_pushnumber(L, (lua_Number) st.armour);
                                     lua_setfield(L, -2, "armour"); }
+
+    /* Always present, unlike the fields above, because it is never "unreported" -- every slot is
+     * on some style. A mod that steers needs both of these before it trusts its own stick. */
+    lua_pushinteger(L, gePlayerControlType(slot));
+    lua_setfield(L, -2, "control_type");
+    lua_pushboolean(L, gePlayerSlotIsDrivable(slot));
+    lua_setfield(L, -2, "drivable");
     return 1;
+}
+
+/* ge.control_type(slot) -> style number, drivable flag
+ *
+ * Separate from player_state because it answers for an EMPTY slot too, and because a script
+ * wanting to check before it claims anything should not have to ask for a whole state table.
+ *
+ * The style numbers match CONTROLLER_CONFIG_* : 0-3 are the one-controller styles (1.1 Honey
+ * .. 1.4 Goodnight), 4-7 the two-controller ones (2.1 Plenty .. 2.4 Goodhead). Only the 1.x
+ * styles can steer -- on 2.x the stick's X axis drives strafe as well as turn, so a bot
+ * correcting its heading sidesteps instead. */
+static int ge_l_control_type(lua_State *L)
+{
+    int slot = (int) luaL_checkinteger(L, 1);
+    int ct   = gePlayerControlType(slot);
+    if (ct < 0) { lua_pushnil(L); return 1; }
+    lua_pushinteger(L, ct);
+    lua_pushboolean(L, gePlayerSlotIsDrivable(slot));
+    return 2;
 }
 
 /* ge.post_input(slot, stick_x, stick_y, buttons) -> true if accepted.
@@ -409,6 +539,11 @@ static const luaL_Reg ge_api[] = {
     { "waypoint_near", ge_l_waypoint_near },
     { "guards_near",   ge_l_guards_near },
     { "player_state",  ge_l_player_state },
+    { "control_type",  ge_l_control_type },
+    { "enemies_near",  ge_l_enemies_near },
+    { "enemy",         ge_l_enemy },
+    { "enemy_count",   ge_l_enemy_count },
+    { "threat_at",     ge_l_threat_at },
     { "post_input",    ge_l_post_input },
     { NULL, NULL }
 };
@@ -523,10 +658,11 @@ static int ge_dir_has_mod(const char *dir, const char *name)
     return stat(path, &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
-/* Declared here because the definition sits ~75 lines below its first use. GCC demotes an
- * implicit declaration to a warning and Clang makes it an error, so this compiled on the
- * Surface and not here -- the same shape as the <sys/stat.h> and self_path bugs in
- * ge_launcher.cpp. Declaring it keeps the definition next to its siblings. */
+/* Forward declaration, because the definition is below and the subscribe call passes it as a
+ * function POINTER. An undeclared function called normally is only a warning in C, which is why
+ * this kind of ordering mistake usually survives; used as a pointer argument it is a hard error.
+ * This file therefore never compiled with GE_WITH_LUA set -- the Lua path was reachable in source
+ * and unreachable in any build that enabled it. */
 static void ge_lua_on_event(GeEventType type, int a, int b, int c, void *user);
 
 void gePortLuaInit(void)

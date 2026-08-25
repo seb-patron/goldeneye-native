@@ -199,6 +199,28 @@ int gePlayerStateGet(int slot, GePlayerState *out);
  * non-NULL entries in g_playerPointers every call (player.c:105-115). */
 int gePlayerSlotCount(void);
 
+/* ---------------------------------------------------------------- control style
+ *
+ * A slot's control style decides which physical bit each GE_IN_* intent becomes, and on the
+ * two-controller styles it decides whether the intent is expressible at all. Callers need to see
+ * it, because the failure mode when they cannot is silent: input is accepted, the bot moves, and
+ * the only outward sign is that it moves sideways instead of turning. */
+
+/* GE_STYLE_* value for a slot, or -1 if the slot is out of range. Values match CONTROLLER_CONFIG_*
+ * in bondconstants.h: 0-3 are the one-controller styles (1.1 Honey .. 1.4 Goodnight), 4-7 the
+ * two-controller ones (2.1 Plenty .. 2.4 Goodhead). */
+int gePlayerControlType(int slot);
+
+/* Non-zero if this slot can express the whole intent set and steers unambiguously -- true for the
+ * 1.x styles only.
+ *
+ * On 2.x, fire and aim are the same bit on two different controllers and this API drives one, so
+ * one of them is silently undeliverable. Worse for anything that steers: bondview2.c:5384 sets
+ * canTurnTank unconditionally on that path, which routes the stick's X axis into strafe alongside
+ * turn. A steering bot should check this at startup and say something rather than walk sideways
+ * into a wall for eleven hundred frames. */
+int gePlayerSlotIsDrivable(int slot);
+
 /* ---------------------------------------------------------------- lifecycle */
 
 /* Install the playback hook. Idempotent. Called once during port init; does nothing observable
