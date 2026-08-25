@@ -9640,16 +9640,17 @@ index f8fe0eb..a5c270e 100644
      {
          modelSetScale(model, scale);
 diff --git a/src/game/chraction.c b/src/game/chraction.c
-index efe9d51..dcea76e 100644
+index efe9d51..c1f6270 100644
 --- a/src/game/chraction.c
 +++ b/src/game/chraction.c
-@@ -1,4 +1,5 @@
+@@ -1,4 +1,6 @@
  #include <ultra64.h>
++extern s32 gePortTimeFireOn(void);
 +#include <stdio.h>
  #include <bondaicommands.h>
  #include <bondgame.h>
  #include <bondconstants.h>
-@@ -31,6 +32,14 @@
+@@ -31,6 +33,14 @@
  #include "propobj.h"
  #include "stan.h"
  
@@ -9664,7 +9665,7 @@ index efe9d51..dcea76e 100644
  
  point2d D_800309F0 = {0, 0};
  
-@@ -168,6 +177,20 @@ Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
+@@ -168,6 +178,20 @@ Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
      ModelFileHeader *head_header;
      s32 sunglasses;
  
@@ -9685,7 +9686,7 @@ index efe9d51..dcea76e 100644
      body_header = c_item_entries[body].header;
      head_header = NULL;
  
-@@ -251,8 +274,15 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
+@@ -251,8 +275,15 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
  
      pad = &g_CurrentSetup.pads[arg1->PadID];
  
@@ -9701,7 +9702,7 @@ index efe9d51..dcea76e 100644
          headid = -1;
          bodyid = (arg1->BodyID == 0xFFFF)
              ? get_current_random_body()
-@@ -270,6 +300,9 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
+@@ -270,6 +301,9 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
  
          if (sp38 != 0)
          {
@@ -9711,7 +9712,7 @@ index efe9d51..dcea76e 100644
              sp3C = atan2f(pad->look.f[0], pad->look.f[2]);
              temp_v0_4 = chrAllocate(sp38, &sp48, sp3C, sp54, ailistFindById(arg1->AIListID));
  
-@@ -348,12 +381,12 @@ void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
+@@ -348,12 +382,12 @@ void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
          || (weaponIsOneHanded(left) != 0)
          || (weaponIsOneHanded(right) != 0))
      {
@@ -9726,7 +9727,7 @@ index efe9d51..dcea76e 100644
          modelSetAnimLooping(self->model, 0, 16.0f);
          modelSetAnimEndFrame(self->model, 120.0f);
      }
-@@ -486,14 +519,14 @@ void chrlvKneelingAnimationRelated(ChrRecord *self)
+@@ -486,14 +520,14 @@ void chrlvKneelingAnimationRelated(ChrRecord *self)
          self->act_stand.wallcount = (randomGetNext() % 120) + 180;
          self->sleep = 0;
  
@@ -9744,7 +9745,7 @@ index efe9d51..dcea76e 100644
              modelSetAnimEndFrame(self->model, 151.0f);
          }
  
-@@ -551,12 +584,12 @@ void chrKneelChooseAnimation(ChrRecord *self)
+@@ -551,12 +585,12 @@ void chrKneelChooseAnimation(ChrRecord *self)
          || weaponIsOneHanded(right))
      {
          s32 r = randomGetNext() & 1;
@@ -9759,7 +9760,7 @@ index efe9d51..dcea76e 100644
          modelSetAnimEndFrame(self->model, 27.0f);
      }
  
-@@ -640,7 +673,7 @@ void chrStartAlarmChooseAnimation(ChrRecord *self)
+@@ -640,7 +674,7 @@ void chrStartAlarmChooseAnimation(ChrRecord *self)
      self->actiontype = ACT_STARTALARM;
      self->sleep = 0;
  
@@ -9768,7 +9769,7 @@ index efe9d51..dcea76e 100644
      modelSetAnimEndFrame(self->model, 82.0f);
  }
  
-@@ -663,11 +696,11 @@ void chrlvThrowGrenade(ChrRecord *self, PropRecord *prop, GUNHAND hand, s32 star
+@@ -663,11 +697,11 @@ void chrlvThrowGrenade(ChrRecord *self, PropRecord *prop, GUNHAND hand, s32 star
  
      if (startframe != 0)
      {
@@ -9782,7 +9783,7 @@ index efe9d51..dcea76e 100644
      }
  
      modelSetAnimEndFrame(self->model, 193.0f);
-@@ -700,7 +733,7 @@ void chrlvSpotBondAnimationRelated(ChrRecord *self, f32 arg1)
+@@ -700,7 +734,7 @@ void chrlvSpotBondAnimationRelated(ChrRecord *self, f32 arg1)
      }
  
      objarg4 = chrlvGetGuard007SpeedRating(self, 0.6f, 0.96000004f); // 0.96000004 is different from 0.96
@@ -9791,7 +9792,7 @@ index efe9d51..dcea76e 100644
      modelSetAnimEndFrame(self->model, 52.0f);
  }
  
-@@ -742,7 +775,7 @@ void chrlvSurrenderAnimationRelated(ChrRecord *self)
+@@ -742,7 +776,7 @@ void chrlvSurrenderAnimationRelated(ChrRecord *self)
      chrStopFiring(self);
      self->actiontype = ACT_SURPRISED;
      self->sleep = 0;
@@ -9800,7 +9801,7 @@ index efe9d51..dcea76e 100644
      modelSetAnimEndFrame(self->model, 7.0f);
  }
  
-@@ -762,7 +795,7 @@ void chrlvActorLookFlustered(ChrRecord *self)
+@@ -762,7 +796,7 @@ void chrlvActorLookFlustered(ChrRecord *self)
  
      self->actiontype = ACT_SURPRISED;
      self->sleep = 0;
@@ -9809,7 +9810,7 @@ index efe9d51..dcea76e 100644
  
      if (sp2C == 0)
      {
-@@ -801,7 +834,7 @@ void chrlvActorThrowWeaponSurrender(ChrRecord *self)
+@@ -801,7 +835,7 @@ void chrlvActorThrowWeaponSurrender(ChrRecord *self)
  
          if ((right != NULL) || (left != NULL))
          {
@@ -9818,7 +9819,7 @@ index efe9d51..dcea76e 100644
              modelSetAnimLooping(self->model, 40.0f, 16.0f);
  
              self->sleep = 0x10;
-@@ -819,7 +852,7 @@ void chrlvActorThrowWeaponSurrender(ChrRecord *self)
+@@ -819,7 +853,7 @@ void chrlvActorThrowWeaponSurrender(ChrRecord *self)
          }
          else
          {
@@ -9827,7 +9828,7 @@ index efe9d51..dcea76e 100644
              modelSetAnimLooping(self->model, 30.0f, 16.0f);
  
              self->sleep = 0x10;
-@@ -887,12 +920,12 @@ void chrlvSideStepAnimationRelated(ChrRecord *self, GUNHAND side)
+@@ -887,12 +921,12 @@ void chrlvSideStepAnimationRelated(ChrRecord *self, GUNHAND side)
      {
          if (side != GUNRIGHT)
          {
@@ -9842,7 +9843,7 @@ index efe9d51..dcea76e 100644
              modelSetAnimEndFrame(self->model, 27.0f);
          }
  
-@@ -902,13 +935,13 @@ void chrlvSideStepAnimationRelated(ChrRecord *self, GUNHAND side)
+@@ -902,13 +936,13 @@ void chrlvSideStepAnimationRelated(ChrRecord *self, GUNHAND side)
      if (((side != GUNRIGHT) && (sp2C == 0)) ||
          ((side == GUNRIGHT) && (sp2C != 0)))
      {
@@ -9858,7 +9859,7 @@ index efe9d51..dcea76e 100644
          modelSetAnimEndFrame(self->model, 32.0f);
      }
  
-@@ -956,12 +989,12 @@ void chrlvFireJumpToSideAnimationRelated(ChrRecord *self, GUNHAND side)
+@@ -956,12 +990,12 @@ void chrlvFireJumpToSideAnimationRelated(ChrRecord *self, GUNHAND side)
      {
          if ((randomGetNext() & 1) != 0)
          {
@@ -9873,7 +9874,7 @@ index efe9d51..dcea76e 100644
              modelSetAnimEndFrame(self->model, 173.0f);
          }
  
-@@ -970,12 +1003,12 @@ void chrlvFireJumpToSideAnimationRelated(ChrRecord *self, GUNHAND side)
+@@ -970,12 +1004,12 @@ void chrlvFireJumpToSideAnimationRelated(ChrRecord *self, GUNHAND side)
  
      if ((randomGetNext() & 1) != 0)
      {
@@ -9888,7 +9889,7 @@ index efe9d51..dcea76e 100644
          modelSetAnimEndFrame(self->model, 136.0f);
      }
  
-@@ -1045,7 +1078,7 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
+@@ -1045,7 +1079,7 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
  #else
          self->act_runpos.eta60 = (s32) (sq / (D_80030988 * 0.5f));
  #endif
@@ -9897,7 +9898,7 @@ index efe9d51..dcea76e 100644
      }
      else
      {
-@@ -1054,7 +1087,7 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
+@@ -1054,7 +1088,7 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
  #else
          self->act_runpos.eta60 = (s32) (sq / (D_80030994 * 0.5f));
  #endif
@@ -9906,7 +9907,7 @@ index efe9d51..dcea76e 100644
      }
  }
  
-@@ -1066,7 +1099,7 @@ void chrlvDeathStaggerAnimationRelated(ChrRecord *self)
+@@ -1066,7 +1100,7 @@ void chrlvDeathStaggerAnimationRelated(ChrRecord *self)
      chrStopFiring(self);
      self->actiontype = ACT_TEST;
      self->sleep = 0;
@@ -9915,7 +9916,7 @@ index efe9d51..dcea76e 100644
      modelSetAnimLooping(self->model, 10.0f, 16.0f);
      modelSetAnimEndFrame(self->model, 40.0f);
  }
-@@ -1218,12 +1251,29 @@ void chrlvInitActAttack(ChrRecord *self, struct anim_group_info **arg1, s32 arg2
+@@ -1218,12 +1252,29 @@ void chrlvInitActAttack(ChrRecord *self, struct anim_group_info **arg1, s32 arg2
      // Something like:
      //     &arg1[anim_index]->table[next_anim]
      //     arg1[anim_index]->table + next_anim
@@ -9946,7 +9947,7 @@ index efe9d51..dcea76e 100644
      {
          // should be:
          //     panim_float = &arg1[anim_index]->table[(next_anim + 1) % len]
-@@ -1232,6 +1282,7 @@ void chrlvInitActAttack(ChrRecord *self, struct anim_group_info **arg1, s32 arg2
+@@ -1232,6 +1283,7 @@ void chrlvInitActAttack(ChrRecord *self, struct anim_group_info **arg1, s32 arg2
              (s32)arg1[anim_index]->table + (s32)(((next_anim + 1) % arg1[anim_index]->len) * (s32)sizeof(struct weapon_firing_animation_table))
          );
      }
@@ -9954,7 +9955,7 @@ index efe9d51..dcea76e 100644
  
      for (i=0; i<2; i++)
      {
-@@ -2155,7 +2206,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
+@@ -2155,7 +2207,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
  
                      modelSetAnimationWithMerge(model, struck_anib->struck_anim, struck_anib->flip, 0.0f, struck_anib->speed, 16.0f, flag1 == 0);
  
@@ -9963,7 +9964,7 @@ index efe9d51..dcea76e 100644
                      {
                          modelSetAnimEndFrame(model, 241.0f);
                      }
-@@ -2203,7 +2254,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
+@@ -2203,7 +2255,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
  
                  if ((randomGetNext() & 1) != 0)
                  {
@@ -9972,7 +9973,7 @@ index efe9d51..dcea76e 100644
                      modelSetAnimationWithMerge(model, sp80, randomGetNext() & 1, 10.f, 0.5f, 16.0f, flag1 == 0);
  
                      if (sp54 < 2U)
-@@ -2221,7 +2272,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
+@@ -2221,7 +2273,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
                  }
                  else
                  {
@@ -9981,7 +9982,7 @@ index efe9d51..dcea76e 100644
                      modelSetAnimationWithMerge(model, sp80, randomGetNext() & 1, 0.0f, 0.5f, 16.0f, flag1 == 0);
  
                      if (sp54 < 2U)
-@@ -2482,7 +2533,9 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
+@@ -2482,7 +2534,9 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
          }
          else //steel helmate - ricochet
          {
@@ -9992,7 +9993,7 @@ index efe9d51..dcea76e 100644
              ALSoundState * p = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, mrs[randomGetNext() % 3U], NULL);
              chrobjSndCreatePostEventDefault(p, &self->prop->pos);
          }
-@@ -2760,7 +2813,7 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
+@@ -2760,7 +2814,7 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
  
          modelSetAnimation(
              self_model,
@@ -10001,7 +10002,7 @@ index efe9d51..dcea76e 100644
              sp38->anonymous_1,
              sp38->anonymous_3,
              sp38->anonymous_2,
-@@ -3011,37 +3064,37 @@ f32 chrlvModelScaleAnimationRelated(ChrRecord *self)
+@@ -3011,37 +3065,37 @@ f32 chrlvModelScaleAnimationRelated(ChrRecord *self)
  {
      f32 scale_factor = D_80030984;
  
@@ -10047,7 +10048,7 @@ index efe9d51..dcea76e 100644
      {
          scale_factor = D_8003099C;
      }
-@@ -3570,15 +3623,15 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
+@@ -3570,15 +3624,15 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
      {
          if (arg1 == 2)
          {
@@ -10066,7 +10067,7 @@ index efe9d51..dcea76e 100644
          }
  
          return;
-@@ -3588,15 +3641,15 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
+@@ -3588,15 +3642,15 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
      {
          if (arg1 == 2)
          {
@@ -10085,7 +10086,7 @@ index efe9d51..dcea76e 100644
          }
  
          return;
-@@ -3604,15 +3657,15 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
+@@ -3604,15 +3658,15 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
  
      if (arg1 == 2)
      {
@@ -10104,7 +10105,7 @@ index efe9d51..dcea76e 100644
      }
  
      return;
-@@ -3739,12 +3792,12 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
+@@ -3739,12 +3793,12 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
  
      if (flag != 0)
      {
@@ -10119,7 +10120,7 @@ index efe9d51..dcea76e 100644
      }
  
      return;
-@@ -4752,6 +4805,31 @@ bool actor_rolls_fires_crouched(ChrRecord *self)
+@@ -4752,6 +4806,31 @@ bool actor_rolls_fires_crouched(ChrRecord *self)
  */
  bool actor_aim_at_actor(ChrRecord *self, s32 attack_type, s32 b)
  {
@@ -10151,7 +10152,7 @@ index efe9d51..dcea76e 100644
      if ((chrIsNotDeadOrShot(self)) &&
          ((chrGetEquippedWeaponPropWithCheck(self, GUNRIGHT)) || (chrGetEquippedWeaponPropWithCheck(self, GUNLEFT))))
      {
-@@ -4770,6 +4848,31 @@ bool actor_aim_at_actor(ChrRecord *self, s32 attack_type, s32 b)
+@@ -4770,6 +4849,31 @@ bool actor_aim_at_actor(ChrRecord *self, s32 attack_type, s32 b)
  */
  bool actor_kneel_aim_at_actor(ChrRecord *self, s32 targettype, s32 targetid)
  {
@@ -10183,7 +10184,7 @@ index efe9d51..dcea76e 100644
      if ((chrIsNotDeadOrShot(self)) &&
          ((chrGetEquippedWeaponPropWithCheck(self, GUNRIGHT)) || (chrGetEquippedWeaponPropWithCheck(self, GUNLEFT))))
      {
-@@ -4787,6 +4890,31 @@ bool actor_kneel_aim_at_actor(ChrRecord *self, s32 targettype, s32 targetid)
+@@ -4787,6 +4891,31 @@ bool actor_kneel_aim_at_actor(ChrRecord *self, s32 targettype, s32 targetid)
  */
  bool actor_fire_or_aim_at_target_update(ChrRecord *self, s32 newtargettype, s32 newtargetid)
  {
@@ -10215,7 +10216,7 @@ index efe9d51..dcea76e 100644
      if (self->actiontype == ACT_ATTACK)
      {
          if (self->act_attack.attacktype & (TARGET_AIM_ONLY | TARGET_DONTTURN))
-@@ -4888,7 +5016,11 @@ bool chrGoToPad(ChrRecord *self, s32 padid, SPEED speed)
+@@ -4888,7 +5017,11 @@ bool chrGoToPad(ChrRecord *self, s32 padid, SPEED speed)
  /**
   * Address 0x7F02AD54.
  */
@@ -10228,7 +10229,7 @@ index efe9d51..dcea76e 100644
  {
      if (pathid && chrIsNotDeadOrShot(self))
      {
-@@ -4981,7 +5113,7 @@ void chrlvTickStand(ChrRecord *self)
+@@ -4981,7 +5114,7 @@ void chrlvTickStand(ChrRecord *self)
                      modelSetAnimation(
                          self->model,
                          // awkward fix: addu instruction is backwards
@@ -10237,7 +10238,7 @@ index efe9d51..dcea76e 100644
                          i,
                          0.0f,
                          0.5f,
-@@ -4989,14 +5121,14 @@ void chrlvTickStand(ChrRecord *self)
+@@ -4989,14 +5122,14 @@ void chrlvTickStand(ChrRecord *self)
  
                      modelSetAnimEndFrame(
                          self->model,
@@ -10254,7 +10255,7 @@ index efe9d51..dcea76e 100644
                          left != NULL,
                          0.0f,
                          0.5f,
-@@ -5004,7 +5136,7 @@ void chrlvTickStand(ChrRecord *self)
+@@ -5004,7 +5137,7 @@ void chrlvTickStand(ChrRecord *self)
  
                      modelSetAnimEndFrame(
                          self->model,
@@ -10263,7 +10264,7 @@ index efe9d51..dcea76e 100644
                  }
              }
              else if (self->act_stand.face_entitytype & 0x10)
-@@ -5149,7 +5281,7 @@ void chrlvTickAnim(ChrRecord *self)
+@@ -5149,7 +5282,7 @@ void chrlvTickAnim(ChrRecord *self)
      }
  
      if (
@@ -10272,7 +10273,7 @@ index efe9d51..dcea76e 100644
          && (modelGetAnimFrame(self->model) >= 42.0f)
          && !(self->chrflags & CHRFLAG_02000000)
         )
-@@ -5182,7 +5314,7 @@ void chrlvTickSurrender(ChrRecord *self)
+@@ -5182,7 +5315,7 @@ void chrlvTickSurrender(ChrRecord *self)
          model = self->model;
          self->sleep = 0x10;
  
@@ -10281,7 +10282,7 @@ index efe9d51..dcea76e 100644
              && (modelGetAnimFrame(model) >= 80.0f))
          {
              coord3d sp30 = D_80030A44;
-@@ -5194,7 +5326,7 @@ void chrlvTickSurrender(ChrRecord *self)
+@@ -5194,7 +5327,7 @@ void chrlvTickSurrender(ChrRecord *self)
  
              if (chrlvCall7F02982C(self->prop, &sp30, 20.0f) == 0)
              {
@@ -10290,7 +10291,7 @@ index efe9d51..dcea76e 100644
                  modelSetAnimLooping(self->model, 30.0f, 16.0f);
              }
          }
-@@ -5352,17 +5484,17 @@ void chrlvTickDie(ChrRecord *self)
+@@ -5352,17 +5485,17 @@ void chrlvTickDie(ChrRecord *self)
  
      if (modelGetAnimFrame(model) >= modelGetAnimEndFrame(model))
      {
@@ -10312,7 +10313,7 @@ index efe9d51..dcea76e 100644
  
              return;
          }
-@@ -5387,7 +5519,7 @@ void chrlvTickArgh(ChrRecord *self)
+@@ -5387,7 +5520,7 @@ void chrlvTickArgh(ChrRecord *self)
      {
          chrlvSetTargetToPlayer(self);
  
@@ -10321,7 +10322,7 @@ index efe9d51..dcea76e 100644
          {
              chrlvIdleAnimationRelated7F023E14(self, 26.0f);
          }
-@@ -5517,11 +5649,11 @@ void chrlvTickSurprised(ChrRecord *self)
+@@ -5517,11 +5650,11 @@ void chrlvTickSurprised(ChrRecord *self)
  
      if (modelGetAnimFrame(model) >= modelGetAnimEndFrame(model))
      {
@@ -10335,7 +10336,121 @@ index efe9d51..dcea76e 100644
          {
              chrlvIdleAnimationRelated7F023E14(self, 26.0f);
          }
-@@ -7603,7 +7735,7 @@ void chrlvTickBondIntro(ChrRecord *self)
+@@ -6490,6 +6623,73 @@ s32 sub_GAME_7F02D630(ChrRecord *self, GUNHAND hand, coord3d *arg2)
+ /**
+  * Address 0x7F02D734.
+ */
++/* Guard automatic fire: the same tick-modulo defect the player had, in the AI.
++ *
++ * `firecount[hand]` advances once per TICK and the gate is `firecount % rate == 0`, so under
++ * GETV_SIMDIV guards fire once every N ticks whatever a tick is worth in real time. Measured
++ * on Bunker 1, identical scripted run, n=3 per divider and byte-identical within each:
++ *
++ *     SIMDIV=1  Bond ends on hp 0.69      SIMDIV=2  Bond ends on hp 0.81
++ *
++ * Guards were dealing about 1.6x the damage per real second at divider 1. That is the AI
++ * half of what gunfire.c:3855 was for the player.
++ *
++ * firecount is kept as the counter and its UNITS change from ticks to fields: it advances by
++ * g_ClockTimer, and the gate asks whether it crossed a multiple of the rate rather than
++ * landing exactly on one, because a counter stepping by n can step straight over the equality.
++ *
++ * At divider 1 g_ClockTimer is 1, the counter advances by 1, and the crossing test is exactly
++ * the modulo it replaces -- (cur-1)/rate differs from cur/rate precisely when cur is a
++ * multiple of rate. Verified by measurement, not by argument.
++ *
++ * Shares GETV_TIMEFIRE with the player-side conversion: they are one behaviour and must not
++ * be separately switchable, or an A/B would compare a mixed state. */
++/* GETV_CHR_FIRERATE=<item>: give every guard another weapon's FIRING CADENCE.
++ *
++ * Two uses, both real. It is the only way to make guard fire the dominant term in a timing
++ * measurement -- with issued weapons the signal is weak and slow, and a scripted run can sit
++ * for 1400 frames before anything shoots back. And it is a stress test: a room of RC-P90s
++ * puts far more beams, sounds, impacts and animation through the frame than any authored
++ * encounter, which is exactly the load that exposes frame-timing and rendering problems.
++ *
++ * 🔴 It does NOT change the weapon a guard carries. It redirects the four
++ * bondwalkItemGetAutomaticFiringRate() reads in the firing block and nothing else, so guards
++ * shoot at the chosen weapon's rhythm while still holding, animating and sounding their own
++ * gun. Named for what it does: an earlier name implied a weapon swap and that was wrong.
++ *
++ * A real swap has to replace chr->weapons_held[], which is a prop pointer to a weapon OBJECT
++ * spawned from the setup file (propobj.c:12111 only attaches what already exists), so it needs
++ * the object and model pipeline. That is the horde-difficulty feature and it is scoped in
++ * docs/STANCE.md rather than half-built here.
++ *
++ * Off unless set; the value is an ITEM_ id -- 10 is the D5K, 14 the FN P90, 25 the rocket
++ * launcher.
++ *
++ * ⚠️ ITEM_LASER, ITEM_ROCKETLAUNCH and ITEM_GRENADELAUNCH take different code paths in the
++ * firing block; overriding to one of those is legitimate but exercises a different branch. */
++static s32 gePortChrWeapon(s32 item)
++{
++    static s32 v = -2;
++    if (v == -2) {
++        const char *e = getenv("GETV_CHR_FIRERATE");
++        v = (e && *e) ? atoi(e) : -1;
++    }
++    return (v >= 0) ? v : item;
++}
++
++static s32 gePortChrFireDue(s32 count, s32 rate)
++{
++    s32 prev;
++
++    if (rate <= 0) return 1;
++    if (!gePortTimeFireOn()) return ((count % rate) == 0);
++
++    if (count == 0) return 1;
++    prev = count - (s32) g_ClockTimer;
++    if (prev < 0) prev = 0;
++    return (prev / rate) != (count / rate);
++}
++
+ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
+ {
+     PropRecord *self_prop; // 644
+@@ -6554,23 +6754,25 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
+         if (
+             (sp44 == 0)
+             || (self->seen_bond_time >= (g_GlobalTimer - CHRLV_SEEN_RECENT_CHECK))
+-            || (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) < 0))
++            || (bondwalkItemGetAutomaticFiringRate(gePortChrWeapon(prop_selfchr->act_attack.attack_item)) < 0))
+         {
+             sp268 = 0;
+             sp264 = 0;
+ 
+-            self->firecount[hand]++;
++            self->firecount[hand] += gePortTimeFireOn() ? (s32) g_ClockTimer : 1;
+ 
+-            if (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) < 0)
++            if (bondwalkItemGetAutomaticFiringRate(gePortChrWeapon(prop_selfchr->act_attack.attack_item)) < 0)
+             {
+                 sp268 = 1;
+                 sp264 = 1;
+             }
+-            else if (((s32) self->firecount[hand] % bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item)) == 0)
++            else if (gePortChrFireDue((s32) self->firecount[hand],
++                                      bondwalkItemGetAutomaticFiringRate(gePortChrWeapon(prop_selfchr->act_attack.attack_item))))
+             {
+                 sp268 = 1;
+ 
+-                if ((((s32) self->firecount[hand] % (s32) (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) * 2)) == 0)
++                if ((gePortChrFireDue((s32) self->firecount[hand],
++                                      bondwalkItemGetAutomaticFiringRate(gePortChrWeapon(prop_selfchr->act_attack.attack_item)) * 2))
+                     || (prop_selfchr->act_attack.attack_item == ITEM_LASER))
+                 {
+                     sp264 = 1;
+@@ -6613,7 +6815,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
+                 }
+                 else
+                 {
+-                    self->firecount[hand]--;
++                    self->firecount[hand] -= gePortTimeFireOn() ? (s32) g_ClockTimer : 1;
+                     sp27C = 0;
+                 }
+ 
+@@ -7603,7 +7805,7 @@ void chrlvTickBondIntro(ChrRecord *self)
      {
          modelSetAnimation(
              self_model,
@@ -10344,7 +10459,7 @@ index efe9d51..dcea76e 100644
              0,
              86.0f,
              modelGetAnimSpeed(self_model),
-@@ -8042,7 +8174,7 @@ void chrlvTickRunPos(ChrRecord *self)
+@@ -8042,7 +8244,7 @@ void chrlvTickRunPos(ChrRecord *self)
  
          sp2C = D_80030988;
  
@@ -10353,7 +10468,7 @@ index efe9d51..dcea76e 100644
          {
              sp2C = D_80030994;
          }
-@@ -9018,8 +9150,8 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
+@@ -9018,8 +9220,8 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
                      doorActivate(phi_s3->door, 1);
  
                      if (((self->hidden & CHRHIDDEN_OFFSCREEN_PATROL) == 0)
@@ -10364,7 +10479,7 @@ index efe9d51..dcea76e 100644
                      {
                          chrlvIdleAnimationRelated(self, 16.0f);
                          self->lastmoveok60 = g_GlobalTimer;
-@@ -9038,8 +9170,8 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
+@@ -9038,8 +9240,8 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
  
          if ((phi_s3 == NULL) || ((self->hidden & CHRHIDDEN_OFFSCREEN_PATROL) != 0))
          {
@@ -10375,7 +10490,7 @@ index efe9d51..dcea76e 100644
              {
                  if (self->actiontype == ACT_PATROL)
                  {
-@@ -10593,6 +10725,22 @@ bool chrAdjustPosForSpawn(coord3d *pos, StandTile **arg1, f32 facing, bool allow
+@@ -10593,6 +10795,22 @@ bool chrAdjustPosForSpawn(coord3d *pos, StandTile **arg1, f32 facing, bool allow
      s = *arg1;
      spp = &s;
  
@@ -13734,7 +13849,7 @@ index 1ce99c4..2d06f51 100644
 +
  #endif
 diff --git a/src/game/gunfire.c b/src/game/gunfire.c
-index e9a970f..fc78229 100644
+index e9a970f..0d25681 100644
 --- a/src/game/gunfire.c
 +++ b/src/game/gunfire.c
 @@ -37,6 +37,198 @@
@@ -14964,7 +15079,7 @@ index e9a970f..fc78229 100644
          }
  
          matrix_4x4_7F058C88();
-@@ -2515,6 +3358,54 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
+@@ -2515,6 +3358,59 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
  /**
   * Address: 7F064B28
   */
@@ -14991,16 +15106,21 @@ index e9a970f..fc78229 100644
 + * measurement, not assumed -- see docs/FRAME_TIMING.md.
 + *
 + * GETV_TIMEFIRE=0 restores the tick modulo for an A/B. */
-+static s32 gePortAutoFireDue(struct hand *handptr, s32 rate)
++s32 gePortTimeFireOn(void)
 +{
 +    static s32 on = -1;
-+    s32 cur;
-+    s32 prev;
-+
 +    if (on < 0) {
 +        const char *e = getenv("GETV_TIMEFIRE");
 +        on = (e && *e) ? (*e != '0') : 1;
 +    }
++    return on;
++}
++
++static s32 gePortAutoFireDue(struct hand *handptr, s32 rate)
++{
++    const s32 on = gePortTimeFireOn();
++    s32 cur;
++    s32 prev;
 +
 +    if (rate <= 0) return 1;
 +
@@ -15019,7 +15139,7 @@ index e9a970f..fc78229 100644
  void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
  {
  #if defined(VERSION_US)
-@@ -2560,7 +3451,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -2560,7 +3456,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
      struct PropRecord *temp_v0_8;
      Weapon1PTransformKeyframe *sp74;
      f32 temp_f0_2;
@@ -15029,7 +15149,7 @@ index e9a970f..fc78229 100644
      f32 temp_v1_9;
      struct hand *temp_v1_5;
      f32 un_f32_num = 0.0f;
-@@ -2616,7 +3508,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -2616,7 +3513,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
      Weapon1PTransformKeyframe *sp74;
      struct PropRecord *temp_v0_8;
      f32 temp_f0_2;
@@ -15039,7 +15159,7 @@ index e9a970f..fc78229 100644
      f32 temp_v1_9;
      struct hand *temp_v1_5;
      f32 un_f32_num = 0.0f;
-@@ -3020,7 +3913,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -3020,7 +3918,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
                          && (currentPlayerGetIsAiming() == 0)
                          && (((s32) handptr->volley % 3) != 0)))
                  {
@@ -15048,7 +15168,7 @@ index e9a970f..fc78229 100644
                      {
                          if ((getPlayerCount() == 1) || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0)))
                          {
-@@ -3089,6 +3982,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -3089,6 +3987,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
  
                  handptr->weapon_ammo_in_magazine -= 1;
                  handptr->volley += 1;
@@ -15056,7 +15176,7 @@ index e9a970f..fc78229 100644
              }
  
              if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
-@@ -4986,7 +5880,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+@@ -4986,7 +5885,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
      Mtxf rotmtx;
  #endif
      f32 rand;
@@ -15065,7 +15185,7 @@ index e9a970f..fc78229 100644
      f32 frac;
  #if VERSION_EU
      s32 randlimit;
-@@ -5303,7 +6197,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+@@ -5303,7 +6202,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
      Mtxf rotmtx;
  #endif
      f32 rand;
@@ -15074,7 +15194,7 @@ index e9a970f..fc78229 100644
      f32 frac;
  #if VERSION_EU
      s32 randlimit;
-@@ -5558,18 +6452,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5558,18 +6457,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      ModelFileHeader *model_header = casing->header;
      RenderPosView   *model_matrices = dynAllocate(model_header->numMatrices * sizeof(RenderPosView));
      ModelHead        model;
@@ -15119,7 +15239,7 @@ index e9a970f..fc78229 100644
  
  #if defined(VERSION_EU)
      matrix_4x4_copy_eu(casing->rot_mtx, casing_model_mtx.m);
-@@ -5585,13 +6503,13 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5585,13 +6508,13 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      matrix_4x4_multiply_homogeneous(
          camGetWorldToScreenMtxf(),
          &casing_model_mtx,
@@ -15135,7 +15255,7 @@ index e9a970f..fc78229 100644
  
      // Offset 0x30 is m[3][0]; advancing the pointer checks translation X, Y and Z.
      while (axis_offset != 12)
-@@ -5622,7 +6540,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5622,7 +6545,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
               (g_CurrentPlayer->tileColor.g << 16)) |
              (g_CurrentPlayer->tileColor.b << 8);
  
@@ -15144,7 +15264,7 @@ index e9a970f..fc78229 100644
  
          *gdl = render_data.gdl;
  
-@@ -5849,7 +6767,12 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
+@@ -5849,7 +6772,12 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
   */
  Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7)
  {
@@ -15158,7 +15278,7 @@ index e9a970f..fc78229 100644
  }
  
  
-@@ -5932,15 +6855,20 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -5932,15 +6860,20 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
      s32 rightx;
      s32 reserveammo;
      s32 magammo;
@@ -15181,7 +15301,7 @@ index e9a970f..fc78229 100644
              weapon_left = getCurrentPlayerWeaponId(GUNLEFT);
              weapon_right = getCurrentPlayerWeaponId(GUNRIGHT);
  
-@@ -5969,12 +6897,33 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -5969,12 +6902,33 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                      && g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                      && !bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                  {
@@ -15216,7 +15336,7 @@ index e9a970f..fc78229 100644
                          gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_r, (getPlayer_c_screenleft() + getPlayer_c_screenwidth()) - (f32)rightx, -1.0f,
  #if defined(VERSION_EU)
                              (viGetViewTop() + viGetViewHeight()) - 30, 0,
-@@ -6035,12 +6984,19 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -6035,12 +6989,19 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                      && g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                      && !bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                  {
@@ -15237,7 +15357,7 @@ index e9a970f..fc78229 100644
                          gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_l, getPlayer_c_screenleft() + (f32)leftx, -1.0f,
  #if defined(VERSION_EU)
                              (viGetViewTop() + viGetViewHeight()) - 30, 1,
-@@ -6108,7 +7064,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
+@@ -6108,7 +7069,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
      s32 ammotype;
      s32 reserveammo;
      s32 magammo;
@@ -15248,7 +15368,7 @@ index e9a970f..fc78229 100644
      s32 textwidth;
      s32 pad;
  
-@@ -6124,14 +7082,34 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
+@@ -6124,14 +7087,34 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
              && g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
              && !bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
          {
@@ -15284,7 +15404,7 @@ index e9a970f..fc78229 100644
  
                  // Draw the ammo icon
  #if defined(VERSION_EU)
-@@ -6201,13 +7179,21 @@ void gunSetSightVisible(s32 reason, bool visible)
+@@ -6201,13 +7184,21 @@ void gunSetSightVisible(s32 reason, bool visible)
  }
  
  

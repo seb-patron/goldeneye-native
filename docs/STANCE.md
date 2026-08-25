@@ -65,3 +65,47 @@ work overlaps with what an external AI needs to read anyway.
 1. ✅ Crouch key
 2. Lean, once the player API exists and the aim ray is already being handled
 3. Jump, only if the project decides it wants a movement mod
+
+---
+
+# Guard weapons as a cheat: scoped, not built
+
+Wanted for horde mode, so a level can be made incrementally harder by upgrading what the
+guards carry. Also the best stress test available -- a room of RC-P90s puts far more beams,
+sounds, impacts and animation through a frame than any authored encounter.
+
+## What exists today
+
+`GETV_CHR_FIRERATE=<item>` gives every guard another weapon's **firing cadence**. It redirects
+the four `bondwalkItemGetAutomaticFiringRate()` reads in `chraction.c`'s firing block and
+nothing else.
+
+🔴 **It does not change the weapon a guard carries.** Guards shoot at the chosen rhythm while
+still holding, animating and sounding their own gun. It was briefly named `GETV_CHR_GIVE`,
+which implied a swap it does not do.
+
+It is still the right tool for timing work, and it is what made guard fire the dominant term
+in the reaction-stepping measurement -- with issued weapons a scripted run sits ~1400 frames
+before anything shoots back.
+
+## What a real swap needs
+
+`chr->weapons_held[hand]` is a pointer to a weapon **object** spawned from the setup file.
+`propobj.c:12111` only *attaches* one that already exists, binding its model to the guard's
+hand via `Switches[3]` / `Switches[5]`. So a swap means:
+
+- spawning a different weapon object for the guard at setup time, or replacing the existing
+  one and freeing the old (`objFreePermanently`, as `chr.c:2707` does on death)
+- the new model must load and attach to the same hand switches
+- damage, sound and the AI's own branches on `ITEM_LASER` / `ITEM_ROCKETLAUNCH` /
+  `ITEM_GRENADELAUNCH` follow the item, so those paths need checking rather than assuming
+
+⚠️ **Giving guards an explosive is not a cadence change.** Those three items take different
+branches in the firing block, so a "hard mode" that hands out rocket launchers exercises code
+the cadence override never touches.
+
+## Order
+
+1. ✅ Firing cadence override, which is what timing work needed
+2. Real weapon swap at spawn, which is the horde-difficulty cheat
+3. Per-wave scaling on top of it, so horde can escalate
