@@ -54,6 +54,7 @@ void gePortEdgeValidateFrame(int frame)
     char def_path[512];
     float max_d;
     int want_frame, n, i, j, pairs = 0, walkable = 0, asym = 0, first_row = 1, unplaced = 0;
+    int first_floor = 1;
     FILE *fp;
 
     if (ge_ev_done || on == NULL || *on == '\0' || *on == '0') { return; }
@@ -100,6 +101,7 @@ void gePortEdgeValidateFrame(int frame)
     fprintf(fp, "  \"mask\": \"CDTYPE_BG|CDTYPE_PATHBLOCKER\",\n");
     fprintf(fp, "  \"waypoints\": %d,\n  \"max_distance\": %.0f,\n  \"frame\": %d,\n",
             n, (double) max_d, frame);
+    fprintf(fp, "  \"node_floor\": [");
 
     for (i = 0; i < n; i++) {
         GeWorldWaypoint a;
@@ -120,6 +122,20 @@ void gePortEdgeValidateFrame(int frame)
          * stood on are counted and reported rather than measured from wherever the player
          * happened to be. */
         if (!gePortTeleportProbe(a.x, a.y, a.z, &lx, &ly, &lz)) { unplaced++; continue; }
+
+        /* Record the height the ENGINE put the body at, not the node's own y.
+         *
+         * The extractor emits waypoint_floor for the nodes it creates, and the synthetic spawn,
+         * door and portal nodes have no entry -- so the height gate skipped exactly the edges
+         * added by proximity, which are the ones most likely to be wrong. Train's route opened
+         * with spawn(y=334) -> waypoint 0(y=45), a 289-unit drop through a carriage floor, and
+         * nothing rejected it.
+         *
+         * Computing it offline does not work either: Train's spawn sits outside the extracted
+         * floor coverage entirely. The engine has no such gap -- it just placed a body there --
+         * so the honest number is the one it reports. */
+        fprintf(fp, "%s{\"id\": %d, \"floor\": %.1f}", first_floor ? "" : ", ", a.id, (double) ly);
+        first_floor = 0;
         ex = lx - a.x;
         ez = lz - a.z;
         if (((ex * ex) + (ez * ez)) > (90.0f * 90.0f)) { unplaced++; continue; }
@@ -146,14 +162,14 @@ void gePortEdgeValidateFrame(int frame)
             if (ab && ba) { walkable++; }
 
             fprintf(fp, "%s\n    {\"a\": %d, \"b\": %d, \"d\": %.0f, \"ok\": %s}",
-                    first_row ? "  \"edges\": [" : ",",
+                    first_row ? "],\n  \"edges\": [" : ",",
                     a.id, b.id, (double) (d2 > 0.0f ? sqrtf(d2) : 0.0f),
                     (ab && ba) ? "true" : "false");
             first_row = 0;
         }
     }
 
-    if (first_row) { fprintf(fp, "  \"edges\": ["); }
+    if (first_row) { fprintf(fp, "],\n  \"edges\": ["); }
     fprintf(fp, "\n  ],\n  \"pairs\": %d,\n  \"walkable\": %d,\n  \"asymmetric\": %d,\n"
                 "  \"seed\": \"stood at each node\",\n  \"unplaced_nodes\": %d\n}\n",
             pairs, walkable, asym, unplaced);

@@ -535,6 +535,56 @@ def prune_unwalkable(graph, measured):
     return dropped
 
 
+def floor_under(rooms, x, z, y_hint=None):
+    """Height of the floor beneath a point, from the extracted floor tiles, or None.
+
+    The Surface emits waypoint_floor for the nodes IT creates. The spawn, door and portal nodes
+    are added here, afterwards, so they have no entry -- and the height gate skips edges whose
+    ends it cannot compare. That skipped precisely the synthetic edges, which are the ones most
+    likely to be wrong: Train's route began spawn(y=334) -> waypoint 0(y=45), a 289-unit drop
+    through the floor of a carriage, and the gate let it through because the spawn had no
+    recorded floor.
+
+    Containment first, nearest centroid second. A point inside a tile has an exact answer; a
+    point between tiles gets the nearest, which is right at a seam and wrong off the mesh -- and
+    off the mesh there is no correct answer to give.
+    """
+    tiles = (rooms or {}).get("floors") or []
+    if not tiles:
+        return None
+
+    best = None
+    best_d = None
+    for t in tiles:
+        bb = t.get("bb")
+        c = t.get("c")
+        if not c:
+            continue
+        if bb and bb[0] <= x <= bb[2] and bb[1] <= z <= bb[3]:
+            # Inside more than one tile happens where floors stack. Prefer the one nearest the
+            # hint height, which is the surface the node actually belongs to.
+            if y_hint is None:
+                return c[1]
+            d = abs(c[1] - y_hint)
+            if best_d is None or d < best_d:
+                best, best_d = c[1], d
+    if best is not None:
+        return best
+
+    for t in tiles:
+        c = t.get("c")
+        if not c:
+            continue
+        d = ((c[0] - x) ** 2) + ((c[2] - z) ** 2)
+        if best_d is None or d < best_d:
+            best, best_d = c[1], d
+    # Beyond this the nearest tile is not the floor under anything. Refuse rather than return a
+    # height from across the level, which would make the gate confidently wrong.
+    if best_d is not None and best_d > (400.0 ** 2):
+        return None
+    return best
+
+
 def prune_by_height(graph, rooms, know, max_step=40.0):
     """Drop edges whose ends are more than one step apart in height.
 
@@ -963,6 +1013,40 @@ def main():
         # validator -- and two implementations of one rule is how they drift apart.
         # Heights first: an edge that climbs a storey is wrong whatever the line test says, and
         # the line test is a plan-view test that cannot see it.
+        # Give the synthetic nodes a floor before the gate runs, or it skips exactly the edges
+        # this pass added -- which are the ones proximity got wrong.
+        if rooms is not None:
+            _wf = rooms.setdefault("waypoint_floor", {})
+            _added = 0
+            for _w in know.get("waypoints", []):
+                if not _w.get("synthetic") or not _w.get("pos"):
+                    continue
+                if str(_w["index"]) in _wf:
+                    continue
+                _f = floor_under(rooms, _w["pos"][0], _w["pos"][2], _w["pos"][1])
+                if _f is not None:
+                    _wf[str(_w["index"])] = _f
+                    _added += 1
+            if _added:
+                print("  %-10s floors computed for %d synthetic node(s)" % (level, _added))
+
+        # MEASURED floors win over extracted ones. The engine placed a body at each node and
+        # reported where it landed; the extraction has coverage holes exactly where the player
+        # starts -- Train's spawn is outside its own floor bounding box -- so the offline number
+        # is missing precisely where it is needed most.
+        _wpath = os.path.join(out_dir, level + ".walkable.json")
+        if rooms is not None and os.path.exists(_wpath):
+            with open(_wpath, encoding="utf-8") as _fh:
+                _nf = json.load(_fh).get("node_floor") or []
+            if _nf:
+                _wf = rooms.setdefault("waypoint_floor", {})
+                for _e in _nf:
+                    try:
+                        _wf[str(int(_e["id"]))] = float(_e["floor"])
+                    except (KeyError, TypeError, ValueError):
+                        continue      # a malformed row is skipped, never guessed at
+                print("  %-10s measured floors for %d node(s)" % (level, len(_nf)))
+
         _hdrop, _hunk = prune_by_height(graph, rooms, know)
         if _hdrop or _hunk:
             print("  %-10s heights: %d edge(s) too steep, %d with no floor recorded"

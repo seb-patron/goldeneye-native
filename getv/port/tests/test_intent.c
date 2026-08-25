@@ -15,6 +15,11 @@ static unsigned int g_test_style;
 /* Stubs for everything ge_player_api.c reaches for. Only the style matters here; the rest exist so
  * the translation unit links. */
 unsigned int get_player_control_style(int playernum) { (void) playernum; return g_test_style; }
+
+/* The port accessor mac-getv's gePlayerControlType calls. It returns -1 for a slot with no style,
+ * which is what makes gePlayerSlotIsDrivable's `>= 0` meaningful; the fake population here always
+ * has a style, so slot 0 answers and everything else does not. */
+int gePortPlayerControlStyle(int idx) { return (idx == 0) ? (int) g_test_style : -1; }
 int  getPlayerCount(void) { return 1; }
 unsigned short joyGetButtons(signed char p, unsigned short m) { (void) p; (void) m; return 0; }
 signed char joyGetStickX(signed char p) { (void) p; return 0; }
@@ -61,10 +66,21 @@ int main(void)
         { GE_STYLE_SOLITARE,  "1.2 Solitare",  Z_TRIG,          L_TRIG | R_TRIG, 1 },
         { GE_STYLE_KISSY,     "1.3 Kissy",     A_BUTTON,        Z_TRIG,          1 },
         { GE_STYLE_GOODNIGHT, "1.4 Goodnight", A_BUTTON,        Z_TRIG,          1 },
-        { GE_STYLE_PLENTY,    "2.1 Plenty",    Z_TRIG,          0,               0 },
-        { GE_STYLE_GALORE,    "2.2 Galore",    Z_TRIG,          0,               0 },
-        { GE_STYLE_DOMINO,    "2.3 Domino",    0,               Z_TRIG,          0 },
-        { GE_STYLE_GOODHEAD,  "2.4 Goodhead",  0,               Z_TRIG,          0 },
+        /* EVERY STYLE IS DRIVABLE, INCLUDING THE TWO-PAD ONES.
+         *
+         * This column said 0 for 2.x when the file was written, on the theory that a slot whose
+         * movement axis lives on a second pad cannot be driven. That was wrong and it was the
+         * expensive kind of wrong: this port DEFAULTS to 2.2 Galore, so "2.x is undrivable"
+         * disabled every bot on every level, and ge_bot_route printed a confident explanation for
+         * why it was giving up.
+         *
+         * Two-pad is a ROUTING fact, not a disqualification -- the answer is to write the pad the
+         * engine actually reads for movement, which ge_playback now does in a second pass. The
+         * button half below is still real and still per-style; the two are independent. */
+        { GE_STYLE_PLENTY,    "2.1 Plenty",    Z_TRIG,          0,               1 },
+        { GE_STYLE_GALORE,    "2.2 Galore",    Z_TRIG,          0,               1 },
+        { GE_STYLE_DOMINO,    "2.3 Domino",    0,               Z_TRIG,          1 },
+        { GE_STYLE_GOODHEAD,  "2.4 Goodhead",  0,               Z_TRIG,          1 },
     };
     unsigned i;
     char buf[96];

@@ -1,2 +1,5 @@
 # Compiled test binaries. Rebuilt by run_tests.ps1 on every run.
 _bin/
+
+# Synthetic world files written by test_world.c. Rebuilt on every run; never inputs.
+*.gew

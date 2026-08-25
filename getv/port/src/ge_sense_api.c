@@ -11,6 +11,10 @@ extern int gePortSenseVisibleTo(int chr_index, int player_index);
 
 #define GE_SENSE_SAMPLES 6
 
+/* How far out the first segment starts: roughly a body's own width. What is already touching the
+ * bot is not information about which way to go, and including it makes every direction blocked. */
+#define GE_SENSE_SKIN    35.0f
+
 static float ge_deg2rad(float d) { return d * 3.14159265358979f / 180.0f; }
 
 unsigned int geSenseLine(float from_x, float from_z, float to_x, float to_z)
@@ -33,18 +37,38 @@ int geSenseAhead(float x, float z, float heading_deg, float reach, GeSenseContac
     /* Sampled outward rather than one test to the far end, because "blocked somewhere along
      * here" is not actionable and "blocked in 60 units" is. The first blocked sample also gives
      * the last CLEAR point, which is where a body would actually come to rest. */
-    for (i = 1; i <= GE_SENSE_SAMPLES; i++) {
-        float d = reach * ((float) i / (float) GE_SENSE_SAMPLES);
-        float tx = x + sn * d, tz = z + cs * d;
-        unsigned int hit = geSenseLine(x, z, tx, tz);
+    /* Each segment is tested from the LAST CLEAR POINT, not from the origin.
+     *
+     * Testing every sample from the start point makes anything near the body block the whole ray,
+     * in every direction at once -- a bot pressed against a crate reported OBJECT at 50 units on
+     * all twelve headings and concluded it was walled in, because each ray began inside the thing
+     * it was asking about. Stepping outward asks "can I get from here to the next step", which is
+     * the question a walking body actually has.
+     *
+     * The first segment starts a body-width out for the same reason: whatever is already touching
+     * the bot is not information about which way to go. */
+    {
+        float px = x + sn * GE_SENSE_SKIN, pz = z + cs * GE_SENSE_SKIN;
 
-        if (hit != GE_SENSE_CLEAR) {
-            out->what = hit;
-            out->distance = d;
-            return 1;
+        out->x = px;
+        out->z = pz;
+
+        for (i = 1; i <= GE_SENSE_SAMPLES; i++) {
+            float d = GE_SENSE_SKIN
+                    + ((reach - GE_SENSE_SKIN) * ((float) i / (float) GE_SENSE_SAMPLES));
+            float tx = x + sn * d, tz = z + cs * d;
+            unsigned int hit = geSenseLine(px, pz, tx, tz);
+
+            if (hit != GE_SENSE_CLEAR) {
+                out->what = hit;
+                out->distance = d;
+                return 1;
+            }
+            px = tx;
+            pz = tz;
+            out->x = tx;
+            out->z = tz;
         }
-        out->x = tx;
-        out->z = tz;
     }
     return 1;
 }
@@ -62,7 +86,7 @@ float geSenseClearestHeading(float x, float z, float heading_deg, float span, fl
         for (sgn = 1; sgn >= -1; sgn -= 2) {
             GeSenseContact c;
             float h = heading_deg + (step[i] * (float) sgn);
-            if (geSenseAhead(x, z, h, reach, &c) && c.what == GE_SENSE_CLEAR) { return h; }
+            if (geSenseAhead(x, z, h, reach, &c) && (c.what & GE_SENSE_SOLID) == 0) { return h; }
             if (step[i] == 0.0f) { break; }   /* straight ahead has no mirror */
         }
     }

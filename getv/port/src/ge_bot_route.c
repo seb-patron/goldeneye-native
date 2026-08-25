@@ -36,12 +36,25 @@
 #include "ge_player_api.h"
 #include "ge_world_api.h"
 #include "ge_enemy_api.h"
+#include "ge_sense_api.h"
 #include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
 
 /* Straight from tools/routesim.py. Changing one of these without re-running the model is how a
  * validated law quietly becomes an unvalidated one. */
 #define GE_BR_WALK          60.0f   /* N64 counts; the walk deadzone subtracts about 5 */
-#define GE_BR_ARRIVE       120.0f   /* world units; must stay outside the turning circle */
+/* World units. Must stay outside the turning circle (about 114 at full pelt) OR the bot orbits
+ * its own target -- that is where 120 came from and it is still the floor.
+ *
+ * Raised to 200 because a waypoint is a PAD, and a pad is frequently not somewhere a body can
+ * stand: measured with the teleport probe, 139 of Train's 180 nodes are unplaceable, and across
+ * the twenty levels it runs 33 to 240 each. Requiring a body to reach within 120 of a pad centre
+ * therefore demands something the level often does not permit -- Train's bot closed 626 to 173
+ * and could get no nearer, not because it failed to navigate but because the last 53 units are
+ * inside a bench.
+ *
+ * ⚠️ This is a statement about the WAYPOINT DATA, not a tolerance to tune when a bot misses. If
+ * pads are ever replaced by points sampled on the navmesh, put it back to 120. */
+#define GE_BR_ARRIVE       200.0f
 #define GE_BR_TURN_GAIN      3.0f
 #define GE_BR_ALIGN_DEG     60.0f
 #define GE_BR_STICK_MAX     80.0f
@@ -78,6 +91,15 @@
  * for a stuck door for more than a moment. */
 #define GE_BR_USE_TICKS     45
 
+/* How far ahead the bot looks. Far enough to react before contact at walking speed, short enough
+ * that it does not steer around something it was going to turn away from anyway. */
+#define GE_BR_LOOKAHEAD    160.0f
+
+/* How long an avoidance heading is held. Roughly the time to turn 60 degrees and clear the
+ * obstacle at walking pace -- long enough to finish the manoeuvre, short enough to notice the
+ * world changed. */
+#define GE_BR_AVOID_TICKS   40
+
 #define GE_BR_STUCK_TICKS   30
 #define GE_BR_DETOUR_TICKS  26
 
@@ -90,6 +112,8 @@ static int   ge_br_joined;          /* has the bot reached the route's first nod
 static int   ge_br_stuck;           /* consecutive ticks commanded forward with no movement */
 static int   ge_br_held;            /* frames spent waiting on a contested waypoint */
 static int   ge_br_use;             /* ticks left pressing the action button at a door */
+static int   ge_br_avoid;           /* ticks left committed to an avoidance heading */
+static float ge_br_avoid_h;         /* the heading committed to, held for the whole manoeuvre */
 static int   ge_br_detour;          /* ticks left steering around an obstacle */
 static float ge_br_detour_sign;     /* which way round it -- kept until the detour ends */
 static int   ge_br_steps;
@@ -224,6 +248,77 @@ void gePortBotRouteFrame(int frame)
         }
         return;
     }
+    /* GETV_BOT_ROUTE_NEAREST=1 -- walk to the nearest waypoint instead of following a route.
+     *
+     * A diagnostic, and a deliberately separable one. "The bot never arrives" has two possible
+     * causes and they need different fixes: the movement stack cannot get anywhere, or the routes
+     * point somewhere it cannot go. Following a route tests both at once and tells you nothing
+     * about which. This tests only the first. */
+    {
+        static int nearest = -1;
+        if (nearest < 0) { const char *e = getenv("GETV_BOT_ROUTE_NEAREST"); nearest = (e && *e && *e != '0'); }
+        if (nearest) {
+            /* LATCHED. Re-picking the nearest waypoint every tick means the target changes as the
+             * bot moves, so it chases a moving goal and converges on nothing -- and the
+             * skip-if-already-close test then discards the very waypoint it just reached. Choose
+             * once, walk to that one, and say so when it arrives. */
+            static int have_target = 0;
+            static GeWorldWaypoint target;
+
+            if (!have_target) {
+                int i, found = 0;
+                float bd = 0.0f;
+                for (i = 0; i < geWorldWaypointCount(); i++) {
+                    GeWorldWaypoint w;
+                    float dx2, dz2, d2;
+                    if (!geWorldWaypoint(i, &w)) { continue; }
+                    dx2 = w.x - st.x;
+                    dz2 = w.z - st.z;
+                    d2 = (dx2 * dx2) + (dz2 * dz2);
+                    /* Not the one being stood on: arriving before starting proves nothing. */
+                    if (d2 < (GE_BR_ARRIVE * GE_BR_ARRIVE)) { continue; }
+
+                    /* ON THIS FLOOR. The nearest node in plan view is regularly on another
+                     * storey -- Train's nearest was a doorway 308 units BELOW the carriage the
+                     * bot stands in -- and walking at it just presses the bot against the edge of
+                     * its own deck. Compared floor to floor via the stan query rather than pad y
+                     * to body y, which differ by about 157 and would make every candidate look
+                     * like a cliff. */
+                    {
+                        extern int gePortProbeStandable(float x, float y, float z, float radius,
+                                                        float *out_y, int *out_room);
+                        float my_floor = st.y, its_floor = w.y;
+                        if (!gePortProbeStandable(st.x, st.y, st.z, 60.0f, &my_floor, NULL)) { continue; }
+                        if (!gePortProbeStandable(w.x, w.y, w.z, 60.0f, &its_floor, NULL)) { continue; }
+                        if ((its_floor - my_floor) > GE_BR_MAX_STEP
+                            || (my_floor - its_floor) > GE_BR_MAX_DROP) { continue; }
+                    }
+                    if (!found || d2 < bd) { bd = d2; target = w; found = 1; }
+                }
+                if (found) {
+                    have_target = 1;
+                    if (ge_br_trace) {
+                        printf("[getv][botroute] nearest-target test: waypoint %d at %.0f units\n",
+                               target.id, (double) sqrt((double) bd));
+                        fflush(stdout);
+                    }
+                }
+            }
+            if (have_target) {
+                wp = target;
+                dx = wp.x - st.x;
+                dz = wp.z - st.z;
+                dist = (float) sqrt((double) ((dx * dx) + (dz * dz)));
+                if (dist <= GE_BR_ARRIVE) {
+                    printf("[getv][botroute] REACHED waypoint %d at %.0f units\n", wp.id, (double) dist);
+                    fflush(stdout);
+                    return;
+                }
+                goto steer;
+            }
+        }
+    }
+
     if (!geWorldRouteStep(ge_br_obj, ge_br_step, &step)) { return; }
 
     /* JOIN THE ROUTE BEFORE WALKING IT.
@@ -332,6 +427,7 @@ void gePortBotRouteFrame(int frame)
         return;
     }
 
+steer:
     bearing = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
     err = ge_br_norm180(bearing - ge_br_heading);
 
@@ -366,6 +462,96 @@ void gePortBotRouteFrame(int frame)
     align = 1.0f - (float) fabs((double) err) / GE_BR_ALIGN_DEG;
     if (align < 0.0f) { align = 0.0f; }
     in.stick_y = (signed char) (GE_BR_WALK * align);
+
+    /* LOOK BEFORE WALKING.
+     *
+     * Everything below this used to be reactive: walk at the waypoint, notice after thirty ticks
+     * that nothing moved, then guess. That is why the bot walked into a crate, turned, and walked
+     * into a wall -- it could not see either until it was already against them, and "blocked" told
+     * it nothing about which.
+     *
+     * The sensing API answers both questions before the step is taken, and the response differs
+     * by what is there. A door is not an obstacle to something with a hand; a crate is not a wall
+     * you turn away from if there is a gap beside it; a body will move on its own.
+     */
+    {
+        GeSenseContact c;
+
+        /* GE_SENSE_SOLID, not "anything": the line starts at the bot's own feet, so its own
+         * collision sets GE_SENSE_BODY on every reading and testing for "not clear" makes every
+         * direction on every level look blocked. */
+        if (geSenseAhead(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
+            && ((c.what & GE_SENSE_SOLID) || (c.what & GE_SENSE_DOOR))) {
+
+            /* COMMIT TO A RESPONSE AND HOLD IT.
+             *
+             * Deciding afresh every tick is what pinned the bot: 53 units from a doorway the
+             * sensor alternated DOOR and OBJECT, so it alternated "walk through" and "steer
+             * aside", turned between 278 and 330 degrees for the rest of the run, and travelled
+             * nowhere. Same failure as re-picking the detour side every frame, and the same fix:
+             * choose once, hold long enough for the manoeuvre to finish, then look again.
+             *
+             * A door wins over an object when both are seen, because a doorway usually has a
+             * frame beside it and the frame is what reads as OBJECT. Steering away from a door
+             * because of its own frame is precisely the wrong move. */
+            if (ge_br_avoid > 0) {
+                float turn2 = ge_br_norm180(ge_br_avoid_h - ge_br_heading);
+                float sx3 = -turn2 * GE_BR_TURN_GAIN;
+
+                ge_br_avoid--;
+                if (sx3 >  GE_BR_STICK_MAX) { sx3 =  GE_BR_STICK_MAX; }
+                if (sx3 < -GE_BR_STICK_MAX) { sx3 = -GE_BR_STICK_MAX; }
+                in.stick_x = (signed char) sx3;
+                in.stick_y = (signed char) (GE_BR_WALK * 0.6f);
+            } else if (c.what & GE_SENSE_DOOR) {
+                /* Walk INTO it while pressing use. Stopping to open a door and then deciding to
+                 * walk is two decisions where the game wants one, and the door shuts again. */
+                in.buttons |= GE_IN_USE;
+                in.stick_y = (signed char) GE_BR_WALK;
+                in.stick_x = 0;                 /* straight at it: a door opens where it is */
+                ge_br_use = GE_BR_USE_TICKS;    /* hold, so one frame of OBJECT cannot cancel it */
+                if (ge_br_trace && (frame % 60) == 0) {
+                    printf("[getv][botroute] door %.0fu ahead -- opening and walking through\n",
+                           (double) c.distance);
+                    fflush(stdout);
+                }
+            } else {
+                /* Wall, crate or body: steer to the nearest heading that is actually open rather
+                 * than to a side picked from the sign of the error. Full circle, because a bot in
+                 * a corner has its heading pointed at the obstacle by definition. */
+                float open_h = geSenseClearestHeading(st.x, st.z, ge_br_heading,
+                                                      180.0f, GE_BR_LOOKAHEAD);
+                float turn = ge_br_norm180(open_h - ge_br_heading);
+
+                /* Hold this heading for the manoeuvre rather than re-deciding next tick. */
+                ge_br_avoid_h = open_h;
+                ge_br_avoid = GE_BR_AVOID_TICKS;
+
+                if (turn != 0.0f) {
+                    float sx2 = -turn * GE_BR_TURN_GAIN;
+                    if (sx2 >  GE_BR_STICK_MAX) { sx2 =  GE_BR_STICK_MAX; }
+                    if (sx2 < -GE_BR_STICK_MAX) { sx2 = -GE_BR_STICK_MAX; }
+                    in.stick_x = (signed char) sx2;
+
+                    /* Keep walking while turning, but slower the sharper the turn: driving at
+                     * full speed into the thing being avoided is how the bot got wedged. */
+                    {
+                        float ease = 1.0f - ((float) fabs((double) turn) / 180.0f);
+                        if (ease < 0.15f) { ease = 0.15f; }
+                        in.stick_y = (signed char) (GE_BR_WALK * ease);
+                    }
+                }
+                if (ge_br_trace && (frame % 60) == 0) {
+                    printf("[getv][botroute] %s%s%s %.0fu ahead -- steering %+.0f deg to open ground\n",
+                           (c.what & GE_SENSE_WALL) ? "wall " : "",
+                           (c.what & GE_SENSE_OBJECT) ? "object " : "",
+                           (c.what & GE_SENSE_BODY) ? "body " : "",
+                           (double) c.distance, (double) turn);
+                    fflush(stdout);
+                }
+            }
+        }
+    }
 
     /* WALLS.
      *

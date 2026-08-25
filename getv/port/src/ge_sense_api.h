@@ -23,6 +23,15 @@
 #define GE_SENSE_OBJECT  (1u << 2)   /* crate, scenery, path blocker: shoot it or skirt it */
 #define GE_SENSE_BODY    (1u << 3)   /* a character or another player: wait, or shoot */
 
+/* What actually stops a body and will not move on its own.
+ *
+ * ⚠️ GE_SENSE_BODY is deliberately NOT in here, and that is not a judgement call about tactics --
+ * the line starts at the asking position, so THE ASKER'S OWN COLLISION SETS IT. Every reading
+ * came back with BODY, every direction read blocked, and geSenseClearestHeading found nothing
+ * open anywhere on the map. Steering decisions must use this mask; deciding whether to shoot
+ * something can look at BODY on its own. */
+#define GE_SENSE_SOLID   (GE_SENSE_WALL | GE_SENSE_OBJECT)
+
 typedef struct GeSenseContact {
     unsigned int what;      /* GE_SENSE_* bitmask; GE_SENSE_CLEAR when nothing blocks */
     float        distance;  /* how far along the ray the first blocked sample sat */
@@ -39,7 +48,9 @@ int geSenseAhead(float x, float z, float heading_deg, float reach, GeSenseContac
 
 /* The clearest heading within +/- span of `heading_deg`, or the input heading when everything is
  * blocked. Sweeps outward from straight ahead so a small correction is preferred to a large one,
- * and considers the full circle when span >= 180. */
+ * and considers the full circle when span >= 180.
+ *
+ * Judges on GE_SENSE_SOLID, so a direction with a person in it still counts as open. */
 float geSenseClearestHeading(float x, float z, float heading_deg, float span, float reach);
 
 /* Can enemy `index` see player `slot`? Line of sight only -- NOT whether it is looking.
