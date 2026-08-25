@@ -72,6 +72,26 @@ measured at 3.54 deg/frame. Past 30 counts/frame the accumulator spreads the sur
 following frames rather than losing it, which is why 63 reads slower per count than 30: the
 turn is not lost, it is delivered over more frames.
 
+## Both axes, and both at once
+
+Checked rather than assumed, because the first sweep only injected horizontal movement and
+"X works so Y works" is exactly the assumption that hides a bug. `GETV_MOUSE_SELFTEST_Y`
+injects the vertical twin.
+
+**Yaw and pitch turn at the same angular rate.** At 6 counts/frame: 0.210 deg/frame
+horizontal, 0.206 vertical. That equality is the thing worth checking -- one axis quietly
+geared differently from the other is the usual way this goes wrong.
+
+**Pitch clamps at straight up and straight down, symmetrically**: +89.91 looking up, -89.90
+looking down. That is the game's own aim limit and is correct. It is also why vertical *feels*
+more sensitive than horizontal at the same setting: pitch spends its whole range in 180
+degrees while yaw has 360 to cover, so the same rate crosses proportionally more of it.
+
+**Movement and look run at once.** They are separate paths -- WASD drives the left stick,
+which dual-analog routes to N64 port 1 as movement, while the mouse drives the right stick on
+port 0 as look -- so neither can starve the other. Measured together over 260 frames:
+**309.7 units travelled and 201.6 degrees turned in the same window.**
+
 ## Tuning
 
 `GETV_MOUSE_SENS` is a percentage of the above, 1..1000. `GETV_MOUSE_INVERT=1` inverts Y.

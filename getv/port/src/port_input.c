@@ -951,6 +951,7 @@ static void geMousePoll(int port, struct GePadState *out)
  Uint32 mb = 0;
  int sens;
  int selftest = 0;
+ int selftest_y = 0;
 
     /* Idle on a measurement run, for a stronger reason than the keyboard has: relative mode
      * hides and locks the cursor system-wide, so an automated run would steal the pointer
@@ -971,6 +972,13 @@ static void geMousePoll(int port, struct GePadState *out)
  if (st == -2) { const char *e = getenv("GETV_MOUSE_SELFTEST"); st = (e && *e) ? atoi(e) : 0; }
  if (st != 0 && port == 0) {
  selftest = st;
+        }
+        /* Vertical twin, so pitch can be measured on its own rather than assumed to behave
+         * like yaw. It does not: pitch is clamped by the game and yaw is not. */
+        {
+ static int sty = -2;
+ if (sty == -2) { const char *e = getenv("GETV_MOUSE_SELFTEST_Y"); sty = (e && *e) ? atoi(e) : 0; }
+ if (sty != 0 && port == 0) { selftest_y = sty; selftest = (selftest != 0) ? selftest : -1; }
         }
     }
 
@@ -1002,7 +1010,7 @@ static void geMousePoll(int port, struct GePadState *out)
  if (!SDL_GetRelativeMouseMode()) { return; }   /* released: no look, no clicks */
     }
 
- if (selftest) { dx = selftest; dy = 0; }
+ if (selftest) { dx = (selftest == -1) ? 0 : selftest; dy = selftest_y; }
  else          { mb = SDL_GetRelativeMouseState(&dx, &dy); }
  sens = geMouseSens();
 
