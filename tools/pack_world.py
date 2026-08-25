@@ -67,6 +67,43 @@ PROP_KIND_INDEX = {name: i for i, name in enumerate(PROP_KINDS)}
 ST_FMT  = "<HHffffH2x"                # from_node, to_node, dist, heading, turn, _pad, threats
 
 
+
+# ---- level scale: the reason nothing lined up -------------------------------------------------
+#
+# 🔴 THE ASSETS AND THE RUNNING GAME ARE IN DIFFERENT COORDINATE SPACES, and everything packed
+# before this was in the wrong one.
+#
+# bg.c's levelinfotable carries a per-level `levelscale`, applied at load by setLevelScale, and
+# stan.c multiplies every coordinate by it. So the numbers in the assets are NOT the numbers the
+# game reports: runtime = asset / levelscale. Dam's scale is 0.23364, its floor tiles reach
+# x=4735, and the player spawns at x=20198 -- which is 4719 once scaled. They were the same place
+# all along.
+#
+# Measured across all twenty solo levels: scaling the measured spawn by levelscale puts 19 of 20
+# inside their own level's floor bounding box. Before scaling, 17 of 20 were outside it.
+#
+# This is why no bot ever reached a waypoint. The pack said one thing, the player's position said
+# another, and every distance, every route step and every walkability probe was computed across
+# the mismatch.
+#
+# Parsed from the decomp rather than copied into a table here: a second copy of twenty-six
+# constants is a second thing to keep in step, and this one changes only when the game does.
+LEVELSCALE_SRC = os.path.join("vendor", "ge-decomp", "src", "game", "bg.c")
+
+
+def load_level_scales(root):
+    import re
+    path = os.path.join(root, LEVELSCALE_SRC)
+    out = {}
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        src = fh.read()
+    for m in re.finditer(r'\{LEVELID_(\w+),\s*"[^"]+",\s*"[^"]+",\s*([0-9.]+),', src):
+        out[m.group(1).lower()] = float(m.group(2))
+    return out
+
+
 def pack_level(level, levels_dir):
     kp = os.path.join(levels_dir, level + ".json")
     tp = os.path.join(levels_dir, level + ".tactics.json")
@@ -82,13 +119,24 @@ def pack_level(level, levels_dir):
     wproom = rooms.get("waypoint_room", {})
     proproom = rooms.get("prop_room", {})
 
+    # runtime = asset / levelscale. Applied to EVERY position in the pack -- waypoints, guards,
+    # objectives, steps and props -- because a pack half in one space and half in the other is
+    # worse than one consistently wrong.
+    scale = load_level_scales(ROOT).get(level)
+    inv = (1.0 / scale) if scale else 1.0
+    if not scale:
+        # Loud: a level with no scale is packed in asset space and will not line up at runtime,
+        # and silence here is what hid this for a week.
+        print("  %-10s NO LEVELSCALE -- packed in asset space, positions will not match the game"
+              % level)
+
     waypoints = []
     for w in know.get("waypoints", []):
         if not w.get("pos"):
             continue
         r = wproom.get(str(w["index"]))
         waypoints.append((w["index"] & 0xFFFF, (r if r is not None else 0xFFFF) & 0xFFFF,
-                          w["pos"][0], w["pos"][1], w["pos"][2]))
+                          w["pos"][0] * inv, w["pos"][1] * inv, w["pos"][2] * inv))
 
     guards = []
     for p in know.get("props", []):
@@ -96,7 +144,7 @@ def pack_level(level, levels_dir):
             continue
         r = proproom.get(str(p["propdef"]))
         guards.append(((p.get("obj") or 0) & 0xFFFF, (r if r is not None else 0xFFFF) & 0xFFFF,
-                       p["pos"][0], p["pos"][1], p["pos"][2]))
+                       p["pos"][0] * inv, p["pos"][1] * inv, p["pos"][2] * inv))
 
     # Objectives carry where their first route step lives, so a caller can walk a route without
     # searching. Objectives with no route point at zero steps rather than being omitted: a bot
@@ -111,10 +159,10 @@ def pack_level(level, levels_dir):
         count = 0
         for leg in r.get("legs", []) or []:
             if leg.get("pos"):
-                tx, ty, tz = leg["pos"]
+                tx, ty, tz = (leg["pos"][0] * inv, leg["pos"][1] * inv, leg["pos"][2] * inv)
             for s in leg.get("steps", []) or []:
                 steps.append((s["from"] & 0xFFFF, s["to"] & 0xFFFF,
-                              float(s["distance"]), float(s["heading"]),
+                              float(s["distance"]) * inv, float(s["heading"]),
                               float(s.get("turn") or 0.0), 0.0, len(s.get("threats", []))))
                 count += 1
         objectives.append((idx & 0xFFFF, (o.get("min_difficulty") or 0) & 0xFFFF,
@@ -138,7 +186,7 @@ def pack_level(level, levels_dir):
                       # tag is signed: -1 means untagged, and 0 is a REAL tag on several levels.
                       int(tag) if tag is not None else -1,
                       (nav if nav is not None else 0xFFFF) & 0xFFFF,
-                      p["pos"][0], p["pos"][1], p["pos"][2]))
+                      p["pos"][0] * inv, p["pos"][1] * inv, p["pos"][2] * inv))
 
     blob = struct.pack(HDR_FMT, MAGIC, VERSION, level.encode()[:16],
                        len(waypoints), len(guards), len(objectives), len(steps), len(props))
@@ -201,7 +249,12 @@ def main():
                 ok = False
                 break
             for ra, rb in zip(a, b):
-                if any(abs(x - y) > 1e-3 if isinstance(x, float) else x != y
+                # RELATIVE tolerance, because the fields are f32 and f32 keeps about seven
+                # significant digits -- not seven decimal places. A flat 1e-3 is fine at 800 and
+                # impossible at 86,000, which is where runtime coordinates now live: scaling the
+                # pack out of asset space made seven levels fail a check that had passed only
+                # because the numbers used to be small and exactly representable.
+                if any(abs(x - y) > max(1e-3, abs(x) * 1e-6) if isinstance(x, float) else x != y
                        for x, y in zip(ra, rb[:len(ra)])):
                     ok = False
                     break
