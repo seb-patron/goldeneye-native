@@ -1,5 +1,5 @@
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..c0ab2ef 100644
+index 4ebf14b..0c5814a 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -1,7 +1,11 @@
@@ -235,7 +235,7 @@ index 4ebf14b..c0ab2ef 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +695,842 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +695,862 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -795,21 +795,41 @@ index 4ebf14b..c0ab2ef 100644
 +    chr = &g_ChrSlots[chr_index];
 +    if (chr->model == NULL || chr->prop == NULL) { return 0; }
 +
-+    /* ⚠️ REFUSES, and deliberately. ChrRecord exposes no facing field I have been able to find:
-+     * the visible rotation is built per frame in chr.c's draw path from aimsideback and the
-+     * animation, and none of it is stored anywhere a caller can read.
++    /* 🔑 THE FACING IS ON THE MODEL, NOT THE ChrRecord. This used to refuse, and the note said the
++     * answer probably started at chr.c:2319's `yrot = chr->aimsideback`. It does not.
 +     *
-+     * Returning 0 rather than a plausible number is the whole point. geSenseNoticedBy checks
-+     * this return and falls back to line of sight, so a bot gets the honest answer -- "I can be
-+     * seen if it is looking" -- instead of a facing derived from something that is not facing.
-+     * A wrong cone is worse than no cone: it produces confident stealth decisions that are
-+     * exactly backwards, and nothing downstream could tell.
++     * aimsideback is an AIM OFFSET applied to a body part while the model is drawn -- a rotation
++     * relative to the body, not the body's heading. A cone built on it would swing with where a
++     * guard is pointing its gun rather than which way it faces, and would read as roughly right
++     * most of the time, which is the worst possible failure for a stealth cue.
 +     *
-+     * FINDING THE REAL FIELD IS A QUEUE ITEM. chr.c:2319 reads chr->aimsideback into a yrot when
-+     * building the model matrix, which is where the answer probably starts. */
-+    (void) chr;
-+    (void) out_deg;
-+    return 0;
++     * The real heading is getsubroty(chr->model) (model.c:698), the same shape as prop->pos versus
++     * player->pos: the value lives on the object the engine actually maintains, not on the record
++     * that looks like it should own it.
++     *
++     * ⚠️ THE CONVENTION IS NOT ASSUMED -- THE GAME'S OWN CODE PROVES IT. chraction.c:9629 does
++     *
++     *     radMyHeading = getsubroty(self->model);
++     *     anglebetween = atan2f(pos->x - myprop->pos.x, pos->z - myprop->pos.z);
++     *     radToPos     = anglebetween - radMyHeading;
++     *
++     * subtracting getsubroty directly from atan2f(dx, dz). So getsubroty is radians in exactly the
++     * atan2(x, z) convention this layer already uses for gePortPlayerAngle, and the two are
++     * directly comparable. That subtraction is the guard AI's own "which way is Bond relative to
++     * where I am looking", so this is the number the engine itself treats as facing.
++     *
++     * Normalised to (-180, 180] to match gePortPlayerAngle's range rather than getsubroty's
++     * [0, 2pi): geSenseNoticedBy differences the two, and a mismatched range would put a guard
++     * looking straight at you 360 degrees away from one that is. */
++    if (chr->model == NULL) { return 0; }
++    {
++        extern f32 getsubroty(struct Model * objinst);
++        f32 deg = getsubroty(chr->model) * (f32) (180.0 / 3.14159265358979323846);
++        while (deg > 180.0f)  { deg -= 360.0f; }
++        while (deg <= -180.0f) { deg += 360.0f; }
++        *out_deg = deg;
++    }
++    return 1;
 +}
 +
 +/* HOW BIG a prop is, not just where it is.
