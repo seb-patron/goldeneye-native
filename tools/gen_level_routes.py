@@ -479,6 +479,71 @@ def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3)
     return index
 
 
+def load_measured_edges(out_dir, level):
+    """Read the engine's verdicts from tools/validate_edges.sh, or None if there are none.
+
+    Returns a set of (from, to) pairs the game says a body can walk, with BOTH DIRECTIONS
+    REQUIRED to agree. The test is seeded from a stan tile at the start of the line, so it is not
+    symmetric -- Bunker 1 reports 2116 of 5116 pairs disagreeing on direction. Some of that is
+    real (a drop you cannot climb back up) and some is seed sensitivity, and nothing here can
+    separate them. Requiring agreement is the conservative reading: it discards a genuine one-way
+    edge rather than inventing a two-way one, and an invented edge is what sends a bot into a
+    wall.
+    """
+    path = os.path.join(out_dir, level + ".edges.txt")
+    if not os.path.exists(path):
+        return None
+
+    fwd = set()
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            parts = line.split()
+            if len(parts) != 4:
+                continue
+            a, b, _d, w = parts
+            if w == "1":
+                fwd.add((int(a), int(b)))
+
+    return {(a, b) for (a, b) in fwd if (b, a) in fwd}
+
+
+def prune_graph(graph, measured, level, keep_isolated=True):
+    """Drop edges the engine says are not walkable.
+
+    ⚠️ Only prunes pairs the measurement actually covered. The validator has a distance cutoff, so
+    a long edge it never looked at is absent from the set and must NOT be read as refused --
+    treating unmeasured as unwalkable would silently delete every long-range link in the graph.
+    """
+    if not measured:
+        return 0
+
+    covered = set()
+    for a, b in measured:
+        covered.add(a)
+        covered.add(b)
+
+    dropped = 0
+    for a in list(graph.keys()):
+        if a not in covered:
+            continue
+        keep = []
+        for b in graph[a]:
+            if b not in covered or (a, b) in measured:
+                keep.append(b)
+            else:
+                dropped += 1
+        if keep or not keep_isolated:
+            graph[a] = keep
+        else:
+            # An emptied node is left alone rather than deleted: the router simply never routes
+            # through it, and removing it would renumber nothing but would hide that the level
+            # has a place nothing can reach.
+            graph[a] = []
+    return dropped
+
+
 def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
@@ -810,6 +875,24 @@ def main():
         # the router would avoid exactly the doorways this pass exists to add.
         # (assigned below, once the graph is final)
 
+        # 🔑 STRIP ANY SYNTHETIC NODES FROM A PREVIOUS RUN FIRST.
+        #
+        # They are persisted back into the knowledge file so pack_world can see them, which means
+        # a second run finds them already there and appends MORE on top -- and every index above
+        # the first synthetic node shifts. That silently invalidates anything keyed to node ids,
+        # which is exactly what the engine's edge verdicts are: the validator measured the spawn
+        # as node 83 and the next run called the same place node 63, so every verdict pointed at
+        # the wrong node and the pruning did nothing while reporting that it had.
+        #
+        # Rebuilding them from scratch every run makes the indices a pure function of the level
+        # data, so verdicts stay valid as long as the level data has not changed.
+        _before = len(know.get("waypoints", []))
+        know["waypoints"] = [w for w in know.get("waypoints", []) if not w.get("synthetic")]
+        if len(know["waypoints"]) != _before:
+            _live = {w["index"] for w in know["waypoints"]}
+            graph = {a: [b for b in bs if b in _live]
+                     for a, bs in graph.items() if a in _live}
+
         # Doors BEFORE the spawn node, so the spawn can link to a doorway if that is genuinely
         # its nearest way out -- which on Bunker 1 it is.
         _doors = inject_door_nodes(know, graph)
@@ -838,6 +921,17 @@ def main():
 
         node_positions = {w["index"]: w["pos"]
                           for w in know.get("waypoints", []) if w.get("pos")}
+
+        # Replace assumption with measurement, last, so it prunes the synthetic links too --
+        # those are the ones proximity got wrong.
+        _measured = load_measured_edges(out_dir, level)
+        if _measured is not None:
+            _dropped = prune_graph(graph, _measured, level)
+            print("  %-10s engine verdicts: %d walkable pair(s), %d assumed edge(s) dropped"
+                  % (level, len(_measured), _dropped))
+        else:
+            print("  %-10s NO ENGINE VERDICTS -- every edge is still an assumption. "
+                  "Run tools/validate_edges.sh." % level)
 
         routes = []
         for obj in tact.get("objectives", []):

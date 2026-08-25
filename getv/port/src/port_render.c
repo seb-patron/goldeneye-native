@@ -278,6 +278,13 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortEventFrame(rendered);
     }
 
+    /* Measure which graph edges the engine says are walkable, then exit. Inert unless
+     * GETV_EDGEVALIDATE is set. See ge_edge_validate.c for why the offline test was not enough. */
+    {
+        extern void gePortEdgeValidateFrame(int frame);
+        gePortEdgeValidateFrame(rendered);
+    }
+
     /* GETV_FLOORMAP=<n>: print the walkable floor around player 0, once, as a grid.
      *
      * "The bot cannot leave x=-1361" is a claim about geometry, and reading it off a stream of
