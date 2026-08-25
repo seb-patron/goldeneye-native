@@ -215,6 +215,14 @@ logo in the same sequence *is* RGBA16 and is item 6's best test frame; see
 **Done when:** the intro's barrel spiral renders as the reference does, grey spiral on black
 with the red wash at the top, and a per-frame pool-wrap counter reads zero through the intro.
 
+⚠️ **One soft spot in the above, so nobody chases the wrong function.** The 299-strip routine I
+quoted, `titleRenderFolderMenuBackgroundLines`, is named for the *folder select menu*, and
+`sub_GAME_7F01B6E0` next to it (320×1 RGBA16, 218 rows) is marked unreferenced. The intro barrel
+may route through a third sibling. What is established is the **technique** — a too-large
+background drawn as hundreds of one-pixel strips, one texture load each — and that the technique
+is what collides with a 512-entry cache. Confirm which function the intro actually calls before
+editing one; the cache fix in step 1 does not depend on knowing.
+
 ---
 
 ## After the objective is reached
