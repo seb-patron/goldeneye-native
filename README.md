@@ -11,6 +11,7 @@ problem actually fixed rather than worked around.
 ## What you get
 
 - **All 27 stages**, single player and split-screen multiplayer, 64 characters, radar.
+- **Co-op in the campaign, bots and an agent API** in alpha. [What that means](#in-alpha-in-the-open).
 - **Mouse and keyboard**, on by default. Sensitivity, invert, ESC to release the cursor.
 - **Any controller you already own.** DualSense, DualShock 4, Xbox, Switch Pro, 8BitDo.
   Both sticks live, bindings per player.
@@ -33,9 +34,19 @@ on geometry this sparse it is nearly free.*
 Four things: this repository, the [decompilation](https://github.com/n64decomp/007), your own
 ROM, and one build command. The ROM is read once to extract assets and never touched again.
 
-**[`docs/SETUP.md`](docs/SETUP.md) is the guide** -- every prerequisite, every command, the
-expected output of each, and what to do when one of them is wrong. The asset-generation step is
-the one that cannot be shortened.
+```bash
+tools/setup.sh          # macOS and Linux
+```
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_deps_windows.ps1
+```
+
+That fetches the renderer sources, the decompilation, Lua, Dear ImGui and SDL2, applies the
+patches, and stops. Everything it downloads is permissively licensed and comes from its own
+upstream. Re-running is safe.
+
+Then supply your ROM and generate the assets:
+**[`docs/SETUP.md`](docs/SETUP.md)** has every command with its expected output.
 
 ## The frame-rate problem
 
@@ -387,6 +398,38 @@ GoldenEye already ships a behaviour VM -- 250 AI opcodes with a program counter,
 subroutine calls, driving every guard in the campaign -- so bots are assembly over machinery
 that already works. See [`docs/BOTS.md`](docs/BOTS.md).
 
+## In alpha, in the open
+
+Three things work enough to be worth talking about and not enough to call finished. They are
+in the tree, they are documented, and their limits are stated rather than discovered.
+
+**Co-op.** Two players in the single-player campaign, which the original never had. They spawn
+into the mission and do not move yet. Four explanations have been eliminated with
+measurements; what is left is a narrow window between the stick being read and movement being
+applied. The spawning, the viewports, the split screen and the second player's HUD all work.
+
+**The player API.** Tick-accurate input injection and a state readout, attached through the
+game's own demo-playback hook rather than bolted onto the device layer, so it runs on the game
+thread once per simulation step. It fills all four pads in one call, which is the single tick
+authority multiplayer needs. This is the seam bots, external agents and future netplay all
+share, which is why it was built once instead of three times.
+[`docs/PLAYER_API.md`](docs/PLAYER_API.md).
+
+**Bots.** A first bot runs against that API. It does not play yet. The reason to be optimistic
+is what the decompilation exposed: GoldenEye already carries a behaviour VM. 250 AI opcodes
+with a program counter, conditional branches and subroutine calls, driving every guard in the
+campaign and exercised by twenty levels of shipped content. Bots are assembly over machinery
+that already runs, not a new AI system.
+[`docs/BOTS.md`](docs/BOTS.md).
+
+Supporting that, every stage now carries extracted level knowledge: the navigation graph,
+objectives resolved to positions from the game's own structures, and 537 nuance entries across
+all 20 campaign missions and all 17 arenas.
+
+**LAN and online are not started**, and the research that will shape them is done: not
+lockstep, client-server with prediction, for reasons written up with the measurements behind
+them.
+
 ## Configuration
 
 Most of it is in the launcher. For the rest there is one file, written on first run and read
@@ -462,12 +505,8 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 
 ## Known issues
 
-- **Co-op is alpha.** Players spawn into single-player missions and do not move. Four
-  explanations have been eliminated with measurements; what remains is between the stick
-  reaching `moveData.analogWalk` and `speedforwards` being applied.
-- **Bots are alpha.** The player API installs its hook and drives a slot, and the first bot
-  runs against it. It does not yet play the game: driving an empty slot produces no input,
-  which is the next piece of work rather than a claim of working bots.
+- **Co-op, the player API and bots are alpha**, covered in
+  [In alpha, in the open](#in-alpha-in-the-open) above with their exact limits.
 - **Above 60Hz, set `GETV_REALCLOCK=1`.** The default clock counts a rendered frame as a video
   field, so a 120Hz display runs the world at double speed without it. The game warns you. The
   fix is reasoned from the code and not measured on real high-refresh hardware.
