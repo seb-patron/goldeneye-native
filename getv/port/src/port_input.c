@@ -1012,7 +1012,8 @@ static int geKeyboardEnabled(void)
  const char *s = getenv("GETV_KEYBOARD");
  on = (s != NULL && *s != '\0') ? (atoi(s) != 0) : 1;   /* default ON */
  if (on) {
- printf("[getv] input: keyboard bound to N64 port 0 ""(WASD move, arrows look, SPACE fire, E use, Q aim, TAB start; ""GETV_KEYBOARD=0 to disable)\n");
+ printf("[getv] input: keyboard bound to N64 port 0 ""(WASD move, arrows look, SPACE/LCTRL fire, E or F use, Q aim, "
+ "R weapon, TAB start; ""GETV_KEYBOARD=0 to disable)\n");
  fflush(stdout);
         }
     }
@@ -1197,7 +1198,18 @@ static void geKeyboardApply(int port, struct GePadState *out)
  out->ltrigger = 1;
  out->lt_raw   = 32767;
     }
- if (k[SDL_SCANCODE_E] || k[SDL_SCANCODE_RETURN])  { out->a = 1; }
+    /* E and F are USE, which is the N64's B button.
+     *
+     * Nothing on the keyboard set `b` at all, and GE_ACT_USE binds to GE_SRC_B by default
+     * (port_os.c:469), so a keyboard player could not open a door, plant a bomb or trip a
+     * switch -- every objective in the game runs through that button. E had the pad's A,
+     * which is the inventory/weapon-next button, so the key a PC player reaches for to use
+     * something cycled the weapon instead. */
+    if (k[SDL_SCANCODE_E] || k[SDL_SCANCODE_F])       { out->b = 1; }
+
+    /* RETURN stays on A because every front.c menu branch accepts it to confirm, and R
+     * gives weapon-next a key of its own now that E no longer serves it. */
+    if (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_R])  { out->a = 1; }
  if (k[SDL_SCANCODE_Z])                            { out->lshoulder = 1; }
  if (k[SDL_SCANCODE_X])                            { out->rshoulder = 1; }
  if (k[SDL_SCANCODE_TAB] || k[SDL_SCANCODE_KP_ENTER]) { out->start = 1; }
