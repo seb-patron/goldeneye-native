@@ -225,3 +225,4 @@ docs/research/
 # analysis only -- the tool that produces it travels, the text does not.
 build/levels/*.walkthrough.json
 docs/research/TRAIN_WALKTHROUGH.txt
+docs/research/TRAIN_SPATIAL_MODEL.txt
