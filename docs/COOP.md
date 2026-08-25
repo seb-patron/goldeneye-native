@@ -32,6 +32,36 @@ p=1  pos=(-1181.4, 2278.4)  cam=(-1181.4, 2284.4)
 
 Each camera matches its own player, which is what multiplayer already looked like.
 
+## Correction: this is not a co-op bug
+
+**Retail multiplayer does not move either, under the same harness.**
+
+```
+GETV_MP=2, stage 27, scripted forward input on either port, 570 frames
+  p0  0.0,-2388.6      unchanged
+  p1  -2069.3,2882.6   unchanged
+```
+
+The same input carries a solo player 900 units. So the whole session's framing of this as "the
+co-op players are stuck" was wrong: **every** multi-player mode is stuck under scripted input,
+including the shipping multiplayer that has presumably always worked when a human plays it.
+
+That moves the suspicion to the harness rather than the game. `GETV_SCRIPT` drives one N64 port
+directly; a multi-player match may need something a headless run never supplies before it hands
+control to the players.
+
+What is already excluded as the cause:
+
+- **The clock.** `objective_status.c` carries a written-up hypothesis that
+  `lvlManageMpGame()` zeroes `g_ClockTimer` when controls are locked or the game is paused,
+  freezing every player. Measured: `locked=0 paused=0 clock=1`. Not it.
+- **The camera mode.** Co-op runs `CAMERAMODE_MP` then `CAMERAMODE_NONE`, and real MP does
+  exactly the same, 113 frames then the rest. Normal for multiplayer.
+- **Input and speed.** Both players get `analogWalk=63` and `speedforwards=0.900`.
+
+So: input arrives, the speed is computed, the clock is running, the camera mode matches
+retail, and position does not change -- in co-op *and* in retail multiplayer.
+
 ## Still open: nobody moves
 
 Separating the cameras did **not** make them walk. With the fix in place and input driven to
