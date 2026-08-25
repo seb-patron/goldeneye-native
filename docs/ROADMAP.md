@@ -141,10 +141,26 @@ normally on Agent, which points at approach distance or the use action not reach
 - **It is not only distance.** The player reached 96 units from a door and `use` still did
   nothing, so "walk closer" is not the whole answer.
 
-**What is left:** the door is locked or gated on an objective, or the action needs something
-besides the button held — facing it within a tolerance, or a press edge rather than a hold. The
-walkthrough says Train's early doors open normally on Agent, which argues against locked, and
-`chrprop.c` is where the activation actually happens.
+**✅ ANSWERED — `doorTestForInteract`, propobj.c:14411.** Three conditions, and we were breaking
+two of them:
+
+```c
+(door->flags & PROPFLAG_CANNOT_ACTIVATE) == 0
+&& door->maxFrac > 0
+&& (prop->flags & PROPFLAG_ONSCREEN)        // must be LOOKING at it
+...
+xdiff*xdiff + zdiff*zdiff < 40000.0f        // 200 units, not 278
+&& ydiff < 200.0f && ydiff > -200.0f        // and within 200 vertically
+```
+
+🔑 **The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
+the bot has to square up to it. That is why 96 units still failed. The bot now turns onto a door
+before pressing, and only marks it used once it has actually faced it — otherwise it marks doors
+used that it never opened and walks away from every one.
+
+⚠️ There is a second path when you are further out: same-room plus
+`chrpropTestPointInPaddedBoundPad(pos, 150, boundpads)`. So a door has a bound pad you can stand
+in, which is a better target than its centre and is already in the setup data.
 
 **Done when:** a CLI player opens a door on Train and walks through it.
 

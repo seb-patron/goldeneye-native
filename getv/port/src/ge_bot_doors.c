@@ -43,9 +43,20 @@
 #define GE_BD_TURN_GAIN    3.0f
 #define GE_BD_ALIGN_DEG   60.0f
 
-/* Close enough to a door to open it. Generous: a door is a wide thing and the position recorded
- * is its centre, so a body standing at the frame is already "there". */
-#define GE_BD_DOOR_REACH 220.0f
+/* Close enough to a door to open it. NOT a guess -- doorTestForInteract (propobj.c:14411)
+ * requires xdiff*xdiff + zdiff*zdiff < 40000, which is exactly 200 units, and |ydiff| < 200.
+ * 220 was over the line and that is why USE did nothing at 278.
+ *
+ * 180 rather than 200: the check uses the door's runtime position and the pack carries its
+ * authored one, and being inside the real threshold matters more than reaching the nominal edge
+ * of it. */
+#define GE_BD_DOOR_REACH 180.0f
+
+/* 🔑 AND THE DOOR MUST BE ON SCREEN. The same function requires PROPFLAG_ONSCREEN before it will
+ * consider the press at all, so walking past a door with USE held does nothing however close it
+ * is -- the bot has to be LOOKING at it. Within this many degrees counts as looking; wider than
+ * the frustum would let a bot claim it is facing something the renderer has culled. */
+#define GE_BD_DOOR_FACE   30.0f
 
 /* Close enough to the objective to call it arrived. The objective position is a prop, not a
  * standing spot, so this carries the same caveat as the route follower's arrive radius. */
@@ -160,6 +171,36 @@ void gePortBotDoorsFrame(int frame)
         float dd = (float) sqrt((double) (((door.x - st.x) * (door.x - st.x))
                                         + ((door.z - st.z) * (door.z - st.z))));
         if (dd <= GE_BD_DOOR_REACH) {
+            /* FACE IT FIRST. doorTestForInteract wants PROPFLAG_ONSCREEN, so a door beside the
+             * bot is not openable no matter how near. Turn onto it and press; only count it used
+             * once we have actually squared up, or the bot marks doors used that it never opened
+             * and walks away from every one of them. */
+            float db = ge_bd_norm180(
+                (float) (atan2((double) (door.x - st.x), (double) (door.z - st.z))
+                         * 180.0 / 3.14159265358979) - st.angle);
+
+            if ((float) fabs((double) db) > GE_BD_DOOR_FACE) {
+                float sxd = -db * GE_BD_TURN_GAIN;
+                if (sxd >  GE_BD_STICK_MAX) { sxd =  GE_BD_STICK_MAX; }
+                if (sxd < -GE_BD_STICK_MAX) { sxd = -GE_BD_STICK_MAX; }
+                memset(&in, 0, sizeof in);
+                in.stick_x = (signed char) sxd;
+                if (ge_bd_trace && (frame % 60) == 0) {
+                    printf("[getv][botdoors] squaring up to door %d, %+.0f off\n",
+                           door_index, (double) db);
+                    fflush(stdout);
+                }
+                gePlayerPost(ge_bd_slot, gePlayerTick() + 1, &in, 1);
+                return;
+            }
+
+            /* Facing it and inside 200: press and walk through. */
+            memset(&in, 0, sizeof in);
+            in.buttons = GE_IN_USE;
+            in.stick_y = (signed char) GE_BD_WALK;
+            gePlayerPost(ge_bd_slot, gePlayerTick() + 1, &in, 1);
+        }
+        if (0) {
             /* Reached it. Mark it used BEFORE walking through, or the bot re-targets the door it
              * is standing in and never advances -- the same latch problem as the nearest-waypoint
              * test, which spent a whole run chasing a goal that moved with it. */
