@@ -603,6 +603,102 @@ static int ge_l_post_input(lua_State *L)
     return 1;
 }
 
+
+/* ---- props: the level's own furniture, for mods -----------------------------------------
+ *
+ * Doors, keys, collectables, ammo, cameras, alarms. This is the half of the extraction that had
+ * no way out to a mod: the API served waypoints, guards and route steps and nothing else, so a
+ * mod could walk a route and could not ask what was on it.
+ *
+ * Returned as a table rather than a tuple. A caller that wants only the position should not have
+ * to remember which of seven return values it is, and a table can gain a field later without
+ * silently shifting everything after it -- the same reasoning as the flags word in the state API.
+ */
+static void ge_l_push_prop(lua_State *L, const GeWorldProp *pr)
+{
+    lua_newtable(L);
+    lua_pushstring(L, geWorldPropKindName(pr->kind)); lua_setfield(L, -2, "kind");
+    lua_pushinteger(L, pr->kind);                     lua_setfield(L, -2, "kind_id");
+    lua_pushnumber(L, pr->x);                         lua_setfield(L, -2, "x");
+    lua_pushnumber(L, pr->y);                         lua_setfield(L, -2, "y");
+    lua_pushnumber(L, pr->z);                         lua_setfield(L, -2, "z");
+    lua_pushinteger(L, pr->room);                     lua_setfield(L, -2, "room");
+    lua_pushinteger(L, pr->tag);                      lua_setfield(L, -2, "tag");
+    lua_pushinteger(L, pr->nav_node);                 lua_setfield(L, -2, "node");
+}
+
+/* Accepts a kind by NAME, because a mod written against kind 2 breaks the day the list grows and
+ * a mod written against "Key" does not. Absent or "any" means every kind. */
+static int ge_l_kind_arg(lua_State *L, int idx)
+{
+    const char *want;
+    int k;
+
+    if (lua_isnoneornil(L, idx)) { return GE_PROP_KIND_COUNT; }
+    want = lua_tostring(L, idx);
+    if (want == NULL || strcmp(want, "any") == 0) { return GE_PROP_KIND_COUNT; }
+    for (k = 0; k < GE_PROP_KIND_COUNT; k++) {
+        if (strcmp(want, geWorldPropKindName(k)) == 0) { return k; }
+    }
+    return -1;   /* a name nothing matches: an empty answer, not every prop on the level */
+}
+
+static int ge_l_prop_count(lua_State *L)
+{
+    int kind = ge_l_kind_arg(L, 1);
+    lua_pushinteger(L, (kind < 0) ? 0 : geWorldPropCountOfKind(kind));
+    return 1;
+}
+
+static int ge_l_prop_at(lua_State *L)
+{
+    int kind = ge_l_kind_arg(L, 1);
+    int nth = (int) luaL_checkinteger(L, 2);
+    GeWorldProp pr;
+
+    /* 1-based from Lua, 0-based inside. Off-by-one at a language boundary is the classic. */
+    if (kind < 0 || !geWorldPropOfKind(kind, nth - 1, &pr)) { lua_pushnil(L); return 1; }
+    ge_l_push_prop(L, &pr);
+    return 1;
+}
+
+static int ge_l_prop_near(lua_State *L)
+{
+    int kind = ge_l_kind_arg(L, 1);
+    float x = (float) luaL_checknumber(L, 2);
+    float y = (float) luaL_checknumber(L, 3);
+    float z = (float) luaL_checknumber(L, 4);
+    GeWorldProp pr;
+
+    if (kind < 0 || !geWorldNearestProp(kind, x, y, z, &pr)) { lua_pushnil(L); return 1; }
+    ge_l_push_prop(L, &pr);
+    return 1;
+}
+
+static int ge_l_prop_by_tag(lua_State *L)
+{
+    GeWorldProp pr;
+    if (!geWorldPropByTag((int) luaL_checkinteger(L, 1), &pr)) { lua_pushnil(L); return 1; }
+    ge_l_push_prop(L, &pr);
+    return 1;
+}
+
+static int ge_l_props_in_room(lua_State *L)
+{
+    int room = (int) luaL_checkinteger(L, 1);
+    int i, n, written = 0;
+    GeWorldProp pr;
+
+    n = geWorldPropCount();
+    lua_newtable(L);
+    for (i = 0; i < n; i++) {
+        if (!geWorldProp(i, &pr) || pr.room != room) { continue; }
+        ge_l_push_prop(L, &pr);
+        lua_rawseti(L, -2, ++written);
+    }
+    return 1;
+}
+
 static const luaL_Reg ge_api[] = {
     { "log",          ge_l_log },
     { "stage",        ge_l_stage },
@@ -623,6 +719,12 @@ static const luaL_Reg ge_api[] = {
     { "waypoint_at",   ge_l_waypoint_at },
     { "guard_count",   ge_l_guard_count },
     { "guard_at",      ge_l_guard_at },
+    /* The level's furniture: doors, keys, collectables, ammo, cameras. */
+    { "prop_count",    ge_l_prop_count },
+    { "prop_at",       ge_l_prop_at },
+    { "prop_near",     ge_l_prop_near },
+    { "prop_by_tag",   ge_l_prop_by_tag },
+    { "props_in_room", ge_l_props_in_room },
     { "clear_queue",   ge_l_clear_queue },
     { "enemies_near",  ge_l_enemies_near },
     { "enemy",         ge_l_enemy },

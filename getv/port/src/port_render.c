@@ -16,6 +16,7 @@
 #include <stdint.h>   /* gfx_pc.h uses uint32_t but does not include it */
 #include <stdio.h>
 #include "ge_player_api.h"
+#include "ge_world_api.h"
 
 #include <PR/gbi.h>
 
@@ -283,6 +284,50 @@ void gePortRenderDisplayList(void *firstGdl)
     {
         extern void gePortEdgeValidateFrame(int frame);
         gePortEdgeValidateFrame(rendered);
+    }
+
+    /* GETV_WORLDDUMP=1: what the level knowledge can answer, once, from where the player is.
+     *
+     * The extraction is the most valuable thing in this repo and until now almost none of it was
+     * reachable at runtime -- the world API served waypoints, guards and route steps and nothing
+     * else. This is the proof it now answers the questions a modder or an agent would actually
+     * ask, on a real level, rather than a claim that it could. */
+    {
+        static int done = -1;
+        if (done < 0) { const char *e = getenv("GETV_WORLDDUMP"); done = (e && *e && *e != '0') ? -1 : 0; }
+        if (done < 0 && rendered >= 600 && geWorldLoaded()) {
+            GePlayerState ps;
+            GeWorldProp pr;
+            int k, room = -1;
+
+            done = 1;
+            if (gePlayerStateGet(0, &ps) && ps.present) { room = ps.room; }
+
+            printf("[getv][world] %s: %d props\n", geWorldLevel(), geWorldPropCount());
+            for (k = 1; k < GE_PROP_KIND_COUNT; k++) {
+                int n = geWorldPropCountOfKind(k);
+                if (n > 0) { printf("[getv][world]   %-15s %d\n", geWorldPropKindName(k), n); }
+            }
+            if (ps.present) {
+                static const int ask[] = { GE_PROP_KEY, GE_PROP_DOOR, GE_PROP_COLLECTABLE,
+                                           GE_PROP_AMMOBOX, GE_PROP_ARMOUR };
+                unsigned int q;
+                for (q = 0; q < sizeof ask / sizeof ask[0]; q++) {
+                    if (geWorldNearestProp(ask[q], ps.x, ps.y, ps.z, &pr)) {
+                        float dx = pr.x - ps.x, dz = pr.z - ps.z;
+                        printf("[getv][world]   nearest %-12s %6.0f units away, room %d, node %d\n",
+                               geWorldPropKindName(ask[q]),
+                               (double) sqrtf((dx * dx) + (dz * dz)), pr.room, pr.nav_node);
+                    } else {
+                        printf("[getv][world]   nearest %-12s none on this level\n",
+                               geWorldPropKindName(ask[q]));
+                    }
+                }
+                printf("[getv][world]   props in the player's room (%d): %d\n",
+                       room, geWorldPropsInRoom(room, NULL, 0));
+            }
+            fflush(stdout);
+        }
     }
 
     /* GETV_FLOORMAP=<n>: print the walkable floor around player 0, once, as a grid.

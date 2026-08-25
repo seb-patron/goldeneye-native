@@ -17,7 +17,7 @@
 #define GE_WORLD_API_H
 
 #define GE_WORLD_MAGIC   0x44574547u      /* 'GEWD' little-endian */
-#define GE_WORLD_VERSION 1
+#define GE_WORLD_VERSION 2
 
 /* Sentinel for "this thing has no room recorded", which is different from room 0. */
 #define GE_WORLD_NO_ROOM 0xFFFF
@@ -97,3 +97,51 @@ int  geWorldGuardsNear(float x, float y, float z, float radius,
                        GeWorldGuard *out, int max);
 
 #endif /* GE_WORLD_API_H */
+
+/* ---------------------------------------------------------------- props
+ *
+ * Everything the level places that is not a waypoint: doors, keys, collectables, ammo, cameras,
+ * alarms, monitors, glass. 4,871 of them across 28 levels, each with a position, the room it is
+ * in, the nav node nearest to it, and its setup tag where it has one.
+ *
+ * This exists because the extraction is worth more than the bots that prompted it. A modder or an
+ * agent should be able to ask where the keys are, which door leads out of a room, or what is
+ * worth picking up, without a ROM or a rebuild.
+ *
+ * ⚠️ The kind values are INDICES into a fixed list in tools/pack_world.py. Append only -- the pack
+ * stores the index, so inserting in the middle silently relabels every prop in every level. */
+typedef enum GeWorldPropKind {
+    GE_PROP_OTHER = 0, GE_PROP_DOOR, GE_PROP_KEY, GE_PROP_COLLECTABLE, GE_PROP_GUARD,
+    GE_PROP_AMMOBOX, GE_PROP_AMMOMAG, GE_PROP_ARMOUR, GE_PROP_ALARM, GE_PROP_CCTV,
+    GE_PROP_DRONE, GE_PROP_GLASS, GE_PROP_TINTEDGLASS, GE_PROP_SINGLEMONITOR,
+    GE_PROP_MULTIMONITOR, GE_PROP_HANGINGMONITOR, GE_PROP_STANDARDPROP, GE_PROP_HAT,
+    GE_PROP_KIND_COUNT
+} GeWorldPropKind;
+
+typedef struct GeWorldProp {
+    int   kind;                 /* GeWorldPropKind */
+    int   room;                 /* GE_WORLD_NO_ROOM if unknown */
+    int   tag;                  /* setup tag, or -1 when untagged. 0 IS A REAL TAG. */
+    int   nav_node;             /* nearest waypoint, or -1 */
+    float x, y, z;
+} GeWorldProp;
+
+int  geWorldPropCount(void);
+int  geWorldProp(int i, GeWorldProp *out);
+
+/* Props of one kind. Pass GE_PROP_KIND_COUNT for "any kind". */
+int  geWorldPropCountOfKind(int kind);
+int  geWorldPropOfKind(int kind, int nth, GeWorldProp *out);
+
+/* Nearest prop of a kind to a point, or 0 when the level has none. Distance is horizontal:
+ * a key on the floor above is not nearer than one down the corridor. */
+int  geWorldNearestProp(int kind, float x, float y, float z, GeWorldProp *out);
+
+/* Every prop in a room. Returns how many exist; fills up to max. */
+int  geWorldPropsInRoom(int room, GeWorldProp *out, int max);
+
+/* The prop carrying a setup tag, which is how objectives name their targets. */
+int  geWorldPropByTag(int tag, GeWorldProp *out);
+
+/* Name of a kind, for logs and mod UIs. Never NULL. */
+const char *geWorldPropKindName(int kind);

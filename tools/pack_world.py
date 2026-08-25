@@ -44,13 +44,26 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MAGIC = b"GEWD"
-VERSION = 1
+VERSION = 2
 
-HDR_FMT = "<4sI16s4I"                 # magic, version, level, counts
+HDR_FMT = "<4sI16s5I"                 # magic, version, level, counts (v2 adds props)
 WP_FMT  = "<HHfff"                    # id, room, x, y, z
 GD_FMT  = "<HHfff"                    # chrnum, room, x, y, z
 OB_FMT  = "<HHHHIfff"                 # index, difficulty, target_count, step_count,
                                       # step_first, tx, ty, tz
+PR_FMT  = "<HHhHfff"                  # type, room, tag, nav_node, x, y, z
+
+# Prop kinds worth asking about at runtime, in a fixed order that must never be reordered --
+# the pack stores the INDEX, so inserting in the middle silently relabels every prop in every
+# level. Append only. Anything not listed packs as 0 (OTHER) rather than being dropped, because
+# a prop a bot can walk into still matters even if nothing has a name for it yet.
+PROP_KINDS = [
+    "Other", "Door", "Key", "Collectable", "Guard", "AmmoBox", "AmmoMag", "Armour",
+    "Alarm", "Cctv", "Drone", "Glass", "TintedGlass", "SingleMonitor", "MultiMonitor",
+    "HangingMonitor", "StandardProp", "Hat",
+]
+PROP_KIND_INDEX = {name: i for i, name in enumerate(PROP_KINDS)}
+
 ST_FMT  = "<HHffffH2x"                # from_node, to_node, dist, heading, turn, _pad, threats
 
 
@@ -108,8 +121,27 @@ def pack_level(level, levels_dir):
                            len(r.get("legs") or []) & 0xFFFF, count & 0xFFFF,
                            first, tx, ty, tz))
 
+    # Every prop with a position, not just the ones a bot currently uses. The whole point of the
+    # extraction is that somebody else can ask a question we did not anticipate -- where the keys
+    # are, which door leads where, what is worth collecting -- and a pack that only carries what
+    # today's follower reads is a pack that has to be rebuilt for every new consumer.
+    props = []
+    for p in know.get("props", []):
+        if not p.get("pos"):
+            continue
+        kind = PROP_KIND_INDEX.get(p.get("type"), 0)
+        r = proproom.get(str(p.get("propdef")))
+        nav = p.get("nav_node")
+        tag = p.get("tag")
+        props.append((kind & 0xFFFF,
+                      (r if r is not None else 0xFFFF) & 0xFFFF,
+                      # tag is signed: -1 means untagged, and 0 is a REAL tag on several levels.
+                      int(tag) if tag is not None else -1,
+                      (nav if nav is not None else 0xFFFF) & 0xFFFF,
+                      p["pos"][0], p["pos"][1], p["pos"][2]))
+
     blob = struct.pack(HDR_FMT, MAGIC, VERSION, level.encode()[:16],
-                       len(waypoints), len(guards), len(objectives), len(steps))
+                       len(waypoints), len(guards), len(objectives), len(steps), len(props))
     for w in waypoints:
         blob += struct.pack(WP_FMT, *w)
     for g in guards:
@@ -118,18 +150,20 @@ def pack_level(level, levels_dir):
         blob += struct.pack(OB_FMT, *o)
     for s in steps:
         blob += struct.pack(ST_FMT, *s)
+    for pr in props:
+        blob += struct.pack(PR_FMT, *pr)
     return blob, (waypoints, guards, objectives, steps)
 
 
 def unpack_level(blob):
     """The reader that makes the packer testable. Mirrors what the C loader must do."""
     hs = struct.calcsize(HDR_FMT)
-    magic, version, name, nw, ng, no, ns = struct.unpack(HDR_FMT, blob[:hs])
+    magic, version, name, nw, ng, no, ns, npr = struct.unpack(HDR_FMT, blob[:hs])
     if magic != MAGIC:
         raise ValueError("bad magic %r" % magic)
     off = hs
     out = []
-    for fmt, n in ((WP_FMT, nw), (GD_FMT, ng), (OB_FMT, no), (ST_FMT, ns)):
+    for fmt, n in ((WP_FMT, nw), (GD_FMT, ng), (OB_FMT, no), (ST_FMT, ns), (PR_FMT, npr)):
         sz = struct.calcsize(fmt)
         items = [struct.unpack(fmt, blob[off + i * sz: off + (i + 1) * sz]) for i in range(n)]
         off += sz * n

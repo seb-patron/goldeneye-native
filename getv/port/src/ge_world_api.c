@@ -24,7 +24,7 @@
 
 /* Layout, mirroring pack_world.py. Changing either without the other is what the size check
  * exists to catch. */
-#define HDR_SIZE   40
+#define HDR_SIZE   44          /* v2: one more count */
 #define HDR_MAGIC   0
 #define HDR_VERSION 4
 #define HDR_NAME    8
@@ -32,19 +32,21 @@
 #define HDR_NGD    28
 #define HDR_NOB    32
 #define HDR_NST    36
+#define HDR_NPR    40
 
 #define WP_SIZE 16          /* id u16, room u16, x f32, y f32, z f32 */
 #define GD_SIZE 16          /* chrnum u16, room u16, x f32, y f32, z f32 */
 #define OB_SIZE 24          /* idx u16, diff u16, targets u16, steps u16, first u32, x y z f32 */
 #define ST_SIZE 24          /* from u16, to u16, dist f32, heading f32, turn f32, pad f32,
                                threats u16, 2 pad */
+#define PR_SIZE 20          /* kind u16, room u16, tag s16, nav u16, x f32, y f32, z f32 */
 
 static struct {
     unsigned char *blob;
     long           size;
     char           level[24];
-    int            nwp, ngd, nob, nst;
-    long           owp, ogd, oob, ost;      /* byte offsets of each table */
+    int            nwp, ngd, nob, nst, npr;
+    long           owp, ogd, oob, ost, opr;  /* byte offsets of each table */
 } ge_w;
 
 static unsigned int rd_u32(const unsigned char *p)
@@ -130,13 +132,15 @@ int geWorldLoad(const char *level)
     ge_w.ngd = (int) rd_u32(blob + HDR_NGD);
     ge_w.nob = (int) rd_u32(blob + HDR_NOB);
     ge_w.nst = (int) rd_u32(blob + HDR_NST);
+    ge_w.npr = (int) rd_u32(blob + HDR_NPR);
 
     /* The declared counts must account for exactly the bytes present. This is the drift check:
      * if the packer gains a field and this reader does not, the totals stop agreeing and the
      * level refuses rather than reading every subsequent field one slot out. */
     need = (long) HDR_SIZE
          + (long) ge_w.nwp * WP_SIZE + (long) ge_w.ngd * GD_SIZE
-         + (long) ge_w.nob * OB_SIZE + (long) ge_w.nst * ST_SIZE;
+         + (long) ge_w.nob * OB_SIZE + (long) ge_w.nst * ST_SIZE
+         + (long) ge_w.npr * PR_SIZE;
     if (need != size) {
         printf("[getv][world] %s: layout mismatch -- %ld bytes on disk, %ld implied by counts "
                "(%d/%d/%d/%d). Reader and packer disagree; repack.\n",
@@ -154,6 +158,7 @@ int geWorldLoad(const char *level)
     ge_w.ogd = ge_w.owp + (long) ge_w.nwp * WP_SIZE;
     ge_w.oob = ge_w.ogd + (long) ge_w.ngd * GD_SIZE;
     ge_w.ost = ge_w.oob + (long) ge_w.nob * OB_SIZE;
+    ge_w.opr = ge_w.ost + (long) ge_w.nst * ST_SIZE;
 
     printf("[getv][world] %s: %d waypoints, %d guards, %d objectives, %d steps (%ld bytes)\n",
            ge_w.level, ge_w.nwp, ge_w.ngd, ge_w.nob, ge_w.nst, size);
@@ -295,4 +300,122 @@ int geWorldGuardsNear(float x, float y, float z, float radius,
         if (n < max) { n++; }
     }
     return n;
+}
+
+/* ---------------------------------------------------------------- props */
+
+static const char *ge_prop_names[GE_PROP_KIND_COUNT] = {
+    "Other", "Door", "Key", "Collectable", "Guard", "AmmoBox", "AmmoMag", "Armour",
+    "Alarm", "Cctv", "Drone", "Glass", "TintedGlass", "SingleMonitor", "MultiMonitor",
+    "HangingMonitor", "StandardProp", "Hat"
+};
+
+const char *geWorldPropKindName(int kind)
+{
+    /* Never NULL: this feeds logs and mod UIs, and a null here turns a cosmetic problem into a
+     * crash in whatever printed it. */
+    if (kind < 0 || kind >= GE_PROP_KIND_COUNT) { return "Unknown"; }
+    return ge_prop_names[kind];
+}
+
+int geWorldPropCount(void) { return (ge_w.blob != NULL) ? ge_w.npr : 0; }
+
+int geWorldProp(int i, GeWorldProp *out)
+{
+    const unsigned char *p;
+    int tag;
+
+    if (ge_w.blob == NULL || out == NULL || i < 0 || i >= ge_w.npr) { return 0; }
+    p = ge_w.blob + ge_w.opr + (long) i * PR_SIZE;
+
+    out->kind = rd_u16(p + 0);
+    out->room = rd_u16(p + 2);
+
+    /* tag is SIGNED and -1 means untagged, while 0 is a real tag on several levels. Read as
+     * unsigned it becomes 65535 and every untagged prop starts matching a tag nothing uses. */
+    tag = rd_u16(p + 4);
+    out->tag = (tag == 0xFFFF) ? -1 : tag;
+
+    {
+        int nav = rd_u16(p + 6);
+        out->nav_node = (nav == 0xFFFF) ? -1 : nav;
+    }
+    out->x = rd_f32(p + 8);
+    out->y = rd_f32(p + 12);
+    out->z = rd_f32(p + 16);
+    return 1;
+}
+
+int geWorldPropCountOfKind(int kind)
+{
+    int i, n = 0;
+    GeWorldProp pr;
+
+    for (i = 0; i < geWorldPropCount(); i++) {
+        if (geWorldProp(i, &pr) && (kind >= GE_PROP_KIND_COUNT || pr.kind == kind)) { n++; }
+    }
+    return n;
+}
+
+int geWorldPropOfKind(int kind, int nth, GeWorldProp *out)
+{
+    int i, n = 0;
+    GeWorldProp pr;
+
+    if (out == NULL || nth < 0) { return 0; }
+    for (i = 0; i < geWorldPropCount(); i++) {
+        if (!geWorldProp(i, &pr)) { continue; }
+        if (kind < GE_PROP_KIND_COUNT && pr.kind != kind) { continue; }
+        if (n == nth) { *out = pr; return 1; }
+        n++;
+    }
+    return 0;
+}
+
+int geWorldNearestProp(int kind, float x, float y, float z, GeWorldProp *out)
+{
+    int i, found = 0;
+    float best = 0.0f;
+    GeWorldProp pr;
+
+    (void) y;   /* horizontal: a key on the floor above is not nearer than one down the corridor */
+
+    if (out == NULL) { return 0; }
+    for (i = 0; i < geWorldPropCount(); i++) {
+        float dx, dz, d2;
+        if (!geWorldProp(i, &pr)) { continue; }
+        if (kind < GE_PROP_KIND_COUNT && pr.kind != kind) { continue; }
+        dx = pr.x - x;
+        dz = pr.z - z;
+        d2 = (dx * dx) + (dz * dz);
+        if (!found || d2 < best) { best = d2; *out = pr; found = 1; }
+    }
+    return found;
+}
+
+int geWorldPropsInRoom(int room, GeWorldProp *out, int max)
+{
+    int i, n = 0;
+    GeWorldProp pr;
+
+    /* Returns how many EXIST, not how many were written, so a caller with a short buffer can
+     * tell it got a partial answer instead of believing the room holds only what fitted. */
+    for (i = 0; i < geWorldPropCount(); i++) {
+        if (!geWorldProp(i, &pr) || pr.room != room) { continue; }
+        if (out != NULL && n < max) { out[n] = pr; }
+        n++;
+    }
+    return n;
+}
+
+int geWorldPropByTag(int tag, GeWorldProp *out)
+{
+    int i;
+    GeWorldProp pr;
+
+    if (out == NULL || tag < 0) { return 0; }
+    for (i = 0; i < geWorldPropCount(); i++) {
+        if (geWorldProp(i, &pr) && pr.tag == tag) { *out = pr; return 1; }
+    }
+    return 0;
 }
