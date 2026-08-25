@@ -45,6 +45,10 @@ class Player:
         self.hold = 0
         self.near_fresh = True
         self.queue = []
+        # Corridor discipline: the best objective distance seen, and how long since it improved.
+        # On a linear level, moving away from the goal is almost never right.
+        self.best_seen = None
+        self.since_gain = 0
         self.enemy_fresh = True
 
     def send(self, cmd):
@@ -85,6 +89,28 @@ class Player:
         obj_d, obj_turn = s["obj"]
         if self.best_obj is None or obj_d < self.best_obj:
             self.best_obj = obj_d
+
+        # MONOTONIC PROGRESS ON A CORRIDOR.
+        #
+        # Train measures 39.5:1 along its axis (tools/level_topology.py) -- the only level in the
+        # game over 8:1. On a shape like that "away from the objective" is almost never a route,
+        # it is a wrong turn, and the player has been taking them: it reached 13,315 and then
+        # wandered back out to 14,150 and stalled there.
+        #
+        # So: notice when distance stops improving, and when it has not improved for a while,
+        # stop trusting the local obstacle logic and re-aim at the objective. The obstacle rules
+        # are what walk it sideways down a side compartment; the objective bearing is what brings
+        # it back onto the axis.
+        if self.best_seen is None or obj_d < self.best_seen - 20:
+            self.best_seen = obj_d
+            self.since_gain = 0
+        else:
+            self.since_gain += 1
+
+        if self.since_gain > 12:
+            self.since_gain = 0
+            self.queue.append("w 90")
+            return self.turn_cmd(max(-90, min(90, obj_turn)))
 
         # SHOOT BACK. The player walked the first carriage at 100% health and reached the second
         # at 22%, because it had a loaded PP7 and never used it. Guards do not stop shooting

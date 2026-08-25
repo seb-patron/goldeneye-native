@@ -71,6 +71,8 @@ static int   ge_bd_ready;
 static int   ge_bd_used[GE_BD_MAX_DOORS];   /* doors already passed, by prop index */
 static int   ge_bd_nused;
 static int   ge_bd_arrived;
+static float ge_bd_best;            /* closest we have been to the objective */
+static int   ge_bd_since_gain;      /* frames since that improved */
 
 static float ge_bd_norm180(float a)
 {
@@ -126,6 +128,23 @@ void gePortBotDoorsFrame(int frame)
     tx = ob.tx;
     tz = ob.tz;
     dist_obj = (float) sqrt((double) (((tx - st.x) * (tx - st.x)) + ((tz - st.z) * (tz - st.z))));
+
+    /* MONOTONIC PROGRESS. Train measures 39.5:1 along its axis -- the only level in the game
+     * over 8:1 -- and on a shape like that "further from the objective" is not a route, it is a
+     * wrong turn. The bot has been taking them: it reaches roughly 12,800 and then wanders back
+     * out and stalls.
+     *
+     * When the distance has not improved for a while, stop trusting the local obstacle logic and
+     * re-aim. The obstacle rules are what walk it sideways into a compartment; the objective
+     * bearing is what brings it back onto the axis. Deliberately a NUDGE rather than an override:
+     * the obstacle logic is right most of the time, and a rule that fires constantly would just
+     * be a slower version of ignoring it. */
+    if (ge_bd_best <= 0.0f || dist_obj < ge_bd_best - 30.0f) {
+        ge_bd_best = dist_obj;
+        ge_bd_since_gain = 0;
+    } else {
+        ge_bd_since_gain++;
+    }
 
     if (dist_obj <= GE_BD_OBJ_REACH) {
         ge_bd_arrived = 1;
@@ -235,6 +254,19 @@ void gePortBotDoorsFrame(int frame)
         align = 1.0f - ((float) fabs((double) err) / GE_BD_ALIGN_DEG);
         if (align < 0.0f) { align = 0.0f; }
         in.stick_y = (signed char) (GE_BD_WALK * align);
+
+        /* Re-aim when nothing has improved for four seconds, and walk while doing it. This
+         * runs BEFORE the obstacle check so the obstacle logic can still veto it -- a bot that
+         * charges the axis through a crate has swapped one stall for another. */
+        if (ge_bd_since_gain > 240) {
+            ge_bd_since_gain = 0;
+            in.stick_y = (signed char) GE_BD_WALK;
+            if (ge_bd_trace) {
+                printf("[getv][botdoors] no gain for 240f at %.0fu -- re-aiming on the axis\n",
+                       (double) dist_obj);
+                fflush(stdout);
+            }
+        }
 
         /* Perceive before stepping. A door gets the action button and forward pressure; anything
          * solid gets the nearest heading that is actually open. GE_SENSE_SOLID, not "not clear":
