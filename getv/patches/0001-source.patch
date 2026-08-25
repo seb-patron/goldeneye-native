@@ -5393,7 +5393,7 @@ index 82300b4..6ee52d6 100644
 +
  #endif
 diff --git a/src/game/bondview.c b/src/game/bondview.c
-index acfea50..45fcf11 100644
+index acfea50..51a991b 100644
 --- a/src/game/bondview.c
 +++ b/src/game/bondview.c
 @@ -1,4 +1,8 @@
@@ -5613,90 +5613,16 @@ index acfea50..45fcf11 100644
          currentPlayerEquipWeaponWrapper(GUNLEFT, starting_weapon[GUNLEFT]);
          currentPlayerEquipWeaponWrapper(GUNRIGHT, starting_weapon[GUNRIGHT]);
  
-@@ -1584,6 +1699,10 @@ void currentPlayerSetCameraMode(s32 mode)
-  */
- void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offset, StandTile *tile, coord3d *stan_walk_start)
- {
-+    /* Co-op spawn offset, applied to every stored copy of the position rather than to pos
-+     * alone. Zero unless the block below sets it. */
-+    f32 ge_coop_dx = 0.0f;
-+    f32 ge_coop_dz = 0.0f;
-     StandTile *tilefromstart;
-     StandTile *tilefromprev;
- 
-@@ -1631,9 +1750,70 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
+@@ -1631,6 +1746,9 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
          g_CurrentPlayer->pos.f[0] = pos->f[0];
          g_CurrentPlayer->pos.f[1] = pos->f[1];
          g_CurrentPlayer->pos.f[2] = pos->f[2];
--        g_CurrentPlayer->pos2.f[0] = pos2->f[0];
-+#ifdef GE_PORT_NATIVE
-+        /* Co-op spawn separation.
-+         *
-+         * A single-player mission has one start pad, so under GETV_COOP every player is
-+         * placed on it. Measured on Dam: player 0 at 20202.2,60.6,16902.1 and player 1 at
-+         * 20203.7,55.3,16902.1, the same spot to within a couple of units of height, and
-+         * neither moves under input that carries the solo player 16930 units.
-+         *
-+         * Fan the extra players out around the pad rather than stacking them. The offset is
-+         * in the X/Z plane only: Y is left to stanGetPositionYValue below, which resamples
-+         * the floor, so a player nudged sideways still lands on the ground rather than
-+         * inside it.
-+         *
-+         * GETV_COOP_SPREAD sets the radius in world units, default 200. Player 0 is never
-+         * moved, so solo play and the first co-op player keep the mission's own start.
-+         *
-+         * 200 rather than the 60 this shipped with. 60 separated the positions but not the
-+         * bodies: a player is roughly 340 units tall in these coordinates, so 60 apart still
-+         * has the two models visibly intersecting, which is what a screenshot of two heads in
-+         * the same space showed. 200 clears a body width with room to spare and still puts the
-+         * other player beside you rather than across the room. */
-+        {
-+            extern s32 gePortCoopPlayers(void);
-+            if (gePortCoopPlayers() >= 2) {
-+                s32 idx = get_cur_playernum();
-+                if (idx > 0) {
-+                    static f32 spread = -1.0f;
-+                    if (spread < 0.0f) {
-+                        const char *e = getenv("GETV_COOP_SPREAD");
-+                        spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 200.0f;
-+                        if (spread < 0.0f) { spread = 0.0f; }
-+                    }
-+                    /* Four fixed directions, so two players end up opposite each other
-+                     * rather than both drifting the same way.
-+                     *
-+                     * The offset has to reach pos2 as well. pos2 is written from this
-+                     * function's ARGUMENT a few lines below, so moving pos alone left the two
-+                     * disagreeing: the state dump read pos and reported the players 6000 units
-+                     * apart while both viewports rendered the same corridor from the same
-+                     * spot, each with the other player's body in front of the camera. Anything
-+                     * downstream reading pos2 saw the unmoved position. */
-+                    ge_coop_dx = 0.0f;
-+                    ge_coop_dz = 0.0f;
-+                    switch (idx & 3) {
-+                    case 1: ge_coop_dx =  spread; break;
-+                    case 2: ge_coop_dz =  spread; break;
-+                    case 3: ge_coop_dx = -spread; break;
-+                    default: break;
-+                    }
-+                    g_CurrentPlayer->pos.f[0] += ge_coop_dx;
-+                    g_CurrentPlayer->pos.f[2] += ge_coop_dz;
-+
-+                    /* The camera is NOT fixed here, and it was tried. field_488.pos is what
-+                     * the view is built from (bondview2.c:8926) and offsetting it, pos3 and
-+                     * previous_collision_info at this point changes nothing: something
-+                     * downstream rewrites the record before the first frame renders. See
-+                     * docs/COOP.md for the measurement and where that leaves the search. */
-+                }
-+            }
-+        }
-+#endif
-+        g_CurrentPlayer->pos2.f[0] = pos2->f[0] + ge_coop_dx;
++        /* The co-op fan-out used to live here. It moved to bondview_r.c, where start_pos is
++         * chosen, because the camera is seeded from start_pos by change_player_pos_to_target
++         * and offsetting the player's pos afterwards moved the body without the view. */
+         g_CurrentPlayer->pos2.f[0] = pos2->f[0];
          g_CurrentPlayer->pos2.f[1] = pos2->f[1];
--        g_CurrentPlayer->pos2.f[2] = pos2->f[2];
-+        g_CurrentPlayer->pos2.f[2] = pos2->f[2] + ge_coop_dz;
-         g_CurrentPlayer->offset.f[0] = offset->f[0];
-         g_CurrentPlayer->offset.f[1] = offset->f[1];
-         g_CurrentPlayer->offset.f[2] = offset->f[2];
+         g_CurrentPlayer->pos2.f[2] = pos2->f[2];
 diff --git a/src/game/bondview.h b/src/game/bondview.h
 index 3539224..a38297d 100644
 --- a/src/game/bondview.h
@@ -7387,7 +7313,7 @@ index e83a09c..0a8bf87 100644
  extern s32 upper_text_buffer_index;
  extern s32 display_upper_text_window;
 diff --git a/src/game/bondview_r.c b/src/game/bondview_r.c
-index 48cd024..722b73a 100644
+index 48cd024..0b77a77 100644
 --- a/src/game/bondview_r.c
 +++ b/src/game/bondview_r.c
 @@ -1,3 +1,6 @@
@@ -7822,10 +7748,67 @@ index 48cd024..722b73a 100644
  #ifdef DEBUG
          assert(g_Startpad[rand_pad_index]->stan); //              (".\\ported\\bondview_r.cpp",0x171,"Assertion failed: g_Startpad[sp]->stan");
  #endif
-@@ -391,6 +655,26 @@ void bondviewLoadSetupIntroSection(void)
+@@ -391,6 +655,83 @@ void bondviewLoadSetupIntroSection(void)
          start_pos.f[0] = g_Startpad[rand_pad_index]->pos.f[0];
          start_pos.f[2] = g_Startpad[rand_pad_index]->pos.f[2];
  
++#ifdef GE_PORT_NATIVE
++        /* Co-op fan-out, applied HERE rather than after the fact.
++         *
++         * A campaign mission has one start pad. Multiplayer arenas have five to eight, so
++         * every MP player resolves to a different one; in co-op every player resolves to the
++         * same one, and change_player_pos_to_target() below seeds that single position into
++         * each player's own camera record. Both players then render from the same point, each
++         * seeing the other's body in front of the camera, which reads as the two of them
++         * standing inside each other.
++         *
++         * An earlier attempt offset the player's `pos` later, in bondviewSetCurrentPlayerPosition.
++         * That moved the body and not the view: measured with GETV_MOVETRACE at a 6000-unit
++         * spread, player 1 had pos=(4618.6,2279.9) and cam=(-1381.4,2284.4), the latter being
++         * player 0's. The camera is seeded from start_pos, so start_pos is where the offset
++         * has to happen.
++         *
++         * Only when there is a single pad to share. With a real spawn set the game's own
++         * per-player pad choice is better than anything invented here. */
++        if (startpadcount < 2 && getPlayerCount() >= 2)
++        {
++            s32 ge_idx = get_cur_playernum();
++            if (ge_idx > 0)
++            {
++                static f32 ge_spread = -1.0f;
++                if (ge_spread < 0.0f)
++                {
++                    const char *e = getenv("GETV_COOP_SPREAD");
++                    ge_spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 200.0f;
++                    if (ge_spread < 0.0f) { ge_spread = 0.0f; }
++                }
++                switch (ge_idx & 3)
++                {
++                case 1: start_pos.f[0] += ge_spread; break;
++                case 2: start_pos.f[2] += ge_spread; break;
++                case 3: start_pos.f[0] -= ge_spread; break;
++                default: break;
++                }
++                /* Resample the floor under the new spot. The pad's own tile is the wrong
++                 * answer once we have stepped off it, and a wrong tile puts the player
++                 * through the ground or leaves them hovering. Keep the pad's tile if the
++                 * query finds nothing rather than handing NULL downstream. */
++                {
++                    f32 qx = start_pos.f[0];
++                    f32 qy = g_Startpad[rand_pad_index]->pos.f[1];
++                    f32 qz = start_pos.f[2];
++                    StandTile *t = sub_GAME_7F0AFB78(&qx, &qy, &qz, 30.0f);
++                    if (t != NULL) { start_stan = t; }
++                }
++                printf("[getv][coop] player %d fanned to (%.1f,%.1f), spread %.0f, "
++                       "%d pad(s) available\n",
++                       (int) ge_idx, start_pos.f[0], start_pos.f[2], ge_spread,
++                       (int) startpadcount);
++                fflush(stdout);
++            }
++        }
++#endif
++
 +#ifdef GE_PORT_NATIVE
 +        /* GETV_MP_FACEOFF=<units> -- diagnostic only.
 +         * Used with GETV_MP_SPAWNPADS to put every player on one pad and then step
@@ -7849,7 +7832,7 @@ index 48cd024..722b73a 100644
  
          start_stan = g_Startpad[rand_pad_index]->stan;
  
-@@ -398,15 +682,63 @@ void bondviewLoadSetupIntroSection(void)
+@@ -398,15 +739,63 @@ void bondviewLoadSetupIntroSection(void)
          start_pos.f[1] = g_CurrentPlayer->eyeheight + stan_height;
          g_CurrentPlayer->field_70 = stan_height;
          start_look_angle = M_TAU_F - atan2f(g_Startpad[rand_pad_index]->look.f[0], g_Startpad[rand_pad_index]->look.f[2]);
@@ -7913,7 +7896,7 @@ index 48cd024..722b73a 100644
      g_CurrentPlayer->vv_theta = (start_look_angle * 360.0f) / M_TAU_F;
      g_CurrentPlayer->stanHeight = stan_height;
      g_CurrentPlayer->field_6C = stan_height / FIELD_6C_FACTOR;
-@@ -424,6 +756,26 @@ void bondviewLoadSetupIntroSection(void)
+@@ -424,6 +813,26 @@ void bondviewLoadSetupIntroSection(void)
          dword_CODE_bss_80079DA8[i] = 0;
      }
  
@@ -7940,7 +7923,7 @@ index 48cd024..722b73a 100644
      bondviewResetIntroCameraMessageDialogs();
      bondviewResetUpperTextDisplay();
      g_CurrentPlayer->prop = chrpropAllocate();
-@@ -456,6 +808,31 @@ void bondviewLoadSetupIntroSection(void)
+@@ -456,6 +865,31 @@ void bondviewLoadSetupIntroSection(void)
          bondviewSetCameraMode(CAMERAMODE_MP);
      }
  

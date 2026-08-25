@@ -1,11 +1,45 @@
-# Co-op: what is actually wrong
+# Co-op: one bug fixed, one still open
 
 Two players in a single-player mission. They spawn, and they appear to be standing inside each
 other and unable to move. Neither of those is quite what is happening.
 
-## The finding
+## Fixed: every player now has their own camera
 
-**Player 1's camera holds player 0's position.**
+**Root cause: a campaign mission has one start pad.**
+
+`bondview_r.c:546` picks a per-player start pad, gated on `getPlayerCount() >= 2 &&
+startpadcount > 0`. Multiplayer arenas carry five to eight pads, so each MP player resolves to
+a different one. A campaign mission carries **one**, so in co-op every player resolves to the
+same pad -- and `change_player_pos_to_target()` seeds that single position into each player's
+own camera record.
+
+```
+co-op on a campaign mission   startpadcount = 1
+multiplayer on stage 27       startpadcount = 5
+```
+
+The fan-out now happens at `start_pos`, before the camera is seeded, and only when there is a
+single pad to share. With a real spawn set the game's own pad choice is left alone. The floor
+is resampled under the offset position, keeping the pad's tile if the query finds nothing,
+since a wrong tile drops the player through the ground.
+
+After:
+
+```
+p=0  pos=(-1381.4, 2279.9)  cam=(-1381.4, 2284.4)
+p=1  pos=(-1181.4, 2278.4)  cam=(-1181.4, 2284.4)
+```
+
+Each camera matches its own player, which is what multiplayer already looked like.
+
+## Still open: nobody moves
+
+Separating the cameras did **not** make them walk. With the fix in place and input driven to
+either port, both players stay exactly where they spawned across 570 frames while the same
+input carries a solo player 900 units. So these were two bugs, not one, and this document's
+original finding below covers the second.
+
+**Player 1's camera held player 0's position.**
 
 `GETV_MOVETRACE=1` prints the player pointer, the position and the camera position together.
 With the spawn spread set to 6000 units:
