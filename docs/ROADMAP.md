@@ -133,6 +133,19 @@ The player stalls against `wall door object 96 away` where `use` does nothing. L
 objective first, or wants a closer approach? The walkthrough says Train's early doors open
 normally on Agent, which points at approach distance or the use action not reaching the door.
 
+**What is already ruled out** — do not re-test these:
+
+- **The button mapping is right.** `GE_IN_USE` maps to `B_BUTTON`, which is GoldenEye's action
+  button, and `ge_playback` already copies the button word to the companion pad, so the two-pad
+  split is not eating it either.
+- **It is not only distance.** The player reached 96 units from a door and `use` still did
+  nothing, so "walk closer" is not the whole answer.
+
+**What is left:** the door is locked or gated on an objective, or the action needs something
+besides the button held — facing it within a tolerance, or a press edge rather than a hold. The
+walkthrough says Train's early doors open normally on Agent, which argues against locked, and
+`chrprop.c` is where the activation actually happens.
+
 **Done when:** a CLI player opens a door on Train and walks through it.
 
 ## M3. Objective completion detection
