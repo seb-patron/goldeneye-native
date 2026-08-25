@@ -64,6 +64,11 @@
  * indistinguishable from a crashed one. Three seconds, then commit. (From the Surface.) */
 #define GE_BR_MAX_HOLD 180
 
+/* What a walking body can climb and drop between two samples 55 units apart. Generous enough
+ * for stairs and a kerb, tight enough that a floor reachable only by falling is refused. */
+#define GE_BR_MAX_STEP      40.0f
+#define GE_BR_MAX_DROP      90.0f
+
 #define GE_BR_STUCK_TICKS   30
 #define GE_BR_DETOUR_TICKS  26
 
@@ -383,17 +388,131 @@ void gePortBotRouteFrame(int frame)
         } else if (in.stick_y > 0 && moved < (GE_BR_MOVE_EPSILON * GE_BR_MOVE_EPSILON)) {
             ge_br_stuck++;
             if (ge_br_stuck >= GE_BR_STUCK_TICKS) {
-                /* Turn towards the side the target is already on, so the detour makes progress
-                 * around the obstacle instead of away from the route. */
-                ge_br_detour_sign = (err < 0.0f) ? -1.0f : 1.0f;
+                /* ASK THE FLOOR WHICH WAY IS OPEN, rather than guessing.
+                 *
+                 * The old behaviour picked a side from the sign of the heading error and hoped.
+                 * That is a coin toss against real geometry, and on Bunker 1 it lost 109 times in
+                 * a row. gePortProbeStandable is the engine's own stan query -- the one spawn
+                 * placement uses -- so the bot can sweep candidate directions and find out where
+                 * there is actually floor before committing.
+                 *
+                 * The sweep is widest-first from straight ahead, so a bot in a doorway prefers a
+                 * small correction to a large one and does not spin when both sides are open.
+                 *
+                 * ⚠️ Standable is not reachable. A tile through a wall answers yes, so this can
+                 * still choose a blocked direction -- it is a better guess, not a path. The
+                 * detour timer still bounds how long the bot commits to it.
+                 */
+                extern int gePortProbeStandable(float x, float y, float z, float radius,
+                                                float *out_y, int *out_room);
+                /* THE FULL CIRCLE, not a forward cone.
+                 *
+                 * A cone of +/-110 degrees cannot consider retreating, and a bot pressed into a
+                 * corner has its heading pointed at the wall by definition -- so every direction
+                 * it can see is blocked and it reports no floor anywhere while standing on plenty
+                 * of it. Measured: 108 of 108 detours came back empty with the cone.
+                 *
+                 * Ordered by how far each option turns from straight ahead, so the bot still
+                 * prefers the small correction and only turns round when nothing else is open. */
+                static const float sweep[12] = {
+                     35.0f,  -35.0f,  70.0f,  -70.0f, 110.0f, -110.0f,
+                    145.0f, -145.0f, 180.0f,    0.0f,  20.0f,  -20.0f
+                };
+                const float reach = 220.0f;
+                int i, chose = 0;
+
+                /* Baseline from the FLOOR under the bot, not from its position.
+                 *
+                 * gePlayerStateGet reports the body position and the stan query reports the
+                 * tile it is standing on, and on Bunker 1 those differ by 157 units -- pos.y=329
+                 * against selfy=172. Comparing a probed floor height against the body height
+                 * therefore shows a 157-unit cliff in EVERY direction, so the walkability test
+                 * rejected all twelve and reported the bot boxed in while it stood on open floor.
+                 *
+                 * Probing from the floor makes the comparison like-for-like. Falls back to the
+                 * body position if there is somehow no tile underneath, which should not happen
+                 * to a standing player and is not worth failing over. */
+                float base_y = st.y;
+                {
+                    float fy0;
+                    if (gePortProbeStandable(st.x, st.y, st.z, 60.0f, &fy0, NULL)) {
+                        base_y = fy0;
+                    }
+                }
+
+                for (i = 0; i < 12 && !chose; i++) {
+                    float a = (ge_br_heading + sweep[i]) * 3.14159265358979f / 180.0f;
+                    float sn = (float) sin((double) a), cs = (float) cos((double) a);
+                    float fy = base_y, prev_y = base_y;
+                    int step, walkable = 1;
+
+                    /* WALK THE RAY, do not just probe its end.
+                     *
+                     * A single probe at the far end answers "is there floor there", and the tile
+                     * on the other side of a wall answers yes -- so the first sweep direction was
+                     * chosen every time, at y=172 with the player at y=327, and the bot walked
+                     * into the same wall 108 times.
+                     *
+                     * Sampling along the ray turns that into something much closer to
+                     * reachability: a wall shows up as a gap with no standable tile, and a drop
+                     * shows up as a height jump between neighbouring samples. Requiring every
+                     * sample to be standable AND within one step-up of the last is what a body
+                     * can actually walk.
+                     *
+                     * ⚠️ Still not a proof. Samples are 55 units apart and a thin wall between two
+                     * of them is invisible. It is a much better guess, bounded by the detour
+                     * timer, and it is not a pathfinder. */
+                    for (step = 1; step <= 4 && walkable; step++) {
+                        float d = reach * ((float) step / 4.0f);
+                        float sy;
+                        if (!gePortProbeStandable(st.x + sn * d, prev_y, st.z + cs * d,
+                                                  60.0f, &sy, NULL)) {
+                            walkable = 0;
+                            break;
+                        }
+                        /* GE_BR_MAX_STEP is a step, not a cliff: the engine will not carry a
+                         * walking body up more than this, and letting it through picks floors
+                         * that are only reachable by falling. */
+                        if (sy - prev_y > GE_BR_MAX_STEP || prev_y - sy > GE_BR_MAX_DROP) {
+                            walkable = 0;
+                            break;
+                        }
+                        prev_y = sy;
+                        fy = sy;
+                    }
+
+                    if (walkable) {
+                        ge_br_detour_sign = (sweep[i] < 0.0f) ? -1.0f : 1.0f;
+                        chose = 1;
+                        if (ge_br_trace) {
+                            printf("[getv][botroute] blocked at (%.0f %.0f) -- floor found at "
+                                   "%+.0f deg, y=%.0f, detouring %s\n",
+                                   (double) st.x, (double) st.z, (double) sweep[i], (double) fy,
+                                   (ge_br_detour_sign < 0.0f) ? "left" : "right");
+                            fflush(stdout);
+                        }
+                    }
+                }
+
+                if (!chose) {
+                    /* No floor anywhere in the sweep means the bot is in a pocket the graph did
+                     * not model. Turning towards the target is the least-bad move and it is worth
+                     * SAYING so, because silently detouring here looks like ordinary progress. */
+                    ge_br_detour_sign = (err < 0.0f) ? -1.0f : 1.0f;
+                    if (ge_br_trace) {
+                        /* Self-probe: if the query cannot find floor where the bot is STANDING,
+                         * the fault is in how it is being called, not in the level. */
+                        float selfy = st.y;
+                        int selfok = gePortProbeStandable(st.x, st.y, st.z, 60.0f, &selfy, NULL);
+                        printf("[getv][botroute] blocked at (%.0f %.0f y=%.0f) -- NO floor swept; "
+                               "self-probe=%d selfy=%.0f\n",
+                               (double) st.x, (double) st.z, (double) st.y, selfok, (double) selfy);
+                        fflush(stdout);
+                    }
+                }
+
                 ge_br_detour = GE_BR_DETOUR_TICKS;
                 ge_br_stuck = 0;
-                if (ge_br_trace) {
-                    printf("[getv][botroute] blocked at (%.0f %.0f) -- detouring %s\n",
-                           (double) st.x, (double) st.z,
-                           (ge_br_detour_sign < 0.0f) ? "left" : "right");
-                    fflush(stdout);
-                }
             }
         } else {
             ge_br_stuck = 0;
