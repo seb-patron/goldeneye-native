@@ -272,6 +272,20 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortBotRouteFrame(rendered);
     }
 
+    /* Navigate by doors and objectives rather than pads. Inert unless GETV_BOT_DOORS names a
+     * slot. See ge_bot_doors.c for why pads make a poor target. */
+    {
+        extern void gePortBotDoorsFrame(int frame);
+        gePortBotDoorsFrame(rendered);
+    }
+
+    /* Play from a terminal, through the API alone. If a person can, the API is complete.
+     * Inert unless GETV_CLI is set. */
+    {
+        extern void gePortCliFrame(int frame);
+        gePortCliFrame(rendered);
+    }
+
     /* Derive events from what changed this frame and deliver them to subscribers. AFTER the
      * policies above, so an event describes the state they have already acted on rather than a
      * half-updated one. Costs nothing when nobody has subscribed. */
