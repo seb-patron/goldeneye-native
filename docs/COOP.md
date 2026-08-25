@@ -62,6 +62,45 @@ What is already excluded as the cause:
 So: input arrives, the speed is computed, the clock is running, the camera mode matches
 retail, and position does not change -- in co-op *and* in retail multiplayer.
 
+## The freeze is the camera mode
+
+`bondview_r.c:885` picks the camera path by player count:
+
+```c
+if (getPlayerCount() == 1)  bondviewSetCameraMode(CAMERAMODE_INTRO);
+else                        bondviewSetCameraMode(CAMERAMODE_MP);
+```
+
+Co-op is a campaign mission with two players, so it takes the arena path. That path is a dead
+end here: `bondviewAdvanceCameraMode()` sets `g_CameraMode` to `NONE` and then skips the whole
+chain that reaches FP, because its `else if (mode != CAMERAMODE_MP)` excludes it. Retail
+expects the multiplayer match flow to set FP itself, and nothing on this path does.
+
+With the mode stuck at `NONE`, `bondviewFrozenCameraTick()` leaves `property_pos` at
+`g_DefaultFrozenPlayerPos`, so every player is frozen while rendering carries on normally.
+That is the freeze, and it is why retail multiplayer freezes here too.
+
+Measured:
+
+```
+solo     INTRO 482 frames, FADESWIRL 60, SWIRL 358      moves 900 units
+co-op    MP 113 frames, NONE 787                        moves nothing
+real MP  MP 113 frames, NONE 787                        moves nothing
+```
+
+### What routing co-op through the campaign path does
+
+`GETV_COOP_CAMERA=1`, **off by default**, sends co-op down `CAMERAMODE_INTRO` instead. The
+mode then reaches SWIRL and the positions finally change. They also change identically
+whichever port is driven, with Y running from -52723 to -139906 over 570 frames.
+
+That is the intro swirl camera animating and dragging the players, not input moving them.
+Falling through the level is worse to ship than standing still, so it stays off. The campaign
+intro path assumes a single player somewhere inside it.
+
+**What it proves is the useful part: the freeze IS the camera mode.** Whatever fixes co-op has
+to get the mode to FP without running the single-player swirl.
+
 ## Still open: nobody moves
 
 Separating the cameras did **not** make them walk. With the fix in place and input driven to
