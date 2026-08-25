@@ -1,124 +1,84 @@
 # Goldeneye-Native
 
-**GoldenEye 007, compiled as a native program for Windows, macOS and Linux.** Not an
-emulator. Not a static recompilation. The game's own C source, from the
-[`n64decomp/007`](https://github.com/n64decomp/007) decompilation, built directly for your
-machine with a modern platform layer underneath it: SDL2, OpenGL, mouse and keyboard,
-arbitrary resolution, and a Fast3D display-list renderer in place of the N64's RCP.
-
-There is no MIPS interpreter and no dynamic recompiler. The binary *is* the game. Every
-system in it is ordinary C that can be read, changed and rebuilt, which is the whole
-difference: things an emulator can only work around from the outside, this can fix at the
-source.
+**GoldenEye 007, compiled as a native program for Windows, macOS and Linux.** Not an emulator.
+The game's own C, from the [`n64decomp/007`](https://github.com/n64decomp/007) decompilation,
+built for your machine. The binary *is* the game, so things an emulator can only work around
+from outside get fixed at the source.
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
 | | |
 |---|---|
-| **macOS** | Apple Silicon and Intel. Builds and plays. |
-| **Linux** | x86-64. Builds and plays. |
-| **Windows** | x86-64, MinGW-w64. Builds and plays. |
+| **macOS** | Apple Silicon and Intel |
+| **Linux** | x86-64 |
+| **Windows** | x86-64, MinGW-w64 |
 
-Same source tree, same features, one `build` script each.
+One source tree, one build script each.
 
 ## What you get
 
-- **Every stage.** All 27 loadable missions boot, render and exit cleanly. Twenty-one load
-  directly; six are multiplayer-only and need two or more players.
-- **Multiplayer.** Split screen, radar, all 64 selectable characters.
-- **Keyboard and mouse**, on by default. Mouse look with sensitivity and invert, left button
-  fires, right aims, ESC releases the cursor. This is the control scheme the N64 could never
-  offer and it is the single biggest change to how the game plays.
-- **Controllers, including the one already on your desk.** Input goes through SDL2's game
-  controller layer, so a DualSense, a DualShock 4, an Xbox pad, a Switch Pro controller or an
-  8BitDo all enumerate and work without a mapping file. Wired or wireless. Both sticks are
-  live: GoldenEye's own 2.2 Galore style is a two-controller layout, which is a modern
-  twin-stick pad once the sticks arrive on two ports, so aiming with the right stick is the
-  game's own scheme rather than something bolted on.
-- **Four players, four layouts.** Bindings are per player, so P2 is not stuck with P1's
-  choices in split screen.
-- **A launcher.** Pick a level, a ruleset, cheats, resolution and field of view before you
-  play, instead of editing a config file.
+- **All 27 stages**, single player and split-screen multiplayer, 64 characters, radar.
+- **Mouse and keyboard**, on by default. Sensitivity, invert, ESC to release the cursor.
+- **Any controller you already own.** DualSense, DualShock 4, Xbox, Switch Pro, 8BitDo.
+  Both sticks live, bindings per player.
+- **A crouch key.** The original makes you hold aim and push down. This gives it a button.
+- **A launcher** for level, ruleset, cheats, resolution and field of view.
+- **Rulesets and horde mode.** Health, damage, accuracy and ammo as percentages, with presets.
+- **Lua mods.** Drop a `mod.lua` in `mods/`, get `onFrame` and friends, no rebuild.
+- **Start any mission with any gun**, dual wielding included.
+- **FXAA, CRT, supersampling, MSAA, arbitrary resolution.** All off by default.
+- **The frame-rate problem fixed**, not worked around. [Details below](#on-frame-timing-and-a-thank-you).
 
-![The launcher's Controls page, with per-player bindings](docs/images/launcher-controls.png)
+![The launcher's Controls page](docs/images/launcher-controls.png)
 
-- **Rulesets and horde mode.** Enemy health, damage, accuracy, ammo, player health and
-  explosion strength as percentages, with presets. Horde spawns replacements where a guard
-  falls and grows the waves as you clear them.
-- **Lua mod scripting.** Drop a `mod.lua` in `mods/` and get `onFrame`, `onPlayerSpawn` and
-  `onWeaponFire` with a read API into live game state. No rebuild.
-- **The cheats the game already had**, by name, from the launcher or a config file.
-- **A crouch button.** This one is worth explaining, because anyone who played the original
-  remembers it. Retail GoldenEye has no crouch key: you hold the aim trigger, push down on the
-  stick, then release aim while staying low, and `bondview2.c:5484` shows exactly why -- the
-  crouch test requires aim mode AND stick-down together. It is faithful and it is genuinely
-  awkward, and it is the sort of thing a native port exists to fix. C or LSHIFT crouches, V
-  stands, on a key of its own. The original gesture still works, so nothing that depended on
-  it changes.
-- **Start any mission with any weapon**, including dual wielding, from one setting. The game
-  handles the second gun itself: tap to alternate hands, hold to fire both.
-- **A CRT mod and FXAA**, as a general post-process pass rather than a special case. Scanlines,
-  aperture mask, barrel curve and vignette are separate terms, so the look is tunable rather
-  than a preset you take or leave. The CRT ships as a Lua mod you can untick.
+![FXAA off, left; on, right](docs/images/fxaa-comparison.png)
 
-![FXAA off, left; on, right. The PP7 barrel at 4x](docs/images/fxaa-comparison.png)
+*FXAA off left, on right, zoomed on the PP7 barrel. FXAA is a screen-space approximation and
+not MSAA, but on geometry this sparse it is nearly free and there is nothing fine for it to
+smear.*
 
-*FXAA off on the left, on on the right, zoomed on the PP7 barrel. The stair-stepping along the
-slide is what a 1997 renderer at a 2026 resolution looks like without it. FXAA is a post-2009
-screen-space approximation and it is not MSAA, but on geometry this sparse it costs almost
-nothing and there is nothing subtle for it to ruin.*
+## Quick start
 
-- **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
-  anisotropic filtering, adjustable field of view, and three texture filters including the
-  N64's real three-point sampling.
+```bash
+git clone https://github.com/SegfaultEvan/goldeneye-native
+cd goldeneye-native
+./getv/build_mac.sh all        # or build_linux.sh / build_windows.ps1
+```
+
+You supply your own ROM. The build reads it once to extract assets; what you run afterwards
+never touches it. Full steps in [`docs/SETUP.md`](docs/SETUP.md).
 
 ## On frame timing, and a thank you
 
-The most-cited problem with GoldenEye above its original frame rate is real, and
-**[Graslu](https://github.com/Graslu) raised it publicly and was right to.**
+**[Graslu](https://github.com/Graslu) raised this publicly and was right to.**
 
-The short version: `waitForNextFrame()` is already real-time based, so the clock does not
-drift. What breaks is everything the game counts *per iteration* rather than per second, and
-122 of the 135 files under `src/game` do per-frame work. Real hardware managed 20 to 30
-frames per second, and automatic fire rates and guard reaction stepping were tuned against
-that. Run the same loop at a locked 60 and they simply happen more often.
+GoldenEye counts things per iteration, not per second. 122 of the 135 files under `src/game`
+do per-frame work, and fire rates and guard reaction were tuned against the 20 to 30fps real
+hardware managed. Lock the loop at 60 and they all happen twice as often.
 
-That is now fixed rather than mitigated. Three pieces:
+Fixed in three parts:
 
-**The simulation ticks on its own divider** while the display list is still built every frame,
-so a 60Hz display can show a 30Hz simulation. `GETV_SIMDIV=auto` reads your refresh rate and
-picks the divider, because the right number depends on the display: 2 at 60Hz, 4 at 120Hz.
+- The simulation ticks on its own divider while drawing continues every frame.
+  `GETV_SIMDIV=auto` picks it from your refresh rate.
+- The camera interpolates between ticks. At a 4x divider the frame-to-frame spread is 0.1843
+  against a full-rate 0.1855, so a quarter-rate simulation renders as smoothly as a full one.
+- The frame-counted systems count time now. An FN P90 held for 80 frames fires 39 rounds at
+  every divider. Before, it was 39, 20 and 10.
 
-**The camera interpolates between simulation states**, which is what stops a skipped tick
-looking like a stutter. At a 4x divider the frame-to-frame spread is 0.1843 against a
-full-rate baseline of 0.1855 -- a quarter-rate simulation renders as smoothly as a full-rate
-one. Only the camera is blended, and nothing is written back into game state: GoldenEye's AI
-reads positions as discrete fact, and a blended value entering the simulation misbehaves in
-ways much harder to diagnose than judder.
+A twelve-level sweep at divider 2 flags nothing. `tools/divider_audit.py` re-runs it.
 
-**The frame-counted systems now count time.** Player fire rate and guard fire rate both used
-`counter % rate == 0` against a per-tick counter. Converted, measured, and checked at divider
-1 where the two are provably identical. An FN P90 held for 80 frames fires 39 rounds at every
-divider now; before, it was 39, 20 and 10.
+One gap, stated plainly: above 60Hz the default clock counts a rendered frame as a video
+field, so 120Hz doubles game speed unless `GETV_REALCLOCK=1` is set. The game warns you. That
+path is reasoned from the code and **not measured**, because this was built on a 60Hz panel.
+Full working in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
 
-A twelve-level sweep at divider 2 flags nothing. `tools/divider_audit.py` is how that is
-checked, and it is in the tree so anyone can re-run it.
-
-Above 60Hz there is one honest gap: the default clock counts a rendered frame as a video
-field, so at 120Hz the world runs at double speed unless `GETV_REALCLOCK=1` makes a field a
-unit of real time. A warning fires if you set a high refresh without it. That path is reasoned
-from the code and **not measured** -- the machine this was built on is a 60Hz panel. The full
-analysis, including why this is fixable here and structurally is not in an emulator, is in
-[`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
-
-No code from the 1964 or Mouse Injector lineage is used here. Those are GPL-2.0 and
-quarantined; see [`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit above is for
-identifying the problem, which is the more valuable contribution and is not a licensable
-thing.
+No 1964 or Mouse Injector code is used. Those are GPL-2.0 and quarantined; see
+[`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit is for identifying the problem, which
+is not a licensable thing.
 
 ## If you came here looking for a GoldenEye emulator
 
-Reasonable place to land, and worth being straight about the difference.
+Reasonable place to land. The difference matters.
 
 An emulator runs the retail N64 ROM by pretending to be an N64. It works, and for a lot of
 people it is the right answer. What it cannot do is change the game, because the game inside
@@ -136,7 +96,7 @@ most of us grew up on that translating display lists into draw calls is mostly b
 rather than reinvention. That is why the graphics side of a port like this comes up quickly
 and then spends years on the last five per cent.
 
-Practically, that means things like these are ordinary code changes rather than impossible:
+So these are ordinary code changes rather than impossible:
 
 - widescreen and arbitrary resolution, because the projection is a function we can call
 - mouse and keyboard, because the input layer is ours
@@ -171,7 +131,7 @@ gates, and `goldeneye.cfg`. Texture replacement is on the roadmap, not implement
 **Is multiplayer online?** No. Split-screen multiplayer works. LAN and online are roadmap
 items and are downstream of the frame-timing work.
 
-**Can two people play the single-player missions?** Partly, and it is honest to call it alpha.
+**Can two people play the single-player missions?** Partly. It is alpha.
 Two to four players spawn into a solo mission with its own geometry, props and objectives, and
 every viewport renders. They do not move yet. Details below.
 
