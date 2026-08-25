@@ -224,10 +224,30 @@ second frame that can disagree with the first — name the axes and derive the c
 and every listed object carries an absolute position, and a bot can answer "have I been here
 before" without re-deriving it from bearings.
 
-## M4. Co-op with two humans
+## M4. Co-op — ✅ MOVEMENT VERIFIED, with a control
 
-Both players spawn apart, both cameras work, both walk. `GETV_SCRIPT` moves nobody, so this needs
-the player API driving slot 1 or a person at the second pad.
+Player 2 driven through the player API, Train, 6001 frames, against a no-input control:
+
+| | p0 path | p1 path | p1 net |
+|---|---|---|---|
+| control (no input) | 330 | **0** | 0 |
+| bot driving slot 1 | 330 | **1,779** | 1,641 |
+
+Player 2 moves **only** with input, and player 1 is unaffected — 330 in both runs, so the slots do
+not bleed into each other. Both spawn apart and both cameras render, which the split-screen
+capture already showed.
+
+🔑 This closes the question that opened the week. Co-op movement was never broken: `gePortPlayerPos`
+read `player->pos`, which is zeroed at spawn and rarely written, so both players *were* walking
+while the accessor returned the same coordinate. The bug was in the measurement, and the measuring
+tool was mine.
+
+⚠️ The control is what makes this worth stating. A scripted run on Dam travels 36 units and looks
+like proof until the no-script control travels the same 36 — the level's own opening walks the
+player. Every earlier "co-op moved" claim on this project was that intro, and I withdrew one.
+
+**Remaining:** two *humans* at two pads, which needs a person and a second controller — the API
+half is done.
 
 ## M6. Z-fighting: a steel plate clipping through the curved carriage wall
 
