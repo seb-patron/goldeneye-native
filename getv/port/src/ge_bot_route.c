@@ -150,10 +150,10 @@ static float ge_br_norm180(float a)
  * range (doorTestForInteract, propobj.c:14411) and roughly ahead, because that function also
  * wants the door ON SCREEN.
  */
-static int ge_br_door_ahead(const GePlayerState *st)
+static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
 {
     GeWorldProp d;
-    float dx, dz, bearing, off;
+    float dx, dz, bearing, off_heading, off_route;
 
     if (!geWorldNearestProp(GE_PROP_DOOR, st->x, st->y, st->z, &d)) { return 0; }
     dx = d.x - st->x;
@@ -161,8 +161,22 @@ static int ge_br_door_ahead(const GePlayerState *st)
     if (((dx * dx) + (dz * dz)) > (200.0f * 200.0f)) { return 0; }
 
     bearing = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
-    off = ge_br_norm180(bearing - st->angle);
-    return ((float) fabs((double) off) <= 45.0f);
+    off_heading = ge_br_norm180(bearing - st->angle);
+    if ((float) fabs((double) off_heading) > 45.0f) { return 0; }
+
+    /* 🔑 AND IT HAS TO BE ON THE WAY.
+     *
+     * A door within 200 units and in front of the bot is not automatically the route: Train's
+     * carriages have doors down both sides, so the bot stood pressing USE on a side door while
+     * its waypoint sat at a bearing of -60 and never turned. "There is a door here" and "the
+     * door is where I am going" are different questions and only the second should divert the
+     * follower.
+     *
+     * Compared against the bearing to the TARGET rather than the heading, because the heading is
+     * whatever the last manoeuvre left it as -- including pointing at the door it is about to
+     * decide about, which makes the test agree with itself. */
+    off_route = ge_br_norm180(bearing - to_target_bearing);
+    return ((float) fabs((double) off_route) <= 50.0f);
 }
 
 
@@ -530,7 +544,7 @@ steer:
                 if (sx3 < -GE_BR_STICK_MAX) { sx3 = -GE_BR_STICK_MAX; }
                 in.stick_x = (signed char) sx3;
                 in.stick_y = (signed char) (GE_BR_WALK * 0.6f);
-            } else if ((c.what & GE_SENSE_DOOR) && ge_br_door_ahead(&st)) {
+            } else if ((c.what & GE_SENSE_DOOR) && ge_br_door_ahead(&st, bearing)) {
                 /* Walk INTO it while pressing use. Stopping to open a door and then deciding to
                  * walk is two decisions where the game wants one, and the door shuts again. */
                 in.buttons |= GE_IN_USE;
