@@ -136,3 +136,70 @@ Step 1 is the next piece of work on this and is worth doing on its own, because 
 "do not run this above 60" into "run it at whatever your display does, and the simulation is
 unaffected". That is the outcome people actually want, and the decompilation is what makes
 it reachable.
+
+## Step 2: interpolation -- landed 2026-08-24
+
+`GETV_SIMDIV` renders every frame while the simulation runs one frame in n, so a skipped tick
+redrew the previous camera unchanged and the view moved in steps. The view is now interpolated
+between simulation states. `GETV_INTERP=1` by default, `GETV_INTERP=0` is the control.
+
+### What is interpolated, and why only this
+
+**The camera basis, at render time, and nothing else.** `bondviewUpdateCameraMatrices` takes
+position, look direction and up as parameters and only reads them, so the interpolated copies
+are handed to it through its own local pointers. The caller's vectors are untouched.
+
+🔴 **Nothing is written back into game state, and that restriction is the design rather than an
+implementation detail.** GoldenEye's AI reads state as discrete fact, so a blended value
+entering the simulation produces erratic behaviour far harder to diagnose than judder.
+
+Interpolating means rendering **one tick behind**: at the instant of a tick the newest state is
+the far end of the blend, so the near end is where the camera was a tick ago. At divider 2 that
+is about 33ms of view latency, bought for motion that moves every frame. `gePortSimAlpha()`
+returns exactly 1.0 at divider 1, so the whole path early-outs and costs nothing when unused.
+
+### Measured
+
+Stage 9, scripted forward walk, frames 700-850 of a fixed 901-frame run. "Still" is the share
+of rendered frames on which the camera did not move at all, which is the judder itself.
+
+| | still frames | mean step | sd of step |
+|---|---|---|---|
+| SIMDIV=1, INTERP=0 | 12.1% | 0.2553 | 0.1855 |
+| SIMDIV=1, INTERP=1 | 12.1% | 0.2553 | 0.1855 |
+| SIMDIV=2, INTERP=0 | 55.7% | 0.2633 | 0.3750 |
+| **SIMDIV=2, INTERP=1** | **10.7%** | 0.2645 | **0.1877** |
+| SIMDIV=4, INTERP=0 | 75.2% | 0.3112 | 0.6541 |
+| **SIMDIV=4, INTERP=1** | **0.0%** | 0.3117 | **0.1843** |
+
+🔑 **At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
+simulation now renders as smoothly as a full-rate one.
+
+⚠️ Compare only **within** a divider. The mean step differs between dividers because a fixed
+frame window catches a different part of the walk's acceleration, not because speed changed.
+Within each divider the mean is preserved to 0.5%, which is the check that matters: the camera
+covers the same ground, it just stops jumping to get there.
+
+Divider 1 is byte-identical with interpolation on and off, so the default carries no risk for
+anyone not using a divider.
+
+### The one second-order effect, measured
+
+Pure simulation is **identical**: 363 lines of gun and player state match exactly between
+INTERP=0 and INTERP=1 at divider 2.
+
+Room culling is **not** identical -- 58 of 4164 lines differ -- because culling is computed from
+the camera and the camera is now interpolated. This matters more than it looks: **GE's AI
+branches on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so a culling change is a
+path by which the view can reach the simulation without anything being written back.
+
+Measured, it is benign. The drawn-room distributions are 371/146/22/362 against 370/147/22/362:
+a single frame moved bucket. It is a one-frame timing shift at a room boundary, which is what
+any framerate change does anyway. Worth re-checking if AI behaviour is ever reported odd under
+a divider, and not worth blocking on now.
+
+## Still open
+
+**Step 3, the frame-quantised systems.** Fire rates, reload timing, turret delay and reaction
+stepping still count iterations rather than time. This is the remaining piece and each
+conversion needs checking against retail behaviour.

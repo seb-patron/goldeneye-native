@@ -5762,7 +5762,7 @@ index 3539224..a38297d 100644
  Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
  f32 getPlayer_c_lodscalez(void);
 diff --git a/src/game/bondview2.c b/src/game/bondview2.c
-index 677ea82..b21a53e 100644
+index 677ea82..5ca17ee 100644
 --- a/src/game/bondview2.c
 +++ b/src/game/bondview2.c
 @@ -1,4 +1,5 @@
@@ -6613,7 +6613,120 @@ index 677ea82..b21a53e 100644
      if ((g_CameraMode == CAMERAMODE_NONE) || ((g_CameraMode == CAMERAMODE_FP) && (is_timer_active != 0)) || (g_CameraMode == CAMERAMODE_FADE_TO_TITLE))
      {
          if (get_cur_playernum() == 0)
-@@ -8152,7 +8701,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
+@@ -8077,6 +8626,78 @@ void store_BONDdata_curpos_to_previous(void) {
+ /**
+  * Address: 7F0876C4
+  */
++/* GETV_INTERP: render the camera between simulation states instead of on them.
++ *
++ * Under GETV_SIMDIV the simulation runs one frame in n while the display list is still built
++ * every frame, so a skipped tick redraws the previous camera unchanged and the view moves in
++ * steps. This smooths the VIEW ONLY.
++ *
++ * 🔴 It writes nothing back into game state, and that restriction is the whole design.
++ * GoldenEye's AI reads state as discrete fact -- chraction.c branches on positions and on
++ * render visibility -- so a blended value entering the simulation produces erratic behaviour
++ * that is far harder to diagnose than judder. The camera basis is a render input and nothing
++ * else consumes it, which is exactly why it is the safe thing to interpolate first.
++ *
++ * The caller's vectors are never modified; the interpolated copies are handed back in out_*
++ * and the caller repoints its own local parameters at them.
++ *
++ * Per player, because split screen builds four of these from four different states, and one
++ * shared history would make each viewport interpolate toward its neighbour's camera. */
++static s32 gePortCamInterp(coord3d *out_pos, coord3d *out_dir, coord3d *out_up,
++                           const coord3d *pos, const coord3d *dir, const coord3d *up)
++{
++    static coord3d prev_pos[4], prev_dir[4], prev_up[4];
++    static coord3d cur_pos[4],  cur_dir[4],  cur_up[4];
++    static s32 primed[4] = {0, 0, 0, 0};
++    static s32 on = -1;
++
++    extern s32 gePortSimShouldTick(void);
++    extern f32 gePortSimAlpha(void);
++
++    s32 p;
++    f32 a;
++    s32 i;
++
++    if (on < 0) {
++        const char *e = getenv("GETV_INTERP");
++        /* On by default: with a divider set, interpolation is the point, and the divider is
++         * itself off by default. GETV_INTERP=0 is the A/B control. */
++        on = (e && *e) ? (*e != '0') : 1;
++    }
++    if (!on) return 0;
++
++    a = gePortSimAlpha();
++    if (a >= 1.0f) return 0;          /* divider 1: nothing to interpolate, no latency */
++
++    p = get_cur_playernum();
++    if (p < 0 || p > 3) return 0;
++
++    if (gePortSimShouldTick() || !primed[p]) {
++        prev_pos[p] = cur_pos[p];
++        prev_dir[p] = cur_dir[p];
++        prev_up[p]  = cur_up[p];
++        cur_pos[p]  = *pos;
++        cur_dir[p]  = *dir;
++        cur_up[p]   = *up;
++        if (!primed[p]) {
++            /* First frame for this player has no history, so interpolating would drag the
++             * camera in from wherever the zeroed slot happened to be. */
++            prev_pos[p] = cur_pos[p];
++            prev_dir[p] = cur_dir[p];
++            prev_up[p]  = cur_up[p];
++            primed[p]   = 1;
++        }
++    }
++
++    for (i = 0; i < 3; i++) {
++        out_pos->f[i] = prev_pos[p].f[i] + (cur_pos[p].f[i] - prev_pos[p].f[i]) * a;
++        out_dir->f[i] = prev_dir[p].f[i] + (cur_dir[p].f[i] - prev_dir[p].f[i]) * a;
++        out_up->f[i]  = prev_up[p].f[i]  + (cur_up[p].f[i]  - prev_up[p].f[i])  * a;
++    }
++    return 1;
++}
++
++
+ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord3d* cam_up)
+ {
+     Mtx sp108;
+@@ -8091,6 +8712,33 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
+     s32 j;
+     s32 i;
+ 
++    /* Swap in the interpolated camera before anything reads it. The caller's own vectors are
++     * untouched; only these local parameter pointers move, so the simulation still sees the
++     * state it computed and only the matrices built below see the blend. */
++    {
++        static coord3d ge_ip_pos, ge_ip_dir, ge_ip_up;
++        if (gePortCamInterp(&ge_ip_pos, &ge_ip_dir, &ge_ip_up, cam_pos, cam_look_dir, cam_up)) {
++            cam_pos      = &ge_ip_pos;
++            cam_look_dir = &ge_ip_dir;
++            cam_up       = &ge_ip_up;
++        }
++    }
++
++    /* GETV_INTERPTRACE=1: the camera position actually handed to the matrices, once per
++     * rendered frame. Placed after the swap so it reports what is drawn on both paths, which
++     * is what makes the interpolated run and the GETV_INTERP=0 control comparable. */
++    {
++        extern s32 gePortSimShouldTick(void);
++        extern f32 gePortSimAlpha(void);
++        static s32 tr = -1;
++        if (tr < 0) { const char *e = getenv("GETV_INTERPTRACE"); tr = (e && *e && *e != '0'); }
++        if (tr && get_cur_playernum() == 0) {
++            osSyncPrintf("[getv][interp] eye=(%.4f %.4f %.4f) a=%.3f tick=%d\n",
++                         cam_pos->x, cam_pos->y, cam_pos->z,
++                         gePortSimAlpha(), (s32) gePortSimShouldTick());
++        }
++    }
++
+     i = bondviewGetCurrentPlayersRoom();
+     bondviewUpdateCurrentRoomPosition(i);
+ 
+@@ -8152,7 +8800,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
  	}
  
      guMtxF2L((f32 (*)[4]) &sp60, temp_s0);
@@ -6622,7 +6735,7 @@ index 677ea82..b21a53e 100644
  
      scale = bgGetLevelVisibilityScale();
  
-@@ -8165,7 +8714,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
+@@ -8165,7 +8813,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
      currentPlayerSetMatrix10CC((Mtxf* ) g_CurrentPlayer->field_64);
      currentPlayerSetViewToWorldMtxf((Mtxf* ) g_CurrentPlayer->field_68);
  
@@ -6631,7 +6744,7 @@ index 677ea82..b21a53e 100644
      bondviewUpdateFrustumPlanes();
      store_BONDdata_curpos_to_previous();
  }
-@@ -8417,7 +8966,17 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8417,7 +9065,17 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
      watchpos = ZeroCoordWatchPos;
      objheader = get_ptr_itemheader_in_hand(GUNLEFT);
      nodepos = (f32 *) objheader->Switches[3];
@@ -6650,7 +6763,7 @@ index 677ea82..b21a53e 100644
      perspmtx = dynAllocateMatrix();
  #if defined(VERSION_EU)
      guPerspective(perspmtx, &perspNorm, g_CurrentPlayer->zoominfovy, 1.4005603f, 10.0f, 300.0f, 1.0f);
-@@ -8425,7 +8984,10 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8425,7 +9083,10 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
      guPerspective(perspmtx, &perspNorm, g_CurrentPlayer->zoominfovy, 1.4545455f, 10.0f, 300.0f, 1.0f);
  #endif
   
@@ -6662,7 +6775,7 @@ index 677ea82..b21a53e 100644
      gSPPerspNormalize(gdl++, perspNorm);
  
      // Keep this nested block for matching.
-@@ -8459,22 +9021,22 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8459,22 +9120,22 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
          matrix_4x4_set_position_and_rotation_around_y(watchpos.f, (360.0f - g_CurrentPlayer->vv_theta) * 0.017453292f, &watchmtx);
          matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &watchmtx);
          matrices = dynAllocate(objheader->numMatrices << 6);
@@ -6691,7 +6804,7 @@ index 677ea82..b21a53e 100644
      
          matrix_4x4_set_basis_and_position_target(&targetmtx, 0.0f, 0.0f, 0.0f, g_CurrentPlayer->field_1E0, g_CurrentPlayer->field_1E4, g_CurrentPlayer->field_1E8, g_CurrentPlayer->field_1EC, g_CurrentPlayer->field_1F0, g_CurrentPlayer->field_1F4);
          matrix_4x4_get_rotation_around_xyz(matrices, &currot);
-@@ -8485,7 +9047,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8485,7 +9146,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
          quaternion_slerp(quat1, quat2, t, quat3);
          quaternion_to_matrix(quat3, matrices->m);
          matrix_4x4_set_position(&targetpos, matrices);
@@ -6700,7 +6813,7 @@ index 677ea82..b21a53e 100644
          total_seconds = time / 60;
          seconds = total_seconds % 60;
          total_minutes = total_seconds / 60;
-@@ -8531,7 +9093,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8531,7 +9192,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
              renderdata.envcolour.word = g_CurrentPlayer->tileColor.a | (((g_CurrentPlayer->tileColor.r << 24) | (g_CurrentPlayer->tileColor.g << 16)) | (g_CurrentPlayer->tileColor.b << 8));
          }
      
@@ -6709,7 +6822,7 @@ index 677ea82..b21a53e 100644
          gdl = renderdata.gdl;
          nodepos2 = (f32 *) objheader->Switches[2]->Data;
          finalmtx = dynAllocateMatrix();
-@@ -8542,7 +9104,14 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8542,7 +9203,14 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
          matrix_4x4_7F058C88();
          gdl = draw_watch_current_page(gdl, finalmtx, (g_CurrentPlayer->watch_animation_state == 5) || (g_CurrentPlayer->watch_animation_state == 12));
          matrix_4x4_7F058C64();
@@ -6725,7 +6838,7 @@ index 677ea82..b21a53e 100644
          matrix_4x4_7F058C88();
      }
   
-@@ -8563,13 +9132,17 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
+@@ -8563,13 +9231,17 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
      Mtx *orthomtx;
      Mtxf lookatmtxf;
  
@@ -6745,7 +6858,7 @@ index 677ea82..b21a53e 100644
  
      // Create an orthographic render state for the gauge.
      lookatmtx = dynAllocateMatrix();
-@@ -8611,7 +9184,7 @@ void mp_respawn_handler(void)
+@@ -8611,7 +9283,7 @@ void mp_respawn_handler(void)
  {
      coord3d start_pos = ZeroCoordSpawnPos;
      f32 start_look_angle;
@@ -6754,7 +6867,7 @@ index 677ea82..b21a53e 100644
      s32 pad;
      f32 stan_height;
      s32 var_v0;
-@@ -8703,7 +9276,13 @@ void mp_respawn_handler(void)
+@@ -8703,7 +9375,13 @@ void mp_respawn_handler(void)
              switch (intro_record->type) 
              {
                  case 0: // INTROTYPE_SPAWN
@@ -6769,7 +6882,7 @@ index 677ea82..b21a53e 100644
                      break;
                  case 1: // INTROTYPE_ITEM
                      if (check_ramrom_flags() == ((struct SetupIntroAmmo*)intro_record)->is_demo_playback) {
-@@ -8713,28 +9292,28 @@ void mp_respawn_handler(void)
+@@ -8713,28 +9391,28 @@ void mp_respawn_handler(void)
                              bondinvAddInvItem(((struct SetupIntroItem*)intro_record)->item_right);
                          }
                      }
@@ -6805,7 +6918,7 @@ index 677ea82..b21a53e 100644
                      break;
              }
      #ifdef DEBUG
-@@ -8938,6 +9517,37 @@ Gfx *maybe_mp_interface(Gfx *gdl)
+@@ -8938,6 +9616,37 @@ Gfx *maybe_mp_interface(Gfx *gdl)
      s32 i;
      s32 total;
  
@@ -6843,7 +6956,7 @@ index 677ea82..b21a53e 100644
      if (g_CurrentPlayer->cameramode == 1)
      {
          bondviewIntroCameraTextTick();
-@@ -8946,6 +9556,12 @@ Gfx *maybe_mp_interface(Gfx *gdl)
+@@ -8946,6 +9655,12 @@ Gfx *maybe_mp_interface(Gfx *gdl)
          gdl = sub_GAME_7F08AAE8(gdl);
          gdl = countdownTimerRender(gdl);
          gdl = currentPlayerDrawFade(gdl);
@@ -6856,7 +6969,7 @@ index 677ea82..b21a53e 100644
          return bondviewRenderCredits(gdl);
      }
  
-@@ -9085,6 +9701,9 @@ Gfx *maybe_mp_interface(Gfx *gdl)
+@@ -9085,6 +9800,9 @@ Gfx *maybe_mp_interface(Gfx *gdl)
      gdl = sub_GAME_7F08AAE8(gdl);
      gunDrawSight(&gdl);
      gdl = generate_ammo_total_microcode(gdl);
@@ -6866,7 +6979,7 @@ index 677ea82..b21a53e 100644
      gdl = countdownTimerRender(gdl);
      gdl = display_red_blue_on_radar(gdl);
      return currentPlayerDrawFade(gdl);
-@@ -9478,13 +10097,65 @@ s32 get_obj_collision_flag(void) {
+@@ -9478,13 +10196,65 @@ s32 get_obj_collision_flag(void) {
  /**
   * Address 0x7F089F98.
   */
@@ -6932,7 +7045,7 @@ index 677ea82..b21a53e 100644
      return g_CurrentPlayer->field_488.current_tile_ptr_for_portals->room;
  }
  
-@@ -9698,7 +10369,7 @@ void hudmsgsSetOff(s32 flags)
+@@ -9698,7 +10468,7 @@ void hudmsgsSetOff(s32 flags)
  
  
  #ifdef VERSION_US
@@ -6941,7 +7054,7 @@ index 677ea82..b21a53e 100644
  {
      copy_2ndfonttable = arg0;
      copy_1stfonttable = arg1;
-@@ -9902,7 +10573,11 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
+@@ -9902,7 +10672,11 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
              }
  
              view_vert = view_top - view_top_offset;
@@ -6954,7 +7067,7 @@ index 677ea82..b21a53e 100644
              arg0 = combiner_bayer_lod_perspective(textRenderOutlined(arg0, &view_left, &view_vert, stringbuffer_lowerleft[status_bar_text_buffer_index], BONDVIEW_2ND_FONTTABLE(status_bar_text_buffer_index), BONDVIEW_1ST_FONTTABLE(status_bar_text_buffer_index), -1, 0x646464FFU, (s16) (s32) viGetX(), (s16) viGetY(), 0, 0));
          }
      }
-@@ -10134,9 +10809,37 @@ s32 playerTick(PropRecord *prop)
+@@ -10134,9 +10908,37 @@ s32 playerTick(PropRecord *prop)
      s32 ret;
      s32 sub;
      PropRecord *leftprop;
@@ -6994,7 +7107,7 @@ index 677ea82..b21a53e 100644
      f32 angle;
      f32 frame;
      f32 local90;
-@@ -10148,7 +10851,7 @@ s32 playerTick(PropRecord *prop)
+@@ -10148,7 +10950,7 @@ s32 playerTick(PropRecord *prop)
      coord3d off;
      s32 i;
      s32 found;
@@ -7003,7 +7116,7 @@ index 677ea82..b21a53e 100644
      PropRecord *rightprop;
      struct WeaponObjRecord *leftobj;
      struct WeaponObjRecord *rightobj;
-@@ -10260,7 +10963,7 @@ s32 playerTick(PropRecord *prop)
+@@ -10260,7 +11062,7 @@ s32 playerTick(PropRecord *prop)
              {
                  cur = ppointers[index]->players_cur_animation;
   
@@ -7012,7 +7125,7 @@ index 677ea82..b21a53e 100644
                  {
                      found = 1;
                  }
-@@ -10273,7 +10976,7 @@ s32 playerTick(PropRecord *prop)
+@@ -10273,7 +11075,7 @@ s32 playerTick(PropRecord *prop)
              }
              else
              {
@@ -7021,7 +7134,7 @@ index 677ea82..b21a53e 100644
                  angle = 0.5f;
              }
   
-@@ -10455,7 +11158,7 @@ lean_return_to_centre:
+@@ -10455,7 +11257,7 @@ lean_return_to_centre:
   
              if (fa->anim != 0)
              {
@@ -7030,7 +7143,7 @@ index 677ea82..b21a53e 100644
              }
   
              angle *= fa->x;
-@@ -10468,7 +11171,9 @@ lean_return_to_centre:
+@@ -10468,7 +11270,9 @@ lean_return_to_centre:
  join_768:
          if ((firingtable != NULL) && (anim == 0))
          {
@@ -7041,7 +7154,7 @@ index 677ea82..b21a53e 100644
          }
   
          if (anim != cur)
-@@ -10729,7 +11434,8 @@ void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
+@@ -10729,7 +11533,8 @@ void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
  
      for (i = 0, j = 0; i < count; i++, j += sizeof(Mtxf))
      {
@@ -11948,7 +12061,7 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..dbcbe5b 100644
+index cb8e24a..dd17227 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
 @@ -1,3 +1,4 @@
@@ -11994,7 +12107,7 @@ index cb8e24a..dbcbe5b 100644
  
      #ifdef BUGFIX_R1
      jpD_800484CC = (f32) deltaFrames;
-@@ -72,6 +95,66 @@ void updateFrameCounters(s32 deltaFrames)
+@@ -72,6 +95,89 @@ void updateFrameCounters(s32 deltaFrames)
   * Waits until the appropriate time has passed before updating the frame counters.
   * This function effectively controls the frame rate by waiting for the next tick.
   */
@@ -12035,33 +12148,56 @@ index cb8e24a..dbcbe5b 100644
 +    return ge_sim_tick_now;
 +}
 +
++/* File scope rather than function statics, because gePortSimAlpha() below reads them from
++ * the render path. */
++static s32 ge_sim_div = -1;
++static s32 ge_sim_phase = 0;
++
++/* How far the render should sit between the last simulation state and the current one, 0..1.
++ *
++ * Rendering interpolated means rendering ONE TICK BEHIND: at the instant of a tick the newest
++ * state is the far end of the interpolation, not the near end, so the near end is where the
++ * camera actually was a tick ago. That is the trade -- a divider of 2 costs about 33ms of
++ * view latency and buys motion that moves every frame instead of every other one. It is the
++ * standard bargain for a fixed timestep and it is worth naming rather than discovering.
++ *
++ * Returns exactly 1.0 at divider 1, where the current state IS the newest state and there is
++ * nothing to interpolate and no latency to pay. */
++f32 gePortSimAlpha(void)
++{
++    if (ge_sim_div <= 1) return 1.0f;
++    return (f32) ge_sim_phase / (f32) ge_sim_div;
++}
++
 +static void gePortSimAdvance(void)
 +{
-+    static s32 div = -1;
-+    static s32 phase = 0;
++    s32 div;
++    s32 phase;
 +
-+    if (div < 0) {
++    if (ge_sim_div < 0) {
 +        const char *e = getenv("GETV_SIMDIV");
-+        div = (e && *e) ? atoi(e) : 1;
-+        if (div < 1) div = 1;
-+        if (div > 8) div = 8;
-+        if (div > 1) {
++        ge_sim_div = (e && *e) ? atoi(e) : 1;
++        if (ge_sim_div < 1) ge_sim_div = 1;
++        if (ge_sim_div > 8) ge_sim_div = 8;
++        if (ge_sim_div > 1) {
 +            osSyncPrintf("[getv][simdiv] simulation runs 1 frame in %d; rendering every frame. "
-+                         "EXPERIMENTAL, expect judder without interpolation\n", div);
++                         "EXPERIMENTAL\n", ge_sim_div);
 +        }
 +    }
-+    if (div == 1) { ge_sim_tick_now = 1; return; }
++    if (ge_sim_div == 1) { ge_sim_tick_now = 1; return; }
 +
-+    phase++;
++    div   = ge_sim_div;
++    phase = ge_sim_phase + 1;
 +    if (phase >= div) { phase = 0; ge_sim_tick_now = 1; }
 +    else              { ge_sim_tick_now = 0; }
++    ge_sim_phase = phase;
 +}
 +
 +
  void waitForNextFrame(void) //maybe WaitForTick
  {
    u32 nextFrameTime; //next frame time?
-@@ -84,7 +167,32 @@ void waitForNextFrame(void) //maybe WaitForTick
+@@ -84,7 +190,32 @@ void waitForNextFrame(void) //maybe WaitForTick
      #endif
    } while (nextFrameTime < frameDelay);
  
