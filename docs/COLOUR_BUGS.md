@@ -94,3 +94,53 @@ chosen by the surface struck, and scripted runs only ever resolve rows 1, 2 and 
 `~/Desktop/GoldenEye-Diagnose.command` captures a real session with `GETV_IMPACT`,
 `GETV_CIPROBE` and `GETV_LIGHTTRACE` together, which is worth more than another round of
 guessing.
+
+---
+
+## 4. The impact DECAL cannot be the paintball colours. Proof.
+
+`tex.c` holds every hit-type group, and each lists the impact rows that surface may use:
+
+```
+default {0x7}   stone {0x1}   wood {0x1}   metal {0x7}   glass {0x4,0x5,0x6}
+water {0}       snow {0x1}    dirt {0x2}   mud {0x2}     tile {0x1}
+metalobj {0x1,0x7}            character {0x2}            glass_xlu {0x11,0x12,0x13}
+```
+
+🔑 **No group contains `0x10`.** Row 16 is the only row with `apptype 2`, the per-channel
+random 0/0xff that produces the paintball palette, and **no surface in the game can select
+it**. The single way in is `cheatIsActive(CHEAT_PAINTBALL)` overwriting `impact_type = 0x10`
+(`explosion.c:2025`), and that measures 0.
+
+Every reachable row is `apptype` 0 or 1, both greyscale. So the impact **decal** is incapable
+of drawing the reported colours, which explains why the unconditional apptype-2 tripwire never
+fires and why the harness could not reproduce it.
+
+⚠️ **Rows 8-15 are also unreachable** -- no group references them. Those are the RGBA16
+wall-holes, which is the independent reason `GETV_RGBA16BE` cannot affect impacts: the rows
+that use that format are never selected.
+
+**So the coloured flash is a different object drawn at the same moment as the decal.**
+`chrprop.c` calls `check_if_imageID_is_light()` immediately after creating the impact, and
+there is a spark/light path there. That is where to look next, not at `g_ImpactTypes`.
+
+## 5. A real bug found on the way: the hit-type byte pun
+
+`chrprop.c` selected the hit type with `((u8 *) (&g_Textures[n]))[0] & 0xf`.
+
+`struct image_entry` is a **bitfield**: `hitSound:4`, then `hitTexture:4`, then
+`dataoffset:24`. On big-endian MIPS the first-declared bitfield takes the HIGH bits of byte 0,
+so that expression yields **hitTexture**. On little-endian arm64 the first field takes the LOW
+bits, so the identical expression yields **hitSound**. Same source, different field.
+
+Every other site already uses the names, and consistently: `chr.c:4252` and `:4270` take
+**hitTexture** for the visual impact, `gunfire.c:3134-3139` take **hitSound** for the audio.
+The pun was the only site not doing so, and it feeds a visual, so it means `hitTexture`.
+
+Now selected by name, with `GETV_HITSEL` to A/B it (0 = the pun, 1 = hitSound, 2 = hitTexture,
+default 2).
+
+⚠️ **Scope, honestly measured: 3 textures of 2698.** `hitSound` and `hitTexture` are equal
+everywhere except three `HIT_GLASS` / `HIT_GLASS_XLU` pairs, so the pun was accidentally right
+2695 times. Shooting translucent glass got the wrong impact group; nothing else did. **This is
+not the paintball cause** and must not be reported as one.

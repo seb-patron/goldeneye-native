@@ -11002,7 +11002,7 @@ index 1e9f186..7e96c35 100644
              IFICouldSeeBond(lblNext)
              GotoNext(lblRunning)
 diff --git a/src/game/chrprop.c b/src/game/chrprop.c
-index 67c901c..eb733c3 100644
+index 67c901c..c6a8f9c 100644
 --- a/src/game/chrprop.c
 +++ b/src/game/chrprop.c
 @@ -1,4 +1,5 @@
@@ -11304,7 +11304,50 @@ index 67c901c..eb733c3 100644
      for (k = 0; k < 10; k++)
      {
          if (shotdata.hits[k].prop != 0)
-@@ -1151,7 +1374,33 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1118,7 +1341,41 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+             }
+             else
+             {
+-                impact_sounds = g_HitTypeSounds[((u8 *) (&g_Textures[bghit.texturenum]))[0] & 0xf];
++                /* GETV_HITSEL: which nibble of image_entry actually selects the hit type.
++                 *
++                 * struct image_entry is a BITFIELD: hitSound:4 then hitTexture:4 then
++                 * dataoffset:24. The byte pun below reads byte 0 and masks the low nibble.
++                 * On big-endian MIPS the first-declared bitfield occupies the HIGH bits of
++                 * byte 0, so that expression yields hitTexture. On little-endian arm64 the
++                 * first field occupies the LOW bits, so the identical expression yields
++                 * hitSound. Same source, different field, different impact row -- and the
++                 * row decides the impact's colours, which is the paintball report.
++                 *
++                 * 0 = the byte pun as written (whatever this platform gives)
++                 * 1 = hitSound by name        2 = hitTexture by name
++                 * Default is 2, which is what the N64 expression resolves to. */
++                {
++                    static s32 sel = -1;
++                    u32 raw = (u32)(((u8 *) (&g_Textures[bghit.texturenum]))[0] & 0xf);
++                    u32 hs  = (u32) g_Textures[bghit.texturenum].hitSound;
++                    u32 ht  = (u32) g_Textures[bghit.texturenum].hitTexture;
++                    u32 use;
++                    if (sel < 0) {
++                        const char *e = getenv("GETV_HITSEL");
++                        sel = (e && *e) ? atoi(e) : 2;
++                    }
++                    use = (sel == 0) ? raw : ((sel == 1) ? hs : ht);
++                    {
++                        static s32 tr = -1;
++                        if (tr < 0) { const char *e2 = getenv("GETV_HITTRACE"); tr = (e2 && *e2 && *e2 != '0'); }
++                        if (tr) {
++                            osSyncPrintf("[getv][hitsel] tex=%d bytepun=%u hitSound=%u "
++                                         "hitTexture=%u using=%u\n",
++                                         (s32) bghit.texturenum, raw, hs, ht, use);
++                        }
++                    }
++                    impact_sounds = g_HitTypeSounds[use & 0xf];
++                }
+             }
+ 
+             if (createSpark)
+@@ -1151,7 +1408,33 @@ void chraiDefaultWeaponFireHandler(s32 hand)
              {
                  recall_joy2_hits_edit_flag(shotdata.weapon, finalpos, besttexture);
  
@@ -11339,7 +11382,7 @@ index 67c901c..eb733c3 100644
                  {
                      rooms[0] = bestroom;
                      rooms[1] = 255;
-@@ -1171,6 +1420,36 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1171,6 +1454,36 @@ void chraiDefaultWeaponFireHandler(s32 hand)
              }
          }
      }
@@ -11376,7 +11419,7 @@ index 67c901c..eb733c3 100644
  }
  
  
-@@ -1180,7 +1459,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1180,7 +1493,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
   * Hitscans gather candidate hits along the bullet path. This function records each candidate hit into shotdata
   * and enforces pentration limits and removes hits that should be blocked by closer objects.
   */
@@ -11385,7 +11428,7 @@ index 67c901c..eb733c3 100644
  {
      s32 pad;
      s32 i;
-@@ -1893,6 +2172,318 @@ void chrpropTick(void)
+@@ -1893,6 +2206,318 @@ void chrpropTick(void)
  }
  
  
@@ -11704,7 +11747,7 @@ index 67c901c..eb733c3 100644
  /*
  * Address: 0x7F03CA30
  * PD: propsTick (src/game/proptick.c)
-@@ -1965,6 +2556,14 @@ void propsTick(void)
+@@ -1965,6 +2590,14 @@ void propsTick(void)
          loop_set_sound_effect_all_slots();
          propsDefragRoomProps();
      }
