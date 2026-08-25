@@ -11,7 +11,8 @@ problem actually fixed rather than worked around.
 ## What you get
 
 - **All 27 stages**, single player and split-screen multiplayer, 64 characters, radar.
-- **Co-op in the campaign, bots and an agent API** in alpha. [What that means](#in-alpha-in-the-open).
+- **Bots that fight**, 18 archetypes compiled to the game's own AI bytecode. Co-op, an agent
+  API and LAN are alpha. [What that means](#in-alpha-in-the-open).
 - **Mouse and keyboard**, on by default. Sensitivity, invert, ESC to release the cursor.
 - **Any controller you already own.** DualSense, DualShock 4, Xbox, Switch Pro, 8BitDo.
   Both sticks live, bindings per player.
@@ -414,20 +415,34 @@ authority multiplayer needs. This is the seam bots, external agents and future n
 share, which is why it was built once instead of three times.
 [`docs/PLAYER_API.md`](docs/PLAYER_API.md).
 
-**Bots.** A first bot runs against that API. It does not play yet. What makes this tractable is
-something the decompilation exposed: GoldenEye already carries a behaviour VM. 250 AI opcodes
-with a program counter, conditional branches and subroutine calls, driving every guard in the
-campaign and exercised by twenty levels of shipped content. Bots are assembly over machinery
-that already runs, not a new AI system.
-[`docs/BOTS.md`](docs/BOTS.md).
+**Bots.** Eighteen archetypes, compiled to bytecode the game's own AI interpreter runs.
+`GETV_BOT_AI=hard` spawns one into a level with its list attached.
+
+That works because of what the decompilation exposed: GoldenEye already carries a behaviour
+VM. 250 AI opcodes with a program counter, conditional branches and subroutine calls, driving
+every guard in the campaign. Our archetypes compile into the same instruction set --
+`guard_set_speed_rating`, `if_guard_sees_bond`, `guard_try_fire_or_aim_at_target` -- read from
+the game's own headers so an upstream change breaks the build instead of producing a bot that
+runs the wrong instruction. All 18 fit in 596 bytes.
+
+What is not done, stated plainly: they spawn, and whether they then engage is unverified --
+a scripted run with a bot spawned leaves the player on full health, same as without one. They
+also spawn as characters rather than into a player slot, so scoreboard, respawn and character
+select come with the slot work. [`docs/BOTS.md`](docs/BOTS.md).
 
 Supporting that, every stage now carries extracted level knowledge: the navigation graph,
 objectives resolved to positions from the game's own structures, and 537 nuance entries across
 all 20 campaign missions and all 17 arenas.
 
-**LAN and online are not started**, and the research that will shape them is done: not
-lockstep, client-server with prediction, for reasons written up with the measurements behind
-them.
+**LAN and online.** A lockstep session exists over the same input seam: only inputs travel,
+twelve bytes a tick, with a state fingerprint exchanged once a second so divergence is caught
+where it starts rather than discovered later.
+
+It is honestly disputed in this repository. [`docs/NETPLAY.md`](docs/NETPLAY.md) argues for
+lockstep; [`docs/PLAYER_API.md`](docs/PLAYER_API.md) argues against it from measurements --
+Streets is verified nondeterministic across processes, and PAL and NTSC clients can never
+share a session. Both documents are kept and both say so. The determinism audit that settles
+it has not been run.
 
 ## Configuration
 
