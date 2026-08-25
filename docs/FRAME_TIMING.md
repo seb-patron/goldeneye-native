@@ -237,10 +237,52 @@ is a much deeper change than a cadence conversion and is not being smuggled in h
 **Practical consequence: divider 2 is fully correct for fire rate, divider 4 is not.** That is
 worth knowing before anyone ships a 4.
 
-### Still open
+### Beam creation: simulation work in a render function
 
-Reload timing, turret delay and reaction stepping are still tick-counted. The method is now
-established -- find the tick counter, check whether a field-denominated twin already exists
-beside it, and A/B the conversion across dividers with the divider-1 case as the proof of
-equivalence -- and each remaining conversion needs checking against retail behaviour
-individually.
+Found by `tools/divider_audit.py`, not by reading code.
+
+`gunRenderFirstPersonGunModels` creates the bullet beam, gated on `weapon_firing_status`.
+That function runs once per **rendered** frame, and the flag is set by the **simulation** and
+stays set until the next tick clears it. At divider 1 that is one render per tick and one beam
+per shot. At divider 2 the render runs twice per tick, so one shot spawned **two** beams:
+measured at exactly 2x (78 against 39, 100 against 50) while `shots` was identical.
+
+Beams are not decoration -- they carry a lifetime, they are traced, and they are what guards
+react to -- so double-spawning is a simulation error, not a cosmetic one. Now gated on
+`gePortSimShouldTick()`, which is always 1 at divider 1, so retail behaviour is unchanged.
+
+🔑 **This is the class of bug the interpolation work predicted**: render-path code mutating
+simulation state. Anything that both runs per frame and writes game state is suspect under a
+divider, and the audit tool is how the rest get found.
+
+### The audit tool
+
+`tools/divider_audit.py` runs one scripted scenario at several dividers and compares every
+numeric field of the per-frame trace at matched frames, which is matched real time. A
+time-correct system reads the same at frame N whatever the divider; one counting iterations
+drifts in proportion.
+
+⚠️ **It ranks by MEAN drift, not peak.** Peak alone reported five false positives -- `st`,
+`lock`, `hinv`, `hitem` and `xhair` all hit 100% peak from a single-frame timing offset on a
+field that steps. A genuinely quantised system is wrong on most frames, not one.
+
+### Where step 3 stands
+
+**Divider 2 is clean.** Every observable is under 5% mean drift and nothing is flagged.
+
+| system | verdict | how established |
+|---|---|---|
+| automatic fire rate | **was quantised, fixed** | tick modulo → time crossing |
+| beam creation | **was double-spawning, fixed** | audit tool, 2x at divider 2 |
+| reload timing | already time-correct | 376 frames vs 378, 0.5% |
+| tank turret | already time-correct | divides by `g_GlobalTimerDelta` |
+| shots / traces / objhit | time-correct | 0.0% drift at divider 2 |
+
+⚠️ **"Turret delay and guard reaction stepping" was my own earlier guess, not a finding.**
+The turret turns out to have been time-correct all along. Reaction stepping is still
+**unmeasured** -- guards did not engage on the scripted paths tried, so there is no number for
+it yet, and it should not be listed as either fixed or broken.
+
+**Divider 4 is limited, not quantised.** `shots`, `beams`, `traces` and `objhit` all show the
+same 22.5% drift and move together, because they are all downstream of `shots` and inherit the
+saturation ceiling above: a weapon cannot fire more often than the simulation ticks.

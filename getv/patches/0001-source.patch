@@ -13734,7 +13734,7 @@ index 1ce99c4..2d06f51 100644
 +
  #endif
 diff --git a/src/game/gunfire.c b/src/game/gunfire.c
-index e9a970f..2e625c6 100644
+index e9a970f..fc78229 100644
 --- a/src/game/gunfire.c
 +++ b/src/game/gunfire.c
 @@ -37,6 +37,198 @@
@@ -13936,7 +13936,7 @@ index e9a970f..2e625c6 100644
  
  #ifdef REFRESH_PAL
  #define THROWN_ITEM_REFRESH_RATE 50
-@@ -112,6 +304,301 @@ typedef struct ModelHeader {
+@@ -112,7 +304,303 @@ typedef struct ModelHeader {
      ModelNode *attachedto_objinst;
  } ModelHeader;
  
@@ -14236,9 +14236,11 @@ index e9a970f..2e625c6 100644
 +#endif
 +
  void gunCreateBeamForHand(enum GUNHAND hand);
++extern s32 gePortSimShouldTick(void);
  void bullet_path_from_screen_center(coord3d *arg0, coord3d *arg1, enum GUNHAND arg2);
  void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
-@@ -356,6 +843,7 @@ void gunUpdateAndFire(GUNHAND handnum)
+ s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
+@@ -356,6 +844,7 @@ void gunUpdateAndFire(GUNHAND handnum)
      s32 sw7mtxidx;
      s32 shellidx;
      u8 stackpad2[4];
@@ -14246,7 +14248,7 @@ index e9a970f..2e625c6 100644
  
      flashvisptr = NULL;
      flashdata = NULL;
-@@ -612,11 +1100,28 @@ void gunUpdateAndFire(GUNHAND handnum)
+@@ -612,11 +1101,28 @@ void gunUpdateAndFire(GUNHAND handnum)
                  osSyncPrintf("Increase GUNSAVESIZE to %d!!! ", mdlhdr->numRecords);
          }
  #endif
@@ -14275,7 +14277,7 @@ index e9a970f..2e625c6 100644
          sub_GAME_7F05E978(model, 1);
          sub_GAME_7F05EA94(model, hand->field_87E);
          node = mdlhdr->Switches[1];
-@@ -625,7 +1130,11 @@ void gunUpdateAndFire(GUNHAND handnum)
+@@ -625,7 +1131,11 @@ void gunUpdateAndFire(GUNHAND handnum)
          {
              if (&node->Data->Switch);
  
@@ -14287,7 +14289,7 @@ index e9a970f..2e625c6 100644
          }
  
          if (mdlhdr->Switches[3] != NULL)
-@@ -633,7 +1142,14 @@ void gunUpdateAndFire(GUNHAND handnum)
+@@ -633,7 +1143,14 @@ void gunUpdateAndFire(GUNHAND handnum)
              flashdata = (f32 *) mdlhdr->Switches[3]->Data;
          }
  
@@ -14302,7 +14304,7 @@ index e9a970f..2e625c6 100644
  
          if ((bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_MIRROR_DUAL) != 0) && (handnum == GUNLEFT))
          {
-@@ -797,9 +1313,15 @@ void gunUpdateAndFire(GUNHAND handnum)
+@@ -797,9 +1314,15 @@ void gunUpdateAndFire(GUNHAND handnum)
                          flashpos.x = (((((f32 *) nodepos)[0] * flashmtx.m[0][0]) + (((f32 *) nodepos)[1] * flashmtx.m[1][0])) + (((f32 *) nodepos)[2] * flashmtx.m[2][0])) + flashmtx.m[3][0];
                          flashpos.y = (((((f32 *) nodepos)[0] * flashmtx.m[0][1]) + (((f32 *) nodepos)[1] * flashmtx.m[1][1])) + (((f32 *) nodepos)[2] * flashmtx.m[2][1])) + flashmtx.m[3][1];
                          flashpos.z = (((((f32 *) nodepos)[0] * flashmtx.m[0][2]) + (((f32 *) nodepos)[1] * flashmtx.m[1][2])) + (((f32 *) nodepos)[2] * flashmtx.m[2][2])) + flashmtx.m[3][2];
@@ -14320,7 +14322,28 @@ index e9a970f..2e625c6 100644
                          matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
                          matrix_4x4_multiply_in_place(&aimmtx, &flash2mtx);
                          matrix_row_3_scalar_multiply(flashext, flash2mtx.m[0]);
-@@ -927,6 +1449,82 @@ void gunUpdateAndFire(GUNHAND handnum)
+@@ -893,7 +1416,19 @@ void gunUpdateAndFire(GUNHAND handnum)
+ 
+         modelUpdateNodeRelations(model);
+ 
+-        if (hand->weapon_firing_status != 0)
++        /* Beam creation is SIMULATION work sitting in a render function.
++         *
++         * gunRenderFirstPersonGunModels runs once per rendered frame, and
++         * weapon_firing_status is set by the simulation and stays set until the next tick
++         * clears it. At divider 1 that is one render per tick and one beam per shot. At
++         * divider 2 the render runs twice per tick, so a single shot spawns two beams --
++         * measured, beams ran exactly 2x at SIMDIV=2 while shots was identical.
++         *
++         * Beams are not decoration: they carry a lifetime, they are traced, and guards react
++         * to them, so spawning double is a simulation error and not a cosmetic one. Gating on
++         * the tick is the fix; at divider 1 gePortSimShouldTick() is always 1 and this is
++         * exactly the behaviour that existed before. */
++        if (hand->weapon_firing_status != 0 && gePortSimShouldTick())
+         {
+             switch (item)
+             {
+@@ -927,6 +1462,82 @@ void gunUpdateAndFire(GUNHAND handnum)
          }
      }
  
@@ -14403,7 +14426,7 @@ index e9a970f..2e625c6 100644
      if (item == ITEM_ROCKETLAUNCH)
      {
          gunUpdateAttachedRocket(handnum);
-@@ -1124,6 +1722,7 @@ void gunCreateBeamForHand(enum GUNHAND hand)
+@@ -1124,6 +1735,7 @@ void gunCreateBeamForHand(enum GUNHAND hand)
      f32 diff2_x;
      BeamRecord *weapon_beam;
  
@@ -14411,7 +14434,7 @@ index e9a970f..2e625c6 100644
      hand_ptr = &g_CurrentPlayer->hands[hand];
      player_matrix = camGetWorldToScreenMtxf();
  
-@@ -1426,7 +2025,7 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
+@@ -1426,7 +2038,7 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
              cmd->words.w0 = _SHIFTL(G_MTX, 24, 8)
                  | _SHIFTL(G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH, 16, 8)
                  | _SHIFTL(sizeof(Mtx), 0, 16);
@@ -14420,7 +14443,7 @@ index e9a970f..2e625c6 100644
          }
  
          if (flash->item_id == ITEM_LASER)
-@@ -1492,15 +2091,53 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
+@@ -1492,15 +2104,53 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
      ModelRenderData renderdata;
      s32 handnum;
      Model *model;
@@ -14479,7 +14502,7 @@ index e9a970f..2e625c6 100644
          {
              continue;
          }
-@@ -1518,11 +2155,11 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
+@@ -1518,11 +2168,11 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
   
          gSPPerspNormalize(gdl++, matrix_4x4_calc_depth_scale(0.0f, 300.0f));
   
@@ -14494,7 +14517,7 @@ index e9a970f..2e625c6 100644
   
              if (rwdata != NULL) 
              {
-@@ -1532,11 +2169,11 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
+@@ -1532,11 +2182,11 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
              if (item == ITEM_ROCKETLAUNCH) 
              {
                  save_img_index_to_obj_ani_slot(&g_UnknownAnimController, crosshairimage);
@@ -14508,7 +14531,7 @@ index e9a970f..2e625c6 100644
              }
          }
   
-@@ -1577,7 +2214,29 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
+@@ -1577,7 +2227,29 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
              }
          }
   
@@ -14539,7 +14562,7 @@ index e9a970f..2e625c6 100644
          gdl = renderdata.gdl;
   
          if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_MIRROR_DUAL) != 0) 
-@@ -1585,24 +2244,43 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
+@@ -1585,24 +2257,43 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
              gSPClearGeometryMode(gdl++, G_CULL_BOTH);
          }
   
@@ -14586,7 +14609,7 @@ index e9a970f..2e625c6 100644
      ModelHeader model;
      u8 spb8[0x80];
      s32 padb4;
-@@ -1612,6 +2290,17 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1612,6 +2303,17 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
      s32 i;
      s32 j;
      ModelFileHeader *bodymodel;
@@ -14604,7 +14627,7 @@ index e9a970f..2e625c6 100644
  
      if ((itemid == ITEM_TRIGGER) || (itemid == ITEM_WATCHLASER))
      {
-@@ -1637,6 +2326,9 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1637,6 +2339,9 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
          goto earlyreturn;
      }
  
@@ -14614,7 +14637,7 @@ index e9a970f..2e625c6 100644
      matrices = dynAllocate(bodymodel->numMatrices << 6);
      
      for (i = 0; i < bodymodel->numMatrices; i++)
-@@ -1645,15 +2337,15 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1645,15 +2350,15 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
      }
  
      i = 0;
@@ -14635,7 +14658,7 @@ index e9a970f..2e625c6 100644
  
          if (rwdata != 0)
          {
-@@ -1700,13 +2392,63 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1700,13 +2405,63 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
          matrix_4x4_multiply(mtx, &sp74, &matrices[index]);
      }
  
@@ -14700,7 +14723,7 @@ index e9a970f..2e625c6 100644
  
                  if (rwdata != NULL)
                  {
-@@ -1716,7 +2458,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1716,7 +2471,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
  
              if ((*((ModelNode **) ((((u8 *) bodymodel->Switches) + j) + 0x5c))) != NULL)
              {
@@ -14709,7 +14732,7 @@ index e9a970f..2e625c6 100644
  
                  if (rwdata != NULL)
                  {
-@@ -1726,7 +2468,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1726,7 +2481,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
          }
      }
  
@@ -14718,7 +14741,7 @@ index e9a970f..2e625c6 100644
  
      if ((((((itemid == ITEM_GOLDENGUN) || (itemid == ITEM_RUGER)) || (itemid == ITEM_KNIFE)) || (itemid == ITEM_THROWKNIFE)) || (itemid == ITEM_SILVERWPPK)) || (itemid == ITEM_GOLDWPPK))
      {
-@@ -1736,9 +2478,18 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1736,9 +2491,18 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
  
      if (bodymodel->numSwitches >= 17)
      {
@@ -14738,7 +14761,7 @@ index e9a970f..2e625c6 100644
  
              if (rwdata != 0)
              {
-@@ -1762,7 +2513,38 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1762,7 +2526,38 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
      }
  
      renderdata.zbufferenabled = FALSE;
@@ -14778,7 +14801,7 @@ index e9a970f..2e625c6 100644
      gdl = renderdata.gdl;
      matrix_4x4_7F058C64();
      j = 0;
-@@ -1771,8 +2553,8 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
+@@ -1771,8 +2566,8 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
      {
          do
          {
@@ -14789,7 +14812,7 @@ index e9a970f..2e625c6 100644
              i++;
              j += 0x40;
          }
-@@ -1787,14 +2569,17 @@ earlyreturn:
+@@ -1787,14 +2582,17 @@ earlyreturn:
  }
  
  
@@ -14809,7 +14832,7 @@ index e9a970f..2e625c6 100644
  {
      sub_GAME_7F0634D8(arg0, arg1, arg2, 0xFF);
  }
-@@ -1865,8 +2650,36 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
+@@ -1865,8 +2663,36 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
      struct coord3d coord_node1_base;
      struct coord3d coord_node12_pos;
      struct coord3d coord_node12_base;
@@ -14846,7 +14869,7 @@ index e9a970f..2e625c6 100644
  
      sub_GAME_7F05DA8C(GUNRIGHT, 0x55);
  
-@@ -1876,13 +2689,16 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
+@@ -1876,13 +2702,16 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
      }
  
      objheader = g_CurrentPlayer->copy_of_body_obj_header;
@@ -14865,7 +14888,7 @@ index e9a970f..2e625c6 100644
      matrix_4x4_copy(basemtx, &matrices[0]);
      
      for (i = 1; i < 13; i++)
-@@ -1907,7 +2723,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
+@@ -1907,7 +2736,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
          matrix_4x4_multiply(basemtx, &sp41c, &matrices[i]);
      }
  
@@ -14874,7 +14897,7 @@ index e9a970f..2e625c6 100644
      renderdata.gdl = gdl;
  
      if (envcolour >= 0xff)
-@@ -1922,14 +2738,22 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
+@@ -1922,14 +2751,22 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
      }
  
      renderdata.zbufferenabled = TRUE;
@@ -14900,7 +14923,7 @@ index e9a970f..2e625c6 100644
      }
  
      matrix_4x4_7F058C88();
-@@ -1940,11 +2764,11 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
+@@ -1940,11 +2777,11 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
  
          if (node)
          {
@@ -14914,7 +14937,7 @@ index e9a970f..2e625c6 100644
  
          // Update the positions and/or rotations of the free floating buttons on the sides of the screen.
          for (i = 0; i < 13; i++)
-@@ -2155,16 +2979,22 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
+@@ -2155,16 +2992,22 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
              }
          }
  
@@ -14941,7 +14964,7 @@ index e9a970f..2e625c6 100644
          }
  
          matrix_4x4_7F058C88();
-@@ -2515,6 +3345,54 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
+@@ -2515,6 +3358,54 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
  /**
   * Address: 7F064B28
   */
@@ -14996,7 +15019,7 @@ index e9a970f..2e625c6 100644
  void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
  {
  #if defined(VERSION_US)
-@@ -2560,7 +3438,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -2560,7 +3451,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
      struct PropRecord *temp_v0_8;
      Weapon1PTransformKeyframe *sp74;
      f32 temp_f0_2;
@@ -15006,7 +15029,7 @@ index e9a970f..2e625c6 100644
      f32 temp_v1_9;
      struct hand *temp_v1_5;
      f32 un_f32_num = 0.0f;
-@@ -2616,7 +3495,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -2616,7 +3508,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
      Weapon1PTransformKeyframe *sp74;
      struct PropRecord *temp_v0_8;
      f32 temp_f0_2;
@@ -15016,7 +15039,7 @@ index e9a970f..2e625c6 100644
      f32 temp_v1_9;
      struct hand *temp_v1_5;
      f32 un_f32_num = 0.0f;
-@@ -3020,7 +3900,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -3020,7 +3913,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
                          && (currentPlayerGetIsAiming() == 0)
                          && (((s32) handptr->volley % 3) != 0)))
                  {
@@ -15025,7 +15048,7 @@ index e9a970f..2e625c6 100644
                      {
                          if ((getPlayerCount() == 1) || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0)))
                          {
-@@ -3089,6 +3969,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
+@@ -3089,6 +3982,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
  
                  handptr->weapon_ammo_in_magazine -= 1;
                  handptr->volley += 1;
@@ -15033,7 +15056,7 @@ index e9a970f..2e625c6 100644
              }
  
              if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
-@@ -4986,7 +5867,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+@@ -4986,7 +5880,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
      Mtxf rotmtx;
  #endif
      f32 rand;
@@ -15042,7 +15065,7 @@ index e9a970f..2e625c6 100644
      f32 frac;
  #if VERSION_EU
      s32 randlimit;
-@@ -5303,7 +6184,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+@@ -5303,7 +6197,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
      Mtxf rotmtx;
  #endif
      f32 rand;
@@ -15051,7 +15074,7 @@ index e9a970f..2e625c6 100644
      f32 frac;
  #if VERSION_EU
      s32 randlimit;
-@@ -5558,18 +6439,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5558,18 +6452,42 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      ModelFileHeader *model_header = casing->header;
      RenderPosView   *model_matrices = dynAllocate(model_header->numMatrices * sizeof(RenderPosView));
      ModelHead        model;
@@ -15096,7 +15119,7 @@ index e9a970f..2e625c6 100644
  
  #if defined(VERSION_EU)
      matrix_4x4_copy_eu(casing->rot_mtx, casing_model_mtx.m);
-@@ -5585,13 +6490,13 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5585,13 +6503,13 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
      matrix_4x4_multiply_homogeneous(
          camGetWorldToScreenMtxf(),
          &casing_model_mtx,
@@ -15112,7 +15135,7 @@ index e9a970f..2e625c6 100644
  
      // Offset 0x30 is m[3][0]; advancing the pointer checks translation X, Y and Z.
      while (axis_offset != 12)
-@@ -5622,7 +6527,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+@@ -5622,7 +6540,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
               (g_CurrentPlayer->tileColor.g << 16)) |
              (g_CurrentPlayer->tileColor.b << 8);
  
@@ -15121,7 +15144,7 @@ index e9a970f..2e625c6 100644
  
          *gdl = render_data.gdl;
  
-@@ -5849,7 +6754,12 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
+@@ -5849,7 +6767,12 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
   */
  Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7)
  {
@@ -15135,7 +15158,7 @@ index e9a970f..2e625c6 100644
  }
  
  
-@@ -5932,15 +6842,20 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -5932,15 +6855,20 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
      s32 rightx;
      s32 reserveammo;
      s32 magammo;
@@ -15158,7 +15181,7 @@ index e9a970f..2e625c6 100644
              weapon_left = getCurrentPlayerWeaponId(GUNLEFT);
              weapon_right = getCurrentPlayerWeaponId(GUNRIGHT);
  
-@@ -5969,12 +6884,33 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -5969,12 +6897,33 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                      && g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                      && !bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                  {
@@ -15193,7 +15216,7 @@ index e9a970f..2e625c6 100644
                          gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_r, (getPlayer_c_screenleft() + getPlayer_c_screenwidth()) - (f32)rightx, -1.0f,
  #if defined(VERSION_EU)
                              (viGetViewTop() + viGetViewHeight()) - 30, 0,
-@@ -6035,12 +6971,19 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
+@@ -6035,12 +6984,19 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                      && g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                      && !bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                  {
@@ -15214,7 +15237,7 @@ index e9a970f..2e625c6 100644
                          gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_l, getPlayer_c_screenleft() + (f32)leftx, -1.0f,
  #if defined(VERSION_EU)
                              (viGetViewTop() + viGetViewHeight()) - 30, 1,
-@@ -6108,7 +7051,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
+@@ -6108,7 +7064,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
      s32 ammotype;
      s32 reserveammo;
      s32 magammo;
@@ -15225,7 +15248,7 @@ index e9a970f..2e625c6 100644
      s32 textwidth;
      s32 pad;
  
-@@ -6124,14 +7069,34 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
+@@ -6124,14 +7082,34 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
              && g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
              && !bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
          {
@@ -15261,7 +15284,7 @@ index e9a970f..2e625c6 100644
  
                  // Draw the ammo icon
  #if defined(VERSION_EU)
-@@ -6201,13 +7166,21 @@ void gunSetSightVisible(s32 reason, bool visible)
+@@ -6201,13 +7179,21 @@ void gunSetSightVisible(s32 reason, bool visible)
  }
  
  
