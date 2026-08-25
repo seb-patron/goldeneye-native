@@ -1,0 +1,100 @@
+{
+  "level": "aztec",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Aztec is a bonus level and plays like one: both objectives are item uploads at fixed terminals, and the real content is a boss who cannot be out-shot in the open. It is the clearest case in the game of geometry beating firepower."
+  ],
+  "nuance": [
+    {
+      "id": "aztec-guidance-is-an-upload",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The guidance objective is completed by equipping the data item and using it on a disk reader, so there is nothing to shoot and no amount of combat advances it.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "equip_and_fire", "item": "guidance_data", "objective": 0 }
+    },
+    {
+      "id": "aztec-reader-behind-glass",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The disk reader sits behind bulletproof glass on a desk, so the approach is to the console rather than to the drive that is visible through it.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_close", "objective": 0, "followed_by": "use_terminal" }
+    },
+    {
+      "id": "aztec-launch-is-a-second-upload",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The launch objective is a separate item used on a different set of computers, so completing the guidance upload does not put the shuttle any closer to launching.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "equip_and_fire", "item": "launch_protocol_data", "objective": 1 }
+    },
+    {
+      "id": "aztec-guidance-before-launch",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The shuttle cannot be launched before its guidance is reprogrammed, so the two objectives are a fixed sequence rather than a pair.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "The level has exactly two objectives and the launch is the terminal one."
+    },
+    {
+      "id": "aztec-launch-starts-a-clock",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Using the launch data starts a countdown, so anything still wanted from the level has to be collected before that point.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "beat_timer", "objective": 1 }
+    },
+    {
+      "id": "aztec-jaws-needs-geometry",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The boss cannot be traded with in the open; the fight is won by staying out of his firing line using the stairway area, where he cannot bring his weapons to bear.",
+      "applies": { "phase": "boss" },
+      "action": { "verb": "fight_from_chokepoint", "at": "stairway" }
+    },
+    {
+      "id": "aztec-break-his-line-of-sight",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "He only fires along a clear straight line, so breaking line of sight stops incoming damage entirely rather than merely reducing it.",
+      "applies": { "phase": "boss" },
+      "action": { "verb": "avoid", "target": "open_firing_line" }
+    },
+    {
+      "id": "aztec-killing-him-spawns-reinforcements",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Killing the boss starts continuous enemy spawning, so where he dies decides how much pressure the rest of the level is done under.",
+      "applies": { "phase": "boss" },
+      "action": { "verb": "expect_alarm", "reason": "boss_death" }
+    },
+    {
+      "id": "aztec-kill-him-far-from-the-objectives",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because the spawning begins where he dies, he is led away from the terminals first so the objectives can be finished ahead of the reinforcements.",
+      "applies": { "phase": "boss" },
+      "action": { "verb": "approach_from", "prefer": "away_from_terminals" }
+    },
+    {
+      "id": "aztec-bring-ammunition",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The boss absorbs a great deal of damage, so the fight is planned around having enough ammunition rather than around a particular weapon.",
+      "applies": { "phase": "boss" },
+      "action": { "verb": "acquire_first", "item": "ammunition" }
+    }
+  ]
+}

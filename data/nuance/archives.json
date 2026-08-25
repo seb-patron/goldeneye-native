@@ -1,0 +1,100 @@
+{
+  "level": "archives",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Archives opens with the game's clearest anti-instinct moment: the player starts beside a weapon, and taking it is the wrong move. It is a useful level for testing whether a bot can follow situational rules that contradict its defaults."
+  ],
+  "nuance": [
+    {
+      "id": "archives-do-not-grab-the-gun",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The opening room holds a weapon on a table, but picking it up alerts the interrogators; the room is cleared unarmed and the weapon collected afterwards.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "wait_for", "target": "guards_down", "objective": 0 }
+    },
+    {
+      "id": "archives-melee-the-interrogators",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The two interrogators are taken down by melee rather than gunfire, which is the only fight in the game that opens this way.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prefer_weapon", "weapon": "melee", "for_objective": 0 }
+    },
+    {
+      "id": "archives-crouch-between-strikes",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "After the first interrogator drops the second opens fire, and crouching makes his shots miss while closing on him.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "crouch_at", "during": "second_interrogator", "objective": 0 }
+    },
+    {
+      "id": "archives-loot-the-room-before-leaving",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The door key, the pistol and its ammunition are all in the opening room, so leaving early means going the rest of the level short of all three.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "loot_from", "target": "interrogation_room", "item": "key_and_weapon" }
+    },
+    {
+      "id": "archives-natalya-comes-to-you",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Natalya's room only needs its door opened; she comes out and follows, and walking in is unnecessary.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "wait_for", "target": "natalya_exits", "objective": 1 }
+    },
+    {
+      "id": "archives-clear-before-opening-her-door",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Natalya starts following the moment her door opens and is killed by crossfire, so the surrounding rooms are cleared before she is released.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "clear_room_before", "objective": 1 }
+    },
+    {
+      "id": "archives-mishkin-gives-the-safe-key",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The safe key is handed over by Mishkin after his dialogue rather than found or looted, so the black box objective is gated behind a conversation.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "wait_for", "target": "mishkin_dialogue", "objective": 2 }
+    },
+    {
+      "id": "archives-do-not-shoot-mishkin",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Mishkin is a uniformed officer who reads as hostile but is the source of the safe key, so shooting him removes the route to an objective.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "no_fire_at", "target": "mishkin", "fails_objective": 2 }
+    },
+    {
+      "id": "archives-black-box-before-escaping",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Escaping with Natalya ends the level, so the black box must be recovered first.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_last", "objective": 3 },
+      "because": "Objective 3 is the level exit; unfinished objectives score as failed."
+    },
+    {
+      "id": "archives-exit-is-a-window",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The exit is a library window that has to be shot out and jumped through, not a door, so a bot looking for a door will never find the way out.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "shoot_lock", "target": "library_window", "objective": 3 }
+    }
+  ]
+}

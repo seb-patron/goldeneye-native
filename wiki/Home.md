@@ -21,6 +21,8 @@ Runs on **macOS**, **Linux** and **Windows** from one source tree.
 ## Modding
 
 - **[Lua mods](Lua-mods)** - `onFrame`, `onPlayerSpawn`, `onWeaponFire`, no rebuild
+- **[Player API](Player-API)** - tick-accurate input injection and state readout, the one seam
+  bots, external AI and future netplay all share
 - **[Behaviour gates](Configuration#gates)** - roughly 275 `GETV_*` switches
 - **[Modding overview](Modding)** - how the tree is arranged and where the seams are
 
@@ -33,9 +35,17 @@ Runs on **macOS**, **Linux** and **Windows** from one source tree.
 
 ## The short version of what works
 
-All 27 loadable stages boot, render and exit cleanly. Multiplayer works with split screen,
-radar and all 64 characters. Keyboard and mouse are on by default. Lua mods, a launcher,
-rulesets and horde mode all work. Co-op into single-player missions is alpha: players spawn
-and do not yet move.
+All 27 loadable stages boot, render and exit cleanly on **Windows, macOS and Linux** from one
+source tree. Multiplayer works with split screen, radar and all 64 characters. Keyboard and
+mouse are on by default, with a crouch key the original never had. Lua mods, a launcher,
+per-player bindings, rulesets and horde mode all work. FXAA and a CRT mod run through a shared
+post-process pass.
+
+The frame-timing problem is fixed rather than mitigated: the simulation runs on its own
+divider, the camera interpolates between ticks, and the systems that counted frames now count
+time. `GETV_SIMDIV=auto` picks the divider from your refresh rate.
+
+Two things are alpha and labelled as such. Co-op players spawn into single-player missions and
+do not move. Bots have a working input API and a first consumer, but do not yet play.
 
 Nothing here contains game data. You supply your own ROM.

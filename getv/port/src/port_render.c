@@ -244,6 +244,15 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortLuaFrame(rendered);
     }
 
+    /* Policies that drive a player slot, after the frame's state has settled so a bot decides
+     * on what it can actually see. It posts for the NEXT tick: the playback handler already ran
+     * for this frame, so posting "now" would be posting into the past. Unconditional and inert
+     * unless GETV_BOT names a slot. */
+    {
+        extern void gePortBotFrame(int frame);
+        gePortBotFrame(rendered);
+    }
+
     {
         static int trace = -1;
         if (trace == -1) {

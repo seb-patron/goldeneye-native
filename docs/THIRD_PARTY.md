@@ -212,7 +212,7 @@ before anything is compiled into the game.
 overlay in `getv/port/src/ge_imgui.cpp`, which is the substrate a launcher / debug UI is meant
 to be built on. MIT imposes nothing on the rest of the tree, and the build works without it --
 absent `libimgui.a`, the entry points compile to empty functions and `gfx_sdl2.c` needs no
-`#ifdef`. It is additionally off at runtime unless `GETV_IMGUI=1`, so having it installed does
+`#ifdef`. It is also off at runtime unless `GETV_IMGUI=1`, so having it installed does
 not change how the game behaves. Upstream is
 `https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz`, sha256
 `8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb`, checked by the fetch script
@@ -227,7 +227,7 @@ restore the bound shader program or array buffer itself (its own source says so)
 `ge_imgui.cpp` saves and clears both around the draw. Both files carry that reasoning in full.
 
 **`Graslu/1964GEPD` -- GPL-2.0, quarantined (checked 2026-08-24).** A fork of Joel Middendorf's
-1964 emulator (1999-2002) carrying GoldenEye and Perfect Dark fixes, notably around input and
+1964 emulator (1999-2002) carrying GoldenEye and Perfect Dark fixes, mostly around input and
 frame pacing. It joins GoldenRecomp, `cblock85/GoldenEye64Recomp` and `chrissotraidis/goldenpad`
 on the do-not-read list, and for a reason worth stating explicitly: **permission from the fork's
 maintainer would not be sufficient.** The upstream emulator is someone else's GPL work, so a fork

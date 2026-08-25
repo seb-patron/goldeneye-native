@@ -1,0 +1,109 @@
+{
+  "level": "egypt",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Egypt is the game's last bonus level and breaks the rules the rest of the game teaches: the floor is hostile, the objective is a trap, and the boss appears to die repeatedly without dying. A bot trained on the campaign will read every one of those signals wrong."
+  ],
+  "nuance": [
+    {
+      "id": "egypt-floor-tiles-are-traps",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Tiles in the gun room trigger drone guns when stepped on, so the floor itself is a hazard and open ground cannot be treated as safe.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "avoid", "target": "trapped_floor_tile" }
+    },
+    {
+      "id": "egypt-there-is-a-safe-path",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A specific route across the tiles reaches the gun without triggering anything, so the room is a path-finding problem rather than a fight to survive.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_from", "prefer": "safe_tile_path", "objective": 0 }
+    },
+    {
+      "id": "egypt-the-trap-drones-are-invulnerable",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The drone guns that emerge from the tiles cannot be destroyed, so once triggered the only answer is to leave their line of fire rather than fight them.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "avoid", "target": "trap_drone" }
+    },
+    {
+      "id": "egypt-taking-the-gun-springs-the-room",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Picking up the gun raises glass around the pedestal and brings out several guns at once, so the escape route matters more than the approach did.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "expect_alarm", "at": "golden_gun_pedestal", "objective": 0 }
+    },
+    {
+      "id": "egypt-gun-before-boss",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The golden gun is recovered before the confrontation, both because it is the earlier objective and because it is the weapon that makes the confrontation short.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "The level has exactly two objectives and the confrontation is the terminal one."
+    },
+    {
+      "id": "egypt-golden-gun-one-shot",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The recovered gun kills in a single hit, which is why the objective order is worth respecting rather than rushing the boss with a carried weapon.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "prefer_weapon", "weapon": "golden_gun", "for_objective": 1 }
+    },
+    {
+      "id": "egypt-the-first-kills-are-fakes",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The boss appears in several places and drops without dying; a kill that is followed by laughter was an impostor and the objective has not advanced.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "wait_for", "target": "real_samedi", "objective": 1 }
+    },
+    {
+      "id": "egypt-fakes-must-be-cleared-first",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The real encounter does not become available until the impostors have been dealt with, so the repeated fights are a prerequisite rather than a distraction.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_before", "objective": 1, "then": 1 }
+    },
+    {
+      "id": "egypt-darkness-signals-the-last-phase",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The sky darkening is the game's signal that the impostors are done and the real encounter is now reachable, which is the only cue given.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "wait_for", "target": "sky_darkens", "objective": 1 }
+    },
+    {
+      "id": "egypt-real-fight-is-behind-a-hidden-door",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The final room is reached through a concealed door back in the room where the boss was first seen, so the route doubles back rather than continuing forward.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "approach_from", "prefer": "first_encounter_room", "objective": 1 }
+    },
+    {
+      "id": "egypt-miniguns-guard-the-approach",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The passage to the final room is covered by emplaced guns, so the last stretch is run under fire and cannot be cleared first.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "exit_immediately", "after_objective": 0 }
+    }
+  ]
+}

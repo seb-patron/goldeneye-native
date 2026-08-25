@@ -1,0 +1,84 @@
+{
+  "level": "streets",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Streets is the level where the player's most powerful weapon is also the fastest way to fail: the tank makes the route survivable and its main gun kills the civilians the mission requires be spared."
+  ],
+  "nuance": [
+    {
+      "id": "streets-tank-is-the-route",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The pursuit is done in the tank rather than on foot; the streets are long and open and the tank is what makes crossing them survivable.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "use_vehicle", "vehicle": "tank", "objective": 1 }
+    },
+    {
+      "id": "streets-dont-fire-the-main-gun",
+      "kind": "threat",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The tank's explosive shell kills civilians in a wide radius, so the mission is driven rather than shot; the gun is the single biggest cause of failing the casualty objective.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "no_fire_at", "target": "street_level", "fails_objective": 2 },
+      "because": "Objective 2 is a standing casualty constraint that runs for the whole level, and the tank shell is the only wide-radius weapon available."
+    },
+    {
+      "id": "streets-civilians-are-everywhere",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Civilians share the streets with the soldiers throughout, so there is no stretch of the level where undirected fire is safe.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "no_fire_at", "target": "civilian", "fails_objective": 2 }
+    },
+    {
+      "id": "streets-drive-around-not-through",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Driving through crowds runs civilians down and counts against the casualty objective just as shooting them does, so the tank is steered around them.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "avoid", "target": "civilian" }
+    },
+    {
+      "id": "streets-valentin-buys-time",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Contacting Valentin is only required above Agent, and his dialogue delays the pursuit, so it is done before the chase rather than during it.",
+      "applies": { "objective": 0, "difficulty": "secret+" },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "Objective 0 carries a minimum difficulty above Agent while objective 1 does not."
+    },
+    {
+      "id": "streets-valentin-is-down-an-alley",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Valentin is found off the main route through the back alleys, so reaching him means deliberately leaving the road the pursuit follows.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_from", "prefer": "back_alley", "objective": 0 }
+    },
+    {
+      "id": "streets-valentin-needs-waiting",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The contact completes through dialogue, so the objective needs the player to hold position until Valentin has finished speaking.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "wait_for", "target": "valentin_dialogue", "objective": 0 }
+    },
+    {
+      "id": "streets-gate-ends-the-level",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Reaching the gate at the end of the pursuit ends the mission, so nothing can be collected afterwards.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_last", "objective": 1 },
+      "because": "Objective 1 is the level exit; unfinished objectives score as failed."
+    }
+  ]
+}

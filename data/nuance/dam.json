@@ -1,0 +1,135 @@
+{
+  "level": "dam",
+  "notes": [
+    "Human play-nuance as structured facts, machine-usable. No guide prose is stored -- facts were read from community walkthroughs and rewritten as actions a bot can execute.",
+    "Every tag, node and objective reference is checked against the extracted data by tools/gen_level_nuance.py, so an entry cannot quietly drift out of agreement with the level.",
+    "The alarm identifications below are a genuine cross-check: the guides describe three alarms in towers along the dam wall plus one by the modem building, and the extracted positions independently show tags 0/1/2 sharing a Y and Z and spread along X (a wall line) with tag 3 far away beside the modem. Neither source knew about the other."
+  ],
+  "nuance": [
+    {
+      "id": "dam-bungee-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The bungee jump ends the mission the instant it is taken, so it must be attempted last.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_last", "objective": 3 },
+      "because": "Objective 3's completion is the level exit; anything unfinished scores as failed."
+    },
+    {
+      "id": "dam-modem-before-backup",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The covert modem must be installed before the data backup can be intercepted.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_before", "objective": 1, "then": 2 },
+      "because": "The game states the dependency in its own failure text: without the modem, MI6 cannot intercept the data."
+    },
+    {
+      "id": "dam-alarms-are-secret-agent-plus",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The alarms only need destroying on Secret Agent and above.",
+      "applies": { "objective": 0, "difficulty": "secret+" },
+      "action": { "verb": "skip_below_difficulty", "objective": 0, "difficulty": "secret" },
+      "because": "ObjectiveStart for objective 0 carries DIFFICULTY_SECRET as its minimum."
+    },
+
+    {
+      "id": "dam-tower-alarms",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Three of the four alarms sit in the guard towers spaced along the dam wall, so they are cleared as one sweep down the wall rather than as three separate trips.",
+      "applies": { "objective": 0, "tags": [0, 1, 2] },
+      "action": { "verb": "sweep_along", "tags": [0, 1, 2], "axis": "x" },
+      "because": "The three share Y and Z within a few units and differ only in X, which is a line along the wall; the guides describe exactly three tower alarms."
+    },
+    {
+      "id": "dam-modem-alarm",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The fourth alarm is beside the modem building, well away from the wall, and is best taken while doing the modem objective rather than as a detour.",
+      "applies": { "objective": 0, "tags": [3] },
+      "action": { "verb": "collect_during", "tag": 3, "objective": 1 },
+      "because": "Tag 3 is roughly 2200 units off the wall line the other three sit on."
+    },
+    {
+      "id": "dam-silenced-pp7-for-alarms",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Destroy alarms with the silenced PP7; an unsilenced shot near a tower draws the guards who would otherwise trip it.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prefer_weapon", "weapon": "pp7_silenced", "for_objective": 0 }
+    },
+    {
+      "id": "dam-shoot-the-runner",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A guard who spots you will run for the nearest alarm; killing the runner takes priority over any other target, because a tripped alarm summons reinforcements indefinitely.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prioritise_target", "target": "guard_running_to_alarm", "over": "all" }
+    },
+    {
+      "id": "dam-sniper-in-the-tower",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A sniper rifle is available in the guard tower at the start; picking it up first makes the whole wall section safe to clear at range.",
+      "applies": { "phase": "opening" },
+      "action": { "verb": "acquire_first", "weapon": "sniper_rifle" }
+    },
+    {
+      "id": "dam-clear-modem-building-first",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Clear the officer and soldiers inside the modem building before installing the modem; installation leaves you stationary and facing a wall.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "clear_room_before", "objective": 1 }
+    },
+    {
+      "id": "dam-modem-needs-proximity",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The modem is applied by aiming at the wall monitor and firing from close range; from a distance the shot misses and the objective does not register.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "approach_close", "objective": 1, "followed_by": "aim_and_fire" }
+    },
+    {
+      "id": "dam-dont-destroy-servers",
+      "kind": "threat",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Do not shoot the server stacks in the backup room; destroying them fails the intercept objective outright.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "no_fire_at", "target": "server_stack", "fails_objective": 2 },
+      "because": "Objective 2 carries a fail condition, and the guides independently warn against damaging the stacks at the back of the room."
+    },
+    {
+      "id": "dam-server-room-doorway",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Engage the backup room from its doorway rather than entering; the guards inside open fire on sight and the doorway restricts how many can shoot back at once.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway", "objective": 2 }
+    },
+    {
+      "id": "dam-crates-hold-pickups",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Several pickups sit inside crates and cannot be walked onto; the crate has to be destroyed first.",
+      "applies": { "placement": "inside_previous" },
+      "action": { "verb": "destroy_container_first" },
+      "because": "Those props carry a negative pad, which the setup format defines as mounted inside the preceding prop."
+    }
+  ]
+}

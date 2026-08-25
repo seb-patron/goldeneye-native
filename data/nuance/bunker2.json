@@ -1,0 +1,102 @@
+{
+  "level": "bunker2",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Bunker 2 revisits Bunker 1's interior from the cells. It is the level with the most key-and-lock chaining: several objectives are gated behind items carried by specific guards."
+  ],
+  "nuance": [
+    {
+      "id": "bunker2-starts-disarmed-in-a-cell",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The level opens in a cell with no useful weapon, so the first guard has to be taken without a firefight and everything after depends on what he was carrying.",
+      "applies": { "phase": "opening" },
+      "action": { "verb": "loot_from", "target": "guard", "item": "weapon" }
+    },
+    {
+      "id": "bunker2-natalya-cell-key",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Natalya's cell key is carried by a guard in the cell block, so she cannot be freed until that specific guard is dealt with.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "loot_from", "target": "cell_guard", "item": "cell_key" }
+    },
+    {
+      "id": "bunker2-escape-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Escaping with Natalya ends the mission, so every collection objective must be finished before the exit is reached.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "do_last", "objective": 4 },
+      "because": "Objective 4 is the level exit; unfinished objectives score as failed."
+    },
+    {
+      "id": "bunker2-natalya-must-survive",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Natalya follows once freed and is killed by crossfire, so rooms are cleared before she is brought through rather than fought through with her present.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "clear_room_before", "objective": 4 }
+    },
+    {
+      "id": "bunker2-two-lists-two-sources",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The staff and casualty lists are two separate items with two different acquisition methods: one lies on a table in a side room, the other is carried by a soldier.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "loot_from", "target": "soldier", "item": "casualty_list" }
+    },
+    {
+      "id": "bunker2-cameras-need-lens-shots",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Cameras die to a single shot on the lens, and the window between entering their range and the alarm sounding is only seconds, so the shot is prepared before rounding the corner.",
+      "applies": { "objective": 2, "tags": [28, 29, 30, 31, 32, 33] },
+      "action": { "verb": "prioritise_target", "target": "camera_lens", "over": "camera_body" }
+    },
+    {
+      "id": "bunker2-cameras-are-many",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "There are six cameras rather than the four of Bunker 1, spread through the interior, so they are cleared continuously as rooms are entered.",
+      "applies": { "objective": 2, "tags": [28, 29, 30, 31, 32, 33] },
+      "action": { "verb": "collect_enroute", "tags": [28, 29, 30, 31, 32, 33] },
+      "because": "Objective 2 names six separate destroy tags."
+    },
+    {
+      "id": "bunker2-manual-needs-a-safe-key",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The operations manual is inside a safe and needs its own key, so the objective has a prerequisite that is easy to reach the safe without.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "acquire_first", "item": "safe_key" }
+    },
+    {
+      "id": "bunker2-manual-is-00-only",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The operations manual is only required on 00 Agent, so a lower-difficulty route can skip the safe entirely.",
+      "applies": { "objective": 3, "difficulty": "00" },
+      "action": { "verb": "skip_below_difficulty", "objective": 3, "difficulty": "00" },
+      "because": "Objective 3's ObjectiveStart record carries the highest minimum difficulty in the level."
+    },
+    {
+      "id": "bunker2-tape-is-in-the-old-spawn-room",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The CCTV tape sits in the room the player started Bunker 1 in, which is a useful landmark for anyone who has played the earlier level.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "approach_from", "prefer": "bunker1_spawn_room", "objective": 1 }
+    }
+  ]
+}

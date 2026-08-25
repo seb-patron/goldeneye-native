@@ -296,6 +296,15 @@ struct Model {
     int  bind_p[4][6];
     int  bind_tab;                /* 0 = all players, 1..4 = that player */
 
+    /* Mouse and keyboard. Both default ON in port_input.c, which is the right default -- a
+     * gamepad is the minority case and the majority should not have to find a setting before
+     * the game is playable. Held as tri-state is unnecessary here: the launcher only needs to
+     * write the gate when it differs from that default. */
+    bool mouse;
+    int  mouse_sens;              /* percent, port_input.c clamps 1..1000, default 100 */
+    bool mouse_invert;
+    bool keyboard;
+
     /* misc */
     bool cheat_on[kCheatCount];
     bool dev_overlay;
@@ -497,6 +506,12 @@ void model_load(Model &m)
         }
     }
 
+    /* Defaults mirror port_input.c: mouse and keyboard both ON, sensitivity 100%. */
+    m.mouse        = env_bool("GETV_MOUSE", true);
+    m.mouse_sens   = env_int("GETV_MOUSE_SENS", 100);
+    m.mouse_invert = env_bool("GETV_MOUSE_INVERT", false);
+    m.keyboard     = env_bool("GETV_KEYBOARD", true);
+
     m.dev_overlay = env_bool("GETV_IMGUI", false);
     env_str("GETV_MODDIR", m.moddir, sizeof m.moddir, "");
     /* After moddir is known: the scan needs it to decide where to look. */
@@ -579,6 +594,15 @@ void model_store(const Model &m)
             else                     unsetenv(key);
         }
     }
+
+    setenv("GETV_MOUSE",        m.mouse        ? "1" : "0", 1);
+    setenv("GETV_MOUSE_INVERT", m.mouse_invert ? "1" : "0", 1);
+    setenv("GETV_KEYBOARD",     m.keyboard     ? "1" : "0", 1);
+    /* Sensitivity only when it differs from the default, so a later change to port_input.c's
+     * 100 reaches anyone who never touched the slider. Same reasoning as the ruleset
+     * percentages and the binding table. */
+    if (m.mouse_sens != 100) put_int("GETV_MOUSE_SENS", m.mouse_sens);
+    else                     unsetenv("GETV_MOUSE_SENS");
 
     setenv("GETV_IMGUI", m.dev_overlay ? "1" : "0", 1);
     put_str("GETV_MODDIR", m.moddir);
@@ -1358,6 +1382,56 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
             else if (page == 2) {
                 float cw = ImGui::GetContentRegionAvail().x;
+
+                Section("MOUSE AND KEYBOARD");
+                ImGui::Checkbox("Mouse look", &m.mouse);
+                if (m.mouse) {
+                    ImGui::Dummy(ImVec2(0, 8));
+                    SliderRow("Sensitivity", &m.mouse_sens, 10, 400, "%", cw, true);
+                    ImGui::Checkbox("Invert Y", &m.mouse_invert);
+                    ImGui::Dummy(ImVec2(0, 6));
+                    Hint("Left button fires, right aims, ESC releases the cursor. 100% is the "
+                         "measured default -- a 180 degree turn takes about 6 cm of desk.");
+                } else {
+                    Hint("Off. A connected gamepad still works either way; the two are ORed "
+                         "rather than exclusive.");
+                }
+
+                ImGui::Dummy(ImVec2(0, 10));
+                ImGui::Checkbox("Keyboard", &m.keyboard);
+                if (m.keyboard) {
+                    ImGui::Dummy(ImVec2(0, 8));
+                    /* The keyboard map is fixed in port_input.c and is not rebindable, so this
+                     * is a reference rather than a control. Showing it beats making someone
+                     * find it: the campaign was unfinishable from the keyboard until USE
+                     * existed, and nothing on screen said which key that was. */
+                    static const struct { const char *k; const char *a; } kb[] = {
+                        { "W A S D",        "move"            },
+                        { "Arrow keys",     "look"            },
+                        { "Space / L-Ctrl", "fire"            },
+                        { "Q",              "aim"             },
+                        { "E or F",         "use"             },
+                        { "R or Return",    "inventory"       },
+                        { "Z / X",          "crouch (L / R)"  },
+                        { "I J K L",        "d-pad"           },
+                        { "Tab",            "start"           },
+                    };
+                    float col = cw * 0.5f;
+                    ImVec2 kp = ImGui::GetCursorScreenPos();
+                    for (int i = 0; i < (int)(sizeof kb / sizeof kb[0]); i++) {
+                        float rx = kp.x + (i % 2) * col;
+                        float ry = kp.y + (i / 2) * 26.0f;
+                        ImDrawList *kl = ImGui::GetWindowDrawList();
+                        TextLS(g_fSmall, 13.0f, ImVec2(rx, ry + 3.0f), kGold, kb[i].k, 1.2f);
+                        kl->AddText(g_fSmall, 14.0f, ImVec2(rx + 130.0f, ry), kDim, kb[i].a);
+                    }
+                    ImGui::SetCursorScreenPos(
+                        ImVec2(kp.x, kp.y + ((sizeof kb / sizeof kb[0]) + 1) / 2 * 26.0f + 8.0f));
+                    ImGui::Dummy(ImVec2(0, 0));
+                    Hint("Fixed, not rebindable. A key is indistinguishable from a thumb on a "
+                         "stick by the time the game sees it, so nothing here exercises a "
+                         "different path from a gamepad.");
+                }
 
                 Section("BINDINGS FOR");
                 /* ALL first, then the four players. The tab IS the scope, so the thing being

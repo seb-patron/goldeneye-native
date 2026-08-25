@@ -1,0 +1,82 @@
+{
+  "level": "surface",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py."
+  ],
+  "nuance": [
+    {
+      "id": "surface-vent-tower-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Entering the base through the ventilation tower ends the mission, so it is attempted only once everything else is done.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_last", "objective": 3 },
+      "because": "Objective 3 is the level exit; anything unfinished scores as failed."
+    },
+    {
+      "id": "surface-large-key-before-safe-key",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The safe key is behind a locked building, and that building's key is carried by an officer elsewhere in the compound, so there is a two-step key chain before the safe is even reachable.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "loot_from", "target": "officer", "item": "building_key" }
+    },
+    {
+      "id": "surface-safe-key-before-plans",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The building plans are inside the safe, so the safe key must be held before the plans objective can be attempted.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_before", "objective": 1, "then": 2 },
+      "because": "Objectives 1 and 2 share a minimum difficulty and the plans are the safe's contents."
+    },
+    {
+      "id": "surface-vent-grate-has-locks",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The ventilation grate is held by several locks that each have to be shot out; it cannot be opened by interacting with it.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "shoot_lock", "count": 4, "objective": 3 }
+    },
+    {
+      "id": "surface-dish-is-a-terminal",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The communications dish is powered down at a computer terminal on the building's upper level, not at the dish itself.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_close", "objective": 0, "followed_by": "use_terminal" }
+    },
+    {
+      "id": "surface-explosive-barrels-by-the-fence",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The compound fence is lined with explosive barrels, so a firefight fought next to the fence can kill the player as easily as the guards.",
+      "applies": { "phase": "midgame" },
+      "action": { "verb": "avoid", "target": "explosive_barrel" }
+    },
+    {
+      "id": "surface-open-ground",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The level is open snowfield between buildings with long sightlines, so movement between objectives draws fire from patrols that cannot be seen from the destination.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "approach_from", "prefer": "building_cover" }
+    },
+    {
+      "id": "surface-dish-first-is-conventional",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The dish is conventionally taken first because it is the objective nearest the start and clearing it early removes the need to cross the open ground twice.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 }
+    }
+  ]
+}

@@ -15,8 +15,7 @@ mods/
 `mods/crt_screen` is the example, and it is a real feature rather than a toy: it is what
 draws the scanlines, the aperture mask, the curved tube and the vignette. It ships enabled.
 
-It is a mod on purpose. Untick it on the launcher's Mods page and the scanlines go away —
-which demonstrates the whole system in one action, in a way that a mod printing a line to a
+It is a mod on purpose. Untick it on the launcher's Mods page and the scanlines go away -- which demonstrates the whole system in one action, in a way that a mod printing a line to a
 log never could. Copy the folder, rename it, and you have a working mod.
 
 The tunables are five named constants at the top of its `mod.lua` with a comment each. Edit
@@ -64,8 +63,7 @@ Every field is optional and anything omitted keeps its current value, so a mod c
 number without restating the rest. Called with no table it only reports, which makes
 `ge.postfx().crt` a way to ask what is currently on.
 
-Values are **read every frame, not latched at startup**, so this works from `onFrame()` too —
-an effect can change while the game runs.
+Values are **read every frame, not latched at startup**, so this works from `onFrame()` too -- an effect can change while the game runs.
 
 Brightness is compensated automatically for whatever the scanlines and mask absorb, so raising
 either changes the texture of the image rather than dimming it.

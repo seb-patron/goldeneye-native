@@ -1,0 +1,103 @@
+{
+  "level": "jungle",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Jungle is the level where sightlines matter more than positions. Foliage and fog mean contact happens at short range against enemies that saw you first, so the useful knowledge here is about approach rather than about where things are."
+  ],
+  "nuance": [
+    {
+      "id": "jungle-dont-touch-the-plane",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The wrecked plane at the start explodes if interacted with, killing the player immediately; it is scenery that looks like a starting objective.",
+      "applies": { "phase": "opening" },
+      "action": { "verb": "avoid", "target": "wrecked_plane" }
+    },
+    {
+      "id": "jungle-drone-guns-at-range",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Drone guns out-damage the player at close range but are inaccurate at distance, so they are engaged from as far back as they can be seen.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_from", "prefer": "max_range", "objective": 0 }
+    },
+    {
+      "id": "jungle-drones-are-a-set",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The drone guns are several separate emplacements along the route rather than one cluster, so the objective completes gradually as the level is crossed.",
+      "applies": { "objective": 0, "tags": [0, 1, 2, 9, 10, 11, 12] },
+      "action": { "verb": "collect_enroute", "tags": [0, 1, 2, 9, 10, 11, 12] },
+      "because": "Objective 0 names seven separate destroy tags."
+    },
+    {
+      "id": "jungle-use-the-trees",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Trees are the only cover in the level and breaking line of sight behind one is what turns an ambush into a fight on the player's terms.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "approach_from", "prefer": "tree_cover" }
+    },
+    {
+      "id": "jungle-fog-hides-guards",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Guards blend into the foliage and fog and are frequently shooting before they are visible, so movement should assume unseen contacts rather than clear ground.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "expect_alarm", "reason": "low_visibility" }
+    },
+    {
+      "id": "jungle-ammo-dump-is-a-set",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The ammo dump is many separate targets, so the objective is a clearance job rather than a single explosive.",
+      "applies": { "objective": 2, "tags": [20, 21, 22, 23, 24, 25, 26, 27, 28] },
+      "action": { "verb": "sweep_along", "tags": [20, 21, 22, 23, 24, 25, 26, 27, 28] },
+      "because": "Objective 2 names nine separate destroy tags."
+    },
+    {
+      "id": "jungle-ammo-dump-is-difficulty-gated",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The ammo dump is not required on Agent, so a lower-difficulty route can pass it entirely.",
+      "applies": { "objective": 2, "difficulty": "secret+" },
+      "action": { "verb": "skip_below_difficulty", "objective": 2, "difficulty": "secret" },
+      "because": "Objective 2 carries a minimum difficulty above Agent."
+    },
+    {
+      "id": "jungle-xenia-strafe",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Xenia takes heavy damage and closes aggressively, so the fight is won by circle-strafing with an automatic weapon rather than by trading shots from cover.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "prefer_weapon", "weapon": "automatic", "for_objective": 1 }
+    },
+    {
+      "id": "jungle-natalya-escort-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Delivering Natalya to the base ends the mission, so the drones, Xenia and the ammo dump must all be handled first.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_last", "objective": 3 },
+      "because": "Objective 3 is the level exit; unfinished objectives score as failed."
+    },
+    {
+      "id": "jungle-natalya-follows-into-fire",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Natalya follows without regard for cover and will walk into drone gun fire, so contacts are cleared before advancing rather than fought while she catches up.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "clear_room_before", "objective": 3 }
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "level": "facility",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every tag, objective and node reference is checked against the generated level data by tools/gen_level_nuance.py."
+  ],
+  "nuance": [
+    {
+      "id": "facility-lab-entry-gates-everything",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Nothing else in the level is reachable until entry to the laboratory area is gained, so it is always first.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "Objective 0 is the entry gate and the remaining objectives all sit past it."
+    },
+    {
+      "id": "facility-doak-is-difficulty-gated",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Contacting the double agent is not required on Agent; on Secret Agent and above it must be done before the meeting with 006.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_before", "objective": 1, "then": 2 },
+      "because": "Objective 1 carries a minimum difficulty above Agent, and the 006 rendezvous ends the lab section."
+    },
+    {
+      "id": "facility-doak-spawn-varies",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The double agent does not spawn in a fixed place; he is a scientist-looking figure carrying an item and appears in one of several rooms, so he has to be searched for rather than routed to.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "avoid", "target": "fixed_route_assumption", "for_objective": 1 }
+    },
+    {
+      "id": "facility-doak-looks-like-a-scientist",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The double agent is dressed as a scientist, so blind fire at scientists can destroy an objective and the casualty objective at once.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "no_fire_at", "target": "scientist", "fails_objective": 4 }
+    },
+    {
+      "id": "facility-006-ends-the-section",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The rendezvous with 006 happens in the bottling room at the end of the lab run, so anything wanted from earlier rooms must be collected before going there.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_after", "objective": 2, "then": 1 }
+    },
+    {
+      "id": "facility-space-the-mines",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The bottling room tanks are destroyed with remote mines spaced so each blast catches more than one tank, rather than one charge per tank.",
+      "applies": { "objective": 3, "tags": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+      "action": { "verb": "space_explosives", "tags": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
+    },
+    {
+      "id": "facility-scientists-die-in-crossfire",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The casualty objective is usually lost to crossfire rather than deliberate shots; scientists share the hallways with the guards being fought.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "no_fire_at", "target": "scientist", "fails_objective": 4 }
+    },
+    {
+      "id": "facility-restroom-ambush",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The restroom holds a cluster of soldiers who engage together; one can be picked off from the vent above before entering.",
+      "applies": { "phase": "opening" },
+      "action": { "verb": "fight_from_chokepoint", "at": "vent_above_restroom" }
+    },
+    {
+      "id": "facility-keycard-from-guard",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The security door needs a keycard carried by a soldier, so a guard has to be killed and looted before the route continues.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "loot_from", "target": "soldier", "item": "keycard" }
+    },
+    {
+      "id": "facility-tank-door-needs-decoder",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "On higher difficulties the bottling room door needs the door decoder, so the decoder must be in hand before the tank objective is attempted.",
+      "applies": { "objective": 3, "difficulty": "secret+" },
+      "action": { "verb": "acquire_first", "item": "door_decoder" }
+    }
+  ]
+}

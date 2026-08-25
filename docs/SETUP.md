@@ -435,7 +435,7 @@ Notes on the ones that are easy to get wrong:
 - `gen_asset_fileview.py` writes `src/ge_asset_fileview.h`. Without it `model.c` fails.
 - `gen_port_decls.py` is **not** part of this sequence, despite what its name suggests. It
   regenerates `src/ge_port_decls.h` from scratch, and `0001-source.patch` already ships a
-  curated version of that header. Running it discards the curated one and reinstates the
+  hand-corrected version of that header. Running it discards the corrected one and reinstates the
   upstream prototype for `sub_GAME_7F0B7F84`, which the patch changed from four arguments
   returning `void` to five returning `s32`. The result is that `src/game/bg.c` no longer
   compiles and the link fails with about thirty undefined `bg*` symbols, none of which
@@ -1121,7 +1121,7 @@ Undefined symbols for architecture arm64:
 ```
 
 **Cause** - `gen_port_decls.py` was run as part of section 3.5. It regenerates
-`src/ge_port_decls.h`, discarding the curated copy that `0001-source.patch` installs, and
+`src/ge_port_decls.h`, discarding the corrected copy that `0001-source.patch` installs, and
 reinstates the upstream four-argument `void sub_GAME_7F0B7F84(...)` prototype where the patch
 uses five arguments returning `s32`. `bg.c` then fails on a conflicting declaration, and every
 symbol it defines goes undefined. Nothing in the error mentions the header.

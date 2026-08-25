@@ -1,0 +1,102 @@
+{
+  "level": "runway",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py."
+  ],
+  "nuance": [
+    {
+      "id": "runway-plane-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Boarding the plane ends the mission, so every other objective must be finished before approaching it.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_last", "objective": 3 },
+      "because": "Objective 3 is the level exit; unfinished objectives score as failed."
+    },
+    {
+      "id": "runway-key-before-plane",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The plane cannot be started without the ignition key, so the key is the first objective regardless of difficulty.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "do_before", "objective": 0, "then": 3 },
+      "because": "Objective 0 exists at every difficulty while the destruction objectives do not."
+    },
+    {
+      "id": "runway-key-is-guarded-indoors",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The ignition key sits on a desk inside a building near the start with soldiers posted behind it, so the room is cleared before the pickup rather than after.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "clear_room_before", "objective": 0 }
+    },
+    {
+      "id": "runway-take-the-tank",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A drivable tank is parked past the main building; taking it makes the open runway survivable, since the level's threat is sustained fire across ground with no cover.",
+      "applies": { "phase": "midgame" },
+      "action": { "verb": "use_vehicle", "vehicle": "tank" }
+    },
+    {
+      "id": "runway-tank-needs-shells-selected",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The tank does not fire shells until shells are selected; entering and pulling the trigger uses the wrong weapon.",
+      "applies": { "phase": "midgame" },
+      "action": { "verb": "prefer_weapon", "weapon": "tank_shell" }
+    },
+    {
+      "id": "runway-emplacements-are-spread",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The heavy gun emplacements are not clustered: one sits partway down the runway and the others at its far end, so they are cleared as a advance down the strip rather than a single stop.",
+      "applies": { "objective": 1, "tags": [0, 4, 5] },
+      "action": { "verb": "sweep_along", "tags": [0, 4, 5], "axis": "runway" },
+      "because": "Objective 1 names three separate destroy tags, and the guides place them at different points along the runway."
+    },
+    {
+      "id": "runway-emplacements-outrange-you",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The emplacements fire across the open runway from positions on the cliffs, so they are engaged from the tank or from cover rather than crossed on foot.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "fight_from_chokepoint", "at": "cover", "objective": 1 }
+    },
+    {
+      "id": "runway-missile-battery-has-a-barrel",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An explosive barrel sits beside the missile battery, so a single shot at the barrel destroys the battery without spending explosives.",
+      "applies": { "objective": 2, "tags": [1] },
+      "action": { "verb": "prioritise_target", "target": "explosive_barrel", "over": "battery" }
+    },
+    {
+      "id": "runway-difficulty-adds-targets",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Agent runs are key and escape only; the missile battery appears on Secret Agent and the gun emplacements on 00 Agent.",
+      "applies": { "objective": 1, "difficulty": "00" },
+      "action": { "verb": "skip_below_difficulty", "objective": 1, "difficulty": "00" },
+      "because": "The ObjectiveStart records carry rising minimum difficulties for objectives 1 and 2."
+    },
+    {
+      "id": "runway-five-minute-cheat",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Finishing inside five minutes unlocks a cheat, which is the only reason to rush a level that otherwise rewards patience.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "beat_timer", "seconds": 300, "optional": true }
+    }
+  ]
+}

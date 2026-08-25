@@ -1,0 +1,91 @@
+{
+  "level": "statue",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Statue Park is the most script-driven level in the game: three of its five objectives complete by arriving somewhere and waiting rather than by shooting anything. A bot built only to fight will stall here."
+  ],
+  "nuance": [
+    {
+      "id": "statue-objectives-are-scripted-in-order",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The objectives fire as a fixed chain rather than in any order the player chooses, so the level is a sequence and not a checklist.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "All five objectives share a single minimum difficulty, so the ordering comes from the script rather than from difficulty gating."
+    },
+    {
+      "id": "statue-valentin-needs-waiting-not-shooting",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Valentin is contacted by standing in front of him and waiting for the conversation to finish; there is nothing to shoot and leaving early does not complete it.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "wait_for", "target": "valentin_dialogue", "objective": 0 }
+    },
+    {
+      "id": "statue-janus-spawns-on-arrival",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Janus and his bodyguards do not exist until the player reaches the large statue; the area reads as empty right up until it is not.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "expect_alarm", "at": "large_statue", "objective": 1 }
+    },
+    {
+      "id": "statue-unmasking-is-a-cutscene",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The unmasking completes through dialogue after Janus appears, so the objective needs the player to hold position rather than open fire.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "wait_for", "target": "janus_dialogue", "objective": 1 }
+    },
+    {
+      "id": "statue-helicopter-is-back-at-the-start",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The helicopter objective is completed by returning to the level's entrance, so the route doubles back rather than pushing further into the park.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "approach_from", "prefer": "level_entrance", "objective": 2 }
+    },
+    {
+      "id": "statue-natalya-then-explosion",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Reaching the unconscious Natalya triggers her escape and the helicopter's destruction, so the two objectives resolve together and neither needs a separate trip.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_after", "objective": 3, "then": 2 }
+    },
+    {
+      "id": "statue-recorder-appears-after-the-blast",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The flight recorder is thrown back into the park by the explosion, so it does not exist to be collected until the helicopter objective has resolved.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "do_after", "objective": 4, "then": 3 }
+    },
+    {
+      "id": "statue-recorder-is-a-search",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The recorder lands loose in the park rather than at a marked spot, so finding it is a sweep of open ground and not a route to a known point.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "collect_enroute", "along": "park_open_ground", "objective": 4 }
+    },
+    {
+      "id": "statue-open-park-with-corners",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The park is open ground broken up by statues and containers that hide guards at close range, so contact tends to come from the flanks rather than ahead.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "approach_from", "prefer": "statue_cover" }
+    }
+  ]
+}

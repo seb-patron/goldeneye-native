@@ -1,0 +1,91 @@
+{
+  "level": "cradle",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Cradle is the game's finale and its most unusual fight: the target spends most of the level invulnerable and is only damageable in specific states. A bot that simply shoots the boss will empty its ammunition into an enemy that cannot be hurt."
+  ],
+  "nuance": [
+    {
+      "id": "cradle-console-first",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The control console is destroyed before the confrontation; it is the objective that can be completed calmly and the fight that follows does not allow it.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "Objective 0 is a destruction task and objective 1 is the level's terminal confrontation."
+    },
+    {
+      "id": "cradle-console-is-tucked-away",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The console sits behind the large machinery rather than in the open, so it is not visible from the walkway it is reached from.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_from", "prefer": "behind_machinery", "objective": 0 }
+    },
+    {
+      "id": "cradle-trevelyan-is-invulnerable-while-running",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Trevelyan cannot be damaged while he is running; shots land only when he stops, so the fight is about waiting for the right state rather than sustaining fire.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "wait_for", "target": "trevelyan_stationary", "objective": 1 }
+    },
+    {
+      "id": "cradle-dont-follow-him-low",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "He drops grenades behind him on the lower walkways, so following directly along his path takes damage for nothing; an alternate route reaches the same place safely.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "avoid", "target": "trevelyan_trail" }
+    },
+    {
+      "id": "cradle-shoot-from-an-angle",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because the structure is open ironwork, he can be engaged across the gap from a different level rather than chased around it.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "approach_from", "prefer": "opposite_walkway", "objective": 1 }
+    },
+    {
+      "id": "cradle-grenade-ends-it",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An explosive that catches him resolves the fight far faster than sustained gunfire, so a grenade carried into the level is worth more than extra ammunition.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "prefer_weapon", "weapon": "grenade", "for_objective": 1 }
+    },
+    {
+      "id": "cradle-strafe-and-aim-high",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Without explosives the fight is won by strafing to spoil his aim while placing shots high, since body shots take far longer.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "prefer_weapon", "weapon": "precise_aim", "for_objective": 1 }
+    },
+    {
+      "id": "cradle-the-edge-kills",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The final platform is small and unrailed above a long drop, so movement during the last exchange can kill the player without a shot being fired.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "avoid", "target": "platform_edge" }
+    },
+    {
+      "id": "cradle-fight-moves-downward",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The confrontation travels down through the structure to a platform over the dish, so it is a running fight across several levels rather than one arena.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "collect_enroute", "along": "cradle_levels", "objective": 1 }
+    }
+  ]
+}

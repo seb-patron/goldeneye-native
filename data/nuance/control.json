@@ -1,0 +1,102 @@
+{
+  "level": "control",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Control is widely considered the game's hardest level, and for a reason worth encoding: the defence sequence spawns differently every attempt, so a memorised route is worthless here. It is the best level in the game for testing whether a bot can react rather than replay."
+  ],
+  "nuance": [
+    {
+      "id": "control-defence-is-not-memorisable",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The defence sequence spawns enemies differently on every attempt, so no fixed route or firing order survives; the objective has to be played reactively.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "avoid", "target": "fixed_route_assumption", "for_objective": 0 }
+    },
+    {
+      "id": "control-natalya-is-the-fail-condition",
+      "kind": "threat",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Natalya dying ends the mission, so her survival outranks the player's own position, ammunition and health for the whole defence.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prioritise_target", "target": "threat_to_natalya", "over": "all" },
+      "because": "Objective 0 is a standing protection constraint running for the level rather than a task that completes."
+    },
+    {
+      "id": "control-shoot-what-she-walks-into",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Natalya walks to the terminal without regard for threats, so the targets that matter are the ones in front of her rather than the ones shooting at the player.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prioritise_target", "target": "guard_ahead_of_natalya", "over": "guard_engaging_player" }
+    },
+    {
+      "id": "control-satellite-needs-her-alive",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The satellite is disabled by Natalya at the terminal, not by the player, so the disable objective is entirely dependent on the protect objective succeeding.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "do_before", "objective": 0, "then": 1 },
+      "because": "Objective 1 completes through the protected character rather than through any player action."
+    },
+    {
+      "id": "control-hold-a-position-with-sightlines",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The defence is survivable from a spot that sees the approaches to the terminal rather than by chasing spawns around the room.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "fight_from_chokepoint", "at": "terminal_overwatch", "objective": 0 }
+    },
+    {
+      "id": "control-mainframes-are-a-set",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The armoured mainframes are several separate targets across more than one room, so the objective is not finished when the first room is cleared.",
+      "applies": { "objective": 2, "tags": [21, 22, 23, 24, 25, 26] },
+      "action": { "verb": "sweep_along", "tags": [21, 22, 23, 24, 25, 26] },
+      "because": "Objective 2 names six separate destroy tags."
+    },
+    {
+      "id": "control-mainframes-need-explosives",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The mainframes are armoured against small arms and are destroyed with explosives, so the objective needs mines carried in rather than ammunition.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "plant_explosive", "explosive": "remote_mine", "objective": 2 }
+    },
+    {
+      "id": "control-mine-the-glass",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A mainframe behind glass can be mined through the glass from outside its room, which avoids entering a room with no cover.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "approach_from", "prefer": "outside_glass", "objective": 2 }
+    },
+    {
+      "id": "control-detonate-from-cover",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "All mines are placed first and detonated together from a safe distance; detonating while still in the room kills the player.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "space_explosives", "objective": 2 }
+    },
+    {
+      "id": "control-mainframes-before-the-defence",
+      "kind": "order",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The mainframes are best destroyed before triggering the defence sequence, because explosives and positioning cannot be managed while Natalya is exposed.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_before", "objective": 2, "then": 0 }
+    }
+  ]
+}

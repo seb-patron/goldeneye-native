@@ -84,7 +84,7 @@ spends the same hours on them again.
 purple (64,64,128) to orange (192,192,64).
 
 🔑 **The useful fact.** The formats actually uploaded during gunfire are `CI/4b`, `CI/8b`,
-`IA/8b`, `I/4b` and `I/8b` — **no RGBA of any width**. So whatever colours the impact flash is
+`IA/8b`, `I/4b` and `I/8b` -- **no RGBA of any width**. So whatever colours the impact flash is
 a palette or intensity path, and the RGBA16 fix cannot reach it. Those are different bugs and
 should stop being treated as one.
 
@@ -214,18 +214,18 @@ against, so the whole decomp was swept for the shape rather than for that one in
 
 ### Checked and cleared, with the reason
 
-- **`options.c` ×12** — `(u8 *) game_control_styles + n * 20 + k`. Looks exactly like the bad
+- **`options.c` ×12** -- `(u8 *) game_control_styles + n * 20 + k`. Looks exactly like the bad
   shape and is fine: `game_control_styles` is a plain `u16[]`, so a 20-byte stride is 10
   entries on every platform. **Struct-free arithmetic does not have this bug.**
-- **`gunfire.c:1293-1316`** — `((f32 *) nodepos)[0..2]` reads a `coord3d` as three floats.
+- **`gunfire.c:1293-1316`** -- `((f32 *) nodepos)[0..2]` reads a `coord3d` as three floats.
   Layout-independent.
-- **`gunfire.c:6939, 7012, 7126`** — `((u8 *) imageoffset)[4]` indexes ROM asset bytes, not a
+- **`gunfire.c:6939, 7012, 7126`** -- `((u8 *) imageoffset)[4]` indexes ROM asset bytes, not a
   host struct. The asset layout is fixed by the file format.
-- **`propobj.c:9152`** — `((f32 *) rodata)[n]` indexes a float table.
-- **`model.c:251`** — genuinely wrong (`*(model + 0x14)` on a `Model *`) but inside
+- **`propobj.c:9152`** -- `((f32 *) rodata)[n]` indexes a float table.
+- **`model.c:251`** -- genuinely wrong (`*(model + 0x14)` on a `Model *`) but inside
   `#ifdef DEBUG`, which this port never defines. Dead, left alone, noted here so the next
   sweep does not re-flag it.
-- **`unk_092E50.c`, `propobj.c:8565`** — already carry written-up notes about this exact class
+- **`unk_092E50.c`, `propobj.c:8565`** -- already carry written-up notes about this exact class
   from earlier work.
 
 ### How to run it again

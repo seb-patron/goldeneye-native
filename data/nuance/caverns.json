@@ -1,0 +1,103 @@
+{
+  "level": "caverns",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Caverns is a vertical level built around a spiral walkway, and its destroy objectives come in matched pairs. It is also the level where ammunition runs out on higher difficulties, so resupply is part of the route rather than a bonus."
+  ],
+  "nuance": [
+    {
+      "id": "caverns-inlet-is-a-set",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The inlet pump controls are four separate targets, so the objective is a room to clear rather than a single console to shoot.",
+      "applies": { "objective": 0, "tags": [0, 1, 2, 3] },
+      "action": { "verb": "sweep_along", "tags": [0, 1, 2, 3] },
+      "because": "Objective 0 names four separate destroy tags."
+    },
+    {
+      "id": "caverns-outlet-is-a-set",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The outlet pump controls are likewise four separate targets, sitting on either side of the turbine.",
+      "applies": { "objective": 1, "tags": [4, 5, 6, 7] },
+      "action": { "verb": "sweep_along", "tags": [4, 5, 6, 7] },
+      "because": "Objective 1 names four separate destroy tags."
+    },
+    {
+      "id": "caverns-outlet-behind-a-hidden-passage",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The outlet pump room is reached through a passage hidden behind destructible lockers, so the route does not exist until they are shot away.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "shoot_lock", "target": "wall_lockers", "objective": 1 }
+    },
+    {
+      "id": "caverns-master-console-is-single",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Unlike the pump objectives, the master control console is one target, so it completes on a single destruction.",
+      "applies": { "objective": 2, "tags": [8] },
+      "action": { "verb": "prioritise_target", "target": "master_console", "over": "none" },
+      "because": "Objective 2 names exactly one destroy tag against four for each pump objective."
+    },
+    {
+      "id": "caverns-scare-scientists-off-the-consoles",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Scientists stand at the consoles that have to be destroyed, so they are driven away before the explosives go in rather than after.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "wait_for", "target": "scientists_clear", "objective": 2 }
+    },
+    {
+      "id": "caverns-explosives-kill-scientists",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The destroy objectives and the casualty objective are in direct tension: the explosives that finish the consoles kill anyone standing at them.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "no_fire_at", "target": "scientist", "fails_objective": 4 }
+    },
+    {
+      "id": "caverns-spiral-walkway-sightlines",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The spiral walkway exposes the player to guards on other levels of the shaft, so threats come from above and below rather than along the floor.",
+      "applies": { "phase": "midgame" },
+      "action": { "verb": "approach_from", "prefer": "vertical_overwatch" }
+    },
+    {
+      "id": "caverns-ammo-runs-out",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Ammunition is genuinely scarce on higher difficulties, so weapons are rotated as each runs dry rather than one being favoured.",
+      "applies": { "difficulty": "00" },
+      "action": { "verb": "prefer_weapon", "weapon": "rotate_automatics" }
+    },
+    {
+      "id": "caverns-crates-hold-ammo",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Wooden crates around the level hold ammunition and have to be destroyed to reach it, which makes them a resupply point rather than scenery.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "destroy_container_first" }
+    },
+    {
+      "id": "caverns-radio-is-00-only",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Contacting Jack Wade by radio is required only on the highest difficulty, so lower-difficulty routes skip it.",
+      "applies": { "objective": 3, "difficulty": "00" },
+      "action": { "verb": "skip_below_difficulty", "objective": 3, "difficulty": "00" },
+      "because": "Objective 3 carries the highest minimum difficulty among the level's objectives."
+    }
+  ]
+}

@@ -17,7 +17,7 @@ source.
 |---|---|
 | **macOS** | Apple Silicon and Intel. Builds and plays. |
 | **Linux** | x86-64. Builds and plays. |
-| **Windows** | Builds, links and runs; world geometry is being fixed. Active bring-up. |
+| **Windows** | x86-64, MinGW-w64. Builds and plays. |
 
 Same source tree, same features, one `build` script each.
 
@@ -27,15 +27,45 @@ Same source tree, same features, one `build` script each.
   directly; six are multiplayer-only and need two or more players.
 - **Multiplayer.** Split screen, radar, all 64 selectable characters.
 - **Keyboard and mouse**, on by default. Mouse look with sensitivity and invert, left button
-  fires, right aims, ESC releases the cursor. Gamepads work alongside it, not instead of it.
+  fires, right aims, ESC releases the cursor. This is the control scheme the N64 could never
+  offer and it is the single biggest change to how the game plays.
+- **Controllers, including the one already on your desk.** Input goes through SDL2's game
+  controller layer, so a DualSense, a DualShock 4, an Xbox pad, a Switch Pro controller or an
+  8BitDo all enumerate and work without a mapping file. Wired or wireless. Both sticks are
+  live: GoldenEye's own 2.2 Galore style is a two-controller layout, which is a modern
+  twin-stick pad once the sticks arrive on two ports, so aiming with the right stick is the
+  game's own scheme rather than something bolted on.
+- **Four players, four layouts.** Bindings are per player, so P2 is not stuck with P1's
+  choices in split screen.
 - **A launcher.** Pick a level, a ruleset, cheats, resolution and field of view before you
   play, instead of editing a config file.
+
+![The launcher's Controls page, with per-player bindings](docs/images/launcher-controls.png)
+
 - **Rulesets and horde mode.** Enemy health, damage, accuracy, ammo, player health and
   explosion strength as percentages, with presets. Horde spawns replacements where a guard
   falls and grows the waves as you clear them.
 - **Lua mod scripting.** Drop a `mod.lua` in `mods/` and get `onFrame`, `onPlayerSpawn` and
   `onWeaponFire` with a read API into live game state. No rebuild.
 - **The cheats the game already had**, by name, from the launcher or a config file.
+- **A crouch button.** This one is worth explaining, because anyone who played the original
+  remembers it. Retail GoldenEye has no crouch key: you hold the aim trigger, push down on the
+  stick, then release aim while staying low, and `bondview2.c:5484` shows exactly why -- the
+  crouch test requires aim mode AND stick-down together. It is faithful and it is genuinely
+  awkward, and it is the sort of thing a native port exists to fix. C or LSHIFT crouches, V
+  stands, on a key of its own. The original gesture still works, so nothing that depended on
+  it changes.
+- **Start any mission with any weapon**, including dual wielding, from one setting. The game
+  handles the second gun itself: tap to alternate hands, hold to fire both.
+- **A CRT mod and FXAA**, as a general post-process pass rather than a special case. Scanlines,
+  aperture mask, barrel curve and vignette are separate terms, so the look is tunable rather
+  than a preset you take or leave. The CRT ships as a Lua mod you can untick.
+
+![FXAA off, left; on, right. The PP7 barrel at 4x](docs/images/fxaa-comparison.png)
+
+*FXAA off on the left, on on the right, zoomed on the PP7 barrel. The stair-stepping along the
+slide is what a 1997 renderer at a 2026 resolution looks like without it.*
+
 - **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
   anisotropic filtering, adjustable field of view, and three texture filters including the
   N64's real three-point sampling.
@@ -48,14 +78,35 @@ The most-cited problem with GoldenEye above its original frame rate is real, and
 The short version: `waitForNextFrame()` is already real-time based, so the clock does not
 drift. What breaks is everything the game counts *per iteration* rather than per second, and
 122 of the 135 files under `src/game` do per-frame work. Real hardware managed 20 to 30
-frames per second, and automatic fire rates, turret delay and guard reaction stepping were
-tuned against that. Run the same loop at a locked 60 and they simply happen more often.
+frames per second, and automatic fire rates and guard reaction stepping were tuned against
+that. Run the same loop at a locked 60 and they simply happen more often.
 
-**Where this port stands: `framerate = 30` gives a simulation running at the cadence the game
-was authored for, with a correct time base.** That is the faithful configuration and it is one
-setting away. High-refresh rendering with correct gameplay timing needs the simulation
-separated from the draw, which is real work and is not done. The full analysis, including why
-this is fixable here and structurally is not in an emulator, is in
+That is now fixed rather than mitigated. Three pieces:
+
+**The simulation ticks on its own divider** while the display list is still built every frame,
+so a 60Hz display can show a 30Hz simulation. `GETV_SIMDIV=auto` reads your refresh rate and
+picks the divider, because the right number depends on the display: 2 at 60Hz, 4 at 120Hz.
+
+**The camera interpolates between simulation states**, which is what stops a skipped tick
+looking like a stutter. At a 4x divider the frame-to-frame spread is 0.1843 against a
+full-rate baseline of 0.1855 -- a quarter-rate simulation renders as smoothly as a full-rate
+one. Only the camera is blended, and nothing is written back into game state: GoldenEye's AI
+reads positions as discrete fact, and a blended value entering the simulation misbehaves in
+ways much harder to diagnose than judder.
+
+**The frame-counted systems now count time.** Player fire rate and guard fire rate both used
+`counter % rate == 0` against a per-tick counter. Converted, measured, and checked at divider
+1 where the two are provably identical. An FN P90 held for 80 frames fires 39 rounds at every
+divider now; before, it was 39, 20 and 10.
+
+A twelve-level sweep at divider 2 flags nothing. `tools/divider_audit.py` is how that is
+checked, and it is in the tree so anyone can re-run it.
+
+Above 60Hz there is one honest gap: the default clock counts a rendered frame as a video
+field, so at 120Hz the world runs at double speed unless `GETV_REALCLOCK=1` makes a field a
+unit of real time. A warning fires if you set a high refresh without it. That path is reasoned
+from the code and **not measured** -- the machine this was built on is a 60Hz panel. The full
+analysis, including why this is fixable here and structurally is not in an emulator, is in
 [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
 
 No code from the 1964 or Mouse Injector lineage is used here. Those are GPL-2.0 and
@@ -129,6 +180,15 @@ native binary. Windows uses mingw-w64 with no MSYS2, Cygwin or WSL involved.
 
 **What about split-screen on one PC?** That works, with all 64 characters, the radar and the
 full multiplayer setup.
+
+**Can I use a PS5 or Xbox controller?** Yes. Input goes through SDL2's game controller
+layer, so a DualSense, DualShock 4, Xbox pad, Switch Pro controller or 8BitDo is recognised
+without a mapping file, wired or wireless. Both analogue sticks are live, which the N64
+controller could not do.
+
+**Is there a crouch button?** Yes, and the original does not have one. Retail crouch means
+holding aim, pushing down, then releasing aim while staying low. Here it is C or LSHIFT, with
+V to stand, and the original gesture still works if you prefer it.
 
 **Does it support gamepads?** Yes, through SDL2, including wireless controllers your OS
 already pairs. Keyboard and mouse are the default and both work at once.
@@ -397,34 +457,25 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 
 ## Known issues
 
-- **Gameplay is coupled to the render rate.** GoldenEye scales some systems by elapsed video
-  frames and runs the rest once per game update, and a game update is one rendered frame. Only 13
-  of the 135 translation units under `src/game` reference `g_GlobalTimerDelta`: recoil, sway,
-  breathing, camera. Everything else is per-frame. Enemy automatic fire is the clearest case --
-  `chraction.c:6694` increments `firecount[hand]` once per tick and fires on
-  `firecount % automaticFiringRate == 0`, so the cadence is a frame count, not a duration.
-  On hardware those systems ran at the N64's real 20 to 30 fps. Rendering at a locked 60 runs them
-  roughly twice as fast, which shows up as turrets and guards firing too quickly, ammunition
-  draining too quickly, and AI state machines stepping faster than they were tuned for. Animation
-  looks correct throughout, because animation is in the 13.
-  There is a partial mitigation as of now: `framerate=30` also sets `GETV_TICKFIELDS=2`, so each
-  update reports two elapsed fields. Game time stays real -- thirty updates a second times two
-  fields is sixty fields a second, leaving animation and the mission clock untouched -- while the
-  frame-counted systems drop to 30 Hz, close to the cadence the game was tuned for. That setting
-  previously capped the renderer without the second half and ran the game at half speed, which was
-  a defect rather than the inherent property it was documented as.
-  It is a trade, not a fix: 60 renders smoothly and runs gameplay fast, 30 runs gameplay correctly
-  and renders less smoothly. Having both at once needs a fixed-rate simulation tick with rendering
-  interpolated above it, which is architecture rather than a setting, and is the next substantial
-  thing this port needs.
-
-- **Missing HMS MI5 crest on the multiplayer character select.** The same crest renders correctly on
-  the file select screen, so the asset and its decode path are sound.
-- **Select File background.** Renders flat black; the original has a faint circular watermark
+- **Co-op is alpha.** Players spawn into single-player missions and do not move. Four
+  explanations have been eliminated with measurements; what remains is between the stick
+  reaching `moveData.analogWalk` and `speedforwards` being applied.
+- **Bots are alpha.** The player API installs its hook and drives a slot, and the first bot
+  runs against it. It does not yet play the game: driving an empty slot produces no input,
+  which is the next piece of work rather than a claim of working bots.
+- **Above 60Hz, set `GETV_REALCLOCK=1`.** The default clock counts a rendered frame as a video
+  field, so a 120Hz display runs the world at double speed without it. The game warns you. The
+  fix is reasoned from the code and not measured on real high-refresh hardware.
+- **Jungle hit registration changes with the divider.** Bond lands 8 hits at divider 1 and 3
+  at divider 2 on the same scripted run. Guard positions advance once per tick, so a moving
+  target occupies a coarser set of positions and a shot can pass between them. That is what a
+  lower simulation rate means, not a timer bug, and it is not being papered over.
+- **Missing HMS MI5 crest on the multiplayer character select.** The same crest renders
+  correctly on the file select screen, so the asset and its decode path are sound.
+- **Select File background** renders flat black; the original has a faint circular watermark
   behind the folders.
-- **Multiplayer edge cases.** Score caps are not enforced on the headless path, and `num_shots`
-  disagrees with the fire path.
-- **Keyboard and mouse.** Mouse look is not supported.
+- **Multiplayer edge cases.** Score caps are not enforced on the headless path, and
+  `num_shots` disagrees with the fire path.
 
 [`docs/ROADMAP.md`](docs/ROADMAP.md) carries the full list and the planned work.
 

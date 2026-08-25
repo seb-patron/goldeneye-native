@@ -1,0 +1,120 @@
+{
+  "level": "bunker1",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Bunker 1 is the level where ordering matters most: one objective deliberately raises the alarm, so everything quiet has to be finished first."
+  ],
+  "nuance": [
+    {
+      "id": "bunker1-programmer-triggers-the-alarm",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Getting the programmer to the terminal is what raises the alarm, so every quiet objective must be complete before it is attempted.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_after", "objective": 2, "then": 1 },
+      "because": "Objective 3 depends on objective 2 having been done, and the guides agree the terminal use is the alarm trigger."
+    },
+    {
+      "id": "bunker1-cameras-first",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The surveillance cameras are cleared first: they are the only objective that punishes being seen, and everything after the programmer is done under alarm anyway.",
+      "applies": { "objective": 0, "tags": [0, 1, 2, 3] },
+      "action": { "verb": "do_before", "objective": 0, "then": 2 },
+      "because": "Objective 0 names four destroy tags and the alarm objective comes later in the dependency chain."
+    },
+    {
+      "id": "bunker1-camera-glass-is-the-weak-point",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A camera dies to a single shot on its glass but takes several into the housing, so the shot is aimed at the lens.",
+      "applies": { "objective": 0, "tags": [0, 1, 2, 3] },
+      "action": { "verb": "prioritise_target", "target": "camera_glass", "over": "camera_body" }
+    },
+    {
+      "id": "bunker1-first-camera-through-the-window",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The first camera can be destroyed through the window of the starting room's door without opening it, which removes it before it ever sees the player.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "approach_from", "prefer": "starting_room_door", "objective": 0 }
+    },
+    {
+      "id": "bunker1-key-must-be-discarded",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Copying the key is not enough; the original has to be dropped afterwards or the objective stays incomplete.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "discard_after", "item": "goldeneye_key", "objective": 1 },
+      "because": "The objective text itself states the original must be left behind."
+    },
+    {
+      "id": "bunker1-clear-the-computer-room-first",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The computer room is cleared before the programmer is led there, because a firefight on arrival is fought while babysitting an escort.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "clear_room_before", "objective": 2 }
+    },
+    {
+      "id": "bunker1-dont-lose-the-programmer",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The programmer runs for the nearest alarm if the player falls too far behind, so he is followed closely rather than led from ahead.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "stay_close_to", "target": "programmer", "objective": 2 }
+    },
+    {
+      "id": "bunker1-computer-room-needs-a-keycard",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The computer room keycard is carried by a soldier in the hallways, so a guard must be killed and looted before the escort can even begin.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "loot_from", "target": "soldier", "item": "computer_room_keycard" }
+    },
+    {
+      "id": "bunker1-leave-when-download-ends",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The bunker fills with reinforcements while the data downloads, so the exit run begins the instant it finishes rather than after a sweep.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "exit_immediately", "after_objective": 3 }
+    },
+    {
+      "id": "bunker1-expect-the-swarm",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "After the alarm the level is continuously reinforced, so remaining objectives are done under fire and positions do not stay clear once cleared.",
+      "applies": { "phase": "post_alarm" },
+      "action": { "verb": "expect_alarm", "after_objective": 2 }
+    },
+    {
+      "id": "bunker1-photo-needs-the-camera-equipped",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The video screen objective is completed by equipping the watch camera and firing at the screen from the main room; shooting it with a weapon does nothing.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "photograph", "target": "main_video_screen", "objective": 4 }
+    },
+    {
+      "id": "bunker1-exit-is-locked",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The main exit door is locked and needs a security keycard, so the escape route has a prerequisite that is easy to discover too late.",
+      "applies": { "phase": "exit" },
+      "action": { "verb": "acquire_first", "item": "security_keycard" }
+    }
+  ]
+}

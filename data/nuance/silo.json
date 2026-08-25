@@ -1,0 +1,117 @@
+{
+  "level": "silo",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Silo is the level where the clock, not the guards, is the real opponent: it runs on a hard timer, so route efficiency outranks caution."
+  ],
+  "nuance": [
+    {
+      "id": "silo-hard-time-limit",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The level runs on a hard timer of roughly eight and a half minutes, so objectives are collected along one forward route rather than by backtracking.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "beat_timer", "seconds": 510 }
+    },
+    {
+      "id": "silo-fuel-rooms-are-the-spine",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The level is a sequence of fuel rooms and every objective item is inside one of them, so the fuel room order is the route and no objective needs a detour.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "collect_enroute", "along": "fuel_rooms" }
+    },
+    {
+      "id": "silo-bomb-the-canisters",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The bomb objective is completed by throwing plastique at the paired canisters in each fuel room, not by shooting them.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "plant_explosive", "explosive": "plastique", "target": "fuel_canisters", "objective": 0 }
+    },
+    {
+      "id": "silo-dont-shoot-the-satellite",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The satellite has to be photographed intact; stray fire on entering its room can destroy the objective before it is taken.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "avoid_destroying", "target": "satellite", "fails_objective": 1 }
+    },
+    {
+      "id": "silo-photograph-not-shoot",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The satellite objective is completed with the watch camera equipped and fired at the satellite.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "photograph", "target": "satellite", "objective": 1 }
+    },
+    {
+      "id": "silo-dat-comes-off-a-scientist",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The telemetric data is dropped by a scientist rather than sitting as a placed pickup, so it appears only after that scientist is dealt with.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "loot_from", "target": "scientist", "item": "telemetric_data" }
+    },
+    {
+      "id": "silo-dropped-items-clip",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Dropped keycards and data can lodge inside scenery; shooting the item knocks it loose rather than destroying it.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "equip_and_fire", "target": "stuck_pickup" }
+    },
+    {
+      "id": "silo-circuits-are-scattered",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The satellite circuitry is several separate boards spread across different rooms, so the objective is not complete when the first one is taken.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "collect_enroute", "item": "circuit_board", "count": 4 }
+    },
+    {
+      "id": "silo-keycards-gate-the-rooms",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Scientists carry the keycards that open the next room, so progress requires engaging them even though the casualty objective discourages it.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "loot_from", "target": "scientist", "item": "keycard" }
+    },
+    {
+      "id": "silo-ourumov-blocks-the-exit",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The final corridor is held by Ourumov with soldiers on the stairs; the soldiers are cleared first so the confrontation is not fought from two sides.",
+      "applies": { "phase": "exit" },
+      "action": { "verb": "prioritise_target", "target": "stair_soldiers", "over": "ourumov" }
+    },
+    {
+      "id": "silo-armour-before-the-end",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Body armour sits on a catwalk in the later part of the level, positioned just before the heaviest fighting, so it is worth the short detour it costs.",
+      "applies": { "phase": "midgame" },
+      "action": { "verb": "acquire_first", "item": "body_armour" }
+    },
+    {
+      "id": "silo-scientists-in-every-room",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Soldiers and scientists share every fuel room, so grenades and explosives thrown into a room usually cost the casualty objective.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "no_fire_at", "target": "scientist", "fails_objective": 4 }
+    }
+  ]
+}

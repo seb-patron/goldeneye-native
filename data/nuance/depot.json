@@ -1,0 +1,94 @@
+{
+  "level": "depot",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Depot has the largest destroy-list in the game: its arms cache alone accounts for seventeen tagged targets, so it is the level where a bot most needs to treat an objective as a set rather than a point."
+  ],
+  "nuance": [
+    {
+      "id": "depot-arms-cache-is-a-set",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The arms cache is many separate crates rather than one target, so the objective is a room to be cleared exhaustively and not a thing to be shot once.",
+      "applies": { "objective": 0, "tags": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26] },
+      "action": { "verb": "sweep_along", "tags": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26] },
+      "because": "Objective 0 names seventeen separate destroy tags, by far the largest such list in the game."
+    },
+    {
+      "id": "depot-clear-before-detonating",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The cache room is cleared of guards before explosives are set off, because the blast that destroys the crates will also kill anyone standing among them, including the player.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "clear_room_before", "objective": 0 }
+    },
+    {
+      "id": "depot-mines-in-the-middle",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Explosives placed centrally destroy many crates per charge, so the cache is finished with a small number of well-placed mines rather than shot crate by crate.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "space_explosives", "objective": 0 }
+    },
+    {
+      "id": "depot-computer-network-is-three-targets",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The computer network is a screen plus terminals behind the player, so turning around after the obvious target is part of the objective.",
+      "applies": { "objective": 1, "tags": [1, 2, 3] },
+      "action": { "verb": "sweep_along", "tags": [1, 2, 3] },
+      "because": "Objective 1 names three separate destroy tags rather than one."
+    },
+    {
+      "id": "depot-safe-key-before-blueprints",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The blueprints are inside the safe, so the safe key is a hard prerequisite and the two objectives are one sequence.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_before", "objective": 2, "then": 3 },
+      "because": "Objectives 2 and 3 are separate records and the key opens the container holding the blueprints."
+    },
+    {
+      "id": "depot-safe-key-near-the-terminals",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The safe key sits on a table in the same area as the computer terminals, so the key and the network objective are collected in one visit.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "collect_during", "objective": 2, "then": 1 }
+    },
+    {
+      "id": "depot-safe-is-upstairs",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The safe is on the upper floor of the station building, so the blueprints objective requires a vertical move that a flat route will never reach.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "approach_from", "prefer": "upper_floor", "objective": 3 }
+    },
+    {
+      "id": "depot-train-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Locating the train ends the mission, so the cache, the network and the blueprints must all be finished before heading for the garage doors.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "do_last", "objective": 4 },
+      "because": "Objective 4 is the level exit; unfinished objectives score as failed."
+    },
+    {
+      "id": "depot-exit-is-past-the-safe",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The route to the train leads out of the building holding the safe and down to the garage doors, so the exit is adjacent to the last collection objective.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "approach_from", "prefer": "safe_room_exit", "objective": 4 }
+    }
+  ]
+}

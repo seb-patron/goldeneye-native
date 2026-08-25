@@ -1,0 +1,92 @@
+{
+  "level": "frigate",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Frigate is the one level where hesitation actively loses objectives: hostages are killed by their captors on a timer, so the usual patient clearing approach is wrong here."
+  ],
+  "nuance": [
+    {
+      "id": "frigate-hostages-die-on-a-timer",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Each hostage is held at gunpoint and is executed if the captor is left alive too long, so hostage rooms are entered promptly rather than scouted.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "beat_timer", "per": "hostage_room", "objective": 0 }
+    },
+    {
+      "id": "frigate-shoot-the-captor-only",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Only the guard actually aiming at the hostage needs to die immediately; the others can be fought afterwards, and wide fire into the room kills the hostage.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prioritise_target", "target": "guard_aiming_at_hostage", "over": "all" }
+    },
+    {
+      "id": "frigate-headshots-for-captors",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Captors are killed with headshots because body shots leave them alive long enough to shoot the hostage they are holding.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "prefer_weapon", "weapon": "precise_aim", "for_objective": 0 }
+    },
+    {
+      "id": "frigate-fight-from-the-doorway",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Opening a door without stepping through leaves the room's guards unaware; they then come into the corridor one at a time instead of engaging together.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" }
+    },
+    {
+      "id": "frigate-hostage-quota-scales",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The number of hostages that must survive rises with difficulty, so a run that is acceptable on Agent fails on 00 Agent with the same losses.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "skip_below_difficulty", "objective": 0, "difficulty": "agent" },
+      "because": "Objective 0 exists at every difficulty while the bomb objectives do not, and the guides record a rising survival quota."
+    },
+    {
+      "id": "frigate-bombs-need-the-defuser",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Both bombs are disarmed by equipping the bomb defuser and firing at the charge; shooting them with a weapon does not disarm them.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "equip_and_fire", "item": "bomb_defuser", "objective": 1 }
+    },
+    {
+      "id": "frigate-two-bombs-far-apart",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The two bombs are separate objectives in separate parts of the ship, the bridge and the engine room, so neither is on the way to the other.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_after", "objective": 2, "then": 1 },
+      "because": "Objectives 1 and 2 are distinct records naming different locations."
+    },
+    {
+      "id": "frigate-bug-the-helicopter",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The helicopter at the stern is bugged by equipping the tracking bug and firing at it, and it is easy to walk past while chasing hostages.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "equip_and_fire", "item": "tracking_bug", "objective": 3 }
+    },
+    {
+      "id": "frigate-hostages-look-like-crew",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Hostages are uniformed crew rather than obviously civilian figures, so target identification has to happen before firing in occupied rooms.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "no_fire_at", "target": "hostage", "fails_objective": 0 }
+    }
+  ]
+}

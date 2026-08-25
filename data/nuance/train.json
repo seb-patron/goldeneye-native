@@ -1,0 +1,102 @@
+{
+  "level": "train",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Train is a corridor level with a hostage standoff in the middle and a hard timer at the end. It is the level where positioning inside a single room decides whether an objective is possible at all."
+  ],
+  "nuance": [
+    {
+      "id": "train-is-a-corridor",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The level runs front to back through connected carriages with no branching, so there is no flanking and every fight is head-on down a narrow space.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "fight_from_chokepoint", "at": "carriage_door" }
+    },
+    {
+      "id": "train-brakes-are-per-carriage",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The brake units are several separate targets, one per carriage, so the objective completes progressively as the train is worked through rather than at a single point.",
+      "applies": { "objective": 0, "tags": [8, 9, 10, 11, 12, 13] },
+      "action": { "verb": "collect_enroute", "tags": [8, 9, 10, 11, 12, 13] },
+      "because": "Objective 0 names six separate destroy tags spread along the train."
+    },
+    {
+      "id": "train-hostage-standoff-position",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "In the standoff room, moving to the far side before the dialogue starts opens a firing line on Ourumov that does not cross Natalya; from the doorway the shot is not available.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "approach_from", "prefer": "far_side_of_room", "objective": 1 }
+    },
+    {
+      "id": "train-shoot-ourumov-not-natalya",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Ourumov holds Natalya and she dies to a stray shot, so the rescue is a single aimed shot rather than a firefight.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "prioritise_target", "target": "ourumov", "over": "all" }
+    },
+    {
+      "id": "train-wait-for-the-line",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The standoff has a scripted opening and the shot has to be taken at the right moment in it, so the objective is a timing problem rather than an aiming one.",
+      "applies": { "objective": 1 },
+      "action": { "verb": "wait_for", "target": "standoff_cue", "objective": 1 }
+    },
+    {
+      "id": "train-boris-password-is-00-only",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Cracking the password is required only on 00 Agent, so lower-difficulty routes skip the terminal entirely.",
+      "applies": { "objective": 3, "difficulty": "00" },
+      "action": { "verb": "skip_below_difficulty", "objective": 3, "difficulty": "00" },
+      "because": "Objective 3's ObjectiveStart record carries the highest minimum difficulty in the level."
+    },
+    {
+      "id": "train-base-location-before-escape",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Locating the secret base and cracking the password both happen in the rear compartment reached after the standoff, and both must be done before the escape begins.",
+      "applies": { "objective": 2 },
+      "action": { "verb": "do_before", "objective": 2, "then": 4 },
+      "because": "Objective 4 is the level exit and objective 2 sits earlier in the difficulty chain."
+    },
+    {
+      "id": "train-escape-is-timed",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The escape runs on roughly a one minute countdown once it starts, which is not enough time to go back for anything missed.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "beat_timer", "seconds": 60, "objective": 4 }
+    },
+    {
+      "id": "train-run-dont-fight-the-exit",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "During the escape guards fire from behind and stopping to return fire costs more than the damage taken; the run is made without engaging.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "exit_immediately", "after_objective": 3 }
+    },
+    {
+      "id": "train-floor-is-the-way-out",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The exit from the rear compartment is cut through the floor rather than through a door, so a bot searching walls for an opening will not find one.",
+      "applies": { "objective": 4 },
+      "action": { "verb": "shoot_lock", "target": "floor_panel", "objective": 4 }
+    }
+  ]
+}

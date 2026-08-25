@@ -17,14 +17,14 @@
 >
 > Two things this also fixed, without being touched: the `[getv][nostan]` unplaced objects
 > (4 → 0), and the weapon/hand rendering. The `hinv=1/0` noted below as a known gap was a
-> misreading — that is the **left** hand hidden, which is correct for a one-handed PP7.
+> misreading -- that is the **left** hand hidden, which is correct for a one-handed PP7.
 >
 > **Full record with before/after numbers: `docs/WINDOWS_STAN_ORDERING.md`.**
 >
 > The rest of this document is kept as written, because everything in "Traps already paid
 > for", "Building" and "Diagnostics available" is still current and still correct.
 
-## The bug you are here to fix ~~(SOLVED — see the status block above)~~
+## The bug you are here to fix ~~(SOLVED -- see the status block above)~~
 
 **The game runs. Characters render. The world does not.**
 

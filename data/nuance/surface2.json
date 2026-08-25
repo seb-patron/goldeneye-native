@@ -1,0 +1,94 @@
+{
+  "level": "surface2",
+  "notes": [
+    "Play knowledge rewritten as executable actions. Every reference is checked against the generated level data by tools/gen_level_nuance.py.",
+    "Surface 2 reuses Surface 1's terrain at night. The map knowledge transfers; the threat model does not, because visibility is far worse and the sniper rifle is gone."
+  ],
+  "nuance": [
+    {
+      "id": "surface2-same-terrain-as-surface1",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The terrain is the same compound as Surface 1, so routes learned there transfer directly even though the objectives differ.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "approach_from", "prefer": "surface1_routes" },
+      "because": "Both levels resolve to the same navigation graph size, 251 nodes, and the guides describe it as the same map at night."
+    },
+    {
+      "id": "surface2-no-sniper",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "There is no sniper rifle here, so the long-range approach that works on Surface 1 is unavailable and engagements happen at much shorter range.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "avoid", "target": "long_range_plan" }
+    },
+    {
+      "id": "surface2-conserve-pp7-ammo",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Ammunition is scarce on higher difficulties, so shots are taken deliberately rather than sprayed; running dry mid-compound is a common failure.",
+      "applies": { "difficulty": "00" },
+      "action": { "verb": "prefer_weapon", "weapon": "pp7" }
+    },
+    {
+      "id": "surface2-darkness-hides-patrols",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The night sky cuts visibility badly, so guards are heard or run into rather than seen at distance; movement should assume contact at any moment.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "expect_alarm", "reason": "low_visibility" }
+    },
+    {
+      "id": "surface2-cameras-are-the-quiet-objective",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The surveillance equipment is several separate targets scattered around the compound, so it is cleared while moving between other objectives rather than as one trip.",
+      "applies": { "objective": 0, "tags": [3, 4, 6, 8] },
+      "action": { "verb": "collect_enroute", "tags": [3, 4, 6, 8] },
+      "because": "Objective 0 names four separate destroy tags."
+    },
+    {
+      "id": "surface2-cameras-on-the-cabin-and-tower",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Cameras sit on the outside of the cabin that held the large key in Surface 1 and on the catwalks of the dish tower, both of which are passed anyway.",
+      "applies": { "objective": 0 },
+      "action": { "verb": "collect_enroute", "along": "cabin_and_dish_tower" }
+    },
+    {
+      "id": "surface2-comms-link-is-paired",
+      "kind": "route",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Breaking the communications link means destroying more than one target, so the objective is not complete after the first.",
+      "applies": { "objective": 1, "tags": [0, 1] },
+      "action": { "verb": "sweep_along", "tags": [0, 1] },
+      "because": "Objective 1 names two destroy tags."
+    },
+    {
+      "id": "surface2-bunker-entry-is-terminal",
+      "kind": "order",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Entering the bunker ends the level, so it is left until the surveillance, communications and aircraft objectives are all done.",
+      "applies": { "objective": 3 },
+      "action": { "verb": "do_last", "objective": 3 },
+      "because": "Objective 3 is the level exit; anything unfinished scores as failed."
+    },
+    {
+      "id": "surface2-learn-it-on-surface1",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because the map is shared, the reliable way to handle the darkness is to know the layout in advance rather than to navigate by sight.",
+      "applies": { "phase": "whole" },
+      "action": { "verb": "approach_from", "prefer": "memorised_route" }
+    }
+  ]
+}
