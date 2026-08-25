@@ -285,6 +285,40 @@ Ordered by dependency, not appetite. Nothing in a later phase should start while
 is blocking, because every one of them is easier once a bot can be pointed at a level and left
 to run.
 
+## 🔑 M0. THE ATTRACT-MODE DEMOS — recorded human play, already in the ROM
+
+Evan asked whether the title-screen gameplay is a bot or a video. **Neither: it is fourteen
+recorded input streams**, in `assets/ramrom/`, decoded by `tools/decode_ramrom.py`:
+
+```
+bunker1 x2   dam x2   facility x3   frigate x2   runway x2   silo x2   train
+~39,910 input records, one of them 00 Agent
+```
+
+`ramrom_Train.bin` is **3,957 records of a person playing the level we cannot finish**.
+
+🔑 **The input record is `{s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}` — the same
+shape as `GePlayerInput`.** A decoded demo feeds straight through `gePlayerPost`.
+
+**Two things this gives us that we were building by hand:**
+
+1. **Ground truth for navigation.** Every path question we have been guessing at — which way out
+   of the first carriage, how close you stand to a door, when to fight rather than walk — was
+   answered by someone who could see the screen, and the game kept their answer.
+2. **A determinism test, already written.** The stream interleaves
+   `{speedframes, count, randseed, check}` and `ramromreplay` aborts when the running RNG
+   disagrees. That is precisely what netplay needs, with fourteen recorded cases to run it
+   against, and `gePlayerSeedFingerprint` already exposes our half.
+
+**Do:** find the exact header length so the input and seed records can be separated (the offset
+is derived, not assumed — a guessed one yields plausible sticks and garbage buttons); replay
+Train through the player API; compare our seed fingerprint against the recorded one each block.
+
+**Done when:** `ramrom_Train.bin` replays and the player follows the recorded path — at which
+point we have a working reference route AND a determinism check in one artefact.
+
+⚠️ ROM-derived. Decoded output stays out of git like every other asset.
+
 ## Phase 2 — the API becomes a platform
 
 **Bot personalities against real levels.** Eighteen archetypes exist and were only ever tested
