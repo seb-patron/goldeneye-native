@@ -286,6 +286,12 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortCliFrame(rendered);
     }
 
+    /* Replay the game's own recorded demos. Inert unless GETV_DEMO names a file. */
+    {
+        extern void gePortDemoFrame(int frame);
+        gePortDemoFrame(rendered);
+    }
+
     /* Derive events from what changed this frame and deliver them to subscribers. AFTER the
      * policies above, so an event describes the state they have already acted on rather than a
      * half-updated one. Costs nothing when nobody has subscribed. */
