@@ -1,0 +1,789 @@
+diff --git a/src/game/objective_status.c b/src/game/objective_status.c
+index 4ebf14b..4758515 100644
+--- a/src/game/objective_status.c
++++ b/src/game/objective_status.c
+@@ -1,7 +1,11 @@
++#include <math.h>
++#include <stdlib.h>
+ #include <ultra64.h>
+ #include <bondconstants.h>
+ #include <bondtypes.h>
+ #include "objective_status.h"
++#include "player.h"
++#include "stan.h"
+ #include "assets/obseg/text/LmiscE.h"
+ #include "language.h"
+ #include "PR/os.h"
+@@ -29,6 +33,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
+ s32 objective_count = 0xFFFFFFFF;
+ s32 objective_status_display_disabled = FALSE;
+ 
++#ifdef GE_PORT_NATIVE
++/* ================= GETV_OBJ_DEBUG (tvOS/mac port diagnostic) =================
++ * "objectives failed on mission start" -- state vs display. Every value below is
++ * read from the objects the evaluator itself uses, so a zero is a real zero.
++ * GLOBAL on purpose: `nm` on the binary is the rebuild check (statics get stripped).
++ * ============================================================================ */
++extern char *getenv(const char *);
++extern s32 objectiveregisters1;
++
++s32 g_geObjDbgEvals;
++
++s32 ge_obj_dbg(void)
++{
++    static s32 cached = -1;
++    if (cached < 0) { const char *e = getenv("GETV_OBJ_DEBUG"); cached = (e && *e == '1'); }
++    return cached;
++}
++
++/* GETV-OBJENDIAN -- `text` and `difficulty` read the wrong half-word / wrong byte on
++ * little-endian.
++ *
++ * The data: a setup file's propDefs are emitted as a native `s32 words[]` array
++ * (assets/obseg/setup/UsetupdamZ.c), and gePropdefsConvertToNative() copies an
++ * ObjectiveStart record's four words VERBATIM into the native record
++ * (ge_propdef_layout.inc.c: PROPDEF_OBJECTIVE_START = {4 filewords, 6 natwords,
++ * ge_pdefsegs_MissionObjectiveRecord_4 = {0,0,16}}). So the four words arrive as
++ * little-endian u32 values with their correct numeric content:
++ *     word0 @0 = header/id      word1 @4 = menu
++ *     word2 @8 = TextID         word3 @12 = MinDifficulty
++ *
++ * The read: `struct objective_entry` (bondtypes.h:4034) is the N64 layout, where the
++ * sub-word fields sit at the big-endian positions inside those words:
++ *     u16 text       @0xa  = the low half of the word at 0x8   -> LE it is at 0x8
++ *     s8  difficulty @0xf  = the low byte of the word at 0xc   -> LE it is at 0xc
++ * Reading them at 0xa / 0xf on arm64 therefore yields the high half / high byte, which
++ * for every real record is zero. On DAM (stage 33) all four objectives read
++ * `text=0 difficulty=0` where the records hold TextID 11286,11287,11288,11289 and
++ * MinDifficulty 1,2,2,0.
++ *
++ * Consequences, both user-visible: the watch objectives screen renders no text
++ * (langGet(0)), and get_difficulty_for_objective() returns 0 for everything, so every
++ * `objdiff <= curdiff` filter passes and the Agent / 00 Agent objective sets are wrong.
++ *
++ * Read the word and narrow, which is endian-independent and is exactly the N64
++ * semantics. `struct watchMenuObjectiveText` (the watch briefing text) is the same
++ * 16-byte record with the same `u16 reserved; u16 text;` pair and the same bug, so it
++ * gets the same accessor.
++ *
++ * GETV_OBJENDIAN=0 restores the raw struct read for A/B on one binary.
++ * These are globals, not statics: a static inlines at -O1 and leaves no symbol for
++ * `nm -gU`. */
++s32 geObjEndianFlag = -1;
++
++s32 geObjEndianOn(void)
++{
++    if (geObjEndianFlag < 0) {
++        const char *e = getenv("GETV_OBJENDIAN");
++        geObjEndianFlag = (e && e[0] == '0') ? 0 : 1;
++    }
++    return geObjEndianFlag;
++}
++
++/* TextID: the low u16 of the record's third word. */
++u16 geObjText(const void *rec)
++{
++    if (!geObjEndianOn()) {
++        return ((const struct objective_entry *) rec)->text;
++    }
++    return (u16) ((const u32 *) rec)[2];
++}
++
++/* MinDifficulty: the low s8 of the record's fourth word. */
++s8 geObjDifficulty(const void *rec)
++{
++    if (!geObjEndianOn()) {
++        return ((const struct objective_entry *) rec)->difficulty;
++    }
++    return (s8) (((const u32 *) rec)[3] & 0xff);
++}
++
++/* GETV-OBJENDIAN, third field -- `unkD`.
++ *
++ * `text` and `difficulty` are fixed above; `unkD` has the same shape. It is 0 on DAM
++ * under either reading, but a scan of all 38 U setup files finds four ObjectiveStart
++ * records whose fourth word is 256 (0x00000100) rather than 0/1/2 --
++ *     UsetuparkZ.c:550   objective 4, text 3124
++ *     UsetupcaveZ.c:587  objective 4, text 7192
++ *     UsetuppeteZ.c:424  objective 2, text 25626
++ *     u/UsetupsiloZ.c:420 objective 4, text 34838
++ * (the other 76 ObjectiveStart records hold 0, 1 or 2, and all 105
++ * WatchMenuObjectiveText records hold 0.)
++ *
++ * The field's offset: `struct objective_entry` is
++ *     u32 id@0; enum menu@4; u16 reserved@8; u16 text@0xa; u16 unkC@0xc;
++ *     u8 unkD@0xe; s8 difficulty@0xf
++ * -- unkD's `// d` comment is wrong, natural alignment puts it at 0xe, and the
++ * _Static_assert below is armed to keep it honest. On the big-endian N64, byte 0xe is
++ * (word3 >> 8) & 0xff, so word3 == 0x100 gives unkD == 1. Reading the struct field on
++ * arm64 yields (word3 >> 16) & 0xff == 0 instead.
++ *
++ * This is a live path, not a dead field: cleanupObjectives()
++ * (cleanup_objectives.c:12) tests `unkD & 1` and force-completes those objectives; it
++ * is called from lvlUnloadStageTextData() (lv.c:1753) at the end of every stage. All
++ * four affected records are the last objective of their level -- the "escape"
++ * objective that completes when the mission ends. Under the raw read the flag is 0 on
++ * arm64, so those four objectives are never force-completed at unload.
++ *
++ * Read the word and narrow, exactly as above. GETV_OBJENDIAN=0 restores the raw read. */
++u8 geObjUnkD(const void *rec)
++{
++    if (!geObjEndianOn()) {
++        return ((const struct objective_entry *) rec)->unkD;
++    }
++    return (u8) ((((const u32 *) rec)[3] >> 8) & 0xff);
++}
++_Static_assert(__builtin_offsetof(struct objective_entry, unkD) == 0xe,
++               "objective_entry layout changed: unkD is no longer at 0xe");
++_Static_assert(__builtin_offsetof(struct objective_entry, difficulty) == 0xf,
++               "objective_entry layout changed: difficulty is no longer at 0xf");
++#endif
++
+ 
+ 
+ /*
+@@ -89,7 +214,11 @@ u8 * get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
+     {
+         if (page == curentry->menu)
+         {
++#ifdef GE_PORT_NATIVE
++            textptr = langGet(geObjText(curentry));                   /* GETV-OBJENDIAN */
++#else
+             textptr = langGet(curentry->text);
++#endif
+             break;
+         }
+     }
+@@ -128,7 +257,11 @@ u8 * get_text_for_objective(int objectiveIndex)
+     u8 *textptr;
+     
+     if ((objectiveIndex < 10) && (objective_ptrs[objectiveIndex] != 0)) {
++#ifdef GE_PORT_NATIVE
++        return langGet(geObjText(objective_ptrs[objectiveIndex]));   /* GETV-OBJENDIAN */
++#else
+         return langGet(objective_ptrs[objectiveIndex]->text);
++#endif
+     }
+     return 0;
+ }
+@@ -144,7 +277,11 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
+         entry = objective_ptrs[objectiveIndex];
+         if (entry != NULL)
+         {
++#ifdef GE_PORT_NATIVE
++            return geObjDifficulty(entry);                            /* GETV-OBJENDIAN */
++#else
+             return entry->difficulty;
++#endif
+         }
+     }
+     return 0;
+@@ -153,7 +290,12 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
+ 
+ 
+ //horrible hack to get ai matching, but it does correctly refrence this func with 2 params
++/* ELF weak alias, ignored on Mach-O. Gated for the same reason as the libultra ones: on
++ * Linux it is honoured, and an alias emitted from a header-less hack is not something to
++ * leave to the linker. Nothing in the port calls objectiveGetStatus_WEAK. */
++#ifndef GE_PORT_NATIVE
+ #pragma weak    objectiveGetStatus_WEAK = get_status_of_objective
++#endif
+ 
+ /*
+  * Return Status of objective.
+@@ -283,6 +425,19 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
+                             break;
+                         }
+                     }
++#ifdef GE_PORT_NATIVE
++                    if (ge_obj_dbg() && g_geObjDbgEvals < 200)
++                    {
++                        g_geObjDbgEvals++;
++                        osSyncPrintf("[obj] n=%d rec=%p type=%d ObjRefID=%d TextID=%d "
++                                     "MinDiff=%d cur=%d running=%d regs1=0x%08x sz=%d\n",
++                                     objectiveNum, (void *) objective, (s32) objective->type,
++                                     (s32) objective->ObjRefID, (s32) objective->TextID,
++                                     (s32) objective->MinDificulty, (s32) currentstatus,
++                                     (s32) status, (unsigned) objectiveregisters1,
++                                     (s32) sizepropdef((PropDefHeaderRecord *) objective));
++                    }
++#endif
+                     if (status == OBJECTIVESTATUS_COMPLETE)
+                     {
+                         if (currentstatus != OBJECTIVESTATUS_COMPLETE)
+@@ -351,6 +506,23 @@ void display_objective_status_text_on_status_change(void)
+ 
+     for (i = 0; i <= objective_count; i++) {
+         status = get_status_of_objective(i);
++#ifdef GE_PORT_NATIVE
++        if (ge_obj_dbg() && g_geObjDbgEvals < 200) {
++            g_geObjDbgEvals++;
++            osSyncPrintf("[obj] SUMMARY i=%d/%d ptr=%p text=%d diff=%d seldiff=%d "
++                         "status=%d prev=%d regs1=0x%08x unkD_raw=%d unkD_fixed=%d "
++                         "word3=0x%08x\n",
++                         i, objective_count, (void *) objective_ptrs[i],
++                         objective_ptrs[i] ? (s32) geObjText(objective_ptrs[i]) : -1,
++                         (s32) get_difficulty_for_objective(i),
++                         (s32) lvlGetSelectedDifficulty(),
++                         (s32) status, (s32) objectiveStatuses[i],
++                         (unsigned) objectiveregisters1,
++                         objective_ptrs[i] ? (s32) objective_ptrs[i]->unkD : -1,
++                         objective_ptrs[i] ? (s32) geObjUnkD(objective_ptrs[i]) : -1,
++                         objective_ptrs[i] ? (unsigned) ((const u32 *) objective_ptrs[i])[3] : 0u);
++        }
++#endif
+         if (objectiveStatuses[i] != status) {
+             objectiveStatuses[i] = status;
+             if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
+@@ -523,3 +695,551 @@ void objectiveTakePictureHandler(void)
+ 
+ 
+ //filebreak
++
++#ifdef GE_PORT_NATIVE
++#include <stdio.h>
++/* GETV_STATE -- one machine-readable line of progress, called by the port each nth frame.
++ *
++ * It lives here rather than in the port layer because the port cannot see struct player or
++ * OBJECTIVESTATUS, and adding game headers to it would tangle the two together for a
++ * diagnostic. The port calls gePortStateDump(frame) through a plain prototype.
++ *
++ * The point is to make a level attempt assertable. Frame counts and triangle counts say the
++ * renderer is busy; they cannot say Bond reached the objective. This prints where each
++ * player is, how many objectives the mission has, each status, and whether the mission is
++ * complete -- which is what a script needs to decide whether a run passed. */
++/* Position of one player, for the script host in getv/port/src/ge_lua.c.
++ *
++ * It lives here rather than in the port layer for the same reason gePortStateDump() does:
++ * struct player is a game type, and the offset of pos within it is not the N64 offset
++ * (the 32-bit pointers ahead of it are 64-bit here), so any port-side copy of that number
++ * would be wrong now or wrong later. Returns 0 when the slot is empty, which a script
++ * sees as nil.
++ *
++ * g_playerPointers, not g_CurrentPlayer: that pointer is swapped as each viewport is
++ * drawn, so in split screen it names whichever player was rendered last. */
++int gePortPlayerPos(int idx, f32 *out)
++{
++    extern struct player *g_playerPointers[4];
++
++    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) {
++        return 0;
++    }
++    /* prop->pos, NOT player->pos.
++     *
++     * player->pos is zeroed at spawn (player.c:160, bondview.c:1423) and only a couple of paths
++     * ever write it, so it reads as a plausible frozen coordinate rather than as nothing. The
++     * world position the game itself maintains is on the prop, written from the collision
++     * record every tick by five sites (bondview2.c:1225, 5108, 9478, 11481, 11517).
++     *
++     * Reading the wrong one cost real time: co-op looked frozen for days -- the players were
++     * walking, with collision_position and theta_transform both advancing -- and the route bot's
++     * distance-to-waypoint never changed, so it steered forever against a stale fix. Measured on
++     * Bunker 1: collision_position moved 530 units while this function returned the same
++     * coordinate 900 times.
++     *
++     * The fallback matters. prop is null between level load and the first spawn, and a player
++     * with no prop has no world position to report -- so refuse, the same as an empty slot,
++     * rather than handing back the stale field and calling it an answer. */
++    if (g_playerPointers[idx]->prop == NULL) {
++        return 0;
++    }
++    out[0] = g_playerPointers[idx]->prop->pos.x;
++    out[1] = g_playerPointers[idx]->prop->pos.y;
++    out[2] = g_playerPointers[idx]->prop->pos.z;
++    return 1;
++}
++
++/* Which way a player is facing, in degrees, for the bot and agent APIs.
++ *
++ * Same lane argument as gePortPlayerPos above: struct player is a game type and the port
++ * layer cannot see it. ge_bot_route.c was dead-reckoning heading from successive positions
++ * because this did not exist, and that estimator has a deadlock in it -- a bot that needs to
++ * turn more than the alignment threshold walks at zero speed, so it never moves, so the
++ * estimate never updates and the turn never completes. Measured on Bunker 1: err stuck at
++ * 142 degrees for 1100 frames with the stick hard over.
++ *
++ * theta_transform is the collision record's forward vector, which is what the walk code
++ * itself steers by (bondview2.c:7781 builds the move offset from f[0] and f[2]). Reading the
++ * same vector the movement uses means heading and travel cannot disagree.
++ *
++ * atan2(x, z) rather than the usual atan2(y, x): the route extractor measures bearings that
++ * way, so the two are directly comparable without a fudge term at the call site.
++ */
++int gePortPlayerAngle(int idx, f32 *out_deg)
++{
++    extern struct player *g_playerPointers[4];
++    f32 fx, fz;
++
++    if (idx < 0 || idx > 3 || out_deg == NULL || g_playerPointers[idx] == NULL) {
++        return 0;
++    }
++
++    fx = g_playerPointers[idx]->field_488.theta_transform.f[0];
++    fz = g_playerPointers[idx]->field_488.theta_transform.f[2];
++
++    /* An all-zero vector has no direction, and returning 0 degrees for it would be a lie the
++     * caller cannot detect. Refuse instead, the way the position accessor refuses an empty
++     * slot. */
++    if (fx == 0.0f && fz == 0.0f) {
++        return 0;
++    }
++
++    *out_deg = (f32) (atan2f(fx, fz) * (180.0 / 3.14159265358979323846));
++    return 1;
++}
++
++
++/* The rest of the state readout the player API declares.
++ *
++ * Same lane argument as the two above, and the same refusal contract: return 0 rather than
++ * writing a zero, so a caller can tell "not available" from "genuinely zero". A learning agent
++ * trained on a health of 0.0 that actually meant "no accessor" is learning from a lie, and the
++ * flags word in GePlayerState exists precisely so that distinction survives.
++ *
++ * Grouped by cluster rather than one call per field: each cluster is one null check and one
++ * struct walk, and the caller wants them together anyway.
++ */
++
++/* Which room the player is standing in.
++ *
++ * From the STAN TILE under their feet, which is the room the engine itself is working in.
++ *
++ * The prop's rooms[] list was the obvious source and it is empty for the player: measured on
++ * Bunker 1 at frames 301, 901 and 1801, rooms[0] is 0xff every time, so GE_ST_ROOM never
++ * appeared in the flags word. That list is maintained for props the room system tracks; the
++ * player is placed by the stan query instead and carries its result on the collision record.
++ *
++ * ⚠️ The tile pointer is null before the first placement and while a player is mid-respawn, and
++ * a tile's room is 0xff when it belongs to no room. Both refuse rather than guessing -- an
++ * agent that reads room 0 for "unknown" will confidently route through the wrong part of the
++ * map, which is the same class of failure as the assumed spawns in tools/dump_spawns.py. */
++int gePortPlayerRoom(int idx, s32 *out_room)
++{
++    extern struct player *g_playerPointers[4];
++    StandTile *tile;
++    u8 room;
++
++    if (idx < 0 || idx > 3 || out_room == NULL || g_playerPointers[idx] == NULL) { return 0; }
++
++    tile = g_playerPointers[idx]->field_488.current_tile_ptr;
++    if (tile == NULL) { return 0; }
++
++    room = tile->room;
++    if (room == 0xff) { return 0; }
++
++    *out_room = (s32) room;
++    return 1;
++}
++
++/* Health, armour and whether the player is down.
++ *
++ * bondhealth/bondarmour rather than apparenthealth/apparentarmour. The apparent pair is what the
++ * HUD bar animates towards, so it lags the real value by however long the bar takes to slide --
++ * fine for drawing, wrong for a bot deciding whether to retreat and wrong for a reward signal.
++ * oldhealth is the previous frame's value and is for computing damage taken, not for reading. */
++int gePortPlayerHealth(int idx, f32 *out_hp, f32 *out_armour, s32 *out_dead)
++{
++    extern struct player *g_playerPointers[4];
++
++    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) { return 0; }
++
++    if (out_hp != NULL)     { *out_hp     = g_playerPointers[idx]->bondhealth; }
++    if (out_armour != NULL) { *out_armour = g_playerPointers[idx]->bondarmour; }
++    if (out_dead != NULL)   { *out_dead   = (g_playerPointers[idx]->bonddead != 0); }
++    return 1;
++}
++
++/* What is in the player's hands.
++ *
++ * Hand 0, the right hand, which is the one a single-wielded weapon occupies -- the left is
++ * ITEM_UNARMED unless the player is dual wielding, which is why a naive read of hands[1] looked
++ * like "no weapon" for most of the game.
++ *
++ * The magazine count is on the hand. The reserve is not: it lives in the player's ammoheldarr,
++ * indexed by AMMO type rather than by weapon, because several weapons share a pool -- so the
++ * weapon has to be mapped through get_ammo_type_for_weapon first. Indexing that array by the
++ * weapon id directly returns a real number belonging to an unrelated ammo type. */
++int gePortPlayerWeapon(int idx, s32 *out_weapon, s32 *out_clip, s32 *out_reserve)
++{
++    extern struct player *g_playerPointers[4];
++    extern s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
++    struct player *p;
++    ITEM_IDS weapon;
++
++    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) { return 0; }
++    p = g_playerPointers[idx];
++    weapon = p->hands[0].weaponnum;
++
++    if (out_weapon != NULL) { *out_weapon = (s32) weapon; }
++    if (out_clip != NULL)   { *out_clip   = p->hands[0].weapon_ammo_in_magazine; }
++    if (out_reserve != NULL) {
++        s32 type = get_ammo_type_for_weapon(weapon);
++        *out_reserve = (type >= 0 && type < 30) ? p->ammoheldarr[type] : 0;
++    }
++    return 1;
++}
++
++/* Kills, deaths and shots fired.
++ *
++ * These live in g_playerPlayerData[], the permanent per-slot record, NOT in struct player --
++ * g_playerPerm is only a cursor into that array pointing at whichever player is current, so
++ * reading through it gives the current viewport's score for every slot asked about.
++ *
++ * Deaths have to be summed rather than read. There is no deaths counter: kill_counts[v] inside
++ * player j's record is "how many times j killed v", so a player's deaths are that column summed
++ * down the whole array, which is exactly what mpmenu.c:398 does when it builds the end-of-game
++ * table. Suicides land in kill_counts[i] of player i's own record and count as a death there,
++ * which matches how the scoreboard reports them.
++ *
++ * Solo has no opponents, so kills and deaths are legitimately 0 there while shots is real. */
++/* Which control style a slot is configured for, and whether that style spans two pads.
++ *
++ * cur_player_get_control_type() reads g_CurrentPlayer, which is a per-viewport cursor -- asking
++ * it about slot 2 while slot 0 is being drawn returns slot 0's answer. This reads the slot.
++ *
++ * The two-pad question matters to anything injecting input. Styles 2.1 Plenty, 2.2 Galore,
++ * 2.3 Domino and 2.4 Goodhead read movement from a SECOND controller at index
++ * playernum + getPlayerCount() (bondview2.c:5371), which is how the engine's twin-stick modes
++ * were built and is what this port defaults to so a modern dual-analog pad maps cleanly. A
++ * caller that writes only the slot's own pad drives the turn and never the walk. */
++int gePortPlayerControlStyle(int idx)
++{
++    extern struct player *g_playerPointers[4];
++
++    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) { return -1; }
++    return (s32) g_playerPointers[idx]->cur_player_control_type_0;
++}
++
++int gePortPlayerUsesTwoPads(int idx)
++{
++    s32 style = gePortPlayerControlStyle(idx);
++
++    return (style == CONTROLLER_CONFIG_PLENTY || style == CONTROLLER_CONFIG_GALORE
++            || style == CONTROLLER_CONFIG_DOMINO || style == CONTROLLER_CONFIG_GOODHEAD);
++}
++
++/* The pad index the movement axes come from for this slot, or the slot itself for a
++ * one-controller style. Mirrors bondview2.c:5371 exactly rather than recomputing the rule. */
++int gePortPlayerMovePad(int idx)
++{
++    if (!gePortPlayerUsesTwoPads(idx)) { return idx; }
++    return idx + (s32) getPlayerCount();
++}
++
++
++/* Can a body stand here? The game's own answer, for bots and agents.
++ *
++ * Every navigation attempt so far has been planar: the waypoint graph carries y but routes on
++ * x and z alone, and the follower's obstacle handling is a blind turn-and-hope. That is fine
++ * until a level has stairs, and then it is hopeless -- Bunker 1's spawn is at y=340 and both of
++ * its portals are at y=93, so a bot that only reasons in plan view walks at a doorway through a
++ * floor.
++ *
++ * The engine already knows. sub_GAME_7F0AFB78 is the stan query the spawn placement uses: hand
++ * it a position and a radius and it snaps to the nearest standable tile, ADJUSTING Y to that
++ * tile's height, or returns NULL when there is nothing to stand on. That is exactly the
++ * question local navigation needs, and it costs one call.
++ *
++ * The y it writes back is the useful half. A caller probing ahead gets both "is there floor" and
++ * "at what height", which is what turns a planar walk into one that can find a stairway.
++ *
++ * ⚠️ Standable is not the same as reachable. The tile on the far side of a wall is standable and
++ * a body still cannot walk to it, so this answers "is there floor there", not "can I get there".
++ * Used as a reachability test it will confidently walk into walls -- which is the mistake the
++ * distance-based spawn links made in a different form.
++ */
++int gePortProbeStandable(f32 x, f32 y, f32 z, f32 radius, f32 *out_y, s32 *out_room)
++{
++    f32 px = x, py = y, pz = z;
++    StandTile *tile = sub_GAME_7F0AFB78(&px, &py, &pz, radius);
++
++    if (tile == NULL) {
++        return 0;
++    }
++    if (out_y != NULL)    { *out_y = py; }
++    if (out_room != NULL) { *out_room = (tile->room == 0xff) ? -1 : (s32) tile->room; }
++    return 1;
++}
++
++
++/* Can a body actually WALK from here to there? The engine's own line test.
++ *
++ * 🔴 gePortProbeStandable is not this, and mistaking the two wasted a long pass. That query SNAPS
++ * to the nearest standable tile within its radius rather than testing the point, so it answers
++ * yes almost everywhere -- a floor map of the Bunker 1 spawn came back as 840x840 units of open
++ * floor with no wall anywhere, at a probe radius of 8. Stan is the navigation and height mesh.
++ * IT DOES NOT KNOW ABOUT WALLS. Walls are background geometry, and they are what refuses the
++ * move that stan happily says is standable.
++ *
++ * bondviewTestLineUnobstructed is the test the game itself uses (bondview2.c:2262 for the tank),
++ * and CDTYPE_BG is the term that brings the walls in. Doors and path blockers are included too,
++ * because a bot that routes through a closed door has not found a path either.
++ *
++ * ⚠️ Chrs and players are deliberately NOT included. Another body standing in the way is a
++ * transient, and a route planner that treats it as a wall will re-plan every time a guard walks
++ * past.
++ */
++int gePortProbeWalkable(f32 from_x, f32 from_z, f32 to_x, f32 to_z)
++{
++    /* Declared here rather than by including bondview_internal.h: that header needs a chain of
++     * bondview constants this translation unit does not pull in, and dragging them in for one
++     * prototype trades a build break for a coupling. Signature copied from bondview2.c:2213. */
++    extern s32 bondviewTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z,
++                                            f32 dest_x, f32 dest_z, s32 cdtypes,
++                                            struct coord3d *coord_p, struct coord3d *coord_dest);
++    extern struct player *g_playerPointers[4];
++    StandTile *tile;
++    struct coord3d a, b;
++    f32 y = 0.0f;
++
++    /* 🔑 THE TILE IS AN INPUT, NOT JUST AN OUTPUT, and passing NULL makes every call fail.
++     *
++     * The game's own caller seeds it (bondview2.c:2262 passes a tile it already holds): the walk
++     * starts from a known tile and the test steps outwards from there. With NULL it has nowhere
++     * to start and reports everything obstructed -- a reachability map of the Bunker 1 spawn came
++     * back solid 'x', including cells 60 units away that the player can plainly walk to.
++     *
++     * Seeded from player 0's collision record, falling back to a stan lookup at the start point
++     * for a caller asking about somewhere the player is not standing. */
++    {
++        /* Seed from the START OF THIS LINE, not from wherever player 0 happens to be standing.
++         *
++         * Using the player's tile is right for a bot asking about its own next step and wrong
++         * for everything else -- an edge validator testing two waypoints across the map would
++         * seed every pair from the spawn, and the answers stop being about the pair at all. It
++         * measured 98% of Bunker 1's pairs walkable that way, which is a number about the seed
++         * rather than the level.
++         *
++         * The player's tile is still the fallback, because a caller asking about a point with no
++         * stan under it is usually asking from where the player is. */
++        f32 qx = from_x, qz = from_z;
++        f32 sdx, sdz;
++
++        tile = sub_GAME_7F0AFB78(&qx, &y, &qz, 60.0f);
++
++        /* ⚠️ THE LOOKUP SNAPS, AND A LONG SNAP IS A WRONG ANSWER.
++         *
++         * sub_GAME_7F0AFB78 moves the point it is given to the nearest standable tile, and
++         * "nearest" can be on the FAR SIDE OF A WALL. Seeded from that tile the line test then
++         * starts somewhere the caller never asked about and reports a walk that does not exist:
++         * the Bunker 1 spawn measured a clear 1109-unit line to a portal that a reachability map
++         * drawn from the player's own tile shows is behind a wall.
++         *
++         * If the snap moved the point appreciably, we could not establish where the walk starts,
++         * so refuse. An unmeasurable edge must not be reported as a walkable one -- that is how
++         * an assumption gets laundered into a measurement. */
++        sdx = qx - from_x;
++        sdz = qz - from_z;
++        {
++            /* How far the snap may move the start before the answer stops being about the point
++             * that was asked for. GETV_WALK_SNAP makes it explicit because it is a real accuracy
++             * dial, not a constant, and the three settings measure three different things on
++             * Bunker 1's 2926 pairs:
++             *
++             *   no guard at all   73% walkable  -- includes lines through walls, seeded from a
++             *                                      tile the snap found on the far side
++             *   30 units           4% walkable  -- so strict that almost no pad qualifies, since
++             *                                      waypoints are PAD positions and pads are
++             *                                      frequently not on the stan mesh at all
++             *   60 units (default)              -- the same radius the lookup itself uses
++             *
++             * ⚠️ None of these is ground truth. The only seed known to be correct is the tile a
++             * body is actually standing on, which is why a reachability map drawn from the
++             * player disagrees with all of them. Treat this as a filter that removes obvious
++             * nonsense, not as proof an edge is walkable. */
++            static f32 snap_max = -1.0f;
++            if (snap_max < 0.0f) {
++                const char *e = getenv("GETV_WALK_SNAP");
++                /* DEFAULT OFF. Every tolerance tried rejected every edge on Bunker 1 -- 0 of
++                 * 2926 at 30, 60 and 120 units alike -- which says the snap routinely moves the
++                 * point further than any of them, not that the level is sealed. Shipping it on
++                 * would replace a flawed measurement with an empty one, and an empty one still
++                 * looks like a result. Left available for investigation, and OFF until the snap
++                 * distance itself is understood. */
++                snap_max = (e != NULL && *e != '\0') ? (f32) atof(e) : 0.0f;
++            }
++            if (snap_max > 0.0f && tile != NULL
++                && ((sdx * sdx) + (sdz * sdz)) > (snap_max * snap_max)) {
++                tile = NULL;
++            }
++        }
++
++        if (tile == NULL && g_playerPointers[0] != NULL) {
++            /* Only when the caller is asking from where the player actually stands: that tile is
++             * known-good, and it is the one case a snap cannot improve on. */
++            f32 px = g_playerPointers[0]->field_488.collision_position.f[0];
++            f32 pz = g_playerPointers[0]->field_488.collision_position.f[2];
++            f32 pdx = px - from_x, pdz = pz - from_z;
++            if (((pdx * pdx) + (pdz * pdz)) <= (60.0f * 60.0f)) {
++                tile = g_playerPointers[0]->field_488.current_tile_ptr;
++            }
++        }
++        if (tile == NULL) {
++            return 0;   /* cannot establish a start: not a walk to measure */
++        }
++    }
++
++    a.f[0] = from_x; a.f[1] = 0.0f; a.f[2] = from_z;
++    b.f[0] = to_x;   b.f[1] = 0.0f; b.f[2] = to_z;
++
++    /* 🔑 DOORS ARE NOT WALLS, and including them made a room with two doorways look sealed.
++     *
++     * A reachability map of the Bunker 1 spawn with CDTYPE_DOORS in the mask came back as a
++     * closed corridor 120 units wide and 480 long -- which matched the bot being pinned at
++     * x=-1361 and looked like a convincing explanation, and was wrong. A player walks through a
++     * door by opening it, so for anything asking "can I get there" a door is a passage. Leaving
++     * it in tells a route planner the level is a set of sealed boxes.
++     *
++     * CDTYPE_PATHBLOCKER stays: that is glass and scenery flagged as genuinely impassable, which
++     * is the one thing in this family that really does stop a body. */
++    return bondviewTestLineUnobstructed(&tile, from_x, from_z, to_x, to_z,
++                                        CDTYPE_BG | CDTYPE_PATHBLOCKER,
++                                        &a, &b) != 0;
++}
++
++
++int gePortPlayerScore(int idx, s32 *out_kills, s32 *out_deaths, s32 *out_shots)
++{
++    extern struct player_data g_playerPlayerData[4];
++    extern struct player *g_playerPointers[4];
++    s32 j;
++
++    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) { return 0; }
++
++    if (out_kills != NULL)  { *out_kills = g_playerPlayerData[idx].kill_count; }
++    if (out_shots != NULL)  { *out_shots = g_playerPlayerData[idx].shot_count[SHOT_REGISTER_TOTAL]; }
++    if (out_deaths != NULL) {
++        s32 deaths = 0;
++        for (j = 0; j < 4; j++) { deaths += g_playerPlayerData[j].kill_counts[idx]; }
++        *out_deaths = deaths;
++    }
++    return 1;
++}
++
++
++/* Live enemy state, for getv/port/src/ge_enemy_api.c. See docs/ENEMY_API.md.
++ *
++ * Here for the same reason gePortPlayerPos is: ChrRecord is a game type, the port layer is
++ * compiled without the decomp's include path, and any port-side copy of a field offset would be
++ * wrong now or wrong later.
++ *
++ * A FLAT FLOAT ARRAY rather than a shared struct, matching gePortPlayerPos. A struct would need a
++ * header both sides include, which is precisely the coupling this shape avoids.
++ */
++int gePortEnemyCount(void)
++{
++    extern s32 g_NumChrSlots;
++    return (int) g_NumChrSlots;
++}
++
++int gePortEnemyAt(int index, f32 *out, int count)
++{
++    extern ChrRecord *g_ChrSlots;
++    extern s32 g_NumChrSlots;
++    ChrRecord *chr;
++
++    if (out == NULL || index < 0 || index >= (int) g_NumChrSlots) {
++        return 0;
++    }
++    /* REFUSE rather than write what fits. The caller passes its array length so that adding a
++     * field here can never silently shift every reader by one slot -- a failure that is quiet and
++     * total, since every field would then read as its neighbour and nothing would error. */
++    if (count < 14) {
++        return 0;
++    }
++
++    chr = &g_ChrSlots[index];
++    if (chr->model == NULL) {
++        return 0;   /* free slot: chr.c:1775 counts these by model == 0 */
++    }
++    if (chr->prop == NULL) {
++        return 0;   /* no prop, no position, and everything below would be a null deref */
++    }
++
++    out[0]  = chr->prop->pos.x;
++    out[1]  = chr->prop->pos.y;
++    out[2]  = chr->prop->pos.z;
++
++    /* Damage TAKEN and the threshold to die, not health remaining. The port inverts it at the
++     * boundary so no caller has to remember which way round it is; getting that backwards reads a
++     * dying guard as a healthy one. */
++    out[3]  = chr->damage;
++    out[4]  = chr->maxdamage;
++
++    out[5]  = (f32) chr->alertness;
++    out[6]  = chr->hearingscale;
++
++    /* Where this character believes its target is, and how stale that belief is. The gap between
++     * this and where the player actually stands is the whole basis for deciding to break contact
++     * -- see docs/ENEMY_API.md. */
++    out[7]  = chr->lastknowntargetpos.x;
++    out[8]  = chr->lastknowntargetpos.y;
++    out[9]  = chr->lastknowntargetpos.z;
++    out[10] = (f32) chr->lastseetarget60;
++    out[11] = (f32) chr->lastheartarget60;
++
++    out[12] = (f32) chr->chrnum;
++    out[13] = (chr->actiontype != ACT_DEAD) ? 1.0f : 0.0f;
++
++    /* A MASK of what was filled, not a bool. A build that could reach position but not alertness
++     * should say so, rather than letting a bot read every guard as oblivious. This one fills all
++     * four groups: POSITION | HEALTH | ALERT | BELIEF. */
++    return 1 | 2 | 4 | 8;
++}
++
++
++void gePortStateDump(int frame)
++{
++    s32 i;
++    s32 n = getPlayerCount();
++
++    /* Why the co-op players do not move, if they do not.
++     *
++     * lvlManageMpGame() (lv.c:1098) sets g_ClockTimer to 0 whenever controls are locked or
++     * the game is paused, and to speedgraphframes otherwise. A zero clock means zero delta,
++     * and zero delta freezes every player including player 0 while rendering carries on
++     * normally -- which is exactly the reported symptom: p0 travels 72.5 units in co-op
++     * against 16930 solo, and separating the spawns (GETV_COOP_SPREAD) did not change it.
++     *
++     * Printed rather than assumed, because the alternative explanations -- no input reaching
++     * players 1-3, spawn collision, missing pads -- have already been ruled out one at a
++     * time and this is the next candidate rather than a conclusion. */
++    {
++        extern s32 g_ControlsLockedFlag;
++        extern s32 g_ClockTimer;
++        extern s32 checkGamePaused(void);
++        printf("[getv][state] locked=%d paused=%d clock=%d",
++               (int) g_ControlsLockedFlag, (int) checkGamePaused(), (int) g_ClockTimer);
++    }
++    printf("[getv][state] f=%d players=%d", frame, (int) n);
++
++    /* Every player, not g_CurrentPlayer. That pointer is swapped as each viewport is drawn,
++     * so in split screen it names whichever player was rendered last -- reading it made
++     * co-op look motionless when the truth was that consecutive samples described different
++     * players. g_playerPointers is the stable array. */
++    {
++        extern struct player *g_playerPointers[4];
++        s32 p;
++        for (p = 0; p < 4; p++) {
++            if (g_playerPointers[p] == NULL) {
++                continue;
++            }
++            printf(" p%d=%.1f,%.1f,%.1f", (int) p,
++                   (double) g_playerPointers[p]->pos.x,
++                   (double) g_playerPointers[p]->pos.y,
++                   (double) g_playerPointers[p]->pos.z);
++        }
++    }
++    printf(" objectives=%d status=", (int) objective_count);
++    if (objective_count <= 0) {
++        printf("-");
++    } else {
++        for (i = 0; i < objective_count && i < OBJECTIVES_MAX; i++) {
++            printf("%d", (int) objectiveStatuses[i]);
++        }
++    }
++    printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
++    fflush(stdout);
++}
++#endif

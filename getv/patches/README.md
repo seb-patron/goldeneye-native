@@ -85,3 +85,23 @@ git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c 
 Generated data - the audio segment, the obseg blobs, the animation blobs, the images segment,
 the per-model `Model.c` files. They are large, derived from the ROM, and reproducible from
 `tools/` and `scripts/`; see `docs/SETUP.md` section 3.5. **Never commit ROM-derived data.**
+
+## 0004-player-accessors.patch — the seven symbols the port layer links against
+
+`vendor/` is gitignored, so **decomp changes do not travel in a bundle**. That is not a detail:
+the Surface's build failed to link for a full day on `gePortPlayerMovePad`, `gePortPlayerAngle`,
+`gePortPlayerRoom`, `gePortPlayerHealth`, `gePortPlayerWeapon`, `gePortPlayerScore` and
+`gePortProbeStandable` — every one of them written, tested and committed on the Mac, and none of
+them present on the other machine. Everything compiled; only the link knew.
+
+🔑 **If you add a symbol the port layer calls, it belongs in a patch the same day.** A commit that
+builds on one machine and cannot link on the other is indistinguishable from a broken commit, and
+the other side has no way to tell which.
+
+Contains, in `src/game/objective_status.c`: the player state accessors behind `GePlayerState`
+(position from `prop->pos`, angle, room from the stan tile, health, weapon, score), the control
+style helpers (`gePortPlayerControlStyle`, `gePortPlayerUsesTwoPads`, `gePortPlayerMovePad`), and
+the two navigation probes (`gePortProbeStandable`, `gePortProbeWalkable`).
+
+Apply with `git -C vendor/ge-decomp apply getv/patches/0004-player-accessors.patch`. It applies
+on top of 0003.

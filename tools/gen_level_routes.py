@@ -483,6 +483,58 @@ def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3)
     return index
 
 
+def load_walkable_verdicts(out_dir, level):
+    """The engine's verdicts from tools/validate_edges.sh, as a set of normalised pairs.
+
+    Inline rather than a separate module, deliberately. Both machines wrote a consumer for this
+    on the same afternoon and then each deleted their own in favour of the other's -- so for a
+    few minutes neither existed. One mechanism, in the file that consumes it.
+
+    The validator already resolves direction: a pair is recorded once, with ok true only when
+    both directions agree, and the count that disagreed is in the header. So this just reads.
+    """
+    path = os.path.join(out_dir, level + ".walkable.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    out = set()
+    for e in doc.get("edges", []):
+        try:
+            a, b = int(e["a"]), int(e["b"])
+        except (KeyError, TypeError, ValueError):
+            continue          # a malformed row is dropped, never guessed at
+        if e.get("ok"):
+            out.add((min(a, b), max(a, b)))
+    return out
+
+
+def prune_unwalkable(graph, measured):
+    """Drop edges the engine refused.
+
+    ⚠️ Only where the measurement actually looked. The validator has a distance cutoff, so an
+    edge it never examined is absent from the set and must NOT be read as refused -- that would
+    silently delete every long-range link in the graph and look like a successful prune.
+    """
+    covered = set()
+    for a, b in measured:
+        covered.add(a)
+        covered.add(b)
+
+    dropped = 0
+    for a in list(graph.keys()):
+        if a not in covered:
+            continue
+        keep = []
+        for b in graph[a]:
+            if b not in covered or (min(a, b), max(a, b)) in measured:
+                keep.append(b)
+            else:
+                dropped += 1
+        graph[a] = keep
+    return dropped
+
+
 def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
@@ -866,11 +918,14 @@ def main():
         # Uses the Surface's walkable_verdicts module rather than a second copy of the same
         # logic here. We each built half of this independently -- their reader against my
         # validator -- and two implementations of one rule is how they drift apart.
-        try:
-            import walkable_verdicts
-            graph, _vstats = walkable_verdicts.apply_to_level(level, graph, out_dir)
-        except ImportError:
-            print("  %-10s walkable_verdicts not importable -- edges stay assumed" % level)
+        _measured = load_walkable_verdicts(out_dir, level)
+        if _measured is not None:
+            _dropped = prune_unwalkable(graph, _measured)
+            print("  %-10s engine verdicts: %d walkable pair(s), %d assumed edge(s) dropped"
+                  % (level, len(_measured), _dropped))
+        else:
+            print("  %-10s NO ENGINE VERDICTS -- every edge is still an assumption. "
+                  "Run tools/validate_edges.sh." % level)
 
         routes = []
         for obj in tact.get("objectives", []):

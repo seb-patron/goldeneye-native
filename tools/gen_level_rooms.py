@@ -348,6 +348,37 @@ def main():
                                 min(p[2] for p in t["poly3"]), max(p[0] for p in t["poly3"]),
                                 max(p[1] for p in t["poly3"]), max(p[2] for p in t["poly3"])]}
                       for t in tiles if not t["is_floor"]],
+            # THE FLOOR TILES, WITH THEIR HEIGHTS. These were classified here and then thrown
+            # away, which is how a navigation mesh derived from stan reached the router as a flat
+            # drawing: every node carried a y and nothing could route on it.
+            #
+            # It shows up as a bot walking at a doorway it cannot reach. Bunker 1's spawn is at
+            # y=340 and both portals out of its room are at y=93, so a planar graph joins them
+            # with a straight line through 247 units of floor and the follower beelines into it.
+            # Stairs and ramps are already kept as floor by the 0.5 normal threshold above, so the
+            # descent is present in this data -- it simply was not emitted.
+            #
+            # Compact on purpose: 36,458 tiles across twenty levels, and a router needs where a
+            # tile is, how high it is, and which room it belongs to. The full polygon is what
+            # `walls` needs for ray casting; a floor is only ever asked "can a body stand here,
+            # and at what height".
+            #
+            #   r  room id
+            #   c  centroid, [x, y, z]
+            #   bb XZ footprint, [minx, minz, maxx, maxz] -- adjacency and containment in plan
+            #      view, which is what a walking body meets
+            #
+            # NOTE FOR CONSUMERS: this y is the FLOOR, not a body position. On Bunker 1 they
+            # differ by 157 units (pos.y=329 against a floor at 172), so comparing a player
+            # position to one of these directly reports a phantom cliff in every direction at
+            # once. Measured by mac-getv, who lost a test cycle to it.
+            "floors": [{"r": t["room"],
+                        "c": [sum(p[0] for p in t["poly3"]) // len(t["poly3"]),
+                              sum(p[1] for p in t["poly3"]) // len(t["poly3"]),
+                              sum(p[2] for p in t["poly3"]) // len(t["poly3"])],
+                        "bb": [min(p[0] for p in t["poly3"]), min(p[2] for p in t["poly3"]),
+                               max(p[0] for p in t["poly3"]), max(p[2] for p in t["poly3"])]}
+                       for t in tiles if t["is_floor"]],
             "waypoint_room": wp_rooms,
             "prop_room": prop_rooms,
         }
