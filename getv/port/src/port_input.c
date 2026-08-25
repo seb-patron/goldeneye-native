@@ -935,18 +935,46 @@ static int geMouseInvert(void)
  return v;
 }
 
+/* Counts of mouse movement per full-scale stick deflection at GETV_MOUSE_SENS=100.
+ *
+ * 21, picked off the measured sweep in docs/MOUSE.md rather than by feel. The old 220 was
+ * set against nothing and needed roughly a metre of desk for a 180 degree turn. */
+#define GE_MOUSE_COUNTS_FULL 21L
+
+/* Motion the stick could not express yet. See the note in geMousePoll. */
+static long ge_mouse_pend_x = 0;
+static long ge_mouse_pend_y = 0;
+
 static void geMousePoll(int port, struct GePadState *out)
 {
  int dx = 0, dy = 0;
- Uint32 mb;
+ Uint32 mb = 0;
  int sens;
+ int selftest = 0;
 
     /* Idle on a measurement run, for a stronger reason than the keyboard has: relative mode
      * hides and locks the cursor system-wide, so an automated run would steal the pointer
      * from whatever the user was actually doing. geKeyboardIdle() is on by default whenever
      * GETV_EXIT_FRAME is set, which is exactly the "this is a script, not a play session"
      * signal wanted here. Checked before geMouseEnabled() so the capture never happens. */
- if (port != 0 || geKeyboardIdle() || !geMouseEnabled()) {
+    /* GETV_MOUSE_SELFTEST=<counts>: pretend the mouse moves this many counts right every
+     * frame, and take that straight to the scaling below.
+     *
+     * Deliberately ahead of both the idle check and the capture, for two reasons. It has to
+     * run under GETV_EXIT_FRAME, which is what makes two runs comparable, and that is exactly
+     * when the idle gate is on. And it must never call SDL_SetRelativeMouseMode, because a
+     * measurement run has no business hiding and locking the pointer of whoever is using the
+     * machine. This is the only way to put a number on "how far must I sweep to turn 180
+     * degrees" without a hand on the mouse. */
+    {
+ static int st = -2;
+ if (st == -2) { const char *e = getenv("GETV_MOUSE_SELFTEST"); st = (e && *e) ? atoi(e) : 0; }
+ if (st != 0 && port == 0) {
+ selftest = st;
+        }
+    }
+
+ if (selftest == 0 && (port != 0 || geKeyboardIdle() || !geMouseEnabled())) {
  return;
     }
 
@@ -960,7 +988,7 @@ static void geMousePoll(int port, struct GePadState *out)
      * having hung. Edge-triggered, so holding ESC does not flap the mode every frame. ESC is
      * otherwise unbound in this port -- the game's pause is START, which the keyboard maps
      * to TAB. */
-    {
+    if (!selftest) {
  static int prev_esc = 0;
  const Uint8 *ks = SDL_GetKeyboardState(NULL);
  int esc = (ks != NULL && ks[SDL_SCANCODE_ESCAPE]) ? 1 : 0;
@@ -974,24 +1002,83 @@ static void geMousePoll(int port, struct GePadState *out)
  if (!SDL_GetRelativeMouseMode()) { return; }   /* released: no look, no clicks */
     }
 
- mb = SDL_GetRelativeMouseState(&dx, &dy);
+ if (selftest) { dx = selftest; dy = 0; }
+ else          { mb = SDL_GetRelativeMouseState(&dx, &dy); }
  sens = geMouseSens();
+
+    /* GETV_MOUSE_SELFTEST=<counts>: pretend the mouse moves this many counts right every
+     * frame. The only way to put a number on "how far must I sweep to turn 180 degrees"
+     * without a hand on the mouse, and the only way to tune the gain against a measurement
+     * rather than against somebody's impression of it. */
+
 
  if (dx != 0 || dy != 0) {
  long rx, ry;
 
  if (geMouseInvert()) { dy = -dy; }
 
-        /* 220 counts per stick full-scale at 100%, chosen so a normal desk sweep turns
-         * roughly 180 degrees. Clamped rather than scaled so a large delta -- an alt-tab
-         * return, or a hitch that batches several frames of motion -- cannot spin the view. */
- rx = ((long) dx * 32767L * sens) / (220L * 100L);
- ry = ((long) dy * 32767L * sens) / (220L * 100L);
+        /* The N64 stick is a VELOCITY control and a mouse reports a DISPLACEMENT. That
+         * mismatch, not the gain, is why this felt glacial: a flick produced full deflection
+         * for a single frame, and one frame of full stick is 3.54 degrees, so everything past
+         * the first frame's worth of travel was clamped off and thrown away. Sweeping further
+         * did nothing, which is exactly the reported symptom.
+         *
+         * So carry the remainder instead of discarding it. Motion the stick cannot express
+         * this frame stays in the accumulator and is emitted over the following frames, which
+         * turns a displacement into the sustained deflection the game actually wants.
+         *
+         * GE_MOUSE_COUNTS_FULL is counts per full-scale deflection at 100%; see docs/MOUSE.md
+         * for the sweep it was chosen from. */
+ rx = ((long) dx * 32767L * sens) / (GE_MOUSE_COUNTS_FULL * 100L);
+ ry = ((long) dy * 32767L * sens) / (GE_MOUSE_COUNTS_FULL * 100L);
 
+ ge_mouse_pend_x += rx;
+ ge_mouse_pend_y += ry;
+
+        /* Cap the backlog so a hitch that batches many frames of motion, or an alt-tab
+         * return, cannot leave the view gliding on for a second after the hand has stopped.
+         * Four frames of full deflection is enough to smooth a fast flick and short enough
+         * that the view never feels detached from the hand. */
+ if (ge_mouse_pend_x >  4L * 32767L) ge_mouse_pend_x =  4L * 32767L;
+ if (ge_mouse_pend_x < -4L * 32767L) ge_mouse_pend_x = -4L * 32767L;
+ if (ge_mouse_pend_y >  4L * 32767L) ge_mouse_pend_y =  4L * 32767L;
+ if (ge_mouse_pend_y < -4L * 32767L) ge_mouse_pend_y = -4L * 32767L;
+
+ rx = ge_mouse_pend_x;
+ ry = ge_mouse_pend_y;
  if (rx >  32767L) rx =  32767L;
  if (rx < -32767L) rx = -32767L;
  if (ry >  32767L) ry =  32767L;
  if (ry < -32767L) ry = -32767L;
+
+ ge_mouse_pend_x -= rx;
+ ge_mouse_pend_y -= ry;
+
+        /* Lift the result clear of the stick deadzone.
+         *
+         * port_os.c discards anything under GE_STICK_DEADZONE, 20% of the axis, which is
+         * correct for a spring-loaded stick that rests near centre and drifts, and wrong for
+         * a mouse, which has no rest position and no drift. Measured, it was the whole
+         * complaint: a synthetic 12 counts per frame turned the view 0.0002 degrees -- it
+         * landed at 6241 against a threshold of 6553 and was thrown away -- while 30 counts
+         * turned 0.3455. Every movement below the threshold did nothing at all, so sweeping
+         * further was the only thing that worked.
+         *
+         * Remapping magnitude from [1, MAX] onto [DEADZONE, MAX] keeps full scale at full
+         * scale and makes the smallest real movement produce the smallest real turn. */
+        {
+ const long dz = 6553L, mx = 32767L;
+ if (rx != 0) {
+ long m = (rx < 0) ? -rx : rx;
+ m = dz + (m * (mx - dz)) / mx;
+ rx = (rx < 0) ? -m : m;
+            }
+ if (ry != 0) {
+ long m = (ry < 0) ? -ry : ry;
+ m = dz + (m * (mx - dz)) / mx;
+ ry = (ry < 0) ? -m : m;
+            }
+        }
 
  out->rx = (int) rx;
  out->ry = (int) ry;
