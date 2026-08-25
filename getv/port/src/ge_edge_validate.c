@@ -52,7 +52,7 @@ void gePortEdgeValidateFrame(int frame)
     const char *out_path;
     char def_path[512];
     float max_d;
-    int want_frame, n, i, j, pairs = 0, walkable = 0, asym = 0;
+    int want_frame, n, i, j, pairs = 0, walkable = 0, asym = 0, first_row = 1;
     FILE *fp;
 
     if (ge_ev_done || on == NULL || *on == '\0' || *on == '0') { return; }
@@ -74,7 +74,7 @@ void gePortEdgeValidateFrame(int frame)
 
     out_path = getenv("GETV_EDGEVALIDATE_OUT");
     if (out_path == NULL || *out_path == '\0') {
-        snprintf(def_path, sizeof def_path, "build/levels/%s.edges.txt", geWorldLevel());
+        snprintf(def_path, sizeof def_path, "build/levels/%s.walkable.json", geWorldLevel());
         out_path = def_path;
     }
 
@@ -84,10 +84,21 @@ void gePortEdgeValidateFrame(int frame)
         return;
     }
 
-    fprintf(fp, "# level=%s waypoints=%d max=%.0f frame=%d\n",
-            geWorldLevel(), n, (double) max_d, frame);
-    fprintf(fp, "# from to dist walkable   (measured with bondviewTestLineUnobstructed,"
-                " CDTYPE_BG|CDTYPE_PATHBLOCKER)\n");
+    /* The Surface's schema (tools/walkable_verdicts.py), not a second format of my own. It
+     * normalises each edge to (lo, hi), so a pair must be recorded ONCE with a single verdict --
+     * which means the direction disagreement has to be resolved here rather than left for the
+     * reader to pick whichever row landed last.
+     *
+     * Resolved conservatively: ok is true only when BOTH directions say walkable. That discards
+     * a genuine one-way edge rather than inventing a two-way one, and an invented edge is what
+     * sends a bot into a wall. The count is written to the header so the information is not
+     * simply lost -- on Bunker 1 it is 1194 of 2926 pairs, which is far too many to drop
+     * silently. */
+    fprintf(fp, "{\n  \"level\": \"%s\",\n", geWorldLevel());
+    fprintf(fp, "  \"probe\": \"bondviewTestLineUnobstructed\",\n");
+    fprintf(fp, "  \"mask\": \"CDTYPE_BG|CDTYPE_PATHBLOCKER\",\n");
+    fprintf(fp, "  \"waypoints\": %d,\n  \"max_distance\": %.0f,\n  \"frame\": %d,\n",
+            n, (double) max_d, frame);
 
     for (i = 0; i < n; i++) {
         GeWorldWaypoint a;
@@ -105,17 +116,26 @@ void gePortEdgeValidateFrame(int frame)
             d2 = (dx * dx) + (dz * dz);
             if (d2 > max_d * max_d) { continue; }
 
+            if (b.id < a.id) { continue; }   /* each unordered pair once, as the schema wants */
+
             ab = gePortProbeWalkable(a.x, a.z, b.x, b.z);
             ba = gePortProbeWalkable(b.x, b.z, a.x, a.z);
             if (ab != ba) { asym++; }
 
             pairs++;
-            if (ab) { walkable++; }
+            if (ab && ba) { walkable++; }
 
-            fprintf(fp, "%d %d %.0f %d\n", a.id, b.id, (double) (d2 > 0.0f ? sqrtf(d2) : 0.0f), ab);
+            fprintf(fp, "%s\n    {\"a\": %d, \"b\": %d, \"d\": %.0f, \"ok\": %s}",
+                    first_row ? "  \"edges\": [" : ",",
+                    a.id, b.id, (double) (d2 > 0.0f ? sqrtf(d2) : 0.0f),
+                    (ab && ba) ? "true" : "false");
+            first_row = 0;
         }
     }
 
+    if (first_row) { fprintf(fp, "  \"edges\": ["); }
+    fprintf(fp, "\n  ],\n  \"pairs\": %d,\n  \"walkable\": %d,\n  \"asymmetric\": %d\n}\n",
+            pairs, walkable, asym);
     fclose(fp);
     printf("[getv][edges] %s: %d pair(s) within %.0f units, %d walkable (%d%%), "
            "%d asymmetric -> %s\n",

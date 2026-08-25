@@ -42,13 +42,27 @@ extern s32  getPlayerCount(void);
 extern u32  get_player_control_style(s32 playernum);
 extern int  gePortPlayerPos(int idx, f32 *out);
 
-/* Matches CONTROLLER_CONFIG_* in bondconstants.h. Only the first four matter here: the
- * two-controller styles (PLENTY and up) are forced back to HONEY at three or more players
- * (front.c:4800-4803), and this API's whole purpose is multi-slot. */
-#define GE_STYLE_HONEY      0
-#define GE_STYLE_SOLITARE   1
-#define GE_STYLE_KISSY      2
-#define GE_STYLE_GOODNIGHT  3
+/* Matches CONTROLLER_CONFIG_* in bondconstants.h.
+ *
+ * This list used to stop at GOODNIGHT, reasoning that the two-controller styles are forced back to
+ * HONEY at three or more players (front.c:4800-4803). The rule is real; the conclusion was wrong
+ * in the case that matters. The guard is `numplayers >= 3`, so at one or two players a 2.x style
+ * survives untouched -- and THIS PORT DEFAULTS TO 2.2 GALORE, so in practice every slot is on one.
+ *
+ * Naming all nine is not enough on its own: see gePlayerSlotIsDrivable, where treating "two pad"
+ * as "cannot be driven" disabled every bot on every level. Two-pad is a routing fact, not a
+ * disqualification. */
+#define GE_STYLE_HONEY      0   /* 1.1 */
+#define GE_STYLE_SOLITARE   1   /* 1.2 */
+#define GE_STYLE_KISSY      2   /* 1.3 */
+#define GE_STYLE_GOODNIGHT  3   /* 1.4 */
+#define GE_STYLE_PLENTY     4   /* 2.1 */
+#define GE_STYLE_GALORE     5   /* 2.2 -- this port's default */
+#define GE_STYLE_DOMINO     6   /* 2.3 */
+#define GE_STYLE_GOODHEAD   7   /* 2.4 */
+#define GE_STYLE_CINEMA     8
+
+#define GE_STYLE_IS_TWO_PAD(s) ((s) >= GE_STYLE_PLENTY && (s) <= GE_STYLE_GOODHEAD)
 
 /* ---------------------------------------------------------------- state */
 
@@ -87,6 +101,21 @@ static int ge_clampi(int v, int lo, int hi)
  * A caller that spoke in N64 bits would therefore be silently wrong for half the styles, and it
  * would present as "the bot cannot shoot" rather than as a mapping error. Hence GE_IN_* naming
  * intent and this function resolving it per slot. */
+/* Warn once per slot per intent. A bot posting FIRE sixty times a second must not produce sixty
+ * lines a second, but silence is what let the two-controller mismap live -- so it is one line, not
+ * none. */
+static unsigned int ge_unreach_warned[GE_MAX_SLOTS];
+
+static void ge_warn_unreachable(int slot, unsigned int bit, const char *intent,
+                                const char *style_name, const char *why)
+{
+    if (slot < 0 || slot >= GE_MAX_SLOTS) { return; }
+    if (ge_unreach_warned[slot] & bit)    { return; }
+    ge_unreach_warned[slot] |= bit;
+    printf("[getv][playerapi] slot %d: %s is unreachable on %s -- %s\n",
+           slot, intent, style_name, why);
+}
+
 static u16 ge_intent_to_buttons(int slot, unsigned int want)
 {
     u16 b = 0;
@@ -96,6 +125,50 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
     u16 shoot = swapped ? A_BUTTON : Z_TRIG;
     u16 aim   = swapped ? Z_TRIG   : (u16)(L_TRIG | R_TRIG);
     u16 inv   = swapped ? (u16)(L_TRIG | R_TRIG) : A_BUTTON;
+
+    /* THE TWO-CONTROLLER STYLES SPLIT FIRE AND AIM ACROSS TWO PADS, and this function fills one.
+     *
+     * This is the BUTTON half of the two-pad problem and is separate from the stick half. The
+     * playback loop routes the walk axis to whichever pad the engine reads for movement; this
+     * decides which BIT an intent becomes on the pad being filled. Both are needed and neither
+     * substitutes for the other.
+     *
+     * On 2.x both intents are Z_TRIG and the difference is which pad carries which. The game reads
+     * them into two separate locals (bondview2.c:5345-5359); sp104 becomes insightaimmode at 5365,
+     * sp10C becomes triggerOn at 5535:
+     *
+     *     PLENTY 2.1 / GALORE 2.2  : pad1 Z_TRIG = SHOOT, pad2 Z_TRIG = aim
+     *     DOMINO 2.3 / GOODHEAD 2.4: pad1 Z_TRIG = AIM,   pad2 Z_TRIG = shoot
+     *
+     * So on Domino and Goodhead the plain mapping sends FIRE to pad 1's Z_TRIG and the game reads
+     * AIM: insightaimmode goes true and canNaturalTurn = !insightaimmode (5385) goes false, which
+     * switches off the yaw computation at 6394. A bot that fires in bursts loses its steering for
+     * the length of every burst, and it presents as an intermittent TURNING fault.
+     *
+     * The half that lives on pad 2 cannot be expressed by filling one pad, so it says so once
+     * rather than sending a bit that means something else. */
+    if (GE_STYLE_IS_TWO_PAD(style))
+    {
+        int pad1_is_aim = (style == GE_STYLE_DOMINO || style == GE_STYLE_GOODHEAD);
+        const char *sn  = pad1_is_aim ? "a 2.3/2.4 style" : "a 2.1/2.2 style";
+
+        shoot = pad1_is_aim ? 0            : (u16) Z_TRIG;
+        aim   = pad1_is_aim ? (u16) Z_TRIG : 0;
+
+        if (pad1_is_aim && (want & GE_IN_FIRE)) {
+            ge_warn_unreachable(slot, GE_IN_FIRE, "FIRE", sn,
+                                "shoot is on controller 2; sending Z_TRIG here would enter aim "
+                                "mode and disable turning");
+        }
+        if (!pad1_is_aim && (want & GE_IN_AIM)) {
+            ge_warn_unreachable(slot, GE_IN_AIM, "AIM", sn,
+                                "aim is on controller 2; sending Z_TRIG here would fire");
+        }
+
+        /* Inventory stays on A_BUTTON, which is what this function always did. The 1.x
+         * shoot/aim/inv locals at 5546-5558 have no counterpart in the 2.x branch, so the correct
+         * 2.x inventory bit is genuinely not established. Unchanged and flagged beats invented. */
+    }
 
     if (want & GE_IN_FIRE)        { b |= shoot; }
     if (want & GE_IN_AIM)         { b |= aim; }
@@ -265,6 +338,7 @@ void gePlayerApiInit(void)
     for (i = 0; i < GE_MAX_SLOTS; i++) {
         ge_src[i] = GE_SLOT_HARDWARE;
         ge_held_left[i] = 0;
+        ge_unreach_warned[i] = 0;   /* a new session re-earns its warnings */
         ge_held[i].buttons = 0;
         ge_held[i].stick_x = 0;
         ge_held[i].stick_y = 0;

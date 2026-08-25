@@ -47,7 +47,11 @@ import os
 import sys
 import heapq
 import math
+import sys
 from collections import deque
+
+# tools/ on the path so walkable_verdicts imports whichever way this script is invoked.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -479,71 +483,6 @@ def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3)
     return index
 
 
-def load_measured_edges(out_dir, level):
-    """Read the engine's verdicts from tools/validate_edges.sh, or None if there are none.
-
-    Returns a set of (from, to) pairs the game says a body can walk, with BOTH DIRECTIONS
-    REQUIRED to agree. The test is seeded from a stan tile at the start of the line, so it is not
-    symmetric -- Bunker 1 reports 2116 of 5116 pairs disagreeing on direction. Some of that is
-    real (a drop you cannot climb back up) and some is seed sensitivity, and nothing here can
-    separate them. Requiring agreement is the conservative reading: it discards a genuine one-way
-    edge rather than inventing a two-way one, and an invented edge is what sends a bot into a
-    wall.
-    """
-    path = os.path.join(out_dir, level + ".edges.txt")
-    if not os.path.exists(path):
-        return None
-
-    fwd = set()
-    with open(path) as fh:
-        for line in fh:
-            if line.startswith("#"):
-                continue
-            parts = line.split()
-            if len(parts) != 4:
-                continue
-            a, b, _d, w = parts
-            if w == "1":
-                fwd.add((int(a), int(b)))
-
-    return {(a, b) for (a, b) in fwd if (b, a) in fwd}
-
-
-def prune_graph(graph, measured, level, keep_isolated=True):
-    """Drop edges the engine says are not walkable.
-
-    ⚠️ Only prunes pairs the measurement actually covered. The validator has a distance cutoff, so
-    a long edge it never looked at is absent from the set and must NOT be read as refused --
-    treating unmeasured as unwalkable would silently delete every long-range link in the graph.
-    """
-    if not measured:
-        return 0
-
-    covered = set()
-    for a, b in measured:
-        covered.add(a)
-        covered.add(b)
-
-    dropped = 0
-    for a in list(graph.keys()):
-        if a not in covered:
-            continue
-        keep = []
-        for b in graph[a]:
-            if b not in covered or (a, b) in measured:
-                keep.append(b)
-            else:
-                dropped += 1
-        if keep or not keep_isolated:
-            graph[a] = keep
-        else:
-            # An emptied node is left alone rather than deleted: the router simply never routes
-            # through it, and removing it would renumber nothing but would hide that the level
-            # has a place nothing can reach.
-            graph[a] = []
-    return dropped
-
-
 def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
@@ -924,14 +863,14 @@ def main():
 
         # Replace assumption with measurement, last, so it prunes the synthetic links too --
         # those are the ones proximity got wrong.
-        _measured = load_measured_edges(out_dir, level)
-        if _measured is not None:
-            _dropped = prune_graph(graph, _measured, level)
-            print("  %-10s engine verdicts: %d walkable pair(s), %d assumed edge(s) dropped"
-                  % (level, len(_measured), _dropped))
-        else:
-            print("  %-10s NO ENGINE VERDICTS -- every edge is still an assumption. "
-                  "Run tools/validate_edges.sh." % level)
+        # Uses the Surface's walkable_verdicts module rather than a second copy of the same
+        # logic here. We each built half of this independently -- their reader against my
+        # validator -- and two implementations of one rule is how they drift apart.
+        try:
+            import walkable_verdicts
+            graph, _vstats = walkable_verdicts.apply_to_level(level, graph, out_dir)
+        except ImportError:
+            print("  %-10s walkable_verdicts not importable -- edges stay assumed" % level)
 
         routes = []
         for obj in tact.get("objectives", []):

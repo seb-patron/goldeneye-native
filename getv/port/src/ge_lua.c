@@ -287,6 +287,85 @@ static int ge_l_waypoint(lua_State *L)
     return 1;
 }
 
+/* ---------------------------------------------------------------- enumeration
+ *
+ * The world API could be QUERIED (near a point, by id) but not WALKED. A mod could ask what is
+ * close to it and never ask what the level contains, which rules out the whole class of mod that
+ * wants to reason about a level rather than react to one -- a minimap, a coverage report, a
+ * spawn picker, an analysis pass.
+ *
+ * Index is not id. geWorldWaypoint takes a position in the table and geWorldWaypointById takes
+ * the game's own number for it, and the two are not interchangeable: ids are sparse and the
+ * synthetic spawn and portal nodes are numbered above every natural one. Anything iterating uses
+ * the index; anything following a route uses the id, because that is what a route step names.
+ */
+
+static void ge_l_push_waypoint(lua_State *L, const GeWorldWaypoint *w)
+{
+    lua_newtable(L);
+    lua_pushinteger(L, w->id);            lua_setfield(L, -2, "id");
+    lua_pushinteger(L, w->room);          lua_setfield(L, -2, "room");
+    lua_pushnumber(L, (lua_Number) w->x); lua_setfield(L, -2, "x");
+    lua_pushnumber(L, (lua_Number) w->y); lua_setfield(L, -2, "y");
+    lua_pushnumber(L, (lua_Number) w->z); lua_setfield(L, -2, "z");
+}
+
+/* ge.waypoint_count() -> n. Zero with no world data, which is the honest answer for the four
+ * levels that have none rather than an error a mod has to guard. */
+static int ge_l_waypoint_count(lua_State *L)
+{
+    lua_pushinteger(L, ge_world_ready() ? geWorldWaypointCount() : 0);
+    return 1;
+}
+
+/* ge.waypoint_at(index) -> table, or nil. INDEX, not id -- see above. */
+static int ge_l_waypoint_at(lua_State *L)
+{
+    GeWorldWaypoint w;
+    int i = (int) luaL_checkinteger(L, 1);
+    if (!ge_world_ready() || !geWorldWaypoint(i, &w)) { lua_pushnil(L); return 1; }
+    ge_l_push_waypoint(L, &w);
+    return 1;
+}
+
+/* ge.guard_count() -> n. Static placement from the extraction, not live characters: this counts
+ * where guards START. ge.enemy_count is the live one, and confusing them means reasoning about a
+ * level from a roster that stopped being true the moment anyone fired. */
+static int ge_l_guard_count(lua_State *L)
+{
+    lua_pushinteger(L, ge_world_ready() ? geWorldGuardCount() : 0);
+    return 1;
+}
+
+/* ge.guard_at(index) -> table, or nil. Spawn placement; see ge.guard_count. */
+static int ge_l_guard_at(lua_State *L)
+{
+    GeWorldGuard g;
+    int i = (int) luaL_checkinteger(L, 1);
+    if (!ge_world_ready() || !geWorldGuard(i, &g)) { lua_pushnil(L); return 1; }
+    lua_newtable(L);
+    lua_pushinteger(L, g.chrnum);         lua_setfield(L, -2, "chrnum");
+    lua_pushinteger(L, g.room);           lua_setfield(L, -2, "room");
+    lua_pushnumber(L, (lua_Number) g.x);  lua_setfield(L, -2, "x");
+    lua_pushnumber(L, (lua_Number) g.y);  lua_setfield(L, -2, "y");
+    lua_pushnumber(L, (lua_Number) g.z);  lua_setfield(L, -2, "z");
+    return 1;
+}
+
+/* ge.clear_queue(slot) -> true
+ *
+ * Drop everything queued for a slot. A mod that changes its mind had no way to unsay what it had
+ * already posted, so a bot abandoning a plan kept executing the tail of it -- input arriving from
+ * a policy that no longer exists, which reads as the new policy behaving erratically rather than
+ * as the old one still talking. */
+static int ge_l_clear_queue(lua_State *L)
+{
+    int slot = (int) luaL_checkinteger(L, 1);
+    gePlayerClearQueue(slot);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /* ge.waypoint_near(x, y, z) -> table, or nil. Turns a position into something routable. */
 static int ge_l_waypoint_near(lua_State *L)
 {
@@ -540,6 +619,11 @@ static const luaL_Reg ge_api[] = {
     { "guards_near",   ge_l_guards_near },
     { "player_state",  ge_l_player_state },
     { "control_type",  ge_l_control_type },
+    { "waypoint_count", ge_l_waypoint_count },
+    { "waypoint_at",   ge_l_waypoint_at },
+    { "guard_count",   ge_l_guard_count },
+    { "guard_at",      ge_l_guard_at },
+    { "clear_queue",   ge_l_clear_queue },
     { "enemies_near",  ge_l_enemies_near },
     { "enemy",         ge_l_enemy },
     { "enemy_count",   ge_l_enemy_count },
