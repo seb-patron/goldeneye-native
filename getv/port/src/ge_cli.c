@@ -288,6 +288,21 @@ static void ge_cli_report(int frame)
         }
     }
 
+    /* Objective STATE, not just where it is. Distance says how far; this says whether it still
+     * matters -- and a player told only distance keeps walking at something already done. */
+    {
+        extern int gePortObjectiveCount(void);
+        extern int gePortObjectiveStatus(int index, int *out_status);
+        static const char *names[3] = { "incomplete", "COMPLETE", "FAILED" };
+        int oi, on = gePortObjectiveCount();
+
+        for (oi = 0; oi < on && oi < 8; oi++) {
+            int stt;
+            if (!gePortObjectiveStatus(oi, &stt)) { continue; }
+            printf("objectv %d  %s\n", oi, (stt >= 0 && stt < 3) ? names[stt] : "?");
+        }
+    }
+
     {
         GeWorldObjective ob;
         if (geWorldObjective(0, &ob)) {

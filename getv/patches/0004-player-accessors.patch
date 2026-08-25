@@ -1,5 +1,5 @@
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..b392c75 100644
+index 4ebf14b..c122970 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -1,7 +1,11 @@
@@ -235,7 +235,7 @@ index 4ebf14b..b392c75 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +695,707 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +695,818 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -776,6 +776,117 @@ index 4ebf14b..b392c75 100644
 +    return (gePortSenseLine(chr->prop->pos.x, chr->prop->pos.z,
 +                            p->prop->pos.x, p->prop->pos.z)
 +            & (1 | 4)) == 0;   /* geometry and solid props block sight; doors and bodies do not */
++}
++
++
++/* Which way a character is FACING, so line of sight can become attention.
++ *
++ * geSenseVisibleTo answers whether the line is clear, and a guard facing away has a clear line
++ * and is not looking. Without this a bot hides from a guard staring at the far wall and walks
++ * past one watching the door. Degrees, atan2(x, z), matching every other angle in these APIs.
++ */
++int gePortEnemyFacing(s32 chr_index, f32 *out_deg)
++{
++    extern ChrRecord *g_ChrSlots;
++    extern s32 g_NumChrSlots;
++    ChrRecord *chr;
++
++    if (out_deg == NULL || chr_index < 0 || chr_index >= (s32) g_NumChrSlots) { return 0; }
++    chr = &g_ChrSlots[chr_index];
++    if (chr->model == NULL || chr->prop == NULL) { return 0; }
++
++    /* ⚠️ REFUSES, and deliberately. ChrRecord exposes no facing field I have been able to find:
++     * the visible rotation is built per frame in chr.c's draw path from aimsideback and the
++     * animation, and none of it is stored anywhere a caller can read.
++     *
++     * Returning 0 rather than a plausible number is the whole point. geSenseNoticedBy checks
++     * this return and falls back to line of sight, so a bot gets the honest answer -- "I can be
++     * seen if it is looking" -- instead of a facing derived from something that is not facing.
++     * A wrong cone is worse than no cone: it produces confident stealth decisions that are
++     * exactly backwards, and nothing downstream could tell.
++     *
++     * FINDING THE REAL FIELD IS A QUEUE ITEM. chr.c:2319 reads chr->aimsideback into a yrot when
++     * building the model matrix, which is where the answer probably starts. */
++    (void) chr;
++    (void) out_deg;
++    return 0;
++}
++
++/* HOW BIG a prop is, not just where it is.
++ *
++ * Everything the navigation layer has reported so far has been a POINT. A crate reported as "278
++ * away" is 278 to its CENTRE, and a bot that stops when the point is still ahead has already
++ * walked into the corner of it -- which is exactly how the CLI player got trapped on Train while
++ * the report insisted there was room.
++ *
++ * The engine knows the answer: every object carries a model bounding box, and chrai.h exposes the
++ * accessors the AI uses to reason about it. This returns the horizontal half-extents and a radius,
++ * so a caller can subtract the thing's own size before deciding it has room to pass.
++ *
++ * ⚠️ Returns the MODEL box, unrotated. A long crate turned forty-five degrees occupies more
++ * width than its half-extent suggests, and the radius is the honest figure to steer by until
++ * someone needs the oriented box. Reporting both lets the caller choose which lie to accept.
++ */
++int gePortPropExtent(void *prop_ptr, f32 *out_hx, f32 *out_hz, f32 *out_radius)
++{
++    extern struct ModelRoData_BoundingBoxRecord *chrobjGetBboxFromObjectRecord(ObjectRecord *);
++    extern f32 chrpropBBOXGetXmin(struct ModelRoData_BoundingBoxRecord *);
++    extern f32 chrpropBBOXGetZmin(struct ModelRoData_BoundingBoxRecord *);
++    PropRecord *pr = (PropRecord *) prop_ptr;
++    struct ModelRoData_BoundingBoxRecord *bb;
++    f32 hx, hz;
++
++    if (pr == NULL || pr->obj == NULL) { return 0; }
++    bb = chrobjGetBboxFromObjectRecord(pr->obj);
++    if (bb == NULL) { return 0; }
++
++    /* The mins are negative offsets from the model origin, so their magnitude is the half-extent
++     * on that axis. Using the min alone assumes a centred model, which every crate in this game
++     * is; an off-centre one would report a radius that is too small on one side, and that is a
++     * reason to prefer the radius over the half-extents rather than to guess a correction. */
++    hx = chrpropBBOXGetXmin(bb);
++    hz = chrpropBBOXGetZmin(bb);
++    if (hx < 0.0f) { hx = -hx; }
++    if (hz < 0.0f) { hz = -hz; }
++
++    if (out_hx != NULL)     { *out_hx = hx; }
++    if (out_hz != NULL)     { *out_hz = hz; }
++    if (out_radius != NULL) { *out_radius = (f32) sqrt((double) ((hx * hx) + (hz * hz))); }
++    return 1;
++}
++
++
++/* Has an objective been DONE? The question nothing could answer until now.
++ *
++ * Every measurement on this project has been about getting somewhere. None of it could tell
++ * success from arrival, so a bot could not know it had finished and neither could a test -- and
++ * "the bot reached the brake unit" is a different claim from "the bot destroyed it".
++ *
++ * 0 incomplete, 1 complete, 2 failed, matching OBJECTIVESTATUS. Returns 0 rather than a status
++ * for an index the level does not have, so a caller cannot mistake "no such objective" for
++ * "not done yet" -- they mean opposite things to anything deciding whether to keep playing.
++ *
++ * ⚠️ get_status_of_objective RECOMPUTES rather than reading a cached flag, so this is a real
++ * evaluation each call and not free. Once a second is plenty; per frame is waste.
++ */
++int gePortObjectiveStatus(s32 index, s32 *out_status)
++{
++    extern s32 objective_count;
++    extern OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum);
++
++    if (out_status == NULL || index < 0 || index > objective_count) { return 0; }
++    *out_status = (s32) get_status_of_objective(index);
++    return 1;
++}
++
++int gePortObjectiveCount(void)
++{
++    extern s32 objective_count;
++
++    /* objective_count is the last INDEX, not a count -- the game's own loops run i <= count
++     * (objective_status.c:505). Returning it unadjusted would make every caller miss the final
++     * objective, which on most levels is the one that ends the mission. */
++    return (s32) objective_count + 1;
 +}
 +
 +
