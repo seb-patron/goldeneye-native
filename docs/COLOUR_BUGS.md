@@ -37,7 +37,7 @@ Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680:
   byte-identical frame. `GETV_LIGHTTRACE` then showed why: **there are no RGBA32 uploads at
   all** in the scene. The probe was inert, which is the useful result.
 
-### 🔴 Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
+### Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
 
 **The census has no coverage.** Five levels compared at mode 0 and mode 1 gave byte-identical
 frames, which reads like proof of safety and is not: `GETV_LIGHTTRACE` reports **zero RGBA16
@@ -83,12 +83,12 @@ spends the same hours on them again.
 `GETV_RGBA16BE=1` is still correct **for explosions**: 43.3% of the explosion frame changes,
 purple (64,64,128) to orange (192,192,64).
 
-🔑 **The useful fact.** The formats actually uploaded during gunfire are `CI/4b`, `CI/8b`,
+**The useful fact.** The formats actually uploaded during gunfire are `CI/4b`, `CI/8b`,
 `IA/8b`, `I/4b` and `I/8b` -- **no RGBA of any width**. So whatever colours the impact flash is
 a palette or intensity path, and the RGBA16 fix cannot reach it. Those are different bugs and
 should stop being treated as one.
 
-⚠️ **The gap is the harness, not the game.** Scripted runs shoot walls and characters on a
+**The gap is the harness, not the game.** Scripted runs shoot walls and characters on a
 fixed path; a person plays levels, surfaces and angles a script never reaches. Impact rows are
 chosen by the surface struck, and scripted runs only ever resolve rows 1, 2 and 7 of sixteen.
 `~/Desktop/GoldenEye-Diagnose.command` captures a real session with `GETV_IMPACT`,
@@ -107,7 +107,7 @@ water {0}       snow {0x1}    dirt {0x2}   mud {0x2}     tile {0x1}
 metalobj {0x1,0x7}            character {0x2}            glass_xlu {0x11,0x12,0x13}
 ```
 
-🔑 **No group contains `0x10`.** Row 16 is the only row with `apptype 2`, the per-channel
+**No group contains `0x10`.** Row 16 is the only row with `apptype 2`, the per-channel
 random 0/0xff that produces the paintball palette, and **no surface in the game can select
 it**. The single way in is `cheatIsActive(CHEAT_PAINTBALL)` overwriting `impact_type = 0x10`
 (`explosion.c:2025`), and that measures 0.
@@ -116,7 +116,7 @@ Every reachable row is `apptype` 0 or 1, both greyscale. So the impact **decal**
 of drawing the reported colours, which explains why the unconditional apptype-2 tripwire never
 fires and why the harness could not reproduce it.
 
-⚠️ **Rows 8-15 are also unreachable** -- no group references them. Those are the RGBA16
+**Rows 8-15 are also unreachable** -- no group references them. Those are the RGBA16
 wall-holes, which is the independent reason `GETV_RGBA16BE` cannot affect impacts: the rows
 that use that format are never selected.
 
@@ -140,7 +140,7 @@ The pun was the only site not doing so, and it feeds a visual, so it means `hitT
 Now selected by name, with `GETV_HITSEL` to A/B it (0 = the pun, 1 = hitSound, 2 = hitTexture,
 default 2).
 
-⚠️ **Scope, honestly measured: 3 textures of 2698.** `hitSound` and `hitTexture` are equal
+**Scope, honestly measured: 3 textures of 2698.** `hitSound` and `hitTexture` are equal
 everywhere except three `HIT_GLASS` / `HIT_GLASS_XLU` pairs, so the pun was accidentally right
 2695 times. Shooting translucent glass got the wrong impact group; nothing else did. **This is
 not the paintball cause** and must not be reported as one.
@@ -148,7 +148,7 @@ not the paintball cause** and must not be reported as one.
 
 ---
 
-## 6. ✅ SOLVED: the paintball impact flash was a struct offset, not a texture
+## 6. SOLVED: the paintball impact flash was a struct offset, not a texture
 
 **`glass2.c:648` read the bullet spark's colour at hardcoded byte offsets `0x28..0x2b`.**
 
@@ -176,22 +176,22 @@ decode to. Fixed by reading `thing->unk28..unk2B` by name.
 
 ### Why this took so long to find
 
-🔴 **Every previous investigation looked at the impact DECAL, and the decal was innocent.**
+**Every previous investigation looked at the impact DECAL, and the decal was innocent.**
 Section 4 proves it cannot draw those colours: no surface can select the one impact row with
 random colours. All the effort went into `g_ImpactTypes`, the paintball cheat, RGBA16, RGBA32
 and CI palettes -- and every one of those negatives was correct. The spark is a **different
 object drawn at the same instant**, and nobody had separated the two.
 
-🔑 **The user's own reproduction is what cracked it**: "pointed the PP7 at the ground and
+**The user's own reproduction is what cracked it**: "pointed the PP7 at the ground and
 fired". Sparks land on every surface; the decal rows differ by surface. That distinction is
 what pointed at an object the harness had never been measuring.
 
-⚠️ **The lesson worth generalising: a byte offset into a struct is only valid for the ABI it
+**The lesson worth generalising: a byte offset into a struct is only valid for the ABI it
 was written against.** This port has already been bitten by `long` width, by bitfield order
 and now by pointer width moving every field behind it. Grep for the SHAPE --
 `((u8 *) x)[0xNN]` -- not for this instance.
 
-⚠️ Historical note: paintball genuinely was a GameShark function on hardware, which is why
+Historical note: paintball genuinely was a GameShark function on hardware, which is why
 the cheat exists in the codebase at all. That made the symptom read as a cheat firing on its
 own, and it never was: `cheatIsActive(CHEAT_PAINTBALL)` measures 0 throughout.
 
@@ -235,7 +235,7 @@ grep -nE '\(\((u8|s8|u16|s16|u32|s32|f32|char) ?\*\)[^)]*\) ?\[ ?(0x[0-9a-fA-F]+
 grep -nE '\* ?\( ?(u8|s8|u16|s16|u32|s32|f32) ?\* ?\) ?\( ?\( ?(u8|char) ?\* ?\)' <files>
 ```
 
-⚠️ **Triage on one question: does the offset land inside a struct whose layout the host ABI
+**Triage on one question: does the offset land inside a struct whose layout the host ABI
 can change?** Asset bytes, `u16[]` tables and float triples are all fine. Structs with
 pointers, bitfields, or `long` are not.
 

@@ -18,7 +18,7 @@ Measured with `GETV_CROUCH_SELFTEST=1`: eye height 339.719 → 239.719, a drop o
 100.0, which is `FULL_CROUCH_OFFSET`. The weapon flag `WEAPONSTATBITFLAG_DISABLE_CROUCH` is
 still honoured, so weapons that forbid crouching still forbid it.
 
-⚠️ These hooks deliberately do **not** go through `port_os.c`'s action table. That table is the
+These hooks deliberately do **not** go through `port_os.c`'s action table. That table is the
 Surface's lane for the per-player binding work; a second author adding rows to it mid-flight is
 how the last collision happened. When the binding work lands, these become `GE_ACT_CROUCH` and
 `GE_ACT_STAND` and pick up gamepad support for free.
@@ -52,7 +52,7 @@ What makes it real work rather than a one-liner:
 - **Where the shots come from.** If the camera leans and the gun does not, the player aims
   around a corner and their bullets still hit it. The gun position and the aim ray have to
   move with the view, which means touching `gunfire.c`, not just the camera.
-- **What the AI sees.** 🔴 GE's AI branches on render visibility (`IFImOnScreen`,
+- **What the AI sees.** GE's AI branches on render visibility (`IFImOnScreen`,
   `IFMyRoomIsOnScreen`), so a leaning player changes what guards react to. This is the same
   second-order path the interpolation work hit, and it is the part most likely to produce
   "the AI is behaving oddly" reports with no obvious cause.
@@ -62,7 +62,7 @@ work overlaps with what an external AI needs to read anyway.
 
 ## Order
 
-1. ✅ Crouch key
+1. Crouch key
 2. Lean, once the player API exists and the aim ray is already being handled
 3. Jump, only if the project decides it wants a movement mod
 
@@ -80,7 +80,7 @@ sounds, impacts and animation through a frame than any authored encounter.
 the four `bondwalkItemGetAutomaticFiringRate()` reads in `chraction.c`'s firing block and
 nothing else.
 
-🔴 **It does not change the weapon a guard carries.** Guards shoot at the chosen rhythm while
+**It does not change the weapon a guard carries.** Guards shoot at the chosen rhythm while
 still holding, animating and sounding their own gun. It was briefly named `GETV_CHR_GIVE`,
 which implied a swap it does not do.
 
@@ -100,12 +100,12 @@ hand via `Switches[3]` / `Switches[5]`. So a swap means:
 - damage, sound and the AI's own branches on `ITEM_LASER` / `ITEM_ROCKETLAUNCH` /
   `ITEM_GRENADELAUNCH` follow the item, so those paths need checking rather than assuming
 
-⚠️ **Giving guards an explosive is not a cadence change.** Those three items take different
+**Giving guards an explosive is not a cadence change.** Those three items take different
 branches in the firing block, so a "hard mode" that hands out rocket launchers exercises code
 the cadence override never touches.
 
 ## Order
 
-1. ✅ Firing cadence override, which is what timing work needed
+1. Firing cadence override, which is what timing work needed
 2. Real weapon swap at spawn, which is the horde-difficulty cheat
 3. Per-wave scaling on top of it, so horde can escalate

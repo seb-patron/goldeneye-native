@@ -53,7 +53,7 @@ that does the counting.
 `frametiming.c` is 140 lines and we can edit it. The fix is available here in a way it
 structurally is not to an emulator.
 
-⚠️ That is a statement about where the problem can be solved, not a claim that it is solved.
+That is a statement about where the problem can be solved, not a claim that it is solved.
 It is not, yet. See below.
 
 > No code from `Graslu/1964GEPD` or the 1964 lineage is used in this project. Those are
@@ -110,7 +110,7 @@ stores plenty of state that the AI reads as a discrete fact, and any of it blend
 two values is a bug that presents as erratic behaviour rather than as visual judder -- much
 harder to diagnose than the problem being solved.
 
-⚠️ **AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so the
+**AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so the
 render path and the AI are not independent in this game. Interpolation touches both.
 
 The Perfect Dark port's experimental high-FPS support carries warnings above roughly 165 FPS.
@@ -149,7 +149,7 @@ between simulation states. `GETV_INTERP=1` by default, `GETV_INTERP=0` is the co
 position, look direction and up as parameters and only reads them, so the interpolated copies
 are handed to it through its own local pointers. The caller's vectors are untouched.
 
-🔴 **Nothing is written back into game state, and that restriction is the design rather than an
+**Nothing is written back into game state, and that restriction is the design rather than an
 implementation detail.** GoldenEye's AI reads state as discrete fact, so a blended value
 entering the simulation produces erratic behaviour far harder to diagnose than judder.
 
@@ -172,10 +172,10 @@ of rendered frames on which the camera did not move at all, which is the judder 
 | SIMDIV=4, INTERP=0 | 75.2% | 0.3112 | 0.6541 |
 | **SIMDIV=4, INTERP=1** | **0.0%** | 0.3117 | **0.1843** |
 
-🔑 **At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
+**At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
 simulation now renders as smoothly as a full-rate one.
 
-⚠️ Compare only **within** a divider. The mean step differs between dividers because a fixed
+Compare only **within** a divider. The mean step differs between dividers because a fixed
 frame window catches a different part of the walk's acceleration, not because speed changed.
 Within each divider the mean is preserved to 0.5%, which is the check that matters: the camera
 covers the same ground, it just stops jumping to get there.
@@ -220,7 +220,7 @@ minus this tick's delta.
 `g_ClockTimer` is 1 per tick, so `field_890` tracks `field_88C` exactly and the crossing test
 reduces to the modulo it replaces. Verified rather than argued.
 
-### 🔴 The ceiling, which is real and is not a bug in the fix
+### The ceiling, which is real and is not a bug in the fix
 
 Divider 4 recovers only half the rate, and the arithmetic says exactly why:
 
@@ -251,7 +251,7 @@ Beams are not decoration -- they carry a lifetime, they are traced, and they are
 react to -- so double-spawning is a simulation error, not a cosmetic one. Now gated on
 `gePortSimShouldTick()`, which is always 1 at divider 1, so retail behaviour is unchanged.
 
-🔑 **This is the class of bug the interpolation work predicted**: render-path code mutating
+**This is the class of bug the interpolation work predicted**: render-path code mutating
 simulation state. Anything that both runs per frame and writes game state is suspect under a
 divider, and the audit tool is how the rest get found.
 
@@ -262,7 +262,7 @@ numeric field of the per-frame trace at matched frames, which is matched real ti
 time-correct system reads the same at frame N whatever the divider; one counting iterations
 drifts in proportion.
 
-⚠️ **It ranks by MEAN drift, not peak.** Peak alone reported five false positives -- `st`,
+**It ranks by MEAN drift, not peak.** Peak alone reported five false positives -- `st`,
 `lock`, `hinv`, `hitem` and `xhair` all hit 100% peak from a single-frame timing offset on a
 field that steps. A genuinely quantised system is wrong on most frames, not one.
 
@@ -278,7 +278,7 @@ field that steps. A genuinely quantised system is wrong on most frames, not one.
 | tank turret | already time-correct | divides by `g_GlobalTimerDelta` |
 | shots / traces / objhit | time-correct | 0.0% drift at divider 2 |
 
-⚠️ **"Turret delay and guard reaction stepping" was my own earlier guess, not a finding.**
+**"Turret delay and guard reaction stepping" was my own earlier guess, not a finding.**
 The turret turns out to have been time-correct all along. Reaction stepping is still
 **unmeasured** -- guards did not engage on the scripted paths tried, so there is no number for
 it yet, and it should not be listed as either fixed or broken.
@@ -297,7 +297,7 @@ Bunker 1, n=3 per cell, zero spread within every cell, damage taken over a fixed
 | `GETV_TIMEFIRE=0` | 0.190 | 0.120 | 1.58 |
 | **`GETV_TIMEFIRE=1`** | 0.190 | **0.190** | **1.00** |
 
-🔑 It needed `GETV_CHR_FIRERATE` to measure at all. With issued weapons a scripted run sits
+It needed `GETV_CHR_FIRERATE` to measure at all. With issued weapons a scripted run sits
 ~1400 frames before anything shoots back, and the signal is too weak to separate from noise.
 Giving every guard an automatic weapon's cadence makes guard fire the dominant term.
 
@@ -309,11 +309,11 @@ Giving every guard an automatic weapon's cadence makes guard fire the dominant t
 **Eleven of twelve are clean.** Nothing flagged; the residual is 2-8% mean drift on `xhair`,
 `beams`, `shots`, `traces` and `objhit`, which is one-frame timing offset, not quantisation.
 
-🔴 **Stage 37 JUNGLE is the exception: `chrhit` 8 at divider 1 against 3 at divider 2**, n=3
+**Stage 37 JUNGLE is the exception: `chrhit` 8 at divider 1 against 3 at divider 2**, n=3
 each with zero spread, so systematic rather than chaotic. `shots` is identical, so Bond fires
 the same rounds and simply connects less often.
 
-⚠️ **This is not obviously a bug, and it is deliberately not "fixed" here.** Guard positions
+**This is not obviously a bug, and it is deliberately not "fixed" here.** Guard positions
 advance once per tick, so at divider 2 a moving target occupies a coarser set of positions and
 a scripted shot fired at a fixed frame can pass between them. That is what running a simulation
 at half rate MEANS, and it is the same trade any 30Hz game makes against a 60Hz one. Converting
@@ -344,25 +344,25 @@ the entire content of the "divider 4 is broken" report: a 15Hz simulation cannot
 rounds a second whatever the time base does. It fires on `SIMDIV=4` at 60Hz and stays silent
 on `SIMDIV=2`.
 
-🔴 **A claim I made and then had to withdraw.** I reasoned that divider 4 must therefore be
+**A claim I made and then had to withdraw.** I reasoned that divider 4 must therefore be
 correct at 120Hz, and then measured it: `GETV_FPS=60` and `GETV_FPS=120` at divider 4 both
 give **20 shots in 20 ticks**. `GETV_FPS` does not change the field accounting, so the
 saturation is per-TICK and independent of the present rate as far as this harness can see.
 
-⚠️ **So whether a real 120Hz display makes each frame worth half a field of game time is
+**So whether a real 120Hz display makes each frame worth half a field of game time is
 UNVERIFIED.** It depends on the retrace path feeding `deltaFrames`, which a headless run does
 not exercise because it is not vsync-locked. `auto` encodes the intended relationship and the
 guard catches the clearly-wrong cases; proving the high-refresh case needs a real high-refresh
 display, and until someone runs one this stays an open item rather than a solved one.
 
-### 🔴 The clock is the real high-refresh answer, and a divider is not
+### The clock is the real high-refresh answer, and a divider is not
 
 Chasing the divider-4 ceiling led somewhere more important. `osGetCount()` is **synthetic by
 default** (`port_os.c:180`): it advances a fixed amount per call, so **every rendered frame
 counts as exactly one video field** and the game's wall-clock speed **is** the render rate. At
 120Hz the world runs at 2x.
 
-⚠️ **A divider does not rescue that**, and it is worth being explicit because it looks like it
+**A divider does not rescue that**, and it is worth being explicit because it looks like it
 should. `GETV_SIMDIV` changes how OFTEN the simulation ticks; the skipped fields are
 accumulated and handed to the tick, so total game time per real second still follows the render
 rate. The divider fixes *cadence*, not *rate*.

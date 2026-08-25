@@ -32,16 +32,16 @@ than a string parsed at startup.
 and `GETV_CULLSTAT` as printf output. Wanted: the same facts returned as data -- position,
 angle, health, armour, current weapon, ammo, and the visible-character list.
 
-⚠️ **Design it against a real consumer, exactly like the post-process pass.** Take one bot
+**Design it against a real consumer, exactly like the post-process pass.** Take one bot
 that walks to a pad and fires, and let its needs decide the shape. An API designed in the
 abstract will be wrong in ways nobody notices until the third consumer.
 
-⚠️ **Tick-accurate, not wall-clock.** Input must be applied on a numbered simulation tick.
+**Tick-accurate, not wall-clock.** Input must be applied on a numbered simulation tick.
 This is the property netplay is built on, and it is cheap now and expensive to retrofit.
 
 ## 2. Bots -- reuse GoldenEye's own AI first
 
-🔑 **Before mining the Perfect Dark port for a bot system: GoldenEye already has one.**
+**Before mining the Perfect Dark port for a bot system: GoldenEye already has one.**
 `chr.c` and `chraction.c` are a complete guard AI with a documented opcode list, and the
 game already runs it for every guard in every level. A bot is much closer to "run the
 existing AI on a player slot" than to "port PD's bots", and the AI is already written
@@ -50,7 +50,7 @@ against this game's own stan, pads and weapons.
 Mine PD for what GoldenEye genuinely lacks -- difficulty tuning, bot personalities, the
 character-select plumbing for adding bots to a match -- not for the AI itself.
 
-⚠️ **AI opcodes branch on RENDER VISIBILITY** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so a
+**AI opcodes branch on RENDER VISIBILITY** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so a
 bot on an unrendered split-screen viewport will behave differently from one on screen. Check
 this early; it will otherwise look like a bot bug and be a culling question.
 

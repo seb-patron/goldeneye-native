@@ -39,7 +39,7 @@ Windows needs the machine, and the launcher needs someone looking at it.
    missing is per-player naming, so pad 2 can be bound independently of pad 1. Small, and it
    is what split-screen needs to be pleasant.
 
-   ⚠️ **Ownership conflict -- not started for that reason.** `port_os.c` is listed under
+   **Ownership conflict -- not started for that reason.** `port_os.c` is listed under
    *Mac*'s owned files, and Mac's own queue item 4 (co-op movement) is described as
    "multiplayer-specific gating between reading the pad and applying movement", which is the
    same region of the same file. This is exactly the case `COLLABORATION.md` calls the
@@ -49,7 +49,7 @@ Windows needs the machine, and the launcher needs someone looking at it.
 4. ~~**FXAA.**~~ **DONE 2026-08-24.**
 5. ~~**Depth attachment as a texture.**~~ **DONE 2026-08-24.**
 
-   ⚠️ **The premise of item 3 as written was wrong, and it hid a live bug.** `ss_fbo` is
+   **The premise of item 3 as written was wrong, and it hid a live bug.** `ss_fbo` is
    inside `#ifdef TVOS_SUPERSAMPLE`, which is defined on tvOS ONLY -- `build_windows.ps1`,
    `build_linux.sh` and `build_mac.sh` all leave it undefined. There was no offscreen target
    on the desktop at all, so there was nothing for a fullscreen shader to sample.

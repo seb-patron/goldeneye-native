@@ -1,7 +1,7 @@
 # The player API
 
 **Status: design, not yet implemented.** Two research threads are still outstanding and the
-sections marked ⏳ depend on them.
+sections marked depend on them.
 
 This is the seam that three separate features all need, which is why it is built once rather
 than three times:
@@ -72,7 +72,7 @@ property netplay is built on and it is cheap now and expensive to retrofit.
 The tick already exists: one per `osContGetReadData`, i.e. one pass over the four ports. It is
 the same clock `GETV_EXIT_FRAME` counts and the same one `GETV_SCRIPT` schedules against.
 
-⚠️ **Unresolved and load-bearing.** Two mechanisms decouple simulation from rendering and the
+**Unresolved and load-bearing.** Two mechanisms decouple simulation from rendering and the
 project's own documents do not reconcile them:
 
 - `GETV_TICKFIELDS=<n>` (`frametiming.c`, documented in `docs/FRAME_TIMING.md`) holds simulation
@@ -106,7 +106,7 @@ Injecting through `joySetPlaybackFunc` with exactly one sample per call makes th
 for the API -- `curlast == curstart + 1` gives a clean two-frame edge. It remains a real
 constraint for anything driving the `GePadState` path.
 
-### 🔴 One step is not one world update
+### One step is not one world update
 
 **The world is ticked `getPlayerCount()` times per rendered frame.**
 
@@ -177,7 +177,7 @@ step should not be writing into a buffer that is filled on a different clock by 
 thread. Keep the `GePadState` path for the human-facing scripted-input harness; use
 `joySetPlaybackFunc` for the API.
 
-⛔ **Do not patch `lv.c:1732`.** It misses the second-pad reads at `bondview2.c:5293-5295`, all
+**Do not patch `lv.c:1732`.** It misses the second-pad reads at `bondview2.c:5293-5295`, all
 menu input, and the debug menu.
 
 ### The reference implementation is already in the tree
@@ -201,7 +201,7 @@ per-frame `g_randomSeed` fingerprint. Rare already worked out that this is the u
 
 ### Ranges
 
-Sticks are N64 counts, **−80..80**. ⚠️ SDL full deflection delivers ~±127 against the N64's
+Sticks are N64 counts, **−80..80**. SDL full deflection delivers ~±127 against the N64's
 practical ±84 (mgb64 FID-0015/0060). Deadzones are **subtracted, not clamped**: walk/turn ±5,
 aim mode ±60, two-controller crouch ±30.
 
@@ -220,7 +220,7 @@ anything that must be indistinguishable from a human. Pad level is the correct d
 Ranges and units are fixed by the existing harness and must not be re-invented:
 
 - Sticks are **N64 counts, −80..80** (`SY` positive = up).
-- ⚠️ SDL full deflection delivers ~±127 against the N64's practical ±84 (mgb64 FID-0015/0060).
+- SDL full deflection delivers ~±127 against the N64's practical ±84 (mgb64 FID-0015/0060).
   A bot emitting raw SDL magnitudes is outside the range the game was tuned against.
 - Deadzones are **subtracted, not clamped**: walk/turn ±5 raw units, aim mode ±60, two-controller
   crouch ±30.
@@ -252,7 +252,7 @@ Angle, health, armour, current weapon, ammo, room, dead flag, and the visible-ch
 `struct player` is only visible inside the decomp, so these need an accessor block next to
 `gePortPlayerPos`.
 
-⚠️ **That lands in `vendor/ge-decomp/`, which is on the do-not-touch list and is gitignored** -- it travels only through `getv/patches/0001-source.patch`, which the Mac is actively editing.
+**That lands in `vendor/ge-decomp/`, which is on the do-not-touch list and is gitignored** -- it travels only through `getv/patches/0001-source.patch`, which the Mac is actively editing.
 This is a coordination item, not a coding one, and it is the single dependency this work has on
 the other machine.
 
@@ -300,7 +300,7 @@ discovered later. Every entry is from the project's own measurements.
 | 5 | Seed is `randomSetSeed(osGetCount())`, and `osGetCount()` in the port is a **non-atomic static also incremented by the audio thread** | Measured deterministic today, but it is a race by construction. `GETV_SEED` forces it. |
 | 6 | `g_GlobalTimerDelta` is **whole video frames, never fractional**; 122 of 135 files under `src/game` do per-frame work | You cannot feed this engine a fractional delta without retuning every constant. |
 | 7 | Full-auto fire rate is gated on a **per-rendered-frame** counter, unscaled (FID-0056/0066) | Automatics fire 2-4× too fast at locked 60 Hz. |
-| 8 | 🔴 **`shuffle_player_ids()` draws 3 RNG values every frame** (`player.c:661-676`) to reorder the per-player tick | RNG state and tick order are welded together. Any divergence instantly reorders the whole simulation. |
+| 8 | **`shuffle_player_ids()` draws 3 RNG values every frame** (`player.c:661-676`) to reorder the per-player tick | RNG state and tick order are welded together. Any divergence instantly reorders the whole simulation. |
 | 9 | The frame delta is wall-clock derived (`frametiming.c:84`) and multiplied into **~310 simulation sites** via `g_ClockTimer` → `g_GlobalTimerDelta` (`lv.c:1112,1117`) | Deterministic in the port only *by accident*: `osGetCount()` returns `count += 1000`, so the quotient is exactly 1 every frame. `GETV_REALCLOCK=1` destroys it. |
 | 10 | `chrObjRandom` is **stubbed to 0** in the port (`ge_link_stubs.c:60-61`) | Deterministic but not faithful -- `propobj.c` vertex jitter collapses to a constant. |
 | 11 | Uninitialised locals read into logic: `stan.c:1425,1471`; `chr.c:3957-3968`; `chrprop.c:1377-1390` indexes `((u8*)g_Textures)[-8]` **on every shot** | Retail depended on deterministic RDRAM garbage. Do not "fix" blindly -- some are load-bearing. |
@@ -327,7 +327,7 @@ Restoring into a *different* instance must work -- that is how tree search paral
 
 Our state is largely the 32 MB `ge_heap[]`. That is fine for Go-Explore-style RL, where restore
 replaces re-simulating from the start and cuts steps by "at least one order of magnitude". It is
-**almost certainly too fat for per-frame rollback netplay**, which points at lockstep. ⏳ Pending
+**almost certainly too fat for per-frame rollback netplay**, which points at lockstep. Pending
 the netplay research thread.
 
 This also hands the MCP tier something genuinely novel: an LLM agent that can save, try, restore
@@ -346,7 +346,7 @@ branch. Split-screen is player-count-driven.
 **Parallel** API is the correct native fit, because GoldenEye multiplayer is genuinely
 simultaneous; expose `parallel_to_aec` for AEC-only algorithms.
 
-⚠️ **One tick authority.** ViZDoom's FAQ records that in synchronous multiplayer, frame skip
+**One tick authority.** ViZDoom's FAQ records that in synchronous multiplayer, frame skip
 cannot be used per-agent because every agent must step before the server advances. Frame skip is
 a property of the **session**, not of an agent's step call.
 
@@ -420,13 +420,13 @@ player's own `chrnum` (`chraction.c:9855-9861`). It is how cinematics move Bond.
   (`:11288-11291`). **`ACT_BONDMULTI` is not a case in `chrlvActionTick`** (`chraction.c:9485-9552`),
   so no locomotion tick runs. An AI list would execute and its movement opcodes would fight the
   input path every frame.
-- 🔴 **`init_path_table_links` is stubbed in the port.** Retail assigns waypoint `groupNum` and
+- **`init_path_table_links` is stubbed in the port.** Retail assigns waypoint `groupNum` and
   `dist` at load, which live pathfinding consumes. Its absence presents as AI misbehaviour, not
   as a crash.
-- 🔴 The AI has **no player-targeting vocabulary** -- the whole special-character set is
+- The AI has **no player-targeting vocabulary** -- the whole special-character set is
   `CHR_BOND_CINEMA, CHR_CLONE, CHR_SEE_SHOT, CHR_SEE_DIE, CHR_PRESET, CHR_SELF, CHR_OBJECTIVE,
   CHR_FREE`. There is not even a generic `CHR_BOND`; the AI addresses the player implicitly.
-- ⚠️ MP arenas ship with `padnames` and `boundpadnames` both NULL -- no authored AI-list
+- MP arenas ship with `padnames` and `boundpadnames` both NULL -- no authored AI-list
   scaffolding to inherit.
 
 **Conclusion: drive bots by pad injection, the same seam an RL agent and a network peer use.**
@@ -435,7 +435,7 @@ injection stays the right tool for scripted cinematic behaviour and nothing else
 
 ### The trap to know in advance either way
 
-⚠️ **AI opcodes branch on render visibility.** `IFImOnScreen` tests `PROPFLAG_ONSCREEN`
+**AI opcodes branch on render visibility.** `IFImOnScreen` tests `PROPFLAG_ONSCREEN`
 (`chrai.c:1889`), a bit **set by the render pass** (`chr.c:2858`) from `posIsOnScreen`
 (`propobj.c:13973`). `IFMyRoomIsOnScreen` tests `getROOMID_isRendered()` (`bg.c:2857`), a
 per-room byte set by the portal visibility pass.
@@ -464,7 +464,7 @@ Training needs the game to run as fast as it can and never wait on a display.
   pure cost during training.
 - Requiring a display server is what makes an environment undeployable on a training box.
 
-⚠️ **Do not make the agent read its own HUD.** Export the numbers. The MP HUD is also
+**Do not make the agent read its own HUD.** Export the numbers. The MP HUD is also
 suspect: no health gauge, ammo counter or score was legible at any frame tested.
 
 ---
@@ -473,7 +473,7 @@ suspect: no health gauge, ammo counter or score was legible at any frame tested.
 
 Each phase is useful on its own and none of them requires the next.
 
-1. **Settle the tick.** ✅ *Largely resolved by the seam.* The playback handler is called exactly
+1. **Settle the tick.** *Largely resolved by the seam.* The playback handler is called exactly
    once per `joyConsumeSamplesWrapper()`, i.e. once per main-loop iteration (`boss.c:594`), on the
    game thread -- so "the input tick" is unambiguous and is not affected by whatever `SIMDIV`
    does inside `lvlRender`. Injecting `(pads, frame_delta)` as a pair, as `ramromreplay` does,
@@ -506,7 +506,7 @@ in `docs/LICENSING.md`. Cite commit `514bf7a`, not the working tree -- several t
 directories are this project's own tvOS additions and attributing them to Perfect Dark would be
 wrong in both directions.
 
-🔴 GoldenRecomp and `cblock85/GoldenEye64Recomp` are **GPL-3.0** and quarantined. `goldenpad` has
+GoldenRecomp and `cblock85/GoldenEye64Recomp` are **GPL-3.0** and quarantined. `goldenpad` has
 no top-level licence plus a GPL-3.0 obligation. Read for hazard intelligence, copy nothing.
 
 ViZDoom, Gymnasium, PettingZoo and Stable-Retro are permissively licensed and are the references
@@ -558,7 +558,7 @@ exclusion snapshot model, and the sync-test harness *before* any netcode.
 
 ### Two things to do first, whichever model wins
 
-1. 🔑 **Split "number of players" from "number of local viewports".** GoldenEye conflates them
+1. **Split "number of players" from "number of local viewports".** GoldenEye conflates them
    exactly as Perfect Dark did, and PD's netplay work had to do this refactor first; it is
    mechanical and it blocks everything else. Eight networked players must not imply eight
    split-screen panes.
@@ -581,7 +581,7 @@ player slot like everything else, and bots, netplay and the RL agent share one p
 
 ---
 
-## 15. 🔴 Synthetic input fires but does not move the player
+## 15. Synthetic input fires but does not move the player
 
 Found while proving the input seam. **This is not a defect in the API** -- it affects the
 existing `GETV_SCRIPT` harness identically -- but it blocks any bot, agent or replay that needs
@@ -609,11 +609,11 @@ The player does not walk. Position is frozen at `(-1356.0, 378.5, 2205.5)` from 
 
 | Hypothesis | Result |
 |---|---|
-| The API is not delivering input | ✗ readback returns the posted values, and fire produces 23 shots |
-| Two-controller control style putting move on the second pad | ✗ reproduces under Honey (style 0) and Galore (style 5) alike |
-| The intro camera freezing input (`bondviewFrozenMoveBond` zeroes buttons) | ✗ `cammode=0` -- gameplay -- throughout |
-| Controls locked | ✗ `lv.c:596` calls `lvlSetControlsLockedFlag(0)` at boot and the mark prints |
-| Something specific to the new seam | ✗ `GETV_SCRIPT` reproduces it exactly: `[getv][script] f=600 FIRE keys=0x0 stick=(0,60) hold=500` and the player does not move |
+| The API is not delivering input | readback returns the posted values, and fire produces 23 shots |
+| Two-controller control style putting move on the second pad | reproduces under Honey (style 0) and Galore (style 5) alike |
+| The intro camera freezing input (`bondviewFrozenMoveBond` zeroes buttons) | `cammode=0` -- gameplay -- throughout |
+| Controls locked | `lv.c:596` calls `lvlSetControlsLockedFlag(0)` at boot and the mark prints |
+| Something specific to the new seam | `GETV_SCRIPT` reproduces it exactly: `[getv][script] f=600 FIRE keys=0x0 stick=(0,60) hold=500` and the player does not move |
 
 ### What it means
 
@@ -623,8 +623,8 @@ read and the movement apply"*.
 
 Two pieces of new information narrow it considerably:
 
-1. 🔑 **It is not multiplayer-specific.** It reproduces with a single player in a solo stage.
-2. 🔑 **It is movement-specific, not input-specific.** Buttons from the same injection reach the
+1. **It is not multiplayer-specific.** It reproduces with a single player in a solo stage.
+2. **It is movement-specific, not input-specific.** Buttons from the same injection reach the
    gun and fire 23 shots. So the pad read is fine and `bondviewProcessInput` is running; what
    fails is between the stick reaching `moveData.analogWalk` and the walk being applied
    (`bondview2.c:5961-6088`, `speedforwards = moveData.analogWalk / 70.0f`).
@@ -634,7 +634,7 @@ That is a much smaller search than "co-op movement", and it is in the Mac's lane
 
 ---
 
-## ⏳ Open
+## Open
 
 - The movement gate above -- §15. Blocks the bot demo; does not block the API.
 - Whether the AI's render-visibility branching (§10) meaningfully changes behaviour headless.
