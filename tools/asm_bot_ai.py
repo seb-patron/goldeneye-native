@@ -48,6 +48,14 @@ AI_HEADER = os.path.join(ROOT, "vendor", "ge-decomp", "src", "bondaicommands.h")
 # low numbers.
 L_MAIN, L_ENGAGE, L_EVADE, L_SEEK = 0x00, 0x07, 0x0a, 0x0d
 
+# Data file name -> the stem used in emitted C symbols. Explicit rather than derived: the
+# obvious derivation (strip a trailing "s") silently mangles "personalities" into
+# "personalitie", and a mapping that must be right is worth writing out.
+GE_KIND_SYMBOL = {
+    "skill_tiers":   "skill_tier",
+    "personalities": "personality",
+}
+
 
 def parse_instruction_set(path=AI_HEADER):
     """{name: {"id": int, "params": [(width, param_name), ...]}} read from the header."""
@@ -428,7 +436,11 @@ def main():
                     errors += 1
                     continue
 
-                symbol = "bot_ai_%s_%s" % ({"personalities":"personality","skill_tiers":"skill_tier"}.get(kind, kind), arch["name"])
+                # NOT kind.rstrip("s"): rstrip removes EVERY trailing s, so "personalities"
+                # became "personalitie". "skill_tiers" survives it, which is why the mistake
+                # passed a casual look at the output -- half the symbols were right. Caught by
+                # mac-getv reviewing the branch rather than by me reading my own output.
+                symbol = "bot_ai_%s_%s" % (GE_KIND_SYMBOL.get(kind, kind), arch["name"])
                 if lvl_name:
                     symbol += "_" + lvl_name
                 c_parts.append(a.to_c(symbol))

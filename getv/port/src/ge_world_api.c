@@ -235,6 +235,19 @@ int geWorldRouteStep(int objective, int n, GeWorldStep *out)
     return geWorldStep(i, out);
 }
 
+int geWorldWaypointById(int id, GeWorldWaypoint *out)
+{
+    GeWorldWaypoint w;
+    int i;
+    if (ge_w.blob == NULL || out == NULL) { return 0; }
+    /* Linear rather than indexed: ids are not row numbers, the tables are a couple of hundred
+     * rows, and a lookup happens once per step rather than once per frame. */
+    for (i = 0; i < ge_w.nwp; i++) {
+        if (geWorldWaypoint(i, &w) && w.id == id) { *out = w; return 1; }
+    }
+    return 0;
+}
+
 int geWorldNearestWaypoint(float x, float y, float z, GeWorldWaypoint *out)
 {
     GeWorldWaypoint w, best;

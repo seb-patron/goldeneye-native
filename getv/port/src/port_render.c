@@ -270,6 +270,14 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortBotRouteFrame(rendered);
     }
 
+    /* Derive events from what changed this frame and deliver them to subscribers. AFTER the
+     * policies above, so an event describes the state they have already acted on rather than a
+     * half-updated one. Costs nothing when nobody has subscribed. */
+    {
+        extern void gePortEventFrame(int frame);
+        gePortEventFrame(rendered);
+    }
+
     /* GETV_STATEAPI=1: the player API's state readout, once a second, per slot.
      *
      * The point is the `fields` word rather than the values. Each accessor refuses instead of

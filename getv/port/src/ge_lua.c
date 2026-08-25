@@ -65,6 +65,7 @@ struct ge_mod {
     int  ref_frame;        /* LUA_NOREF when the mod does not define the hook */
     int  ref_spawn;
     int  ref_fire;
+    int  ref_event;        /* onEvent(name, a, b, c) -- the bus in ge_event.h */
     int  disabled;         /* set after a runtime error, so it fires once not every frame */
 };
 
@@ -83,6 +84,10 @@ extern int getPlayerCount(void);
 extern int bossGetStageNum(void);
 
 #include "ge_postfx.h"
+#include "ge_player_api.h"
+#include "ge_world_api.h"
+#include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
+#include "ge_event.h"
 
 static int ge_l_log(lua_State *L)
 {
@@ -189,12 +194,222 @@ static int ge_l_postfx(lua_State *L)
     return 1;
 }
 
+/* ---------------------------------------------------------------- world knowledge
+ *
+ * The two API seams, handed to scripts. This is what makes the mod host a platform rather than
+ * a way to tint the screen: a mod pack can now ask where the objectives are, which waypoints
+ * lead to them and what is usually dangerous on the way -- and it can drive a player slot.
+ *
+ * The world data is loaded on first use, from the stage the game reports. A script never has to
+ * be told which level it is in.
+ */
+static int ge_world_ready(void)
+{
+    extern int bossGetStageNum(void);
+    int stage, i;
+
+    if (geWorldLoaded()) { return 1; }
+    stage = bossGetStageNum();
+    for (i = 0; i < GE_WORLD_STAGE_COUNT; i++) {
+        if (ge_world_stage_names[i].stage == stage) {
+            return geWorldLoad(ge_world_stage_names[i].level);
+        }
+    }
+    return 0;
+}
+
+/* ge.world() -> level name, or nil when this stage has no extracted knowledge.
+ *
+ * Four levels have no background model and several have no routed objectives, so a script must
+ * cope with knowing nothing. Returning nil rather than an empty string makes that a condition a
+ * script can test rather than a value it might use by accident. */
+static int ge_l_world(lua_State *L)
+{
+    if (!ge_world_ready()) { lua_pushnil(L); return 1; }
+    lua_pushstring(L, geWorldLevel());
+    return 1;
+}
+
+/* ge.objectives() -> count */
+static int ge_l_objectives(lua_State *L)
+{
+    lua_pushinteger(L, (lua_Integer) (ge_world_ready() ? geWorldObjectiveCount() : 0));
+    return 1;
+}
+
+/* ge.objective(i) -> table, or nil. steps == 0 means it exists but cannot be routed to. */
+static int ge_l_objective(lua_State *L)
+{
+    GeWorldObjective ob;
+    int i = (int) luaL_checkinteger(L, 1);
+    if (!ge_world_ready() || !geWorldObjective(i, &ob)) { lua_pushnil(L); return 1; }
+    lua_newtable(L);
+    lua_pushinteger(L, ob.index);          lua_setfield(L, -2, "index");
+    lua_pushinteger(L, ob.min_difficulty); lua_setfield(L, -2, "difficulty");
+    lua_pushinteger(L, ob.targets);        lua_setfield(L, -2, "targets");
+    lua_pushinteger(L, ob.steps);          lua_setfield(L, -2, "steps");
+    lua_pushnumber(L, (lua_Number) ob.tx); lua_setfield(L, -2, "x");
+    lua_pushnumber(L, (lua_Number) ob.ty); lua_setfield(L, -2, "y");
+    lua_pushnumber(L, (lua_Number) ob.tz); lua_setfield(L, -2, "z");
+    return 1;
+}
+
+/* ge.route_step(objective, n) -> table, or nil past the end of the route. */
+static int ge_l_route_step(lua_State *L)
+{
+    GeWorldStep st;
+    int obj = (int) luaL_checkinteger(L, 1);
+    int n   = (int) luaL_checkinteger(L, 2);
+    if (!ge_world_ready() || !geWorldRouteStep(obj, n, &st)) { lua_pushnil(L); return 1; }
+    lua_newtable(L);
+    lua_pushinteger(L, st.from);                 lua_setfield(L, -2, "from");
+    lua_pushinteger(L, st.to);                   lua_setfield(L, -2, "to");
+    lua_pushnumber(L, (lua_Number) st.distance); lua_setfield(L, -2, "distance");
+    lua_pushnumber(L, (lua_Number) st.heading);  lua_setfield(L, -2, "heading");
+    lua_pushnumber(L, (lua_Number) st.turn);     lua_setfield(L, -2, "turn");
+    lua_pushinteger(L, st.threats);              lua_setfield(L, -2, "threats");
+    return 1;
+}
+
+/* ge.waypoint(id) -> table, or nil. A route step names waypoints; this says where they are. */
+static int ge_l_waypoint(lua_State *L)
+{
+    GeWorldWaypoint w;
+    int id = (int) luaL_checkinteger(L, 1);
+    if (!ge_world_ready() || !geWorldWaypointById(id, &w)) { lua_pushnil(L); return 1; }
+    lua_newtable(L);
+    lua_pushinteger(L, w.id);            lua_setfield(L, -2, "id");
+    lua_pushinteger(L, w.room);          lua_setfield(L, -2, "room");
+    lua_pushnumber(L, (lua_Number) w.x); lua_setfield(L, -2, "x");
+    lua_pushnumber(L, (lua_Number) w.y); lua_setfield(L, -2, "y");
+    lua_pushnumber(L, (lua_Number) w.z); lua_setfield(L, -2, "z");
+    return 1;
+}
+
+/* ge.waypoint_near(x, y, z) -> table, or nil. Turns a position into something routable. */
+static int ge_l_waypoint_near(lua_State *L)
+{
+    GeWorldWaypoint w;
+    float x = (float) luaL_checknumber(L, 1);
+    float y = (float) luaL_checknumber(L, 2);
+    float z = (float) luaL_checknumber(L, 3);
+    if (!ge_world_ready() || !geWorldNearestWaypoint(x, y, z, &w)) { lua_pushnil(L); return 1; }
+    lua_newtable(L);
+    lua_pushinteger(L, w.id);              lua_setfield(L, -2, "id");
+    lua_pushinteger(L, w.room);            lua_setfield(L, -2, "room");
+    lua_pushnumber(L, (lua_Number) w.x);   lua_setfield(L, -2, "x");
+    lua_pushnumber(L, (lua_Number) w.y);   lua_setfield(L, -2, "y");
+    lua_pushnumber(L, (lua_Number) w.z);   lua_setfield(L, -2, "z");
+    return 1;
+}
+
+/* ge.guards_near(x, y, z, radius) -> array of tables, nearest first.
+ *
+ * STATIC PLACEMENT, NOT LIVE POSITIONS. This says where guards start and usually are, which is
+ * what a route planner wants. It is not who is shooting at you; that needs live character state
+ * the port cannot yet read. Naming it guards_near rather than enemies would be a lie in the
+ * other direction, so the docstring carries the distinction instead. */
+static int ge_l_guards_near(lua_State *L)
+{
+    GeWorldGuard g[16];
+    int n, i;
+    float x = (float) luaL_checknumber(L, 1);
+    float y = (float) luaL_checknumber(L, 2);
+    float z = (float) luaL_checknumber(L, 3);
+    float r = (float) luaL_optnumber(L, 4, 700.0);
+
+    lua_newtable(L);
+    if (!ge_world_ready()) { return 1; }
+    n = geWorldGuardsNear(x, y, z, r, g, (int) (sizeof g / sizeof g[0]));
+    for (i = 0; i < n; i++) {
+        lua_newtable(L);
+        lua_pushinteger(L, g[i].chrnum);          lua_setfield(L, -2, "chrnum");
+        lua_pushinteger(L, g[i].room);            lua_setfield(L, -2, "room");
+        lua_pushnumber(L, (lua_Number) g[i].x);   lua_setfield(L, -2, "x");
+        lua_pushnumber(L, (lua_Number) g[i].y);   lua_setfield(L, -2, "y");
+        lua_pushnumber(L, (lua_Number) g[i].z);   lua_setfield(L, -2, "z");
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* ge.player_state(slot) -> table, or nil for an empty slot.
+ *
+ * Only the fields the game can actually report are present. Position is there; angle, health,
+ * weapon and score are not, because those accessors do not exist yet. A field is ABSENT rather
+ * than zero on purpose -- a script can test for it, where a zero would be indistinguishable
+ * from a real reading of zero health. */
+static int ge_l_player_state(lua_State *L)
+{
+    GePlayerState st;
+    int slot = (int) luaL_checkinteger(L, 1);
+    if (!gePlayerStateGet(slot, &st) || !st.present) { lua_pushnil(L); return 1; }
+    lua_newtable(L);
+    if (st.fields & GE_ST_POSITION) {
+        lua_pushnumber(L, (lua_Number) st.x); lua_setfield(L, -2, "x");
+        lua_pushnumber(L, (lua_Number) st.y); lua_setfield(L, -2, "y");
+        lua_pushnumber(L, (lua_Number) st.z); lua_setfield(L, -2, "z");
+    }
+    if (st.fields & GE_ST_ANGLE)  { lua_pushnumber(L, (lua_Number) st.angle);
+                                    lua_setfield(L, -2, "angle"); }
+    if (st.fields & GE_ST_ROOM)   { lua_pushinteger(L, st.room);
+                                    lua_setfield(L, -2, "room"); }
+    if (st.fields & GE_ST_HEALTH) { lua_pushnumber(L, (lua_Number) st.health);
+                                    lua_setfield(L, -2, "health");
+                                    lua_pushnumber(L, (lua_Number) st.armour);
+                                    lua_setfield(L, -2, "armour"); }
+    return 1;
+}
+
+/* ge.post_input(slot, stick_x, stick_y, buttons) -> true if accepted.
+ *
+ * A mod pack can drive a player slot, which is how a bot written entirely in Lua becomes
+ * possible. It goes through the same seam as the C bots and a network peer, so it inherits the
+ * same tick discipline: posts are for the NEXT tick, and a post for a tick that has already run
+ * is refused rather than silently applied late. A false return is that refusal and is worth
+ * reporting, not swallowing.
+ *
+ * Claiming the slot on first use is deliberate: two things posting into one slot would fight,
+ * and the claim makes the conflict visible instead of producing a bot that stutters. */
+static int ge_l_post_input(lua_State *L)
+{
+    GePlayerInput in;
+    int slot = (int) luaL_checkinteger(L, 1);
+    int sx   = (int) luaL_optinteger(L, 2, 0);
+    int sy   = (int) luaL_optinteger(L, 3, 0);
+    unsigned int btn = (unsigned int) luaL_optinteger(L, 4, 0);
+
+    if (slot < 0 || slot >= GE_MAX_SLOTS) { lua_pushboolean(L, 0); return 1; }
+    if (sx > 80) { sx = 80; } if (sx < -80) { sx = -80; }
+    if (sy > 80) { sy = 80; } if (sy < -80) { sy = -80; }
+
+    gePlayerApiInit();
+    if (gePlayerSource(slot) != GE_SLOT_INJECTED) { gePlayerClaim(slot, GE_SLOT_INJECTED); }
+
+    memset(&in, 0, sizeof in);
+    in.stick_x = (signed char) sx;
+    in.stick_y = (signed char) sy;
+    in.buttons = btn;
+    lua_pushboolean(L, gePlayerPost(slot, gePlayerTick() + 1, &in, 1));
+    return 1;
+}
+
 static const luaL_Reg ge_api[] = {
     { "log",          ge_l_log },
     { "stage",        ge_l_stage },
     { "player_count", ge_l_player_count },
     { "player_pos",   ge_l_player_pos },
     { "postfx",       ge_l_postfx },
+    /* World knowledge and slot control: the platform surface. */
+    { "world",         ge_l_world },
+    { "objectives",    ge_l_objectives },
+    { "objective",     ge_l_objective },
+    { "route_step",    ge_l_route_step },
+    { "waypoint",      ge_l_waypoint },
+    { "waypoint_near", ge_l_waypoint_near },
+    { "guards_near",   ge_l_guards_near },
+    { "player_state",  ge_l_player_state },
+    { "post_input",    ge_l_post_input },
     { NULL, NULL }
 };
 
@@ -245,6 +460,7 @@ static void ge_load_mod(const char *dir, const char *name)
     m->ref_frame = ge_take_hook(ge_L, "onFrame");
     m->ref_spawn = ge_take_hook(ge_L, "onPlayerSpawn");
     m->ref_fire  = ge_take_hook(ge_L, "onWeaponFire");
+    m->ref_event = ge_take_hook(ge_L, "onEvent");
     ge_mod_count++;
 
     printf("[getv][lua] loaded \"%s\"%s%s%s\n", name,
@@ -307,6 +523,12 @@ static int ge_dir_has_mod(const char *dir, const char *name)
     return stat(path, &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
+/* Declared here because the definition sits ~75 lines below its first use. GCC demotes an
+ * implicit declaration to a warning and Clang makes it an error, so this compiled on the
+ * Surface and not here -- the same shape as the <sys/stat.h> and self_path bugs in
+ * ge_launcher.cpp. Declaring it keeps the definition next to its siblings. */
+static void ge_lua_on_event(GeEventType type, int a, int b, int c, void *user);
+
 void gePortLuaInit(void)
 {
     const char *dir = getenv("GETV_MODDIR");
@@ -352,6 +574,10 @@ void gePortLuaInit(void)
      * anything a mod author would reach for. */
     luaL_newlib(ge_L, ge_api);
     lua_setglobal(ge_L, "ge");
+
+    /* Subscribe once, here rather than per mod: the bridge iterates mods itself, so one
+     * subscription serves all of them and a mod loading later needs no extra wiring. */
+    geEventSubscribe(ge_lua_on_event, NULL);
 
     while ((e = readdir(d)) != NULL) {
         char sub[512];
@@ -414,6 +640,32 @@ void gePortLuaFrame(int frame)
         lua_rawgeti(ge_L, LUA_REGISTRYINDEX, m->ref_frame);
         lua_pushinteger(ge_L, (lua_Integer) frame);
         ge_call(m, m->ref_frame, 1);
+    }
+}
+
+/* The event bus, bridged to mods as onEvent(name, a, b, c).
+ *
+ * One hook rather than one per event type: the type set grows as game-side publish sites land,
+ * and a mod written today should keep working when it does. A mod that cares about one event
+ * tests the name, which is cheaper than this file gaining a field and a dispatcher per type.
+ *
+ * This runs INSIDE the frame hook, so a mod must not post input from here -- the tick it would
+ * post for is still being assembled, and gePlayerPost would rightly refuse it. mods/route_bot
+ * posts from onFrame for exactly that reason. */
+static void ge_lua_on_event(GeEventType type, int a, int b, int c, void *user)
+{
+    int i;
+    (void) user;
+    if (!ge_lua_ready) { return; }
+    for (i = 0; i < ge_mod_count; i++) {
+        struct ge_mod *m = &ge_mods[i];
+        if (m->disabled || m->ref_event == LUA_NOREF) continue;
+        lua_rawgeti(ge_L, LUA_REGISTRYINDEX, m->ref_event);
+        lua_pushstring(ge_L, geEventName(type));
+        lua_pushinteger(ge_L, (lua_Integer) a);
+        lua_pushinteger(ge_L, (lua_Integer) b);
+        lua_pushinteger(ge_L, (lua_Integer) c);
+        ge_call(m, m->ref_event, 4);
     }
 }
 

@@ -79,6 +79,15 @@ int  geWorldStep(int i, GeWorldStep *out);
  * geWorldNearestWaypoint answers "where am I on the graph" from a world position, which is what
  * turns a position into something routable. geWorldRouteStep walks an objective's route without
  * the caller doing index arithmetic against first_step. */
+/* A waypoint by its id, which is what a route step names.
+ *
+ * Added because writing the consumers exposed its absence: a step says "walk to waypoint 108"
+ * and nothing could answer where 108 is. The C bot worked around it with a linear scan and the
+ * Lua mod could not work around it at all -- it walked straight at the final objective and
+ * ignored the route, which is the failure that made the gap obvious. Ids are not indices; the
+ * table is ordered by index and this searches by id. */
+int  geWorldWaypointById(int id, GeWorldWaypoint *out);
+
 int  geWorldNearestWaypoint(float x, float y, float z, GeWorldWaypoint *out);
 int  geWorldRouteStep(int objective, int n, GeWorldStep *out);
 

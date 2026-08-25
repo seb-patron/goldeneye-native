@@ -116,6 +116,7 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
     pos = list(route_steps[0]["from_pos"])
     heading = 0.0
     vx = vz = 0.0                      # carried between legs: momentum does not reset at a corner
+    believed = 0.0                     # the estimate, arbitrary until the bot first moves
     ticks = 0
     travelled = 0.0
     stray = 0.0
@@ -127,11 +128,19 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
         legticks = 0
         while True:
             # What the follower BELIEVES it is facing. The real bot only has this.
+            #
+            # THE FALLBACK MUST NOT BE THE TRUE HEADING. An earlier version assigned `heading`
+            # here while the comment claimed it kept the last estimate, so a stationary bot was
+            # handed ground truth -- and that is exactly the state the real one cannot escape.
+            # The model therefore passed dead reckoning 61/61 while the shipped bot deadlocked
+            # on Bunker 1 for 1100 frames with the stick hard over, which mac-getv measured.
+            #
+            # A stale estimate persists here now, as it does in C: wrong, and staying wrong
+            # until the bot actually moves.
             if dead_reckon:
                 if vx * vx + vz * vz > 1.5 * 1.5:
                     believed = math.degrees(math.atan2(vx, vz))
-                else:
-                    believed = heading      # stationary: keep the last estimate, as the C does
+                # else: keep whatever `believed` was, including its arbitrary initial value
             else:
                 believed = heading
             sx, sy, dist = follower.step(pos, believed, target)
