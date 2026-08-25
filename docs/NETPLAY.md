@@ -1,31 +1,8 @@
 # Netplay
 
 The goal: four or more people, each on their own machine, each full-screen, playing each other
-over a WAN -- plus bots, in any mix, including nobody at all and two bots playing while you
+over a WAN — plus bots, in any mix, including nobody at all and two bots playing while you
 watch.
-
-## Status: the approach here is disputed inside this repository
-
-This document argues for lockstep. [`docs/PLAYER_API.md`](PLAYER_API.md) section 14 argues
-against it and was written first, from measurements. **That disagreement is unresolved, and
-both documents are kept until it is.** Anyone building on this should read both.
-
-The case against lockstep, none of which this document currently answers:
-
-- **Streets (level 29) is nondeterministic across processes**, verified. At least one level
-  cannot be lockstepped as it stands.
-- **PAL and NTSC are compile-time constant sets**, not a scale factor, so a US and a EU client
-  can never share a lockstep session.
-- **Cross-platform bit-exactness is not realistically achievable.** The Perfect Dark port, with
-  the same ancestry as ours, ships at `-Og` because `-O2` breaks the game.
-- **Lockstep adds round-trip time to your own aim**, which an FPS tolerates far worse than the
-  RTS designs the technique came from.
-
-The counter-argument this document makes is that only inputs travel, twelve bytes a tick,
-where world state at 60Hz over a domestic link is not shippable at all -- and that the
-determinism audit it calls for in step 3 is exactly what would settle the first three points.
-That audit has not been done. Until it is, treat what follows as a design under test rather
-than a decision.
 
 ## The seam already exists
 
@@ -60,7 +37,7 @@ you cannot.
 ## Input delay, not rollback
 
 Every machine acts on input captured a few ticks ago, which is what buys the network time to
-deliver it. Default is 3 ticks -- 50ms at 60Hz, which covers most domestic links.
+deliver it. Default is 3 ticks — 50ms at 60Hz, which covers most domestic links.
 
 Rollback hides more latency and would need full save/restore of game state on every mispredict.
 That is a far larger change, and not worth reaching for before measuring. The `inputs_late`
@@ -70,11 +47,11 @@ link, which is a tunable rather than a bug.
 ## Where the four-slot cap bites
 
 The game has exactly four player slots. "Four players **and** four bots" is not reachable through
-the input seam -- the slots are full.
+the input seam — the slots are full.
 
 That is what `ge_bot_ai.c` is for. Those bots are **characters**, not players: AI-list bytecode
-driving a `chr`, the same entity every campaign guard is. The two paths compose -- four humans in
-the slots, plus AI-driven characters beyond them -- and they are genuinely different mechanisms
+driving a `chr`, the same entity every campaign guard is. The two paths compose — four humans in
+the slots, plus AI-driven characters beyond them — and they are genuinely different mechanisms
 rather than two ways of doing one thing. See `docs/BOTS.md`.
 
 A bot slot is treated as ready without waiting for the network, because it is simulated
@@ -84,27 +61,194 @@ frame-rate-dependent decisions.
 
 ## What is built
 
-- `ge_net.h` / `ge_net.c` -- the session: input ring per slot, publish-with-delay, stall until
+- `ge_net.h` / `ge_net.c` — the session: input ring per slot, publish-with-delay, stall until
   every acting slot has input for the tick, fingerprint exchange, and counters for stalls, late
   inputs and desyncs.
 - The transport is deliberately **not** in there. Knowing when a tick is ready, when to stall and
   when the machines have diverged is not a socket concern, and keeping it out means the hard part
-  is testable with no I/O at all -- `geNetDeliver()` takes a datagram directly.
+  is testable with no I/O at all — `geNetDeliver()` takes a datagram directly.
+
+- `ge_net_udp.c` — the socket half, plus the handshake that has to happen first: a host binds a
+  port and assigns slots, joiners send JOIN until an ASSIGN lands (a single join packet is exactly
+  the thing UDP loses). Handshake traffic is consumed in the transport so the session layer never
+  learns a session had to be negotiated.
+
+### Session-relative tick numbering
+
+Everything on the wire counts from **zero at session open**, not from `gePlayerTick()`.
+
+This was a real flaw, caught while writing the transport. The game tick is per-machine: two
+players who joined a minute apart are thousands of ticks apart, so "tick 900" would mean
+different moments on each machine and the session would compare inputs that were never meant to
+line up. It would have presented as a desync while being purely a setup bug — the worst kind to
+debug, because the fingerprint check would fire and point at the simulation rather than at the
+handshake.
+
+Each machine records where its own game clock stood at session open and converts at the boundary.
+Nothing else in either file needs to know.
 
 ## What is not built
 
-1. **A real transport.** `GeNetTransport` is two function pointers; a UDP implementation drops in
-   without touching the session logic. Untested here because this session cannot compile (see
-   below).
+1. **Mesh topology.** The handshake is a star: a joiner only ever learns the host's address. That
+   is enough for two players, and **not enough for the four-player goal** — joiners would never
+   exchange inputs with each other, so every tick would stall waiting on a peer they cannot hear.
+   The host has to relay the peer table in its ASSIGN, and every machine has to open a path to
+   every other. This is the next blocker for the stated goal, not a nicety.
 2. **Full-screen per machine.** GoldenEye multiplayer is split-screen: one machine, N viewports,
-   all players local. Rendering a single viewport is the easy half -- the renderer already does
+   all players local. Rendering a single viewport is the easy half — the renderer already does
    per-player viewports. The real work is that game logic assumes every player is local.
-3. **A determinism audit.** Lockstep is only as good as this. Anything reading wall-clock time,
-   host RNG, or frame timing is a divergence waiting to happen, and the fingerprint will catch it
-   but not locate it.
+3. **Cross-architecture float agreement** — see the audit below. This is the one real
+   determinism risk left, and it is not something static analysis can settle.
 
-Item 2 is the largest, and it is the one that decides whether this is playable rather than merely
-synchronised.
+Item 1 is the immediate blocker; item 2 is the largest, and decides whether this is playable
+rather than merely synchronised.
+
+## What to adopt rather than write
+
+Most of this problem is solved. What follows is what was checked, on what terms, and what it
+should and should not be used for.
+
+| project | licence | what it does | verdict |
+| --- | --- | --- | --- |
+| [ENet](https://github.com/lsalzman/enet) | MIT | reliable UDP in pure C | **adopt** — replaces our transport |
+| [GGPO](https://github.com/pond3r/ggpo) | MIT | rollback netcode | later, only if input delay proves insufficient |
+| [Nakama](https://github.com/heroiclabs/nakama) | Apache 2.0 | lobbies, matchmaking, accounts, chat | **adopt for discovery** |
+| [Colyseus](https://docs.colyseus.io/) | MIT | authoritative room server (Node) | lighter alternative to Nakama |
+
+**ENet replaces `ge_net_udp.c`.** It has done connection setup and teardown, timeouts,
+sequencing, fragmentation and per-channel reliability since 2002. None of that is where this
+project's interesting problems are, and every line of hand-rolled equivalent is a line that can
+be subtly wrong on a link nobody tested. `tools/fetch_enet.sh` fetches it pinned; it is
+gitignored like every other third-party dependency here.
+
+**ENet does not replace `ge_net.c`.** Deciding when a tick is ready, when to stall, and when the
+machines have diverged is lockstep logic, not transport. That stays ours, and the model in
+`tools/netsim.py` is its specification.
+
+### The lobby server, and the line not to cross
+
+A lobby server is exactly the kind of thing not to write: accounts, friends, lobbies,
+matchmaking, presence and reconnection are a large amount of unglamorous work that Nakama already
+does, self-hosted, under Apache 2.0.
+
+But it should be used **only to help machines find each other**. Gameplay stays peer-to-peer.
+Routing sixty-hertz input through a server adds a hop to the one thing that must arrive inside
+the input delay, and turns every player's latency into the sum of two links instead of one. The
+division is:
+
+- **server** — who is playing, which stage, which slot, and each other's addresses
+- **peers** — every tick of input, directly, over ENet
+
+That also keeps the server off the critical path entirely: if it goes down mid-match, the match
+carries on, because nothing in a running session depends on it.
+
+**GGPO is deliberately not adopted yet.** Rollback hides more latency than input delay, but needs
+full save/restore of game state on every mispredict — a far larger change. Input delay is
+measurable first (`inputs_late` exists for exactly that), and rollback is the answer only if the
+measurement says so.
+
+## Disconnection: why the obvious fixes fail, and what works
+
+A peer vanishing is not a transport problem. ENet reports the disconnection and `ge_net_enet.c`
+frees the slot — but **freeing it on local detection makes the survivors diverge from each
+other**, which is the failure the handling was meant to prevent.
+
+The model reproduces it. A departing machine's last packets do not stop everywhere at once: they
+reach one survivor and not another. So one holds the dead peer's input for a few more ticks than
+the other, and if each drops the slot when *it* notices, they simulate those ticks from different
+input sets:
+
+```
+tick 41:  slot 0 applied {0: 47542, 1: 55461, 2: 63380}
+          slot 1 applied {0: 47542, 1: 55461}
+```
+
+The obvious fix — agree a drop tick, apply it everywhere — **does not work as first written**, and
+the tick counts say so: 181 ticks progressed on local detection against 41 with the "fix". It
+agrees because it stops.
+
+Two constraints pull against each other:
+
+- The drop tick cannot be in a stalled machine's future. A machine waiting on the departed peer
+  cannot reach a tick it needs that peer's input to get to, so the drop never applies and the
+  session deadlocks.
+- The drop tick cannot be moved earlier either. A machine that already **simulated** tick T
+  holding the dead peer's input has diverged from one that did not, and no later agreement
+  repairs a tick that has already run.
+
+### What works: relay, then drop
+
+The way out is an observation about what a machine can possibly have done: **nobody can have
+simulated past the highest tick anybody holds.** So if the survivors pool what they hold for the
+departed slot, they all converge on the same set, all become able to reach the same tick, and a
+drop set just past it is reachable by every one of them.
+
+1. On noticing a departure, each survivor **relays** the inputs it still holds for that slot.
+   Bounded — once, over the ring.
+2. After the relays settle, the **lowest surviving slot** names the drop tick. A rule every
+   machine computes identically, so two of them cannot announce different ticks for the same peer.
+3. The tick is exactly **highest-held + 1**, and everyone applies it there.
+
+That `+ 1` is exact, and reading it off the current tick instead is a trap worth naming: it puts
+the drop one tick beyond reach, because a machine stalled at T is told to drop at T+1, which it
+can only get to by simulating T, which needs the very input nobody has. It presents as a session
+that agrees perfectly and stops dead — 43 ticks, zero disagreements, looking entirely healthy.
+
+Measured across the three behaviours:
+
+| approach | ticks progressed | disagreements |
+| --- | --- | --- |
+| drop on local detection | 181 | **2** |
+| drop at an agreed tick | 41 | 0 (agrees by stopping) |
+| **relay, then drop** | **191** | **0** |
+
+`geNetPeerLost()` implements this, and `ge_net_enet.c` calls it on ENet's disconnect event rather
+than freeing the slot itself.
+
+## Determinism audit
+
+`tools/determinism_audit.py` scans the simulation and port sources for the things that break
+lockstep: wall-clock reads, host RNG, frame-delta logic, threads, float-mode flags. It classifies
+every hit by **where it lives**, because that is the distinction that matters — a clock read in
+the mixer or the renderer is fine, since two machines may render at different rates all day
+without disagreeing about where anybody is standing. The same call inside movement or AI is
+fatal.
+
+The result across 347 files is better than expected:
+
+**Zero simulation-path hits at medium or high severity.** GoldenEye's simulation reads neither
+the wall clock nor a host random source.
+
+Two things were then verified by reading rather than trusting the scan:
+
+- **The RNG is the game's own.** `port_random.c` is a faithful transcription of the N64's
+  `random.s` — a 64-bit PRNG with a hardcoded seed, not `rand()`. It is deterministic and
+  reproducible across machines by construction.
+- **The fingerprint watches exactly that.** `gePlayerSeedFingerprint()` returns the low 32 bits of
+  `g_randomSeed`, so the desync check is reading the single value that best summarises whether
+  two simulations have diverged.
+
+Every wall-clock hit outside presentation code turned out to be diagnostics — the one in
+`port_input.c` is a rate limiter that prints controller-detection output at most eight times.
+
+So the simulation is structurally suited to lockstep, which is a significant de-risking of
+everything above.
+
+### The risk that remains
+
+**Floating point across architectures.** The game is full of `f32` math, and a static scan cannot
+prove that an ARM Mac and an x86 PC produce bit-identical results from it. Same-architecture play
+is low risk; Mac-versus-Windows cross-play is not, and no amount of reading will settle it — it
+needs two machines running the same session and comparing fingerprints.
+
+That is worth knowing before anyone assumes cross-platform WAN play is free. The fingerprint
+exchange will detect it immediately if it happens, which is the right place to find out.
+
+## Acceptance test for the transport
+
+`tools/netsim.py` is the specification, so the transport has a concrete target rather than a
+vague one: run it against the model's 20% and 40% loss scenarios and require **progress**, not
+merely agreement. Agreement is easy — a session that stalls forever agrees perfectly.
 
 ## Build status
 

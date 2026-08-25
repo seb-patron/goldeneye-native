@@ -208,7 +208,8 @@ def parse_objective_conditions(setup_text):
         nums = [int(t) for t in re.findall(r"-?\d+", payload)]
         if kind == "ObjectiveStart":
             cur = {"objective": nums[0] if nums else None,
-                   "destroy_tags": [], "complete_flags": [], "fail_flags": []}
+                   "destroy_tags": [], "target_tags": [], "target_kinds": [],
+                   "rooms": [], "complete_flags": [], "fail_flags": []}
         elif kind == "ObjectiveEnd":
             if cur is not None and cur["objective"] is not None:
                 out[cur["objective"]] = cur
@@ -216,6 +217,17 @@ def parse_objective_conditions(setup_text):
         elif cur is not None and nums:
             if kind == "ObjectiveDestroyObject":
                 cur["destroy_tags"].append(nums[0])
+                cur["target_tags"].append(nums[0])
+            # Collect, photograph and copy all name a TAG in their first operand, exactly as
+            # destroy does. Reading only destroy left most objectives with no target at all --
+            # 62 of 80 -- and so unroutable, when the target was sitting in the record.
+            elif kind in ("ObjectiveCollectObject", "ObjectivePhotograph", "ObjectiveCopy_Item"):
+                cur["target_tags"].append(nums[0])
+                cur["target_kinds"].append(kind)
+            # EnterRoom names a ROOM rather than a tag, so it cannot resolve through the tag
+            # table. Recorded as what it is instead of silently dropped.
+            elif kind == "ObjectiveEnterRoom":
+                cur["rooms"].append(nums[0])
             elif kind == "ObjectiveCompleteCondition":
                 cur["complete_flags"].append(nums[0])
             elif kind == "ObjectiveFailCondition":
@@ -274,6 +286,9 @@ def build(level, stem, stage_id, mission, bank, banks_cache):
         c = conditions.get(o["objective"])
         if c:
             o["destroy_tags"]    = c["destroy_tags"]
+            o["target_tags"]     = c["target_tags"]
+            o["target_kinds"]    = c["target_kinds"]
+            o["rooms"]           = c["rooms"]
             o["complete_flags"]  = c["complete_flags"]
             o["fail_flags"]      = c["fail_flags"]
 

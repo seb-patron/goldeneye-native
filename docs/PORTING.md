@@ -276,7 +276,7 @@ getv/port/include/PR               -> <repo>/vendor/ge-decomp/include/PR
 getv/port/include/platform_info.h  -> <repo>/vendor/ge-decomp/include/platform_info.h
 ```
 
-These break on any other machine, on any operating system, and Windows also
+These break on any other machine, on any operating system, and Windows additionally
 requires Developer Mode or `core.symlinks=true` for git to materialise symlinks at all.
 Replace them with relative symlinks, or drop them and add
 `-I vendor/ge-decomp/include` to the port flags. The second option is preferable - the
@@ -322,7 +322,7 @@ is left with colliding symbols, so the tool renames nothing while appearing to w
 
 **Fixed 2026-08-22.** Both now pass a sysroot only on Apple, and nothing at all elsewhere,
 where the system headers are already on the default search path. `gen_asset_fileview.py` was
-also asking for the `appletvos` SDK, the same wrong-SDK bug `uniquify` had.
+additionally asking for the `appletvos` SDK, the same wrong-SDK bug `uniquify` had.
 
 Verified unchanged on macOS: `gen_asset_fileview.py` still reports 21 of 21 file views
 matching the N64 layout, and `uniquify` still comes back clean with no skips on chr, prop,
@@ -344,7 +344,7 @@ setup and stan.
 9. Debugging the first run. **Unbounded and deliberately not estimated.**
 
 Steps 1-4 are worth doing regardless of whether anyone builds for Windows: they are all
-verifiable on macOS today and every one of them makes the macOS build harder to break.
+verifiable on macOS today and every one of them makes the macOS build more robust.
 
 **Honest overall assessment.** Getting to a first *link* on Windows is on the order of
 **one to two weeks** for someone with the machine, assuming they follow the MinGW route.

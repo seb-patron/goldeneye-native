@@ -117,6 +117,21 @@ def check(doc, opcodes, path):
             if op not in opcodes:
                 errs.append("%s: opcode %r is not defined by the game" % (where, op))
 
+        # EVERY ARCHETYPE MUST BE ABLE TO MOVE.
+        #
+        # Eight of eighteen once could not, and it took testing on another machine to notice:
+        # they spawned, stood still, and never saw anybody, so they never fired. Every check in
+        # this file passed -- the opcodes existed, the dials were in range, the bytecode
+        # round-tripped -- because "can this bot go anywhere" was not among the things asked.
+        # A bot that cannot move is not a weak bot, it is a stationary prop.
+        movement = ("guard_start_patrol", "guard_runs_to_pad", "guard_walks_to_pad",
+                    "guard_sprints_to_pad", "guard_try_running_to_bond_position",
+                    "guard_try_walking_to_bond_position", "guard_try_sprinting_to_bond_position",
+                    "guard_try_running_to_chr_position", "guard_try_walking_to_chr_position",
+                    "guard_try_sprinting_to_chr_position")
+        if ops and not any(op in movement for op in ops):
+            errs.append("%s: names no movement opcode, so it can never go anywhere" % where)
+
         if kind == "skill_tiers":
             r = a.get("rank")
             if not isinstance(r, int):

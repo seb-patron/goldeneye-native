@@ -21,11 +21,6 @@ Runs on **macOS**, **Linux** and **Windows** from one source tree.
 ## Modding
 
 - **[Lua mods](Lua-mods)** - `onFrame`, `onPlayerSpawn`, `onWeaponFire`, no rebuild
-- **[Player API](Player-API)** - tick-accurate input injection and state readout, the one seam
-  bots, external AI and future netplay all share
-- **[Bots](Bots)** - 18 archetypes compiled into the game's own 250-opcode AI bytecode
-- **[Netplay](Netplay)** - a lockstep session, and the open argument about whether lockstep is
-  the right call here
 - **[Behaviour gates](Configuration#gates)** - roughly 275 `GETV_*` switches
 - **[Modding overview](Modding)** - how the tree is arranged and where the seams are
 
@@ -38,24 +33,9 @@ Runs on **macOS**, **Linux** and **Windows** from one source tree.
 
 ## The short version of what works
 
-All 27 loadable stages boot, render and exit cleanly on **Windows, macOS and Linux** from one
-source tree. Multiplayer works with split screen, radar and all 64 characters. Keyboard and
-mouse are on by default, with a crouch key the original never had. Lua mods, a launcher,
-per-player bindings, rulesets and horde mode all work. FXAA and a CRT mod run through a shared
-post-process pass.
-
-The frame-timing problem is fixed rather than mitigated: the simulation runs on its own
-divider, the camera interpolates between ticks, and the systems that counted frames now count
-time. `GETV_SIMDIV=auto` picks the divider from your refresh rate.
-
-Bots are further along: 18 archetypes compile into the game's own AI bytecode, 596 bytes for
-all of them, and one spawns into a level with its list attached. They spawn as characters
-rather than into a player slot, and whether a spawned bot then engages is unverified.
-
-A lockstep netplay session exists over the same input seam, and the approach is openly
-disputed in the repository -- see [Netplay](Netplay) and the counter-argument in the player
-API notes.
-
-Co-op players spawn into single-player missions and do not move yet.
+All 27 loadable stages boot, render and exit cleanly. Multiplayer works with split screen,
+radar and all 64 characters. Keyboard and mouse are on by default. Lua mods, a launcher,
+rulesets and horde mode all work. Co-op into single-player missions is alpha: players spawn
+and do not yet move.
 
 Nothing here contains game data. You supply your own ROM.

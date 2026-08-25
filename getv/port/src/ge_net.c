@@ -31,6 +31,12 @@
 
 #define GE_NET_MSG_INPUT 1
 #define GE_NET_MSG_SYNC  2
+#define GE_NET_MSG_RELAY 3      /* a departed peer's inputs, pooled among survivors */
+#define GE_NET_MSG_DROP  4      /* slot N stops existing at tick T, on every machine */
+
+/* Ticks to wait after a departure before naming the drop tick, so relays from every survivor
+ * have landed first. Naming it early means naming it from an incomplete pool. */
+#define GE_NET_RELAY_SETTLE 8
 
 typedef struct GeNetSlot {
     GeNetSlotKind kind;
@@ -50,7 +56,32 @@ static struct {
     GeNetStats stats;
     unsigned long last_sync_tick;
     unsigned int  last_local_fp;
+
+    /* SESSION-RELATIVE TICK NUMBERING.
+     *
+     * Everything on the wire is numbered from zero at session open, not by gePlayerTick().
+     * The game tick is per-machine: two players who joined a minute apart are thousands of
+     * ticks apart, so "tick 900" would mean different moments on each machine and lockstep
+     * would compare inputs that were never meant to line up. That failure looks exactly like a
+     * desync while being purely a setup bug, which is the worst kind to debug.
+     *
+     * Each machine records where its own game clock stood when the session opened, and
+     * converts at the boundary. Nothing else in the file needs to know. */
+    unsigned long tick_base;
+
+    /* Departure handling. */
+    int  lost_slot;               /* -1 when nobody has gone */
+    unsigned long lost_at;        /* session tick the departure was noticed */
+    int  drop_slot;               /* -1 when no drop is scheduled */
+    unsigned long drop_at;        /* the tick that slot stops existing, everywhere */
 } ge_net;
+
+/* Ticks since this session opened. */
+static unsigned long ge_net_now(void)
+{
+    unsigned long t = gePlayerTick();
+    return (t >= ge_net.tick_base) ? (t - ge_net.tick_base) : 0;
+}
 
 static void ge_net_store(int slot, unsigned long tick, const GePlayerInput *in)
 {
@@ -92,8 +123,35 @@ int geNetOpen(GeNetTransport *transport, int local_slot, int delay_ticks)
     ge_net.slot[local_slot].kind = GE_NET_SLOT_LOCAL;
 
     gePlayerApiInit();
-    printf("[getv][net] session open: local slot %d, input delay %d ticks\n",
-           local_slot, delay_ticks);
+
+    /* PRIME THE PIPELINE, or the session deadlocks before it starts.
+     *
+     * Input is only ever published for tick+delay, so the first `delay` ticks would never
+     * receive input from anybody -- including from this machine itself -- and every slot would
+     * stall forever waiting on a tick nobody was ever going to publish. Seeding those ticks
+     * with neutral input is safe precisely because every machine seeds them identically:
+     * agreement is preserved because nobody had a choice about them.
+     *
+     * Found by tools/netsim.py, which models this algorithm. Without priming, every scenario
+     * it runs agrees on zero ticks and stalls indefinitely. */
+    ge_net.lost_slot = -1;
+    ge_net.drop_slot = -1;
+    ge_net.tick_base = gePlayerTick();     /* session tick 0 is here, on this machine */
+    {
+        unsigned long t;
+        GePlayerInput neutral;
+        int s;
+        memset(&neutral, 0, sizeof neutral);
+        for (t = 0; t < ge_net.delay; t++) {
+            for (s = 0; s < GE_NET_MAX_PEERS; s++) {
+                ge_net_store(s, t, &neutral);
+            }
+        }
+    }
+
+    printf("[getv][net] session open: local slot %d, input delay %d ticks "
+           "(first %d ticks primed neutral)\n",
+           local_slot, delay_ticks, delay_ticks);
     fflush(stdout);
     return 1;
 }
@@ -102,9 +160,11 @@ void geNetClose(void)
 {
     if (!ge_net.open) { return; }
     if (ge_net.tp.close) { ge_net.tp.close(ge_net.tp.ctx); }
-    printf("[getv][net] session closed: %lu ticks, %lu stalls, %lu late inputs, %lu desyncs\n",
+    /* late and dup reported separately on purpose: late is a link problem worth acting on, dup
+     * is the redundancy earning its keep and should be large. */
+    printf("[getv][net] session closed: %lu ticks, %lu stalls, %lu late, %lu dup, %lu desyncs\n",
            ge_net.stats.ticks_simulated, ge_net.stats.ticks_stalled,
-           ge_net.stats.inputs_late, ge_net.stats.desyncs);
+           ge_net.stats.inputs_late, ge_net.stats.inputs_dup, ge_net.stats.desyncs);
     fflush(stdout);
     ge_net.open = 0;
 }
@@ -129,24 +189,82 @@ void geNetDeliver(const void *data, int len)
     const unsigned char *p = (const unsigned char *) data;
     if (!ge_net.open || p == NULL || len < 1) { return; }
 
-    if (p[0] == GE_NET_MSG_INPUT && len >= 1 + (int) sizeof(GeNetInputMsg)) {
-        GeNetInputMsg m;
-        GePlayerInput in;
-        memcpy(&m, p + 1, sizeof m);
-        memset(&in, 0, sizeof in);
-        in.buttons = m.buttons;
-        in.stick_x = m.stick_x;
-        in.stick_y = m.stick_y;
+    /* An input datagram is a COUNT followed by that many entries: the current input plus the
+     * last few, so a packet lost in transit is covered by the next one to arrive. */
+    if (p[0] == GE_NET_MSG_INPUT && len >= 2) {
+        int count = p[1];
+        int i;
+        if (len < 2 + count * (int) sizeof(GeNetInputMsg)) { return; }
 
-        /* An input for a tick already simulated cannot be used -- the tick it belonged to is
-         * gone. Counted rather than dropped quietly, because a rising late count is the signal
-         * that the delay is too low for this link, which is a tunable rather than a bug. */
-        if (m.tick <= gePlayerTick()) {
-            ge_net.stats.inputs_late++;
-            return;
+        for (i = 0; i < count; i++) {
+            GeNetInputMsg m;
+            GePlayerInput in;
+            memcpy(&m, p + 2 + i * (int) sizeof(GeNetInputMsg), sizeof m);
+            if (m.slot >= GE_NET_MAX_PEERS) { continue; }
+
+            /* Already held: a redundant copy, which is the scheme working rather than anything
+             * going wrong. Counted separately so it cannot swamp the late signal -- with a
+             * window of 8 these outnumber real traffic several times over. */
+            if (ge_net_get((int) m.slot, m.tick, NULL)) {
+                ge_net.stats.inputs_dup++;
+                continue;
+            }
+
+        /* Strictly less than. Input for the tick ABOUT TO RUN is still usable -- that tick has
+         * not been simulated yet. Testing <= throws away every input that arrives exactly on
+         * time, which caps the session at its primed window and then stalls forever on any link
+         * where latency reaches the delay. Found by tools/netsim.py, which models this
+         * algorithm: with <=, a 4-player session at latency == delay agreed on 3 ticks and then
+         * stalled permanently; with <, it runs all 400 with no stalls at all. */
+            if (m.tick < ge_net_now()) {
+                ge_net.stats.inputs_late++;
+                continue;
+            }
+
+            memset(&in, 0, sizeof in);
+            in.buttons = m.buttons;
+            in.stick_x = m.stick_x;
+            in.stick_y = m.stick_y;
+            ge_net_store((int) m.slot, m.tick, &in);
+            ge_net.stats.inputs_received++;
         }
-        ge_net_store((int) m.slot, m.tick, &in);
-        ge_net.stats.inputs_received++;
+        return;
+    }
+
+    /* A relay carries the same entries as an input datagram; it just arrives once, on a
+     * departure, and carries the vanished peer's inputs rather than the sender's own. Same
+     * duplicate and late rules apply -- a relayed input for a tick we already simulated is as
+     * useless as any other. */
+    if (p[0] == GE_NET_MSG_RELAY && len >= 2) {
+        int count = p[1];
+        int i;
+        if (len < 2 + count * (int) sizeof(GeNetInputMsg)) { return; }
+        for (i = 0; i < count; i++) {
+            GeNetInputMsg m;
+            GePlayerInput in;
+            memcpy(&m, p + 2 + i * (int) sizeof(GeNetInputMsg), sizeof m);
+            if (m.slot >= GE_NET_MAX_PEERS) { continue; }
+            if (ge_net_get((int) m.slot, m.tick, NULL)) { ge_net.stats.inputs_dup++; continue; }
+            if (m.tick < ge_net_now()) { ge_net.stats.inputs_late++; continue; }
+            memset(&in, 0, sizeof in);
+            in.buttons = m.buttons;
+            in.stick_x = m.stick_x;
+            in.stick_y = m.stick_y;
+            ge_net_store((int) m.slot, m.tick, &in);
+        }
+        return;
+    }
+
+    if (p[0] == GE_NET_MSG_DROP && len >= 1 + (int) sizeof(GeNetSyncMsg)) {
+        GeNetSyncMsg m;
+        memcpy(&m, p + 1, sizeof m);
+        if (m.slot < GE_NET_MAX_PEERS) {
+            ge_net.drop_slot = (int) m.slot;
+            ge_net.drop_at   = m.tick;
+            printf("[getv][net] slot %d drops at tick %lu (agreed)\n",
+                   (int) m.slot, m.tick);
+            fflush(stdout);
+        }
         return;
     }
 
@@ -177,21 +295,42 @@ static void ge_net_drain(void)
     }
 }
 
-static void ge_net_send_input(unsigned long tick, const GePlayerInput *in)
+/* Send the input for `tick` plus the last GE_NET_REDUNDANCY-1 before it, in one datagram.
+ *
+ * Everything sent here is read back out of our own slot's ring, which is also where the local
+ * input was just stored -- so there is no second copy of "what we published" to drift out of
+ * step with the first. */
+static void ge_net_send_inputs(unsigned long tick)
 {
-    unsigned char buf[1 + sizeof(GeNetInputMsg)];
-    GeNetInputMsg m;
+    unsigned char buf[2 + GE_NET_REDUNDANCY * sizeof(GeNetInputMsg)];
+    int count = 0;
+    int i;
 
-    memset(&m, 0, sizeof m);
-    m.tick    = tick;
-    m.slot    = (unsigned char) ge_net.local_slot;
-    m.buttons = in->buttons;
-    m.stick_x = in->stick_x;
-    m.stick_y = in->stick_y;
+    for (i = GE_NET_REDUNDANCY - 1; i >= 0; i--) {
+        GePlayerInput in;
+        GeNetInputMsg m;
+        unsigned long t;
+
+        if ((unsigned long) i > tick) { continue; }      /* no such tick yet, early in a session */
+        t = tick - (unsigned long) i;
+        if (!ge_net_get(ge_net.local_slot, t, &in)) { continue; }
+
+        memset(&m, 0, sizeof m);
+        m.tick    = t;
+        m.slot    = (unsigned char) ge_net.local_slot;
+        m.buttons = in.buttons;
+        m.stick_x = in.stick_x;
+        m.stick_y = in.stick_y;
+        memcpy(buf + 2 + count * (int) sizeof m, &m, sizeof m);
+        count++;
+    }
+    if (count == 0) { return; }
 
     buf[0] = GE_NET_MSG_INPUT;
-    memcpy(buf + 1, &m, sizeof m);
-    if (ge_net.tp.send) { ge_net.tp.send(ge_net.tp.ctx, buf, (int) sizeof buf); }
+    buf[1] = (unsigned char) count;
+    if (ge_net.tp.send) {
+        ge_net.tp.send(ge_net.tp.ctx, buf, 2 + count * (int) sizeof(GeNetInputMsg));
+    }
     ge_net.stats.inputs_sent++;
 }
 
@@ -213,6 +352,77 @@ static void ge_net_send_sync(unsigned long tick)
     if (ge_net.tp.send) { ge_net.tp.send(ge_net.tp.ctx, buf, (int) sizeof buf); }
 }
 
+/* The lowest surviving slot names the drop tick. Arbitrary, but it must be a rule every machine
+ * computes the same way, or two of them announce different ticks for the same peer. */
+static int ge_net_proposer(void)
+{
+    int s;
+    for (s = 0; s < GE_NET_MAX_PEERS; s++) {
+        if (s == ge_net.lost_slot) { continue; }
+        if (ge_net.slot[s].kind == GE_NET_SLOT_LOCAL ||
+            ge_net.slot[s].kind == GE_NET_SLOT_REMOTE) {
+            return s;
+        }
+    }
+    return -1;
+}
+
+/* Highest tick we hold input for on `slot`. Read from the ring only -- never seeded with the
+ * current tick. Seeding it puts the drop one tick beyond reach: a machine stalled at T would be
+ * told to drop at T+1, which it can only get to by simulating T, which needs the very input
+ * nobody has. That off-by-one presents as a session that agrees perfectly and stops dead. */
+static long ge_net_highest_held(int slot)
+{
+    long top = -1;
+    unsigned i;
+    for (i = 0; i < GE_NET_RING; i++) {
+        if (ge_net.slot[slot].have[i]) {
+            long t = (long) ge_net.slot[slot].tick[i];
+            if (t > top) { top = t; }
+        }
+    }
+    return top;
+}
+
+void geNetPeerLost(int slot)
+{
+    unsigned char buf[2 + GE_NET_RING * sizeof(GeNetInputMsg)];
+    int count = 0;
+    unsigned i;
+
+    if (!ge_net.open || slot < 0 || slot >= GE_NET_MAX_PEERS) { return; }
+    if (ge_net.lost_slot == slot) { return; }              /* already handling it */
+
+    ge_net.lost_slot = slot;
+    ge_net.lost_at   = ge_net_now();
+
+    /* RELAY what we hold for the departed slot. Nobody can have SIMULATED past the highest tick
+     * anybody HOLDS, so once the survivors pool what they have, every one of them can reach the
+     * same tick -- which is what makes a common drop tick reachable rather than a deadlock.
+     * Bounded: it happens once, over the ring. */
+    for (i = 0; i < GE_NET_RING && count < 64; i++) {
+        GeNetInputMsg m;
+        if (!ge_net.slot[slot].have[i]) { continue; }
+        memset(&m, 0, sizeof m);
+        m.tick    = ge_net.slot[slot].tick[i];
+        m.slot    = (unsigned char) slot;
+        m.buttons = ge_net.slot[slot].in[i].buttons;
+        m.stick_x = ge_net.slot[slot].in[i].stick_x;
+        m.stick_y = ge_net.slot[slot].in[i].stick_y;
+        memcpy(buf + 2 + count * (int) sizeof m, &m, sizeof m);
+        count++;
+    }
+
+    buf[0] = GE_NET_MSG_RELAY;
+    buf[1] = (unsigned char) count;
+    if (count > 0 && ge_net.tp.send) {
+        ge_net.tp.send(ge_net.tp.ctx, buf, 2 + count * (int) sizeof(GeNetInputMsg));
+    }
+    printf("[getv][net] slot %d gone at tick %lu; relayed %d held input(s)\n",
+           slot, ge_net.lost_at, count);
+    fflush(stdout);
+}
+
 int geNetTickBegin(const GePlayerInput *local_input)
 {
     unsigned long now, future;
@@ -220,14 +430,55 @@ int geNetTickBegin(const GePlayerInput *local_input)
 
     if (!ge_net.open) { return 1; }          /* no session: nothing to coordinate */
 
-    now    = gePlayerTick();
+    now    = ge_net_now();
     future = now + ge_net.delay;
 
+    /* A scheduled drop takes effect at ITS tick, identically on every machine. This is checked
+     * before readiness, because the whole point is to stop waiting on a slot that is gone. */
+    if (ge_net.drop_slot >= 0 && now >= ge_net.drop_at) {
+        geNetSetSlotKind(ge_net.drop_slot, GE_NET_SLOT_EMPTY);
+        printf("[getv][net] slot %d dropped at tick %lu\n", ge_net.drop_slot, now);
+        fflush(stdout);
+        ge_net.drop_slot = -1;
+        ge_net.lost_slot = -1;
+    }
+
+    /* Once the relays have settled, the lowest surviving slot names the tick. Everyone holds
+     * the same pooled inputs by now, so everyone can reach it. */
+    if (ge_net.lost_slot >= 0 && ge_net.drop_slot < 0 &&
+        now >= ge_net.lost_at + GE_NET_RELAY_SETTLE &&
+        ge_net_proposer() == ge_net.local_slot) {
+        long top = ge_net_highest_held(ge_net.lost_slot);
+        unsigned char buf[1 + sizeof(GeNetSyncMsg)];
+        GeNetSyncMsg m;
+
+        ge_net.drop_slot = ge_net.lost_slot;
+        ge_net.drop_at   = (unsigned long) (top + 1);
+
+        memset(&m, 0, sizeof m);
+        m.tick = ge_net.drop_at;
+        m.slot = (unsigned char) ge_net.drop_slot;
+        buf[0] = GE_NET_MSG_DROP;
+        memcpy(buf + 1, &m, sizeof m);
+        if (ge_net.tp.send) {
+            ge_net.tp.send(ge_net.tp.ctx, buf, (int) sizeof buf);
+        }
+        printf("[getv][net] naming drop of slot %d at tick %lu (highest held %ld)\n",
+               ge_net.drop_slot, ge_net.drop_at, top);
+        fflush(stdout);
+    }
+
     /* Publish ours for the delayed tick, and keep a local copy: we are a peer to ourselves and
-     * must not depend on the network echoing our own input back. */
+     * must not depend on the network echoing our own input back.
+     *
+     * THIS HAPPENS BEFORE THE READINESS CHECK AND MUST STAY THERE. A stalled machine still has
+     * to publish; if it went quiet while waiting, then the moment anything arrived late every
+     * machine would be waiting on a peer that had stopped talking, and the session would
+     * deadlock permanently rather than recover. tools/netsim.py reproduces exactly that when
+     * the send is moved after the check. */
     if (local_input) {
         ge_net_store(ge_net.local_slot, future, local_input);
-        ge_net_send_input(future, local_input);
+        ge_net_send_inputs(future);
     }
 
     ge_net_drain();
@@ -253,7 +504,9 @@ int geNetTickBegin(const GePlayerInput *local_input)
         GePlayerInput in;
         if (ge_net.slot[slot].kind == GE_NET_SLOT_EMPTY) { continue; }
         if (ge_net_get(slot, now, &in)) {
-            gePlayerPost(slot, now, &in, 1);
+            /* Back to game ticks at the boundary: the wire counts from session open, the
+             * player API counts from game start. */
+            gePlayerPost(slot, ge_net.tick_base + now, &in, 1);
         }
     }
 

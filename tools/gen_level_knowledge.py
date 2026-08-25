@@ -203,6 +203,26 @@ def parse_nav(text, stem):
     return _adjacency(text, stem, "path_table")
 
 
+def parse_waygroups(text, stem):
+    """group id -> the waypoint ids belonging to it.
+
+    This is the link between the two graphs, and without it they cannot be used together. The
+    setup declares waygroups as
+
+        waygroup <stem>Z_pathsets[] = { { &path_neighbors_N, &path_indeces_N, 0 }, ... };
+
+    where bondtypes.h's `waygroup` says the first pointer is the neighbouring group ids and the
+    second is the waypoint ids in this group. path_neighbors was already extracted as the region
+    graph; path_indeces is the membership that says which waypoints those regions contain.
+    """
+    out = {}
+    pat = re.compile(r"s32\s+%s\w*_path_indeces_(\d+)\[\]\s*=\s*\{([^}]*)\}" % re.escape(stem))
+    for mm in pat.finditer(text):
+        ids = [int(t) for t in re.findall(r"-?\d+", mm.group(2))]
+        out[int(mm.group(1))] = [i for i in ids if i >= 0]     # the list is -1 terminated
+    return out
+
+
 def parse_regions(text, stem):
     """The coarse waygroup adjacency. Useful for high-level routing, useless for walking."""
     return _adjacency(text, stem, "path_neighbors")
@@ -502,6 +522,7 @@ def build(name, stem, stage_id, mission, path):
     waypoints = parse_waypoints(text, stem)
     nav     = parse_nav(text, stem)
     regions = parse_regions(text, stem)
+    waygroups = parse_waygroups(text, stem)
     census = parse_prop_census(text, stem)
     props  = parse_props(text)
     tags   = parse_tags(text)
@@ -628,6 +649,7 @@ def build(name, stem, stage_id, mission, path):
         "waypoints": waypoints,
         "graph": {str(k): v for k, v in sorted(nav.items())},
         "region_graph": {str(k): v for k, v in sorted(regions.items())},
+        "waygroups": {str(k): v for k, v in sorted(waygroups.items())},
         "prop_census": census,
         "props": props,
         "tags": {str(k): v for k, v in sorted(tags.items())},

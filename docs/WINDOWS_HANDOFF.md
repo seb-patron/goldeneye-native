@@ -1,6 +1,6 @@
 # Windows bring-up: handoff
 
-> ## STATUS 2026-08-24: the bug below is FIXED. Do not re-investigate it.
+> ## ⚠️ STATUS 2026-08-24: the bug below is FIXED. Do not re-investigate it.
 >
 > **The world renders.** Every cull figure matches the macOS reference
 > (`curroom=29`, `vtx total=326`, `tris submitted=908`).
@@ -17,14 +17,14 @@
 >
 > Two things this also fixed, without being touched: the `[getv][nostan]` unplaced objects
 > (4 → 0), and the weapon/hand rendering. The `hinv=1/0` noted below as a known gap was a
-> misreading -- that is the **left** hand hidden, which is correct for a one-handed PP7.
+> misreading — that is the **left** hand hidden, which is correct for a one-handed PP7.
 >
 > **Full record with before/after numbers: `docs/WINDOWS_STAN_ORDERING.md`.**
 >
 > The rest of this document is kept as written, because everything in "Traps already paid
 > for", "Building" and "Diagnostics available" is still current and still correct.
 
-## The bug you are here to fix ~~(SOLVED -- see the status block above)~~
+## The bug you are here to fix ~~(SOLVED — see the status block above)~~
 
 **The game runs. Characters render. The world does not.**
 
@@ -63,7 +63,7 @@ bug is in the bbox or the portal test. **If the cull numbers match macOS**, cull
 and the geometry is being submitted but not appearing -- look at the combiner, the texture
 path or the draw order instead. That single comparison splits the search in half.
 
-**Run from the desktop, never over SSH.** A remote session gets `GL_RENDERER=GDI Generic`
+⚠️ **Run from the desktop, never over SSH.** A remote session gets `GL_RENDERER=GDI Generic`
 at `GL_VERSION=1.1.0`, Microsoft's software rasteriser. GLEW cannot resolve modern entry
 points there, so Fast3D calls through a null function pointer and faults at PC 0x0. It looks
 catastrophic and means only "no GPU driver in this session". On the desktop you get
@@ -189,7 +189,7 @@ All are environment variables, all off by default, all documented at their defin
 `A B X Y START BACK Z L R DU DD DL DR CU CD CL CR`, plus `SX=<n>`/`SY=<n>` for the stick,
 -80..80. Example: `GETV_SCRIPT="60:START:6,240:SY=70:400"`.
 
-**Known harness gap: no button reaches the trigger.** The stick works, menus work, `Z`
+⚠️ **Known harness gap: no button reaches the trigger.** The stick works, menus work, `Z`
 engages the sight (`sightmode` 0 -> 2), but `trigger_down` never sets and `shots` stays 0
 with a loaded PP7 in hand. The likely reason is on the same output line: `hinv=1/0`, the
 right hand is invisible, so no weapon is drawn. **Fixing this is valuable beyond Windows** --

@@ -183,12 +183,78 @@ def disassemble(code, ops):
     return out
 
 
+def load_level(name, levels_dir):
+    """Extracted knowledge for one stage, or None."""
+    path = os.path.join(levels_dir, name + ".json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def pick_patrol(level, want):
+    """Choose patrol pads from the navigation graph.
+
+    Two rules, both from what the extraction already knows:
+
+    Prefer JUNCTIONS. A waypoint with several neighbours sees more of the map than a dead end,
+    so a bot standing on one is more likely to meet somebody. Degree comes straight out of the
+    graph.
+
+    Then spread them out, by repeatedly taking the candidate furthest from everything already
+    chosen. Picking the highest-degree nodes alone clusters them, because junctions bunch
+    together in corridors -- a patrol route round four points in one room is not a patrol.
+    """
+    waypoints = [w for w in level.get("waypoints", []) if w.get("pos") and "pad" in w]
+
+    if not waypoints:
+        # MULTIPLAYER ARENAS HAVE NO NAVIGATION GRAPH -- one waypoint, no edges -- which is
+        # awkward, because the arenas are where bots are most wanted. They do have located
+        # props, so patrol the PICKUPS instead: armour first, then ammunition.
+        #
+        # That is not a workaround, it is what the arena nuance already says to do. With no
+        # objectives to contest, armour is what an arena is actually fought over, and
+        # mp/_general.json carries "rotate_between anchor: body_armour" as its own advice. This
+        # compiles that advice into bytecode.
+        rank = {"Armour": 0, "AmmoBox": 1, "Collectable": 2}
+        props = [p for p in level.get("props", [])
+                 if p.get("placement") == "pad" and p.get("pos") and p.get("type") in rank]
+        props.sort(key=lambda p: rank[p["type"]])
+        return [{"pad": p["pad"], "pos": p["pos"], "index": -1} for p in props[:want]]
+
+    graph = level.get("graph", {})
+
+    scored = []
+    for w in waypoints:
+        deg = len(graph.get(str(w["index"]), []))
+        scored.append((deg, w))
+    scored.sort(key=lambda kv: -kv[0])
+    # Take a generous pool of the best-connected nodes, then spread within it.
+    pool = [w for _d, w in scored[:max(want * 6, 24)]] or waypoints
+
+    chosen = [pool[0]]
+    while len(chosen) < want and len(chosen) < len(pool):
+        best, bestd = None, -1.0
+        for w in pool:
+            if w in chosen:
+                continue
+            near = min((w["pos"][0] - c["pos"][0]) ** 2 +
+                       (w["pos"][1] - c["pos"][1]) ** 2 +
+                       (w["pos"][2] - c["pos"][2]) ** 2 for c in chosen)
+            if near > bestd:
+                best, bestd = w, near
+        if best is None:
+            break
+        chosen.append(best)
+    return chosen
+
+
 def fixed88(value):
     """Health and armour are 8.8 fixed point in the game's own lists (0x2800 is 40.0)."""
     return max(0, min(0xFFFF, int(round(value * 256))))
 
 
-def build_program(arch, kind, ops):
+def build_program(arch, kind, ops, patrol=None, level_name=None):
     """One archetype -> one AI list.
 
     The shape is the same loop the game's own guard lists use: a sleep-and-poll main label, a
@@ -196,7 +262,8 @@ def build_program(arch, kind, ops):
     archetype is which dials get set, which perception checks are wired, and what the engage
     branch actually does -- which is exactly the axis Perfect Dark's simulants vary along.
     """
-    a = Assembler(ops, "%s/%s" % (kind, arch["name"]))
+    a = Assembler(ops, "%s/%s%s" % (kind, arch["name"],
+                                    ("@" + level_name) if level_name else ""))
     dials = arch.get("dials") or {}
 
     # --- setup: the dials, written once at list start -------------------------------------
@@ -228,7 +295,21 @@ def build_program(arch, kind, ops):
     # Only emit the idle block if the archetype actually has idle behaviour. Without this an
     # archetype that only fights gets a jump to a label that immediately jumps back, which is
     # correct but dead weight in a list the interpreter walks every tick.
-    if "guard_start_patrol" in ops_named:
+    if patrol:
+        # A real route over the stage's own navigation graph, rather than a placeholder. Each
+        # leg runs to a pad and then falls back to the main loop, so perception is re-checked
+        # every tick while moving -- a bot that only looked when it arrived would walk past an
+        # opponent standing beside the route.
+        a.emit("goto_first", L_SEEK)
+        a.emit("label", L_SEEK)
+        for wp in patrol:
+            mover = "guard_sprints_to_pad" if dials.get("speed", 100) >= 115 else \
+                    "guard_walks_to_pad" if dials.get("speed", 100) <= 80 else \
+                    "guard_runs_to_pad"
+            a.emit(mover, wp["pad"])
+            a.emit("if_guard_has_stopped_moving", L_MAIN)
+        a.emit("goto_first", L_MAIN)
+    elif "guard_start_patrol" in ops_named:
         a.emit("goto_first", L_SEEK)
         a.emit("label", L_SEEK)
         a.emit("guard_start_patrol", 0x00)
@@ -275,6 +356,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=os.path.join("build", "bots", "ai"))
+    ap.add_argument("--levels", default=os.path.join("build", "levels"),
+                    help="extracted level knowledge, for per-stage patrol routes")
+    ap.add_argument("--level", action="append", default=[],
+                    help="also emit lists that patrol this stage's navigation graph")
+    ap.add_argument("--patrol-points", type=int, default=5)
     args = ap.parse_args()
     out_dir = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
     os.makedirs(out_dir, exist_ok=True)
@@ -283,7 +369,35 @@ def main():
     with_ops = sum(1 for v in ops.values() if v["params"])
     print("instruction set: %d opcodes (%d take operands)" % (len(ops), with_ops))
 
-    manifest, errors = [], 0
+    # Generic lists always; per-stage patrol variants for any level asked for.
+    levels_dir = args.levels if os.path.isabs(args.levels) else os.path.join(ROOT, args.levels)
+    variants = [(None, None)]
+    errors = 0
+    for lvl in args.level:
+        level = load_level(lvl, levels_dir)
+        if level is None:
+            print("  ERROR no extracted knowledge for %r in %s -- run "
+                  "gen_level_knowledge.py first" % (lvl, args.levels))
+            errors += 1
+            continue
+        patrol = pick_patrol(level, args.patrol_points)
+        if not patrol:
+            print("  ERROR %s has no usable waypoints, so there is no route to patrol" % lvl)
+            errors += 1
+            continue
+        # Every pad named must exist in the stage. A pad index past the end is a bot walking to
+        # somewhere that is not there, and the game would read past the pad table to find it.
+        npads = len(level.get("pads", []))
+        bad = [w["pad"] for w in patrol if not (0 <= w["pad"] < npads)]
+        if bad:
+            print("  ERROR %s: patrol names pads %r, outside 0..%d" % (lvl, bad, npads - 1))
+            errors += 1
+            continue
+        variants.append((lvl, patrol))
+        print("  %s: patrol over pads %s of %d"
+              % (lvl, [w["pad"] for w in patrol], npads))
+
+    manifest = []
     c_parts = ["/* Generated by tools/asm_bot_ai.py -- do not edit. */",
                '#include "bondaicommands.h"', ""]
 
@@ -292,35 +406,47 @@ def main():
         with open(path, encoding="utf-8") as fh:
             doc = json.load(fh)
         for arch in doc.get("archetypes", []):
-            a = build_program(arch, kind, ops)
-            for e in a.errors:
-                print("  ERROR %s" % e)
-            errors += len(a.errors)
-            if a.errors:
-                continue
-            code = a.to_bytes()
+            for lvl_name, patrol in variants:
+                a = build_program(arch, kind, ops, patrol=patrol, level_name=lvl_name)
+                label = arch["name"] + (("@" + lvl_name) if lvl_name else "")
+                for e in a.errors:
+                    print("  ERROR %s" % e)
+                errors += len(a.errors)
+                if a.errors:
+                    continue
+                code = a.to_bytes()
 
-            # Round-trip: the bytes must disassemble back to exactly what was assembled.
-            try:
-                back = disassemble(code, ops)
-            except ValueError as exc:
-                print("  ERROR %s/%s: bytes do not disassemble: %s" % (kind, arch["name"], exc))
-                errors += 1
-                continue
-            if back != [(n, list(v)) for n, v in a.prog]:
-                print("  ERROR %s/%s: round-trip mismatch" % (kind, arch["name"]))
-                errors += 1
-                continue
+                # Round-trip: the bytes must disassemble back to exactly what was assembled.
+                try:
+                    back = disassemble(code, ops)
+                except ValueError as exc:
+                    print("  ERROR %s: bytes do not disassemble: %s" % (label, exc))
+                    errors += 1
+                    continue
+                if back != [(n, list(v)) for n, v in a.prog]:
+                    print("  ERROR %s: round-trip mismatch" % label)
+                    errors += 1
+                    continue
 
-            symbol = "bot_ai_%s_%s" % (kind.rstrip("s"), arch["name"])
-            c_parts.append(a.to_c(symbol))
-            c_parts.append("")
-            with open(os.path.join(out_dir, symbol + ".bin"), "wb") as fh:
-                fh.write(code)
-            manifest.append({"archetype": arch["name"], "kind": kind, "symbol": symbol,
-                             "bytes": len(code), "instructions": len(a.prog),
-                             "labels": sorted(a.declared)})
-            print("  %-28s %-3d instructions  %-4d bytes" % (arch["name"], len(a.prog), len(code)))
+                # rstrip("s") strips a CLASS of characters rather than one suffix, so
+                # "personalities" came out as "personalitie". These become C symbols that
+                # engine code refers to, so they are worth getting right.
+                singular = {"personalities": "personality", "skill_tiers": "skill_tier"}
+                symbol = "bot_ai_%s_%s" % (singular.get(kind, kind), arch["name"])
+                if lvl_name:
+                    symbol += "_" + lvl_name
+                c_parts.append(a.to_c(symbol))
+                c_parts.append("")
+                with open(os.path.join(out_dir, symbol + ".bin"), "wb") as fh:
+                    fh.write(code)
+                entry = {"archetype": arch["name"], "kind": kind, "symbol": symbol,
+                         "bytes": len(code), "instructions": len(a.prog),
+                         "labels": sorted(a.declared)}
+                if lvl_name:
+                    entry["level"] = lvl_name
+                    entry["patrol_pads"] = [w["pad"] for w in patrol]
+                manifest.append(entry)
+                print("  %-30s %-3d instructions  %-4d bytes" % (label, len(a.prog), len(code)))
 
     with open(os.path.join(out_dir, "bot_ai_lists.c"), "w", encoding="utf-8") as fh:
         fh.write("\n".join(c_parts))

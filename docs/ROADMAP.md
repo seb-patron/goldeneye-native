@@ -25,7 +25,7 @@ both carry Lua mod scripting, the Dear ImGui dev overlay, rulesets, horde mode a
 launcher. The applied-ruleset values are byte-identical across the two hosts, which is the
 check worth repeating whenever either platform's build changes.
 
-**The Linux test box is not a performance reference.** It renders at roughly one frame per
+⚠️ **The Linux test box is not a performance reference.** It renders at roughly one frame per
 second (`GL_RENDERER=NVAF`, nouveau on old NVIDIA hardware), so anything measured in frames
 needs a reachable frame number there: a run asking for frame 600 inside a 250-second timeout
 simply stops at 241 and reports nothing, which reads exactly like a broken feature. That
@@ -64,7 +64,7 @@ GL_VENDOR=Intel | GL_RENDERER=Intel(R) HD Graphics 4400 | GL_VERSION=4.3.0
 frame 1801: tris submitted=4188 drawn=1931 fog=1843
 ```
 
-**Run it from a desktop session, not over SSH.** A remote session gets
+⚠️ **Run it from a desktop session, not over SSH.** A remote session gets
 `GL_RENDERER=GDI Generic, GL_VERSION=1.1.0` -- Microsoft's software rasteriser -- and GLEW
 cannot resolve modern entry points there, so Fast3D calls through a null function pointer
 and faults at PC 0x0. That is an environment property, not a port bug, and it is worth

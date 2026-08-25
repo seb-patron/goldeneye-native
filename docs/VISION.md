@@ -114,7 +114,7 @@ modern graphics library. See "On bgfx" below.
 | 20-22 | Night vision, thermal, remote camera | **OPEN.** Night vision and thermal are post-processing over an existing frame and are the cheapest items in this range. |
 | 23-25 | Enhanced guard AI, communication, personalities | **OPEN.** |
 
-**AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`). Any
+⚠️ **AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`). Any
 culling change presents as an AI bug - guards failing to activate, scripts stalling. This
 is documented in `CLAUDE.md` and it means Phase 8 and the renderer are not independent.
 

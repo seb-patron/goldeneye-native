@@ -389,7 +389,7 @@ and `GETV_HORDE_GROWTH` (1). When a guard dies, replacements spawn where it fell
 engine's own `chrSpawnAtCoord`, inheriting the dead guard's body and AI list; the wave
 number rises every `wave_kills` kills and adds `growth` to the spawn count, up to the cap.
 
-**Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
+⚠️ **Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
 `(guard count + 10)` entries and the engine declines to spawn with fewer than three free, so
 the real ceiling belongs to the level. A refused spawn leaves the wave smaller rather than
 failing.

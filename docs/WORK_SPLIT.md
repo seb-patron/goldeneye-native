@@ -19,12 +19,12 @@ Windows needs the machine, and the launcher needs someone looking at it.
 
 1. ~~**Confirm the world renders.**~~ **DONE 2026-08-24.** Diffed against the macOS
    reference: `curroom=29`, `rooms(front=0 straddle=1 BEHIND=0)`, `vtx total=326`,
-   `tris submitted=908` -- all match. Verified across **all 26 loadable stages**, not just
-   Bunker 1: the 20 campaign levels boot with real stan data (495-2755 tiles) and a valid
+   `tris submitted=908` — all match. Verified across **all 26 loadable stages**, not just
+   Bunker 1: the 20 campaign levels boot with real stan data (495–2755 tiles) and a valid
    room, and the six multiplayer arenas do the same under `GETV_MP=2`. Solo they still exit
    with the deliberate "no setup data" refusal, which is correct and unchanged.
    Three downstream symptoms went with it, untouched: `[getv][nostan]` unplaced objects
-   4 → 0, the weapon/hand now renders (`hinv=1/0` was a misreading -- that is the *left*
+   4 → 0, the weapon/hand now renders (`hinv=1/0` was a misreading — that is the *left*
    hand hidden, correct for a one-handed PP7), and the ~8200-frame `ITEM ENTRY CORRUPT`
    crash is gone (9000 frames clean). Record: `docs/WINDOWS_STAN_ORDERING.md`.
 
@@ -39,7 +39,7 @@ Windows needs the machine, and the launcher needs someone looking at it.
    missing is per-player naming, so pad 2 can be bound independently of pad 1. Small, and it
    is what split-screen needs to be pleasant.
 
-   **Ownership conflict -- not started for that reason.** `port_os.c` is listed under
+   ⚠️ **Ownership conflict — not started for that reason.** `port_os.c` is listed under
    *Mac*'s owned files, and Mac's own queue item 4 (co-op movement) is described as
    "multiplayer-specific gating between reading the pad and applying movement", which is the
    same region of the same file. This is exactly the case `COLLABORATION.md` calls the
@@ -49,13 +49,13 @@ Windows needs the machine, and the launcher needs someone looking at it.
 4. ~~**FXAA.**~~ **DONE 2026-08-24.**
 5. ~~**Depth attachment as a texture.**~~ **DONE 2026-08-24.**
 
-   **The premise of item 3 as written was wrong, and it hid a live bug.** `ss_fbo` is
-   inside `#ifdef TVOS_SUPERSAMPLE`, which is defined on tvOS ONLY -- `build_windows.ps1`,
+   ⚠️ **The premise of item 3 as written was wrong, and it hid a live bug.** `ss_fbo` is
+   inside `#ifdef TVOS_SUPERSAMPLE`, which is defined on tvOS ONLY — `build_windows.ps1`,
    `build_linux.sh` and `build_mac.sh` all leave it undefined. There was no offscreen target
    on the desktop at all, so there was nothing for a fullscreen shader to sample.
 
    Worse: `gfx_supersample` is only read from the environment inside that same ifdef, so
-   **`GETV_SUPERSAMPLE` did nothing on any desktop platform** -- including behind the
+   **`GETV_SUPERSAMPLE` did nothing on any desktop platform** — including behind the
    launcher's Supersampling control, which looked like it worked. The scaling of
    `gfx_current_dimensions` in `gfx_pc.c:5381` is not platform-gated, so setting the factor
    was the only missing piece.
@@ -64,7 +64,7 @@ Windows needs the machine, and the launcher needs someone looking at it.
    `GE_POSTFX` (defined when `TVOS_SUPERSAMPLE` is not): an offscreen colour texture plus a
    **depth texture** (item 5, so it can be sampled), and a resolve pass that does the
    supersample downsample, FXAA and the CRT terms in one fullscreen triangle. Entirely off
-   unless gated -- with no `GETV_` set, no GL object is created and the frame path is
+   unless gated — with no `GETV_` set, no GL object is created and the frame path is
    byte-identical to before (verified: `tris submitted=908 drawn=329`, unchanged).
 
    Gates: `GETV_CRT=1` (preset, each term individually overridable via

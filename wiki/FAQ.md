@@ -64,7 +64,7 @@ data is yours and stays yours. See [Provenance](Provenance).
 
 A static recompiler translates the original machine code into something a modern CPU runs.
 The result works but is not readable or editable. This is built from a decompilation: real C,
-which can be changed. That is why the frame-timing problem is fixable here.
+which can be changed. That is the whole reason the frame-timing problem is fixable here.
 
 ### Why not just use an emulator?
 

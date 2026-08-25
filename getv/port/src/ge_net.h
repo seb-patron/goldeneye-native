@@ -17,6 +17,16 @@
  * more latency at the cost of feel; 3 at 60Hz is 50ms, which covers most domestic WAN links. */
 #define GE_NET_DEFAULT_DELAY 3
 
+/* How many past inputs each datagram repeats alongside the current one.
+ *
+ * Lockstep does not want retransmit-with-acknowledgements: a round trip to recover a lost input
+ * costs more than the input delay it was meant to fit inside, so the recovery arrives too late
+ * to be useful. Every packet repeating the last few inputs covers a loss with the very next
+ * packet and no round trip at all, and inputs are small enough that paying for them repeatedly
+ * is cheap. tools/netsim.py measures the difference: at 2% loss, one input per packet stalls the
+ * session permanently, while a window of 8 runs clean, and even 40% loss holds 397 of 400 ticks. */
+#define GE_NET_REDUNDANCY 8
+
 typedef enum GeNetSlotKind {
     GE_NET_SLOT_EMPTY = 0,
     GE_NET_SLOT_LOCAL,      /* this machine's player -- we capture and broadcast it */
@@ -60,7 +70,12 @@ typedef struct GeNetStats {
     unsigned long ticks_stalled;      /* how often we waited on a peer */
     unsigned long inputs_sent;
     unsigned long inputs_received;
-    unsigned long inputs_late;        /* arrived for a tick already simulated: unusable */
+    /* An input that was NEEDED and arrived after its tick had run. A rising count means the
+     * delay is too low for this link, which is a tunable rather than a bug. Kept strictly
+     * separate from duplicates: with a redundancy window, conflating them reports tens of
+     * thousands of "late" inputs on a perfectly healthy link and destroys the signal. */
+    unsigned long inputs_late;
+    unsigned long inputs_dup;         /* redundant copies of inputs already held: the scheme working */
     unsigned long desyncs;
 } GeNetStats;
 
@@ -83,6 +98,17 @@ int  geNetTickBegin(const GePlayerInput *local_input);
 /* Feed a received datagram in. Split out from the transport so a test can drive a session
  * without any I/O at all. */
 void geNetDeliver(const void *data, int len);
+
+/* Report that a peer has gone. The transport detects this (ENet reports it; the raw socket
+ * version would need a timeout), but handling it is a session concern, not a socket one.
+ *
+ * Do NOT simply free the slot on noticing. Survivors notice at different moments, and a
+ * departing machine's last packets reach one and not another, so dropping on local detection
+ * makes the SURVIVORS diverge from each other -- the exact failure the handling exists to
+ * prevent. This starts the agreed procedure instead: relay what we hold for that slot, then
+ * drop it at a tick everyone can reach. See tools/netsim.py, which measures all three
+ * behaviours. */
+void geNetPeerLost(int slot);
 
 void geNetStats(GeNetStats *out);
 unsigned long geNetDelay(void);

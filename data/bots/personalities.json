@@ -11,7 +11,10 @@
    "name": "peace",
    "origin": "Perfect Dark PeaceSim",
    "summary": "Refuses to shoot. Runs from fights and strips the arena of weapons and ammunition so nobody else can arm themselves.",
-   "dials": { "aggression": 0, "speed": 100 },
+   "dials": {
+    "aggression": 0,
+    "speed": 100
+   },
    "targeting": "none",
    "weapon_policy": "disarm_only",
    "behaviour": [
@@ -20,16 +23,24 @@
     "Flees on contact instead of engaging."
    ],
    "opcodes": [
-    "guard_set_accuracy_rating", "guard_set_speed_rating",
-    "guard_sprints_to_pad", "guard_try_dropping_item",
-    "if_guard_sees_bond", "chr_hit_chr_body_part_with_held_item"
+    "guard_set_accuracy_rating",
+    "guard_set_speed_rating",
+    "guard_sprints_to_pad",
+    "guard_try_dropping_item",
+    "if_guard_sees_bond",
+    "chr_hit_chr_body_part_with_held_item",
+    "guard_start_patrol"
    ]
   },
   {
    "name": "shield",
    "origin": "Perfect Dark ShieldSim",
    "summary": "Obsessed with armour. Always heads for it, and breaks off to get another the moment its own is dented.",
-   "dials": { "aggression": 50, "speed": 105, "armour": 200 },
+   "dials": {
+    "aggression": 50,
+    "speed": 105,
+    "armour": 200
+   },
    "targeting": "nearest",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -38,16 +49,25 @@
     "Effectively concedes control of everything except the armour spawn, which makes it predictable."
    ],
    "opcodes": [
-    "guard_set_armour", "guard_set_health_total", "guard_set_speed_rating",
-    "guard_sprints_to_pad", "guard_try_fire_or_aim_at_target",
-    "if_chr_health_less_than", "if_guard_sees_bond"
+    "guard_set_armour",
+    "guard_set_health_total",
+    "guard_set_speed_rating",
+    "guard_sprints_to_pad",
+    "guard_try_fire_or_aim_at_target",
+    "if_chr_health_less_than",
+    "if_guard_sees_bond",
+    "guard_start_patrol"
    ]
   },
   {
    "name": "kaze",
    "origin": "Perfect Dark KazeSim",
    "summary": "Suicidally fearless. Charges regardless of what it is holding or how much health it has left.",
-   "dials": { "aggression": 100, "speed": 120, "accuracy": 40 },
+   "dials": {
+    "aggression": 100,
+    "speed": 120,
+    "accuracy": 40
+   },
    "targeting": "nearest",
    "weapon_policy": "explosive_only",
    "behaviour": [
@@ -56,16 +76,23 @@
     "Dangerous out of proportion to its accuracy, because it removes the option of a ranged trade."
    ],
    "opcodes": [
-    "guard_set_speed_rating", "guard_set_accuracy_rating",
-    "guard_try_sprinting_to_bond_position", "guard_try_sprinting_to_chr_position",
-    "guard_try_throwing_grenade", "if_guard_sees_bond", "if_guard_heard_bond"
+    "guard_set_speed_rating",
+    "guard_set_accuracy_rating",
+    "guard_try_sprinting_to_bond_position",
+    "guard_try_sprinting_to_chr_position",
+    "guard_try_throwing_grenade",
+    "if_guard_sees_bond",
+    "if_guard_heard_bond"
    ]
   },
   {
    "name": "fist",
    "origin": "Perfect Dark FistSim",
    "summary": "Melee only. Never fires a projectile weapon and closes to punching range instead.",
-   "dials": { "aggression": 90, "speed": 115 },
+   "dials": {
+    "aggression": 90,
+    "speed": 115
+   },
    "targeting": "nearest",
    "weapon_policy": "melee_only",
    "behaviour": [
@@ -74,16 +101,22 @@
     "That last property is the reason it is interesting rather than a joke -- it exploits a real mechanic."
    ],
    "opcodes": [
-    "guard_set_speed_rating", "guard_try_sprinting_to_bond_position",
-    "guard_try_sprinting_to_chr_position", "chr_hit_chr_body_part_with_held_item",
-    "chr_hit_body_part_with_item_damage", "if_guard_sees_bond"
+    "guard_set_speed_rating",
+    "guard_try_sprinting_to_bond_position",
+    "guard_try_sprinting_to_chr_position",
+    "chr_hit_chr_body_part_with_held_item",
+    "chr_hit_body_part_with_item_damage",
+    "if_guard_sees_bond"
    ]
   },
   {
    "name": "prey",
    "origin": "Perfect Dark PreySim",
    "summary": "A bully. Only attacks the weak -- low health, freshly respawned, or badly armed -- and ignores anyone dangerous.",
-   "dials": { "aggression": 70, "speed": 105 },
+   "dials": {
+    "aggression": 70,
+    "speed": 105
+   },
    "targeting": "weakest",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -92,16 +125,22 @@
     "Punishes respawns, which makes spawn position matter to the human players too."
    ],
    "opcodes": [
-    "guard_set_accuracy_rating", "guard_try_running_to_chr_position",
-    "guard_try_fire_or_aim_at_target", "if_chr_health_less_than",
-    "if_bond_health_less_than", "if_bond_item_total_ammo_less_than"
+    "guard_set_accuracy_rating",
+    "guard_try_running_to_chr_position",
+    "guard_try_fire_or_aim_at_target",
+    "if_chr_health_less_than",
+    "if_bond_health_less_than",
+    "if_bond_item_total_ammo_less_than"
    ]
   },
   {
    "name": "coward",
    "origin": "Perfect Dark CowardSim",
    "summary": "Avoids confrontation. Flees at the first sign of a fight and only engages when it holds the better weapon.",
-   "dials": { "aggression": 20, "speed": 115 },
+   "dials": {
+    "aggression": 20,
+    "speed": 115
+   },
    "targeting": "weakest",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -110,16 +149,23 @@
     "Frustrating to hunt on a large map, which is a design feature rather than a flaw."
    ],
    "opcodes": [
-    "guard_set_speed_rating", "guard_sprints_to_pad",
-    "guard_try_running_to_side", "if_guard_sees_bond",
-    "if_chr_health_less_than", "if_bond_item_total_ammo_less_than"
+    "guard_set_speed_rating",
+    "guard_sprints_to_pad",
+    "guard_try_running_to_side",
+    "if_guard_sees_bond",
+    "if_chr_health_less_than",
+    "if_bond_item_total_ammo_less_than",
+    "guard_start_patrol"
    ]
   },
   {
    "name": "judge",
    "origin": "Perfect Dark JudgeSim",
    "summary": "Attacks whoever is winning. A self-balancing opponent that suppresses the leader and switches targets as the score changes.",
-   "dials": { "aggression": 80, "speed": 105 },
+   "dials": {
+    "aggression": 80,
+    "speed": 105
+   },
    "targeting": "leader",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -128,8 +174,10 @@
     "Keeps matches close without any explicit rubber-banding, which is a far more elegant solution than scaling difficulty."
    ],
    "opcodes": [
-    "guard_set_accuracy_rating", "guard_try_running_to_chr_position",
-    "guard_try_sprinting_to_bond_position", "guard_try_fire_or_aim_at_target",
+    "guard_set_accuracy_rating",
+    "guard_try_running_to_chr_position",
+    "guard_try_sprinting_to_bond_position",
+    "guard_try_fire_or_aim_at_target",
     "if_random_seed_less_than"
    ]
   },
@@ -137,7 +185,10 @@
    "name": "feud",
    "origin": "Perfect Dark FeudSim",
    "summary": "Picks one opponent at the start and hunts only them for the whole match, ignoring everyone else.",
-   "dials": { "aggression": 90, "speed": 110 },
+   "dials": {
+    "aggression": 90,
+    "speed": 110
+   },
    "targeting": "fixed_rival",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -146,8 +197,10 @@
     "Turns a free-for-all into an asymmetric match, which changes the game for everyone rather than only its victim."
    ],
    "opcodes": [
-    "guard_set_accuracy_rating", "guard_try_sprinting_to_chr_position",
-    "guard_try_sprinting_to_bond_position", "guard_try_fire_or_aim_at_target",
+    "guard_set_accuracy_rating",
+    "guard_try_sprinting_to_chr_position",
+    "guard_try_sprinting_to_bond_position",
+    "guard_try_fire_or_aim_at_target",
     "if_chr_does_not_exist"
    ]
   },
@@ -155,7 +208,10 @@
    "name": "venge",
    "origin": "Perfect Dark VengeSim",
    "summary": "Holds grudges. Hunts whoever killed it last, switching targets each time it dies.",
-   "dials": { "aggression": 85, "speed": 110 },
+   "dials": {
+    "aggression": 85,
+    "speed": 110
+   },
    "targeting": "last_attacker",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -164,8 +220,10 @@
     "Reads as personality rather than as scripting, which is the whole trick."
    ],
    "opcodes": [
-    "guard_set_accuracy_rating", "guard_try_sprinting_to_chr_position",
-    "guard_try_fire_or_aim_at_target", "if_guard_see_another_guard_shot",
+    "guard_set_accuracy_rating",
+    "guard_try_sprinting_to_chr_position",
+    "guard_try_fire_or_aim_at_target",
+    "if_guard_see_another_guard_shot",
     "if_guard_was_shot_or_seen_bond_within_last_10_secs"
    ]
   },
@@ -173,7 +231,10 @@
    "name": "speed",
    "origin": "Perfect Dark SpeedSim",
    "summary": "Roughly twice normal movement speed, and the same speed at every skill tier.",
-   "dials": { "speed": 200, "aggression": 75 },
+   "dials": {
+    "speed": 200,
+    "aggression": 75
+   },
    "targeting": "nearest",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -182,8 +243,10 @@
     "Best countered with area weapons rather than precision ones."
    ],
    "opcodes": [
-    "guard_set_speed_rating", "guard_sprints_to_pad",
-    "guard_try_sprinting_to_bond_position", "guard_try_firing_run",
+    "guard_set_speed_rating",
+    "guard_sprints_to_pad",
+    "guard_try_sprinting_to_bond_position",
+    "guard_try_firing_run",
     "guard_try_running_to_side"
    ]
   },
@@ -191,7 +254,11 @@
    "name": "turtle",
    "origin": "Perfect Dark TurtleSim",
    "summary": "The inverse of speed: moves much slower than a player but carries roughly double the usual armour.",
-   "dials": { "speed": 50, "armour": 200, "aggression": 60 },
+   "dials": {
+    "speed": 50,
+    "armour": 200,
+    "aggression": 60
+   },
    "targeting": "nearest",
    "weapon_policy": "best_available",
    "behaviour": [
@@ -200,16 +267,24 @@
     "Pairs the two dials against each other, which is why it plays differently rather than just being tankier."
    ],
    "opcodes": [
-    "guard_set_speed_rating", "guard_set_armour", "guard_set_health_total",
-    "guard_walks_to_pad", "guard_try_fire_or_aim_at_target",
-    "guard_try_fire_or_aim_at_target_kneel"
+    "guard_set_speed_rating",
+    "guard_set_armour",
+    "guard_set_health_total",
+    "guard_walks_to_pad",
+    "guard_try_fire_or_aim_at_target",
+    "guard_try_fire_or_aim_at_target_kneel",
+    "guard_start_patrol"
    ]
   },
   {
    "name": "rocket",
    "origin": "Perfect Dark RocketSim",
    "summary": "Uses explosives exclusively, which makes it lethal in the open and a danger to itself in corridors.",
-   "dials": { "aggression": 80, "speed": 100, "accuracy": 60 },
+   "dials": {
+    "aggression": 80,
+    "speed": 100,
+    "accuracy": 60
+   },
    "targeting": "nearest",
    "weapon_policy": "explosive_only",
    "behaviour": [
@@ -218,8 +293,10 @@
     "Its strength is therefore a property of the map rather than of the bot, which is a useful thing for a lobby to be able to tune."
    ],
    "opcodes": [
-    "guard_set_accuracy_rating", "guard_try_throwing_grenade",
-    "guard_try_fire_or_aim_at_target", "guard_try_running_to_bond_position",
+    "guard_set_accuracy_rating",
+    "guard_try_throwing_grenade",
+    "guard_try_fire_or_aim_at_target",
+    "guard_try_running_to_bond_position",
     "if_guard_sees_bond"
    ]
   }

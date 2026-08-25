@@ -30,7 +30,7 @@ goldeneye.exe > cull.log 2>&1
 | `cur` | infront=4/8 nvtx=326 | 8/8 nvtx=0 |
 
 `BEHIND=0`, so nothing was being culled away. The player was simply in **room 0**, which on
-this level has no portals and no geometry -- `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
+this level has no portals and no geometry — `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
 adj=0`, so the portal walk had nowhere to go and the draw list contained one empty room.
 
 `g_BgCurrentRoom` comes from `bondviewGetCurrentPlayersRoom()` (bondview2.c), which reads
@@ -44,7 +44,7 @@ The line that named the cause was already being printed:
 ```
 
 **One tile.** The entire level's stan was a single tile, and the player's tile pointer
-(`...218`) was the zero word 32 bytes past it -- not a tile at all, which is why `room` read 0.
+(`...218`) was the zero word 32 bytes past it — not a tile at all, which is why `room` read 0.
 
 ---
 
@@ -69,7 +69,7 @@ in memory, in source order, with nothing in between.
 
 1. **GCC emits `.data` in reverse declaration order.** `tile_0` landed at the end of the
    section and `tile_1` before it, so walking forward from `tile_0` ran straight off the end
-   after one tile. Clang emits in source order, which is why macOS never showed
+   after one tile. Clang emits in source order, which is the whole reason macOS never showed
    this and why the bug looked platform-specific in a way that suggested endianness.
 
 2. **The all-zero terminator tile went to `.bss`.** `tile_1066` is entirely zero, so GCC put
@@ -104,7 +104,7 @@ Scoped to assets deliberately. The game batch is code; the only place adjacency 
 data is load-bearing is the level data. `src/snd.c`'s "declaration order matters" comment is
 about stack locals for matching and is unrelated.
 
-Verified at the object level before rebuilding -- header first, then tiles contiguous at
+Verified at the object level before rebuilding — header first, then tiles contiguous at
 exactly their byte sizes, nothing in `.bss`:
 
 ```
@@ -136,7 +136,7 @@ Downstream symptoms that were the same bug and are now gone without being touche
   were failing because the tile walk could not reach their tiles.
 - **The weapon and right hand render.** `WINDOWS_HANDOFF.md` recorded `hinv=1/0` as "the right
   hand is invisible, so no weapon is drawn" and listed it as a known harness gap. `hinv=1/0`
-  is `hand_invisible[0]=1, [1]=0` -- the **left** hand hidden, which is correct for a
+  is `hand_invisible[0]=1, [1]=0` — the **left** hand hidden, which is correct for a
   one-handed PP7. The frame capture shows the PP7 drawn with the ammo HUD reading `7 | 93`.
 
 ---
@@ -148,6 +148,6 @@ affected by exactly this and needs the same two flags. The `extern` change is in
 asset sources and covers it already. macOS is clang and is unaffected either way, but the
 flags are GCC spellings and must not be added to the clang batches.
 
-Say this plainly, because the failure mode is silent: nothing warns, nothing
+This is worth stating plainly because the failure mode is silent: nothing warns, nothing
 crashes, triangle counts stay plausible, and the game runs at full speed rendering an empty
 world.
