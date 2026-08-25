@@ -11812,7 +11812,7 @@ index 1cdcd37..76ed0d3 100644
 +
  #endif
 diff --git a/src/game/explosion.c b/src/game/explosion.c
-index d80769b..381ec79 100644
+index d80769b..e4ff818 100644
 --- a/src/game/explosion.c
 +++ b/src/game/explosion.c
 @@ -1723,7 +1723,19 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
@@ -11835,10 +11835,28 @@ index d80769b..381ec79 100644
  
          if (particles->unk00 > 0)
          {
-@@ -2015,6 +2027,26 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
+@@ -2015,6 +2027,44 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
          impact_type = 0x10;
      }
  
++    /* GETV_IMPACT_FORCE=<row>: pin every bullet impact to one row of g_ImpactTypes.
++     *
++     * Rows 0-7 are IA8 greyscale and rows 8-15 are RGBA16, and only the second group can show
++     * the RGBA16 byte-order defect. A hit picks its row from the surface, so which group you
++     * get depends entirely on what you shoot -- testing one wall in Bunker 1 exercises row 7
++     * and proves nothing about the other eight. This makes the choice explicit. */
++    {
++        static s32 ge_impact_force = -2;
++        if (ge_impact_force == -2) {
++            const char *e = getenv("GETV_IMPACT_FORCE");
++            ge_impact_force = (e && *e) ? atoi(e) : -1;
++        }
++        if (ge_impact_force >= 0 &&
++            ge_impact_force < (s32)(sizeof(g_ImpactTypes) / sizeof(g_ImpactTypes[0]))) {
++            impact_type = (s16) ge_impact_force;
++        }
++    }
++
 +    /* GETV_IMPACT=1: which impact row a hit resolves to, and the apptype that row selects.
 +     * apptype 2 is the per-channel random 0/0xff colour below, which is the paintball look,
 +     * and row 16 is the only row carrying it. Reports the cheat state alongside so a report
@@ -11862,7 +11880,7 @@ index d80769b..381ec79 100644
      spA0.f[0] = pos->f[0];
      spA0.f[1] = pos->f[1];
      spA0.f[2] = pos->f[2];
-@@ -2149,6 +2181,14 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
+@@ -2149,6 +2199,14 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
                  osSyncPrintf("Wallhit colour %d not implemented, substituting black\n", sp50->apptype);
  #endif
                  var_s0 = 0;
@@ -11877,6 +11895,33 @@ index d80769b..381ec79 100644
              break;
  
              case 1:
+@@ -2166,6 +2224,26 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
+             break;
+ 
+             case 2:
++                /* Each channel is independently 0 or 0xff, so this row produces exactly eight
++                 * colours: black, red, green, blue, yellow, magenta, cyan, white. The pink
++                 * and neon green people report as "paintball" ARE these, and reaching them
++                 * without CHEAT_PAINTBALL means something upstream chose row 16 on its own.
++                 *
++                 * Reported unconditionally and once per run, because a cheat effect appearing
++                 * without its cheat is a user-visible bug and the person hitting it should not
++                 * have to know which environment gate to set to find out why. */
++                {
++                    static s32 warned = 0;
++                    if (!warned) {
++                        warned = 1;
++                        osSyncPrintf("[getv][impact] WARNING: random-colour impacts (apptype 2, "
++                                     "the paintball look) are being drawn. impact_type=%d "
++                                     "paintball_cheat=%d. If the cheat is 0 this is a bug -- "
++                                     "run with GETV_IMPACT=1 for the per-hit detail.\n",
++                                     (s32) impact_type,
++                                     (s32) cheatIsActive(CHEAT_PAINTBALL));
++                    }
++                }
+                 var_s0 = (randomGetNext() & 1) ? 0xff : 0;
+                 sp62 = (randomGetNext() & 1) ? 0xff : 0;
+                 sp61 = (randomGetNext() & 1) ? 0xff : 0;
 diff --git a/src/game/file2.c b/src/game/file2.c
 index 004247d..684b442 100644
 --- a/src/game/file2.c
