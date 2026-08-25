@@ -1323,6 +1323,67 @@ static void geKeyboardApply(int port, struct GePadState *out)
 }
 #endif /* GE_PLATFORM_DESKTOP */
 
+/* ---- a real crouch button -------------------------------------------------------
+ *
+ * Retail crouch is gated behind aim mode: `bondview2.c:5484` requires `insightaimmode` AND
+ * stick-down before it will lower Bond, so crouching means holding aim, pushing down, and
+ * then releasing aim while staying low. That is faithful and it is genuinely awkward, and
+ * it is the sort of thing a native port is for.
+ *
+ * These report a held key straight to the game, which ORs them alongside the retail
+ * condition rather than replacing it -- the original gesture keeps working exactly as it
+ * did, and the keys are simply another way in. Off unless GETV_CROUCH_KEY is 1, which it is
+ * by default; set it to 0 for faithful-only behaviour.
+ *
+ * Deliberately NOT routed through port_os.c's action table. That table is the Surface's
+ * lane and is being edited there for the per-player bindings; a second author adding rows
+ * to it mid-flight is how the last collision happened. When the binding work lands these
+ * should move onto it as GE_ACT_CROUCH / GE_ACT_STAND.
+ */
+static int geCrouchKeysEnabled(void)
+{
+ static int on = -1;
+ if (on < 0) {
+ const char *e = getenv("GETV_CROUCH_KEY");
+ on = (e && *e) ? (*e != '0') : 1;
+    }
+ return on;
+}
+
+int gePortCrouchHeld(void)
+{
+#ifdef GE_PLATFORM_DESKTOP
+ const Uint8 *k;
+    /* GETV_CROUCH_SELFTEST=1 holds the key down, so the effect can be measured under
+     * GETV_EXIT_FRAME without a hand on the keyboard. Same reason as GETV_MOUSE_SELFTEST,
+     * and it has to be ahead of the idle gate for the same reason too. */
+    {
+ static int st = -1;
+ if (st < 0) { const char *e = getenv("GETV_CROUCH_SELFTEST"); st = (e && *e && *e != '0'); }
+ if (st) return 1;
+    }
+ if (!geCrouchKeysEnabled() || geKeyboardIdle() || !geKeyboardEnabled()) return 0;
+ k = SDL_GetKeyboardState(NULL);
+ if (k == NULL) return 0;
+ return (k[SDL_SCANCODE_C] || k[SDL_SCANCODE_LSHIFT]) ? 1 : 0;
+#else
+ return 0;
+#endif
+}
+
+int gePortStandHeld(void)
+{
+#ifdef GE_PLATFORM_DESKTOP
+ const Uint8 *k;
+ if (!geCrouchKeysEnabled() || geKeyboardIdle() || !geKeyboardEnabled()) return 0;
+ k = SDL_GetKeyboardState(NULL);
+ if (k == NULL) return 0;
+ return k[SDL_SCANCODE_V] ? 1 : 0;
+#else
+ return 0;
+#endif
+}
+
 void gePortInputPollPort(int port, struct GePadState *out)
 {
  SDL_GameController *gc;
