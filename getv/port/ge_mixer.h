@@ -1,4 +1,4 @@
-/* GoldenEye tvOS redirect libultra's audio command macros at a software RSP.
+/* GoldenEye native port redirect libultra's audio command macros at a software RSP.
  *
  * On the n64 each a* macro packs one 8-byte Acmd into a list that the RSP later
  * executes running the `aspMain` microcode. There is no RSP here, so each macro

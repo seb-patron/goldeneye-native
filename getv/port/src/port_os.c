@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - libultra's OS layer, replaced.
+/* GoldenEye native port - libultra's OS layer, replaced.
  *
  * Covers the last two N64 subsystems the boot path depends on:
  *

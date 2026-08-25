@@ -1,0 +1,158 @@
+{
+  "level": "basement",
+  "arena": true,
+  "notes": [
+    "Basement is the game's purest arena: tight winding hallways, no vertical play, no secret routes, one armour and the least ammunition in the game. It gives nobody an advantage the map hands out, so results here reflect play rather than knowledge.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "basement-one-armour-decides-matches",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "There is a single body armour and no alternative, so taking it on a timer is the closest thing this map has to a strategy.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hoard_pickup", "item": "body_armour" },
+      "because": "Basement carries exactly one Armour record."
+    },
+    {
+      "id": "basement-deny-the-only-armour",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Because there is nowhere else to get it, taking the armour while already healthy denies it outright rather than merely first; there is no second pickup to fall back on.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_pickup", "item": "body_armour" },
+      "because": "The arena has one Armour record, so denial is total rather than partial."
+    },
+    {
+      "id": "basement-ammo-is-genuinely-scarce",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "This is the most ammunition-starved arena in the game, so fire has to be aimed rather than sprayed and running dry mid-fight is a real risk.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "contest_pickup", "item": "ammo" },
+      "because": "Basement carries eleven AmmoBox records, the fewest of any arena and barely a third of Library's thirty-one."
+    },
+    {
+      "id": "basement-nowhere-to-hide",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The layout offers no concealment worth the name, so disengaging is unreliable and most contacts resolve into a fight whether or not either player wanted one.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "strafe_unpredictably" }
+    },
+    {
+      "id": "basement-pillars-are-the-only-cover",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The pillars are the map's only usable cover, so firefights are fought by circling them rather than by retreating.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover", "at": "pillar" }
+    },
+    {
+      "id": "basement-corners-decide-fights",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Almost every engagement begins at a corner at short range, so whoever is already aiming when the corner is turned usually wins regardless of weapon.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "camp_at", "position": "corner" }
+    },
+    {
+      "id": "basement-no-height-advantage",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The map is essentially flat, so none of the vertical play that decides Complex, Stack and Temple applies here and positioning is purely horizontal.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "avoid", "target": "vertical_assumptions" }
+    },
+    {
+      "id": "basement-five-spawns-are-coverable",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Only five spawn points exist in a small map, so an opponent's reappearance can be reached quickly enough to contest it.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "few_spawns" },
+      "because": "Basement carries five Spawn records, the joint fewest of any arena."
+    },
+    {
+      "id": "basement-relentless-pace",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Contacts come constantly because the map is small and offers no escape, so reloading and repositioning have to be done expecting interruption rather than in safety.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "expect_alarm", "reason": "constant_contact" }
+    },
+    {
+      "id": "basement-listen-through-the-halls",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The winding halls carry sound clearly and sightlines are short, so hearing locates opponents earlier than seeing them does.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "footsteps" }
+    },
+    {
+      "id": "basement-mines-are-oppressive",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "In a map made entirely of corridors and corners, proximity mines make free movement impossible; this is the arena where that set changes the game most.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "corner" }
+    },
+    {
+      "id": "basement-explosives-are-suicidal",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "There is not enough distance anywhere on the map to fire a rocket safely, so explosive sets are close to unplayable here.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "avoid", "target": "own_blast_radius" }
+    },
+    {
+      "id": "basement-slappers-is-at-its-best",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because the map already reduces to movement and corners, the unarmed set loses less here than anywhere else and plays as the arena's purest form.",
+      "applies": { "weapon_set": "slappers_only" },
+      "action": { "verb": "strafe_unpredictably" }
+    },
+    {
+      "id": "basement-ltk-is-a-coin-flip",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills at corner range remove almost all skill expression, so the mode rewards moving first and holding angles rather than fighting.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "camp_at", "position": "corner" }
+    },
+    {
+      "id": "basement-flag-is-brutal",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An unarmed carrier has no concealment and no escape routes, so flag holds here are measured in seconds and the mode becomes a contest of who takes it back fastest.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "prioritise_target", "target": "flag_carrier", "over": "all" }
+    },
+    {
+      "id": "basement-map-knowledge-is-cheap",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The map has no secrets to learn, so the usual advantage a veteran holds over a newcomer is much smaller here than on Complex or Caves.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "avoid", "target": "map_knowledge_assumption" }
+    }
+  ]
+}

@@ -119,13 +119,18 @@ def parse_pads(text, stem):
     row = re.compile(
         r"\{\s*\{\s*(%s)\s*,\s*(%s)\s*,\s*(%s)\s*\}\s*,"      # pos
         r"\s*\{[^}]*\}\s*,\s*\{[^}]*\}\s*,"                    # up, look
-        r'\s*"([^"]*)"\s*,\s*(-?\d+)' % (FLOAT, FLOAT, FLOAT))
+        # The trailing field is a pointer, and the two setup exports disagree on how they spell
+        # a null one: campaign files write 0, multiplayer files write NULL. Requiring an integer
+        # meant every multiplayer pad failed to match and the arenas came out with zero pads --
+        # no error, just empty data, which is the same silent shape as a short lookup table.
+        r'\s*"([^"]*)"\s*,\s*(-?\d+|NULL)' % (FLOAT, FLOAT, FLOAT))
     for i, mm in enumerate(row.finditer(body)):
+        flags = mm.group(5)
         pads.append({
             "index": i,
             "name": mm.group(4),
             "pos": [_f(mm.group(1)), _f(mm.group(2)), _f(mm.group(3))],
-            "flags": int(mm.group(5)),
+            "flags": None if flags == "NULL" else int(flags),
         })
     return pads
 
@@ -147,7 +152,7 @@ def parse_pad3d(text, stem):
     row = re.compile(
         r"\{\s*\{\s*(%s)\s*,\s*(%s)\s*,\s*(%s)\s*\}\s*,"
         r"\s*\{[^}]*\}\s*,\s*\{[^}]*\}\s*,"
-        r'\s*"([^"]*)"\s*,\s*(-?\d+)' % (FLOAT, FLOAT, FLOAT))
+        r'\s*"([^"]*)"\s*,\s*(-?\d+|NULL)' % (FLOAT, FLOAT, FLOAT))
     for i, mm in enumerate(row.finditer(m.group(1))):
         out.append({
             "index": i,
@@ -416,10 +421,19 @@ def find_setup(stem):
         if os.path.exists(exact):
             return exact
     return None
-    for fn in sorted(os.listdir(SETUP_DIR)):
-        if fn.lower().startswith(stem.lower()) and fn.endswith(".c"):
-            return os.path.join(SETUP_DIR, fn)
-    return None
+
+
+def mp_stem(stem):
+    """The multiplayer variant of a setup stem, or None if it is already one.
+
+    prop.c:1507 synthesises the name by inserting "mp_" after the leading U once
+    getPlayerCount() is two or more, so Usetupark becomes Ump_setupark. Multiplayer is a
+    function of player count rather than a separate stage, which is why the arenas and the
+    campaign missions share a naming scheme at all.
+    """
+    if stem.startswith("Ump_") or not stem.startswith("U"):
+        return None
+    return "Ump_" + stem[1:]
 
 
 def main():
@@ -463,6 +477,23 @@ def main():
                  "" if not c["waypoints_without_pad"]
                  else "(%d waypoints without a pad)" % c["waypoints_without_pad"]))
         index.append({k: doc[k] for k in ("level", "stage_id", "mission", "setup", "counts")})
+
+        # Most campaign missions are ALSO multiplayer arenas, and their arena setup is a
+        # different file with different pickups, spawns and props. Emitting it separately
+        # matters: multiplayer Facility has its own armour and ammunition layout, and reading
+        # those counts off the campaign file would describe a stage nobody plays.
+        mstem = mp_stem(stem)
+        mpath = find_setup(mstem) if mstem else None
+        if mpath is not None:
+            mdoc = build(name, mstem, sid, 0, mpath)
+            mdoc["arena"] = True
+            with open(os.path.join(args.out, name + ".mp.json"), "w", encoding="utf-8") as fh:
+                json.dump(mdoc, fh, indent=1)
+            mc = mdoc["counts"]
+            print("%-10s   [mp] pads=%-4d props=%-4d proptypes=%-3d"
+                  % ("", mc["pads"], mc["props"], mc["prop_types"]))
+            index.append({k: mdoc[k] for k in
+                          ("level", "stage_id", "mission", "setup", "counts")} | {"arena": True})
 
     with open(os.path.join(args.out, "index.json"), "w", encoding="utf-8") as fh:
         json.dump({"levels": index}, fh, indent=1)

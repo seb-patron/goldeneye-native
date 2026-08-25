@@ -1,0 +1,339 @@
+{
+  "level": "_general",
+  "arena": true,
+  "notes": [
+    "Cross-arena multiplayer knowledge: aiming, movement, pickups, spawns, modes and weapon sets. Not tied to one stage, which is why it carries a leading underscore and is validated without level data.",
+    "This is the layer that separates a bot that plays from a bot that competes. The campaign layer is about completing things; none of that applies here. Arena play is denial, control and reading an opponent."
+  ],
+  "nuance": [
+    {
+      "id": "mp-autoaim-is-the-core-mechanic",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The game has strong auto-aim that reaches much further than players expect, so shots that look impossible connect and long-range fire is worth taking.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "aim_manually", "prefer": "assisted", "when": "target_armed" }
+    },
+    {
+      "id": "mp-lock-on-tell",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The player model twitches toward a target when auto-aim acquires it, which is a reliable signal that a shot will hit before it is fired.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "aim_twitch" }
+    },
+    {
+      "id": "mp-unarmed-defeats-autoaim",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Auto-aim does not acquire an unarmed player, so switching to bare hands while retreating makes an opponent aim manually and badly.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "flee_unarmed" }
+    },
+    {
+      "id": "mp-oddjob-breaks-autoaim",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The shortest character sits below the auto-aim solution, so assisted shots pass over him while his own are unaffected. This is the reason he is house-ruled out of most serious play.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "shortest", "advantage": "autoaim_immunity" }
+    },
+    {
+      "id": "mp-counter-the-short-character",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A short opponent is hit by stopping, holding aim and pulling the reticle down manually, which costs the mobility that normally keeps a player alive.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "aim_manually", "adjust": "down", "when": "target_short" }
+    },
+    {
+      "id": "mp-dark-characters-hide",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Dark-clothed characters are genuinely harder to see in unlit arenas, so character choice is a positional advantage before anyone moves.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "dark", "advantage": "low_visibility" }
+    },
+    {
+      "id": "mp-crouch-in-firefights",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Crouching mid-fight shrinks the target and disrupts an opponent's established aim, and costs almost nothing to do.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "crouch_at", "during": "firefight" }
+    },
+    {
+      "id": "mp-lean-from-cover",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Leaning exposes only part of the body and returns to cover quickly, which beats stepping out and strafing in any fight around a corner.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover" }
+    },
+    {
+      "id": "mp-vary-the-pattern",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Any consistent movement pattern is learned and led within a few seconds, so the value is in changing the pattern once an opponent adapts to it, not in the pattern itself.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "strafe_unpredictably" }
+    },
+    {
+      "id": "mp-circle-strafe-both-ways",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Circling in both directions rather than one keeps an opponent correcting instead of tracking.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "strafe_unpredictably", "directions": "both" }
+    },
+    {
+      "id": "mp-spawns-are-deterministic",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Spawn points are a fixed, small set per arena rather than random, so where an opponent reappears is predictable and can be pre-aimed or camped.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn" },
+      "because": "Every arena's setup carries a handful of explicit Spawn records -- five in Basement, Temple and Stack, seven in Complex, eight in Library and Caves -- not a randomised pool."
+    },
+    {
+      "id": "mp-spawn-density-varies",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Arenas differ substantially in how many spawns they have, which decides whether spawn denial is viable: five points can be covered, eight cannot.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "few_spawns" },
+      "because": "Spawn record counts range from five to eight across the arenas."
+    },
+    {
+      "id": "mp-armour-is-the-map-objective",
+      "kind": "control",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "With no objectives to contest, body armour is what an arena is actually fought over; holding it is the closest thing multiplayer has to map control.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hoard_pickup", "item": "body_armour" }
+    },
+    {
+      "id": "mp-armour-respawns",
+      "kind": "timing",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Armour returns after a delay, so the strong pattern is to take it, fight nearby, and rotate back to it rather than to roam after picking it up.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" }
+    },
+    {
+      "id": "mp-deny-the-armour",
+      "kind": "control",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Taking armour while already healthy denies it to everyone else, which is worth more in a close match than the health it provides.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_pickup", "item": "body_armour" }
+    },
+    {
+      "id": "mp-armour-count-decides-the-map",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Arenas with a single armour play as one contested point, while those with three support rotation between several; this single number changes how a map is played more than its layout does.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "body_armour" },
+      "because": "Armour records per arena: one in Basement and Temple, two in Stack and Caves, three in Complex and Library."
+    },
+    {
+      "id": "mp-radar-is-a-crutch",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Strong players turn the radar off because it trains attention onto a corner of the screen instead of onto the arena, but they still assume opponents are using it.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "disable_radar" }
+    },
+    {
+      "id": "mp-screen-watching-is-real",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "In split-screen play opponents read each other's panes, so position is never actually secret and ambushes work through timing rather than concealment.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "assume": "position_known" }
+    },
+    {
+      "id": "mp-ltk-inverts-everything",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "When every hit kills, armour is worthless, weapon damage stops mattering and rate of fire and first contact decide everything; the strongest weapon becomes whichever one fires soonest.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "prioritise_target", "target": "first_contact", "over": "all" }
+    },
+    {
+      "id": "mp-ltk-avoid-open-ground",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because a single stray round is fatal, open sightlines are far more dangerous than in any other mode and routes should hug cover even when it is slower.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "break_line_of_sight" }
+    },
+    {
+      "id": "mp-golden-gun-holder-is-marked",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Whoever holds the golden gun is visibly marked to everyone else, so the mode is three players hunting one rather than a free-for-all.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "prioritise_target", "target": "gun_holder", "over": "all" }
+    },
+    {
+      "id": "mp-golden-gun-is-worth-dying-for",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The golden gun kills in one shot through any amount of armour, so contesting it at the start is worth more than any positional advantage.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "contest_pickup", "item": "golden_gun" }
+    },
+    {
+      "id": "mp-golden-gun-holder-should-run",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Holding the gun means being hunted by everyone at once, so the holder fights from corridors and corners where only one opponent can engage at a time.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "fight_from_chokepoint", "at": "corridor" }
+    },
+    {
+      "id": "mp-flag-holder-is-defenceless",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The flag carrier cannot use weapons, items or armour at all, so the mode is pure evasion for one player and pure pursuit for the rest.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "break_line_of_sight" }
+    },
+    {
+      "id": "mp-flag-scoring-is-time-not-kills",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Score is time spent holding the flag, so killing the carrier matters only insofar as it stops their clock and starts yours; kills are otherwise worthless.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "prioritise_target", "target": "flag_carrier", "over": "all" }
+    },
+    {
+      "id": "mp-flag-run-the-loop",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An unarmed carrier survives longest on a circuit through the arena's tightest geometry, because pursuers cannot cut corners they cannot see around.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "tight_geometry" }
+    },
+    {
+      "id": "mp-yolt-makes-trades-bad",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "With only two lives each, an even trade is a real loss, so the mode rewards disengaging from fights that are merely even.",
+      "applies": { "mode": "you_only_live_twice" },
+      "action": { "verb": "break_line_of_sight", "when": "even_fight" }
+    },
+    {
+      "id": "mp-yolt-armour-matters-most",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because lives are finite, armour is worth far more here than in an unlimited-lives match and denying it is close to a win condition.",
+      "applies": { "mode": "you_only_live_twice" },
+      "action": { "verb": "hoard_pickup", "item": "body_armour" }
+    },
+    {
+      "id": "mp-slappers-removes-pickups",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "In the unarmed set no weapons or ammunition appear at all, so the entire arena reduces to movement and positioning and every pickup route is irrelevant.",
+      "applies": { "weapon_set": "slappers_only" },
+      "action": { "verb": "strafe_unpredictably" }
+    },
+    {
+      "id": "mp-proximity-mines-change-maps",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Proximity mines convert every doorway and corner into a hazard, which matters more in tight arenas than any layout knowledge; routes have to change rather than merely be walked more carefully.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint" }
+    },
+    {
+      "id": "mp-remote-mines-are-patient",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Remote mines are placed early and detonated later, so their value is in predicting where someone will be rather than in where they are.",
+      "applies": { "weapon_set": "remote_mines" },
+      "action": { "verb": "mine_chokepoint", "detonate": "on_prediction" }
+    },
+    {
+      "id": "mp-mine-the-armour",
+      "kind": "control",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The single most reliable mine placement in any arena is on the armour, because it is the one spot every player is guaranteed to return to.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "body_armour" }
+    },
+    {
+      "id": "mp-mine-the-spawns",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Spawn points are equally reliable mine placements, and because they are few and fixed a small number of mines covers a large share of the arena's reappearances.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "spawn" },
+      "because": "Each arena carries only five to eight fixed Spawn records."
+    },
+    {
+      "id": "mp-grenades-bounce",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Grenades rebound off walls, floors and ceilings, so they reach positions no direct shot can and are the answer to an opponent holding a corner.",
+      "applies": { "weapon_set": "grenades" },
+      "action": { "verb": "bait_into", "via": "bounced_grenade" }
+    },
+    {
+      "id": "mp-rockets-punish-corridors",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Explosive weapons are devastating in the corridor-heavy arenas and nearly self-defeating at close range, so the same set plays completely differently by map.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "break_line_of_sight", "when": "close_range" }
+    },
+    {
+      "id": "mp-ammo-density-varies-hugely",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Some arenas are awash with ammunition and others are genuinely scarce, so how freely fire can be traded is a property of the map rather than of the weapon set.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "contest_pickup", "item": "ammo" },
+      "because": "AmmoBox counts run from eleven in Basement to thirty-one in Library, a near threefold spread."
+    }
+  ]
+}

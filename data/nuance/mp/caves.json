@@ -1,0 +1,157 @@
+{
+  "level": "caves",
+  "arena": true,
+  "notes": [
+    "Caves is the hardest arena to learn and the one where that knowledge pays most. It is dark, irregular and tightly packed -- the smallest pad count in the game carrying the joint-most spawn points, which is why contacts happen constantly and orientation is difficult.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "caves-learning-it-is-the-advantage",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The layout is genuinely hard to internalise, so a player who knows it holds a bigger edge here than on any other arena; the map rewards study rather than reflexes.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "memorised_route" }
+    },
+    {
+      "id": "caves-darkness-is-cover",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Unlit stretches genuinely conceal a player, which makes this the only arena where standing still is sometimes correct.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "camp_at", "position": "unlit_area" }
+    },
+    {
+      "id": "caves-but-dont-only-camp",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Concealment stops working once opponents learn where you sit, so the shadows are used to break contact and reposition rather than as a permanent position.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "unlit_area" }
+    },
+    {
+      "id": "caves-pick-a-dark-character",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Character choice matters more here than anywhere else: a dark-clothed character in a dark arena is meaningfully harder to see, which compounds with the map's own concealment.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "dark" }
+    },
+    {
+      "id": "caves-eight-spawns-in-a-small-space",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The arena packs the joint-most spawn points into the least space, so respawns happen close to the action and re-entry into a fight is fast for everyone.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "expect_alarm", "reason": "fast_respawn_reentry" },
+      "because": "Caves carries eight Spawn records across only thirty-five pads, the highest spawn density of any arena."
+    },
+    {
+      "id": "caves-spawn-camping-fails",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Eight spawn points cannot be covered, so holding a reappearance point is wasted effort; controlling a junction is the better use of position.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "junction" },
+      "because": "Caves carries eight Spawn records, joint most in the game."
+    },
+    {
+      "id": "caves-two-armours-are-worth-contesting",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Two armours in a map this small means both are close to everything, so contesting them is cheap and neglecting them is costly.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "Caves carries two Armour records across thirty-five pads, the tightest armour spacing of any arena."
+    },
+    {
+      "id": "caves-irregular-geometry-breaks-aim",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The rock walls are uneven rather than flat, so sightlines open and close with small movements and an opponent can be lost without deliberately breaking contact.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "at": "rock_face" }
+    },
+    {
+      "id": "caves-sound-matters-more-than-sight",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because vision is unreliable, hearing is the primary way opponents are located here and moving quietly is worth more than moving fast.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "footsteps" }
+    },
+    {
+      "id": "caves-junctions-are-the-map",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The passages meet at a small number of junctions, and holding one covers several routes at once, which is the closest thing this arena has to a power position.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "junction" }
+    },
+    {
+      "id": "caves-mine-the-junctions",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Junctions are the highest-traffic points on the map and are approached in darkness, which makes mines there unusually hard to spot in time.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "junction" }
+    },
+    {
+      "id": "caves-explosives-are-risky",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The passages are tight and the walls uneven, so explosives clip geometry and detonate short far more often than on the built arenas.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "avoid", "target": "own_blast_radius" }
+    },
+    {
+      "id": "caves-sniping-does-not-work",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "There are almost no long clear sightlines and the lighting defeats what few exist, so precision weapons are among the weakest choices here.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "avoid", "target": "long_range_plan" }
+    },
+    {
+      "id": "caves-ltk-rewards-the-shadows",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills plus real concealment make ambush overwhelming, so this mode on this map is decided almost entirely by who is seen first.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "camp_at", "position": "unlit_area" }
+    },
+    {
+      "id": "caves-flag-is-survivable-here",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A defenceless carrier does unusually well, because the darkness and irregular passages break pursuit repeatedly even without any weapon to threaten pursuers.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "break_line_of_sight", "at": "unlit_area" }
+    },
+    {
+      "id": "caves-golden-gun-in-the-dark",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A marked holder benefits from the concealment more than the hunters benefit from the marker, which makes this the friendliest arena to hold the gun on.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "camp_at", "position": "unlit_area" }
+    }
+  ]
+}

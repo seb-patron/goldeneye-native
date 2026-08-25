@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - the PRNG, ported from MIPS assembly.
+/* GoldenEye native port - the PRNG, ported from MIPS assembly.
  *
  * Some functions in the decomp are still raw MIPS assembly and have no C form at all.
  * `src/random.s` is one (see also boot.s, tlb_*.s, gspboot.s). The build compiles only

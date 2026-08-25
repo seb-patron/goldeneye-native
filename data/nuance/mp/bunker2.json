@@ -1,0 +1,133 @@
+{
+  "level": "bunker2",
+  "arena": true,
+  "notes": [
+    "Bunker is the most door-dense stage in the game by a wide margin, and the fewest spawns of any converted map. Those two numbers define it: movement is almost entirely through thresholds, and reappearances are predictable enough to punish.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "bunker2-mp-most-doors-in-the-game",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "This stage is built almost entirely from doorways, so there is barely any open space and nearly every contact happens at a threshold.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "The arena carries thirty-six Door records, more than any other multiplayer stage."
+    },
+    {
+      "id": "bunker2-mp-mine-the-doors",
+      "kind": "mode",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "With movement funnelled through doors everywhere, mines make large parts of the map genuinely impassable and this becomes the most oppressive mine stage in the game.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "door" },
+      "because": "Thirty-six Door records against only one hundred and twenty-one pads is the densest door-to-space ratio of any stage."
+    },
+    {
+      "id": "bunker2-mp-five-spawns-are-punishable",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "This is the only converted map with as few spawn points as the tightest dedicated arenas, so spawn denial is a real strategy here rather than opportunism.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "few_spawns" },
+      "because": "The arena carries five Spawn records, against seven or eight on the other converted maps."
+    },
+    {
+      "id": "bunker2-mp-small-and-dense",
+      "kind": "timing",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The stage is physically small, so contacts are constant and there is little opportunity to reload or reposition unmolested.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "expect_alarm", "reason": "constant_contact" },
+      "because": "One hundred and twenty-one pads is the smallest of any converted arena."
+    },
+    {
+      "id": "bunker2-mp-no-long-shots",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "There is nowhere on the map with a long clear line, so precision weapons have no role and rate of fire decides fights.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "avoid", "target": "long_range_plan" }
+    },
+    {
+      "id": "bunker2-mp-explosives-hurt-you",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The rooms are too small to fire explosives without catching yourself, so those sets play badly here.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "avoid", "target": "own_blast_radius" }
+    },
+    {
+      "id": "bunker2-mp-doors-give-you-away",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because everything is doors, every move is announced by one opening; surprise comes from timing rather than from stealth.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "door_opening" }
+    },
+    {
+      "id": "bunker2-mp-monitors-block-sight",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Banks of monitors and screens break up the interior further, giving small pockets of cover in rooms that otherwise have none.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover", "at": "monitor_bank" },
+      "because": "The arena carries eight SingleMonitor and two HangingMonitor records."
+    },
+    {
+      "id": "bunker2-mp-hold-a-single-entry-room",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The most defensible positions are the rooms with one door, because the door-heavy layout means most rooms have several.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "camp_at", "position": "single_entry_room" }
+    },
+    {
+      "id": "bunker2-mp-ltk-is-door-roulette",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills in a map of doorways means whoever opens a door first usually dies, so the mode rewards waiting for someone else to move.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "camp_at", "position": "door_overwatch" }
+    },
+    {
+      "id": "bunker2-mp-flag-is-hard-to-hold",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An unarmed carrier has almost nowhere to run in a small door-locked map, so holds are short and the mode becomes a rapid exchange of the flag.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "prioritise_target", "target": "flag_carrier", "over": "all" }
+    },
+    {
+      "id": "bunker2-mp-standard-loadout",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Pickups are the normalised conversion set, so neither armour nor ammunition is scarce enough to fight over; position is the only real resource.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "door_network" },
+      "because": "The arena carries the standard conversion loadout of two Armour, sixteen AmmoBox and nine Collectable records."
+    },
+    {
+      "id": "bunker2-mp-dark-interior",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The stage is dimly lit throughout, so darker characters gain a small but real advantage at the ranges the map actually fights at.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "dark" }
+    }
+  ]
+}

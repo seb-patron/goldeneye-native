@@ -1,0 +1,157 @@
+{
+  "level": "temple",
+  "arena": true,
+  "notes": [
+    "Temple is wide rooms joined by narrow halls, with the pickups concentrated high and a single armour. That combination makes it the most vertical arena and the one where holding the top floor is closest to holding the map.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "temple-single-armour-is-the-map",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "There is exactly one body armour, so it is a single contested point rather than a circuit; whoever holds it holds a standing advantage until it is taken from them.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hoard_pickup", "item": "body_armour" },
+      "because": "Temple carries a single Armour record, matching Basement and against three in Complex and Library."
+    },
+    {
+      "id": "temple-pickups-are-high",
+      "kind": "control",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The armour and the better weapons sit at or near the top of the structure, so the upper floor is worth holding for supply reasons before any positional ones.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "temple-overlook-the-lower-room",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A large opening in the upper floor looks down into the room below, which is a free firing position on anyone crossing it who has not thought to look up.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "camp_at", "position": "upper_opening" }
+    },
+    {
+      "id": "temple-is-a-sniping-map",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The wide rooms give the long sightlines that most arenas lack, so long-range weapons are genuinely strong here rather than merely usable.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "temple-rockets-work-in-the-big-rooms",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The open rooms give explosives room to travel without catching the firer, which is not true of the tighter arenas.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "temple-hidden-doors",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Several doors are concealed in the walls, so a player can leave a room by a route an opponent does not know exists and reappear from an unexpected side.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "hidden_door" }
+    },
+    {
+      "id": "temple-mine-the-doors",
+      "kind": "mode",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Because the wide rooms connect only through a small number of doorways, mining the doors covers nearly all movement on the map.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "door" },
+      "because": "Temple carries six Door records against forty-one pads, so the doorways are a genuinely small set relative to the space."
+    },
+    {
+      "id": "temple-narrow-halls-punish-explosives",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The corridors joining the rooms are tight enough that an explosive fired inside one kills the firer as readily as the target.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "break_line_of_sight", "when": "close_range" }
+    },
+    {
+      "id": "temple-rooms-favour-the-hunted",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The rooms are large enough that a moving target at range is hard to hit, so an outgunned player is better off in the open here than in a corridor.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "strafe_unpredictably", "at": "open_room" }
+    },
+    {
+      "id": "temple-five-spawns-can-be-covered",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "With only five spawn points, spawn denial is a viable strategy here rather than an opportunistic bonus.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "few_spawns" },
+      "because": "Temple carries five Spawn records, the joint fewest of any arena."
+    },
+    {
+      "id": "temple-watch-which-door-they-take",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "In split-screen play the concealed doors give away nothing to the opponent who is watching your pane, so on this map screen-watching decides where ambushes land.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "assume": "position_known" }
+    },
+    {
+      "id": "temple-good-for-newcomers",
+      "kind": "meta",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The open rooms make it forgiving for weaker players, since distance and space substitute for reaction time in a way the corridor maps do not allow.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "strafe_unpredictably" }
+    },
+    {
+      "id": "temple-hold-the-top-in-ltk",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills plus long sightlines make the upper floor overwhelming, so control of the top is close to a win condition in this mode.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "temple-flag-uses-the-halls",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An unarmed carrier should stay in the narrow connecting halls rather than the rooms, because the open space that protects an armed player exposes a defenceless one.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "narrow_hall" }
+    },
+    {
+      "id": "temple-drab-character",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Against the map's stone colouring, uniformed characters in muted tones are harder to pick out across the large rooms than brightly dressed ones.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "muted_uniform" }
+    },
+    {
+      "id": "temple-chase-potential",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The loop of rooms and halls sustains long chases, so a damaged player can usually break away rather than being cornered, which makes finishing kills harder than on other maps.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight" }
+    }
+  ]
+}

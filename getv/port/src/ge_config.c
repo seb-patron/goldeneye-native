@@ -34,7 +34,7 @@
  *   4. ~/Library/Application Support/GoldenEye/goldeneye.cfg   (macOS user config)
  *
  * argv[0] is used rather than _NSGetExecutablePath() deliberately: this file is globbed
- * into the tvOS port layer too (build_sim.sh / build.sh compile port/src/*.c), and
+ * into the port layer too (build_sim.sh / build.sh compile port/src/*.c), and
  * <mach-o/dyld.h> is a macOS-only header. argv[0] is portable C.
  *
  * File format

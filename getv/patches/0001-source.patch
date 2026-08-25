@@ -5762,7 +5762,7 @@ index 3539224..a38297d 100644
  Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
  f32 getPlayer_c_lodscalez(void);
 diff --git a/src/game/bondview2.c b/src/game/bondview2.c
-index 677ea82..4a1ed21 100644
+index 677ea82..1580daf 100644
 --- a/src/game/bondview2.c
 +++ b/src/game/bondview2.c
 @@ -1,4 +1,5 @@
@@ -6669,7 +6669,7 @@ index 677ea82..4a1ed21 100644
 + * every frame, so a skipped tick redraws the previous camera unchanged and the view moves in
 + * steps. This smooths the VIEW ONLY.
 + *
-+ * 🔴 It writes nothing back into game state, and that restriction is the whole design.
++ * It writes nothing back into game state, and that restriction is the whole design.
 + * GoldenEye's AI reads state as discrete fact -- chraction.c branches on positions and on
 + * render visibility -- so a blended value entering the simulation produces erratic behaviour
 + * that is far harder to diagnose than judder. The camera basis is a render input and nothing
@@ -9640,7 +9640,7 @@ index f8fe0eb..a5c270e 100644
      {
          modelSetScale(model, scale);
 diff --git a/src/game/chraction.c b/src/game/chraction.c
-index efe9d51..c1f6270 100644
+index efe9d51..491ee6f 100644
 --- a/src/game/chraction.c
 +++ b/src/game/chraction.c
 @@ -1,4 +1,6 @@
@@ -10369,7 +10369,7 @@ index efe9d51..c1f6270 100644
 + * puts far more beams, sounds, impacts and animation through the frame than any authored
 + * encounter, which is exactly the load that exposes frame-timing and rendering problems.
 + *
-+ * 🔴 It does NOT change the weapon a guard carries. It redirects the four
++ * It does NOT change the weapon a guard carries. It redirects the four
 + * bondwalkItemGetAutomaticFiringRate() reads in the firing block and nothing else, so guards
 + * shoot at the chosen weapon's rhythm while still holding, animating and sounding their own
 + * gun. Named for what it does: an earlier name implied a weapon swap and that was wrong.
@@ -10382,7 +10382,7 @@ index efe9d51..c1f6270 100644
 + * Off unless set; the value is an ITEM_ id -- 10 is the D5K, 14 the FN P90, 25 the rocket
 + * launcher.
 + *
-+ * ⚠️ ITEM_LASER, ITEM_ROCKETLAUNCH and ITEM_GRENADELAUNCH take different code paths in the
++ * ITEM_LASER, ITEM_ROCKETLAUNCH and ITEM_GRENADELAUNCH take different code paths in the
 + * firing block; overriding to one of those is legitimate but exercises a different branch. */
 +static s32 gePortChrWeapon(s32 item)
 +{
@@ -12312,7 +12312,7 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..dcfb3fd 100644
+index cb8e24a..932900f 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
 @@ -1,3 +1,4 @@
@@ -12379,7 +12379,7 @@ index cb8e24a..dcfb3fd 100644
 + *
 + * Default 1, which ticks every frame and is exactly the behaviour that existed before.
 + *
-+ * ⚠️ EXPERIMENTAL. Without interpolation a skipped tick redraws the previous simulation state
++ * EXPERIMENTAL. Without interpolation a skipped tick redraws the previous simulation state
 + * unchanged, so motion judders in proportion to the divider. Whether game time stays correct
 + * across a divider is a measurement, not an assumption: updateFrameCounters() still runs every
 + * frame here, so the simulation sees one field of delta per tick while n fields of real time
@@ -12436,7 +12436,7 @@ index cb8e24a..dcfb3fd 100644
 +        /* GETV_SIMDIV=auto picks the divider from the refresh rate so the SIMULATION lands on
 +         * GE_SIM_TARGET_HZ, which is the cadence the game was authored for.
 +         *
-+         * 🔑 The divider is not the thing that matters -- the resulting sim rate is. A divider
++         * The divider is not the thing that matters -- the resulting sim rate is. A divider
 +         * of 4 is wrong at 60Hz (15Hz sim) and exactly right at 120Hz (30Hz sim), so a fixed
 +         * number cannot be correct across displays and asking the user for one invites the
 +         * misconfiguration this exists to prevent.
@@ -12474,7 +12474,7 @@ index cb8e24a..dcfb3fd 100644
 +         * speed from render rate. It costs determinism (port_os.c:180), which is why it is
 +         * not the default at 60Hz where it changes nothing.
 +         *
-+         * ⚠️ UNVERIFIED ON THIS HARDWARE. The machine this was written on is a 60Hz panel and
++         * UNVERIFIED ON THIS HARDWARE. The machine this was written on is a 60Hz panel and
 +         * the headless harness is compute-bound at ~56fps, so GETV_FPS changes nothing that
 +         * can be measured here. This warning encodes the reasoning; it is not a test result. */
 +        {
@@ -13858,7 +13858,7 @@ index a9453df..b88c58a 100644
      return gdl;
  }
 diff --git a/src/game/glass2.c b/src/game/glass2.c
-index a2d72f9..10758d7 100644
+index a2d72f9..789abf3 100644
 --- a/src/game/glass2.c
 +++ b/src/game/glass2.c
 @@ -12,6 +12,10 @@
@@ -13880,7 +13880,7 @@ index a2d72f9..10758d7 100644
 -    vtx.v.cn[1] = ((u8 *) thing)[0x29];
 -    vtx.v.cn[2] = ((u8 *) thing)[0x2a];
 -    vtx.v.cn[3] = ((u8 *) thing)[0x2b];
-+    /* 🔴 The bullet-spark colour, read BY NAME rather than at a hardcoded byte offset.
++    /* The bullet-spark colour, read BY NAME rather than at a hardcoded byte offset.
 +     *
 +     * This was ((u8 *) thing)[0x28..0x2b]. s_bullet_spark carries a `void *unk0C`, which is
 +     * 4 bytes on the N64 and 8 here, so every field after it shifts and the struct grows from
@@ -13896,7 +13896,7 @@ index a2d72f9..10758d7 100644
 +     * random colours (docs/COLOUR_BUGS.md section 4) -- and the decal is what every previous
 +     * investigation looked at. The spark is a different object drawn at the same instant.
 +     *
-+     * ⚠️ A byte offset into a struct is only ever valid for the ABI it was written against.
++     * A byte offset into a struct is only ever valid for the ABI it was written against.
 +     * Grep for the shape, not for this instance. */
 +    {
 +        static s32 tr = -1;
@@ -32130,7 +32130,7 @@ index cb031cc..251d75c 100644
  
 diff --git a/tools/gen_propdef_layout.py b/tools/gen_propdef_layout.py
 new file mode 100644
-index 0000000..42d6583
+index 0000000..873b337
 --- /dev/null
 +++ b/tools/gen_propdef_layout.py
 @@ -0,0 +1,648 @@
@@ -32164,7 +32164,7 @@ index 0000000..42d6583
 +     c. FATAL for an index/ID segment, REPORTED for plain data -- whatever is clipped
 +        off the end.  Three types legitimately clip trailing runtime-only fields.
 +
-+   🔴 BE HONEST ABOUT WHAT THESE CANNOT DO.  Check (a) does NOT catch the padding
++   BE HONEST ABOUT WHAT THESE CANNOT DO.  Check (a) does NOT catch the padding
 +   shear described below: inflating a member by its own trailing padding leaves the
 +   NATIVE total unchanged, because the alignment rounding that follows would have
 +   added those bytes anyway.  Only the file side moves.  What actually catches this
@@ -32173,7 +32173,7 @@ index 0000000..42d6583
 +   non-zero file word that no segment covers.  MEASURED: pre-fix binary, 66 such
 +   words across 20 of the 40 stages; post-fix, 0 across all 40.
 +
-+🔴🔴 THE BUG THIS FILE WAS REWRITTEN TO KILL (2026-08-21)
++THE BUG THIS FILE WAS REWRITTEN TO KILL (2026-08-21)
 +--------------------------------------------------------
 +The previous version took each member's size to be `next_member_offset - offset`.
 +In a native struct that is the member size PLUS the alignment padding in front of
@@ -32195,7 +32195,7 @@ index 0000000..42d6583
 +It ALSO made the GETV_PDEFGAP census under-report, because file word 0x4 counted
 +as "covered".  Same one-word shear in 20 of the 34 record types.
 +
-+🔑 SECOND DEFECT, INDEPENDENT: pointer-typed members were dropped WHOLESALE, on the
++SECOND DEFECT, INDEPENDENT: pointer-typed members were dropped WHOLESALE, on the
 +assumption that a pointer slot is always runtime state and always zero in the file.
 +That is false for `union { T *ptr; s32 Index; }` -- LinkRecord.Index1/2,
 +LockDoorRecord.Index1/2, SafeObjectRecord.Index1/2/3 -- where the file carries a
@@ -32204,7 +32204,7 @@ index 0000000..42d6583
 +AI-list ID.  Those are emitted now, as separate segment ranges so the runtime can
 +still A/B them (GETV_PDEFIDS / GETV_VEHAI).
 +
-+⚠️ A pointer slot the file populates cannot always be recognised from its type
++A pointer slot the file populates cannot always be recognised from its type
 +(`ailist` is the proof).  PTR_HOLDS_ID below is the escape hatch, and the runtime
 +census in gePropdefsConvertToNative() -- which now runs UNCONDITIONALLY and shouts
 +about any non-zero file word that no segment covers -- is the backstop that makes
@@ -32214,7 +32214,7 @@ index 0000000..42d6583
 +-----
 +    python3 tools/gen_propdef_layout.py            # from the ge-decomp root
 +
-+⚠️ Re-run this after ANY change to a propDef struct in src/bondtypes.h.
++Re-run this after ANY change to a propDef struct in src/bondtypes.h.
 +"""
 +
 +import os, re, sys, subprocess
@@ -32241,7 +32241,7 @@ index 0000000..42d6583
 +          "-DLEFTOVERSPECTRUM -DBUGFIX_R0 -DTARGET_N64 -DGE_PORT_NATIVE -DNON_MATCHING=1 "
 +          "-DAVOID_UB=1 -D_LANGUAGE_C=1 -w -ferror-limit=0").split()
 +
-+# 🔑 Plain (non-union) pointer members whose FILE slot holds an ID, not a pointer.
++# Plain (non-union) pointer members whose FILE slot holds an ID, not a pointer.
 +# See the GETV-VEHAI note in loadobjectmodel.c: prop.c does
 +#     pdef_veh->ailist = ailistFindById((s32)(uintptr_t)pdef_veh->ailist);
 +# so the converter has to carry the 4 file bytes across.  There is no way to see
@@ -32298,7 +32298,7 @@ index 0000000..42d6583
 +        TYPEDEF'd union member is printed as plain `Mtxf mtx` with no keyword.
 +        The reliable structural tell is that every branch starts at the same
 +        offset -- which no struct with two or more real members can do.
-+        ⚠️ Measured: without the second test, `Mtxf mtx` (union{f32 m[4][4]; s32
++        Measured: without the second test, `Mtxf mtx` (union{f32 m[4][4]; s32
 +        unused}) was laid out as a 68-byte STRUCT, shifting everything after it
 +        in DoorRecord and every other record that embeds a matrix."""
 +        if self.text.startswith('union '):
@@ -32357,7 +32357,7 @@ index 0000000..42d6583
 +            if ms:
 +                size = int(ms.group(1))
 +                continue
-+            # ⚠️ clang prints a BITFIELD with a `byte:bitlo-bithi |` offset column, which
++            # clang prints a BITFIELD with a `byte:bitlo-bithi |` offset column, which
 +            # the member regex below does not match -- it would be skipped in SILENCE and
 +            # the record would size short.  Flag the record instead; build() refuses to
 +            # emit a layout for any record that reaches one, because N64 bitfields
@@ -32435,7 +32435,7 @@ index 0000000..42d6583
 +
 +
 +def record_leaf(node):
-+    """🔑 clang expands a nested struct MEMBER inline, but NOT an ARRAY of structs --
++    """clang expands a nested struct MEMBER inline, but NOT an ARRAY of structs --
 +    `MonitorRecord Monitor[4]` prints as one opaque leaf.  If that element type
 +    contains pointers its N64 stride is SMALLER than its native one, so it cannot be
 +    copied as a blob.  MEASURED: MultiMonitorObjRecord holds four MonitorRecords, each
@@ -32632,7 +32632,7 @@ index 0000000..42d6583
 +]
 +
 +# ---------------------------------------------------------------------------
-+# 🔑 A propDef record type can be READ through one struct and WRITTEN through a
++# A propDef record type can be READ through one struct and WRITTEN through a
 +# DIFFERENT one.  prop.c's walk casts the objective records to the `criteria_*` /
 +# `setup_objective_text` / `objective_entry` shapes in objective.c, and those carry a
 +# runtime `next`/parent POINTER that the *Record struct above does not.  `natwords` has
@@ -32767,12 +32767,12 @@ index 0000000..42d6583
 +clipped_types = sorted(k for k, v in CLIPPED.items() if v)
 +if clipped_types:
 +    sys.stderr.write(
-+        "\n⚠️  %d type(s) compute LARGER than the measured file record and were clipped:\n"
++        "\n%d type(s) compute LARGER than the measured file record and were clipped:\n"
 +        "    %s\n"
 +        "    That is legitimate ONLY when the excess is trailing RUNTIME state the ROM\n"
 +        "    never stored (CCTVRecord's timer/convert_to_f32/unkF0.., GlassRecord and\n"
 +        "    SafeRecord's runtime `normal`).  It is ALSO what a one-word layout SHEAR\n"
-+        "    looks like -- the defect this generator was rewritten to kill.  🔑 The\n"
++        "    looks like -- the defect this generator was rewritten to kill.  The\n"
 +        "    static checks CANNOT tell those two apart: inflating a member by its own\n"
 +        "    trailing padding leaves the native total unchanged, so the round-trip check\n"
 +        "    stays green.  The thing that CAN tell them apart is the runtime census in\n"

@@ -1,0 +1,150 @@
+{
+  "level": "facility",
+  "arena": true,
+  "notes": [
+    "Facility is widely rated the best arena in the game, and the data says why: twenty-nine doors across a looping layout, which makes it the map with the most ways to arrive somewhere unexpected.",
+    "It is a converted campaign map, so its pickups are the standard conversion loadout rather than hand-placed. Armour is not the contested prize it is on the purpose-built arenas -- the doors are.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "facility-mp-doors-are-the-map",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "This is a doorway map above all else: nearly every engagement starts at a threshold, and knowing which doors connect is worth more than any weapon.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "The arena setup carries twenty-nine Door records, the most of any multiplayer stage except Bunker."
+    },
+    {
+      "id": "facility-mp-loops-enable-flanking",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The corridors loop rather than dead-end, so a player who breaks contact can come back around behind the opponent who chased them.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "via": "flank_route" }
+    },
+    {
+      "id": "facility-mp-never-hold-a-corridor",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because everything loops, holding a corridor means being approached from both ends; positions have to be rotated rather than held.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "corridor_junctions" }
+    },
+    {
+      "id": "facility-mp-standard-pickup-loadout",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Pickups here are the normalised conversion set rather than hand-tuned, so armour control matters less than on the purpose-built arenas and map knowledge matters more.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "Facility, Archives, Caverns, Egypt and Bunker all carry an identical two Armour, sixteen AmmoBox, nine Collectable loadout, unlike the dedicated arenas which range from one to three armours and eleven to thirty-one ammo boxes."
+    },
+    {
+      "id": "facility-mp-vents-bypass-doors",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The vent system connects rooms without using their doors, which defeats anyone watching or mining a doorway.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "vent" }
+    },
+    {
+      "id": "facility-mp-mine-the-vents-not-the-doors",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Doors are so numerous that mining them is inefficient; the vents are few, heavily used and approached blind, which makes them the better placement.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "vent" }
+    },
+    {
+      "id": "facility-mp-tinted-glass-hides-you",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Several partitions are tinted glass, which conceals more than clear glass while still being destructible, so a wall that hid you a moment ago may not next time.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "beware": "glass" },
+      "because": "The arena carries eight TintedGlass records."
+    },
+    {
+      "id": "facility-mp-eight-spawns-defeat-camping",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "With eight spawn points, holding a reappearance point is wasted effort; controlling the door network is the better use of position.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "door_network" },
+      "because": "The arena carries eight Spawn records, joint most of any stage."
+    },
+    {
+      "id": "facility-mp-doors-announce-you",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Doors are audible and visible as they open, so approaching through one gives warning; the vents and already-open routes are quieter.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "door_opening" }
+    },
+    {
+      "id": "facility-mp-short-sightlines",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Sightlines are short and broken by doors and corners, so precision long-range weapons are weak here and fast-firing ones are strong.",
+      "applies": { "weapon_set": "automatics" },
+      "action": { "verb": "prefer_weapon", "weapon": "automatic" }
+    },
+    {
+      "id": "facility-mp-ltk-is-about-doors",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "With one-hit kills, whoever is already aiming at a door when it opens wins, so the mode becomes a contest of predicting which door an opponent will use.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "camp_at", "position": "door_overwatch" }
+    },
+    {
+      "id": "facility-mp-flag-runs-the-loop",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The looping layout is ideal for an unarmed carrier, who can circle indefinitely without ever being cornered as long as they keep moving.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "corridor_loop" }
+    },
+    {
+      "id": "facility-mp-golden-gun-holds-a-door",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A marked holder should sit where only one door can be entered from, forcing the three hunters to arrive one at a time into a one-shot weapon.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "fight_from_chokepoint", "at": "single_entry_room" }
+    },
+    {
+      "id": "facility-mp-sound-is-unreliable-here",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The dense corridor network carries sound from rooms that are not actually adjacent, so audio gives presence but not direction.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "footsteps", "caveat": "direction_unreliable" }
+    },
+    {
+      "id": "facility-mp-lab-coat-characters",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The map's pale interior makes light-coloured characters harder to pick out than dark ones, reversing the usual advice.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "light_uniform" }
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "level": "archives",
+  "arena": true,
+  "notes": [
+    "Archives is the glass map. Sixteen breakable panes plus ten doors means cover is provisional here in a way it is nowhere else -- a wall that protected you a moment ago stops existing once somebody shoots it.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "archives-mp-cover-is-temporary",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Much of the apparent cover is breakable glass, so a position that worked once will not survive being contested; cover has to be re-judged after every exchange.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "beware": "glass" },
+      "because": "The arena carries sixteen Glass records, the most of any multiplayer stage."
+    },
+    {
+      "id": "archives-mp-shoot-out-the-glass-deliberately",
+      "kind": "weapon",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Clearing glass on purpose opens firing lines that did not exist and denies an opponent a position they were relying on, which is a stronger opening move here than seeking a fight.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "via": "broken_glass" },
+      "because": "The arena's sixteen Glass records are destructible props rather than fixed geometry."
+    },
+    {
+      "id": "archives-mp-glass-is-noisy",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Breaking glass announces both your position and that a sightline has changed, so it is never a free action.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "breaking_glass" }
+    },
+    {
+      "id": "archives-mp-eight-spawns-resist-denial",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Eight spawn points is too many to hold, so effort goes into controlling the stairs and doorways rather than reappearance points.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "stairs" },
+      "because": "The arena carries eight Spawn records, joint most of any stage."
+    },
+    {
+      "id": "archives-mp-multi-level-fights",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The stage runs over more than one floor connected by stairs, so opponents arrive from above and below as often as along a corridor.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "floors" }
+    },
+    {
+      "id": "archives-mp-furniture-breaks-lines",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Desks and fittings split the floors into lanes, giving genuine cover that, unlike the glass, does not disappear when shot.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover", "at": "furniture" },
+      "because": "The arena carries eleven StandardProp records alongside its glass."
+    },
+    {
+      "id": "archives-mp-standard-loadout",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Pickups are the normalised conversion set, so neither armour nor ammunition is worth fighting over and the map is decided on position.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "The arena carries the standard conversion loadout of two Armour, sixteen AmmoBox and nine Collectable records."
+    },
+    {
+      "id": "archives-mp-doors-are-chokepoints",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Ten doors across a two-floor stage means movement between areas is predictable enough to watch or mine.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "The arena carries ten Door records."
+    },
+    {
+      "id": "archives-mp-mine-behind-glass",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A mine placed where glass has already been broken catches players taking the new route, which they treat as safe precisely because it is new.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "broken_glass" }
+    },
+    {
+      "id": "archives-mp-sniping-works-once",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "There are long sightlines here, but firing along one reveals the position and the glass around it will be broken shortly after, so a sniping spot is good for one or two shots rather than a match.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "camp_at", "position": "lane_end", "caveat": "relocate_after_firing" }
+    },
+    {
+      "id": "archives-mp-ltk-punishes-glass",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "With one-hit kills, standing behind glass is standing in the open, because a single round through it is lethal and it does not stop rounds anyway.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "avoid", "target": "glass_cover" }
+    },
+    {
+      "id": "archives-mp-flag-uses-the-stairs",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A carrier breaks pursuit by changing floors, since the stairs are the one place the map's long sightlines do not reach.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "stairs" }
+    }
+  ]
+}

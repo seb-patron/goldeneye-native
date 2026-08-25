@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - the asset bridge.
+/* GoldenEye native port - the asset bridge.
  *
  * The decomp extracts every asset to C source (assets/, 1,324 files), so the data is
  * already linked into the binary. There is no cartridge to DMA from and no ROM loader

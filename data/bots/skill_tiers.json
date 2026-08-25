@@ -1,0 +1,130 @@
+{
+ "kind": "skill_tiers",
+ "notes": [
+  "Skill tiers borrowed from Perfect Dark's simulants, which are the reference design: Rare shipped six graded opponents in this engine lineage and players still describe them by name twenty-five years later, which is the strongest evidence available that the gradation works.",
+  "The important part is that the tiers differ on MORE than accuracy. A bot that only shoots worse is a bot that feels identical and merely loses; Rare varied speed, hearing, weapon-seeking priority and behavioural complexity together, so a weak simulant plays like a novice rather than like an expert with a handicap.",
+  "Every opcode named here is checked against src/bondaicommands.h by tools/gen_bot_archetypes.py."
+ ],
+ "archetypes": [
+  {
+   "name": "meat",
+   "rank": 0,
+   "origin": "Perfect Dark MeatSim",
+   "summary": "An absolute novice. Moves slowly, sweeps its aim across a target rather than tracking it, and hits roughly one shot in ten.",
+   "dials": { "accuracy": 10, "speed": 70, "hearing": 50, "aggression": 40 },
+   "targeting": "nearest",
+   "weapon_policy": "none",
+   "behaviour": [
+    "Does not seek weapons or armour; fights with whatever it spawned holding.",
+    "Turns toward a target and fires without leading or tracking it.",
+    "No evasion at all -- does not sidestep, roll or take cover."
+   ],
+   "opcodes": [
+    "guard_set_accuracy_rating", "guard_set_speed_rating", "guard_set_hearing_scale",
+    "guard_try_facing_target", "guard_try_fire_or_aim_at_target",
+    "guard_walks_to_pad", "if_guard_sees_bond"
+   ]
+  },
+  {
+   "name": "easy",
+   "rank": 1,
+   "origin": "Perfect Dark EasySim",
+   "summary": "A beginner. Still slower than a person, still inaccurate, but it moves with some intent rather than wandering.",
+   "dials": { "accuracy": 30, "speed": 85, "hearing": 70, "aggression": 50 },
+   "targeting": "nearest",
+   "weapon_policy": "best_available",
+   "behaviour": [
+    "Will pick up a better weapon if it walks over one, but does not route to them.",
+    "Fires while walking rather than standing still to shoot.",
+    "Reacts to being shot, but slowly."
+   ],
+   "opcodes": [
+    "guard_set_accuracy_rating", "guard_set_speed_rating", "guard_set_hearing_scale",
+    "guard_try_firing_walk", "guard_try_fire_or_aim_at_target",
+    "guard_runs_to_pad", "if_guard_sees_bond", "if_guard_heard_bond"
+   ]
+  },
+  {
+   "name": "normal",
+   "rank": 2,
+   "origin": "Perfect Dark NormalSim",
+   "summary": "An average player. Moves at human speed, hits a bit more than half its shots, and fights competently without doing anything clever.",
+   "dials": { "accuracy": 60, "speed": 100, "hearing": 100, "aggression": 60 },
+   "targeting": "nearest",
+   "weapon_policy": "best_available",
+   "behaviour": [
+    "Routes to weapons and armour when not in a fight.",
+    "Uses basic evasion -- sidesteps while firing.",
+    "Investigates sounds rather than only reacting to what it sees."
+   ],
+   "opcodes": [
+    "guard_set_accuracy_rating", "guard_set_speed_rating", "guard_set_hearing_scale",
+    "guard_try_firing_walk", "guard_try_sidestepping", "guard_try_fire_or_aim_at_target",
+    "guard_runs_to_pad", "if_guard_sees_bond", "if_guard_heard_bond",
+    "if_guard_heard_bond_within_last_10_secs", "if_random_seed_less_than"
+   ]
+  },
+  {
+   "name": "hard",
+   "rank": 3,
+   "origin": "Perfect Dark HardSim",
+   "summary": "A good player. Slightly faster than human, accurate, and it evades properly instead of trading shots in the open.",
+   "dials": { "accuracy": 70, "speed": 110, "hearing": 130, "aggression": 70 },
+   "targeting": "nearest",
+   "weapon_policy": "best_available",
+   "behaviour": [
+    "Prioritises armour, and returns to it after fights.",
+    "Rolls and hops sideways under fire rather than only strafing.",
+    "Retreats from a fight it is losing instead of committing to it."
+   ],
+   "opcodes": [
+    "guard_set_accuracy_rating", "guard_set_speed_rating", "guard_set_hearing_scale",
+    "guard_try_firing_run", "guard_try_firing_roll", "guard_try_hopping_sideways",
+    "guard_try_fire_or_aim_at_target", "guard_sprints_to_pad",
+    "if_chr_health_less_than", "if_guard_sees_bond", "if_random_seed_less_than"
+   ]
+  },
+  {
+   "name": "perfect",
+   "rank": 4,
+   "origin": "Perfect Dark PerfectSim",
+   "summary": "An expert. Secures weapons and ammunition first, then hunts, and shoots almost everything it aims at.",
+   "dials": { "accuracy": 99, "speed": 120, "hearing": 160, "aggression": 85 },
+   "targeting": "nearest",
+   "weapon_policy": "best_available",
+   "behaviour": [
+    "Opens by collecting weapons and ammunition as fast as possible, and only then seeks fights.",
+    "Tracks a target through cover and fires the instant it reappears, rather than reacquiring.",
+    "Loses only to a genuinely better weapon rather than to better play."
+   ],
+   "opcodes": [
+    "guard_set_accuracy_rating", "guard_set_speed_rating", "guard_set_hearing_scale",
+    "guard_try_firing_run", "guard_try_firing_roll", "guard_try_running_to_side",
+    "guard_try_fire_or_aim_at_target", "guard_try_fire_or_aim_at_target_update",
+    "guard_sprints_to_pad", "guard_try_sprinting_to_bond_position",
+    "if_bond_item_total_ammo_less_than", "if_chr_health_less_than", "if_random_seed_less_than"
+   ]
+  },
+  {
+   "name": "dark",
+   "rank": 5,
+   "origin": "Perfect Dark DarkSim",
+   "summary": "Beyond expert. Effectively always knows where opponents are and rarely fails at what it sets out to do.",
+   "dials": { "accuracy": 100, "speed": 120, "hearing": 200, "aggression": 95 },
+   "targeting": "nearest",
+   "weapon_policy": "best_available",
+   "behaviour": [
+    "Perfect accuracy except against a moving target that is using cover, which is the one deliberate weakness left in it.",
+    "Effectively omniscient about opponent position rather than dependent on line of sight.",
+    "Pursues relentlessly and does not lose track of a target that breaks contact."
+   ],
+   "opcodes": [
+    "guard_set_accuracy_rating", "guard_set_speed_rating", "guard_set_hearing_scale",
+    "guard_try_firing_run", "guard_try_firing_roll", "guard_try_running_to_side",
+    "guard_try_fire_or_aim_at_target", "guard_try_fire_or_aim_at_target_update",
+    "guard_try_sprinting_to_bond_position", "guard_try_sprinting_to_chr_position",
+    "guard_sprints_to_pad", "if_random_seed_less_than"
+   ]
+  }
+ ]
+}

@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - the six host services Fast3D expects.
+/* GoldenEye native port - the six host services Fast3D expects.
  *
  * Perfect Dark supplies these from its own platform layer; GoldenEye's decomp has
  * no such layer, so the port provides them. See port/src/sys_shim.c. */

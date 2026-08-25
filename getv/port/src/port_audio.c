@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - the audio manager, replaced.
+/* GoldenEye native port - the audio manager, replaced.
  *
  * libultra's AL audio library (src/libultra/audio + Rare's src/libultrare/audio)
  * compiles natively and is linked for real - see build.sh's audio_sources(). So

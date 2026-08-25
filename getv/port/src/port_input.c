@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - SDL GameController, replacing the N64's SI bus.
+/* GoldenEye native port - SDL GameController, replacing the N64's SI bus.
  *
  * See port_input.h for why the SDL half lives in its own translation unit.
  *

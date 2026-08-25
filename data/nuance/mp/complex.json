@@ -1,0 +1,157 @@
+{
+  "level": "complex",
+  "arena": true,
+  "notes": [
+    "Complex is the competitive arena: three armours, seven spawns and hidden wall passages make it the map where map knowledge converts most directly into wins.",
+    "See mp/_general.json for the cross-arena layer -- aiming, spawns, modes and weapon sets."
+  ],
+  "nuance": [
+    {
+      "id": "complex-three-armours-support-rotation",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "With three armours the map cannot be controlled from one point; the strong pattern is a circuit between them rather than camping any single one.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "Complex carries three Armour records, tied with Library for the most of any arena."
+    },
+    {
+      "id": "complex-ramp-armour-is-the-power-spot",
+      "kind": "control",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The armour on the lit ramp is the map's contested point because it sits above the main room and is approached from below, giving whoever holds it the height on anyone coming for it.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "ramp_armour" }
+    },
+    {
+      "id": "complex-lean-over-the-ramp-wall",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Against someone aiming up from below, leaning out over the ramp wall beats strafing or walking out, because it exposes far less and returns to cover immediately.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover", "at": "ramp_wall" }
+    },
+    {
+      "id": "complex-hidden-wall-passages",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Sections of wall are painted to match the surrounding pattern and can be walked through; they are invisible to anyone who has not been told they exist.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "hidden_wall_passage" }
+    },
+    {
+      "id": "complex-passage-by-the-vent",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One concealed passage sits beside the coloured vent in the main two-ramp room, giving a route into that room that does not use either ramp.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "via": "vent_passage" }
+    },
+    {
+      "id": "complex-passage-off-the-armour-room",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A second concealed passage opens off the armour room at the top of the ramp, so the armour can be reached and left without using the obvious approach.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "armour_room_passage" }
+    },
+    {
+      "id": "complex-vents-enable-ambush",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The vents and passages exist so that a player can appear behind someone who watched them leave, which makes retreating along a known route unusually dangerous here.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "via": "flank_route" }
+    },
+    {
+      "id": "complex-seven-spawns-resist-camping",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Seven spawn points is too many to cover, so spawn denial works only as opportunism here rather than as a strategy.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "opportunistic" },
+      "because": "Complex carries seven Spawn records, second only to Library and Caves at eight."
+    },
+    {
+      "id": "complex-main-room-is-a-killzone",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The central room with the ramps is overlooked from several directions at once, so crossing it in the open is the most common way to die on this map.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "at": "main_room" }
+    },
+    {
+      "id": "complex-height-decides-fights",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The ramps make almost every engagement a vertical one, and the higher player wins the majority of them because the lower has to aim up while exposed on open floor.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "complex-proximity-mines-own-this-map",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The hidden passages and vents are narrow and heavily used, which makes them the best mine placements in the game; an opponent who knows the secret routes is punished for it.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "hidden_passage" }
+    },
+    {
+      "id": "complex-ltk-favours-the-passages",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "With one-hit kills the open main room becomes unusable and the match relocates entirely into the vents and passages.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "rotate_between", "anchor": "hidden_wall_passage" }
+    },
+    {
+      "id": "complex-flag-runs-the-passages",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An unarmed flag carrier survives here longer than on any other map, because the concealed routes break pursuit repeatedly rather than merely delaying it.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "hidden_wall_passage" }
+    },
+    {
+      "id": "complex-sound-carries",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The map is compact enough that footsteps and gunfire locate an opponent reliably, so listening is a better tracking tool here than the radar.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "footsteps" }
+    },
+    {
+      "id": "complex-camouflaged-character",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A character whose colouring matches the map's grey industrial walls is meaningfully harder to pick out at range in the larger rooms.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "grey_uniform" }
+    },
+    {
+      "id": "complex-ammo-is-adequate-not-plentiful",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Ammunition is mid-range for an arena, so sustained fire is affordable but not free and reloading position still matters.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "contest_pickup", "item": "ammo" },
+      "because": "Complex carries sixteen AmmoBox records, against eleven in Basement and thirty-one in Library."
+    }
+  ]
+}

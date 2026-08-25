@@ -1,0 +1,161 @@
+{
+  "level": "library",
+  "arena": true,
+  "notes": [
+    "Library is the best-supplied arena in the game: three armours, the most ammunition by a wide margin and eight spawn points. That abundance is its defining property -- attrition strategies fail here because nobody stays starved.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "library-abundance-defeats-attrition",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Denying supplies does not work here, because there is far too much of everything; matches are decided by fighting rather than by starving an opponent out.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "avoid", "target": "attrition_plan" },
+      "because": "Library carries three Armour records and thirty-one AmmoBox records, nearly three times Basement's eleven."
+    },
+    {
+      "id": "library-three-armours-need-a-circuit",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Three armours spread across the floors mean no single one can be held usefully; the map is played as a rotation.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "Library carries three Armour records, tied with Complex for the most."
+    },
+    {
+      "id": "library-eight-spawns-defeat-camping",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "With the joint-most spawn points in the game, spawn denial is not a workable plan here and effort is better spent holding routes than reappearance points.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "connecting_stairs" },
+      "because": "Library carries eight Spawn records, the joint most of any arena."
+    },
+    {
+      "id": "library-know-the-connections",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The whole map reduces to knowing where each level connects to the next; a player who knows the entrances and exits between floors controls the pace of every fight.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "floor_connections" }
+    },
+    {
+      "id": "library-go-down-when-chased",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The lower area is tighter and more enclosed, which makes it the reliable place to break pursuit; running along an upper floor keeps you visible.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "at": "lower_floor" }
+    },
+    {
+      "id": "library-upper-floors-are-exposed",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The open upper areas give long sightlines in several directions at once, so they are strong to hold and dangerous to cross.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hold_high_ground", "caveat": "exposed_while_crossing" }
+    },
+    {
+      "id": "library-glass-opens-sightlines",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Breakable glass means several apparent walls are not, so cover has to be judged by what is behind it rather than by what looks solid.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "beware": "glass" },
+      "because": "Library carries twelve Glass records."
+    },
+    {
+      "id": "library-doors-funnel-movement",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Movement between areas passes through a limited set of doorways, which are where engagements should be sought and mines should be placed.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "Library carries eight Door records."
+    },
+    {
+      "id": "library-shelves-break-lines",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The shelving splits the floor into lanes, so a fight is won by choosing which lane to be in rather than by out-shooting someone across an open room.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover", "at": "shelf_end" }
+    },
+    {
+      "id": "library-sustained-fire-is-affordable",
+      "kind": "weapon",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Ammunition is plentiful enough that suppressing a stairway or lane is a reasonable use of it, which is not true on the scarcer maps.",
+      "applies": { "weapon_set": "automatics" },
+      "action": { "verb": "control_area", "around": "stairs" },
+      "because": "Library carries thirty-one AmmoBox records, the most of any arena."
+    },
+    {
+      "id": "library-mines-on-the-stairs",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because the map is played as movement between floors, the stairs and connections are far better mine placements than any room.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "stairs" }
+    },
+    {
+      "id": "library-sniping-down-the-lanes",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The long lanes between shelving suit precise weapons, so a player holding one end of a lane covers a great deal of the floor.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "camp_at", "position": "lane_end" }
+    },
+    {
+      "id": "library-ltk-goes-quiet",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills plus long lanes turn the map cautious; players hold angles rather than push, and the lower floor becomes the only comfortable place to move.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "hold_low_ground" }
+    },
+    {
+      "id": "library-flag-runs-the-floors",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A carrier survives by changing floors repeatedly, using the enclosed lower area to break contact and the connections to stay ahead.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "floors" }
+    },
+    {
+      "id": "library-golden-gun-holder-goes-low",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The marked holder should take the enclosed lower area, where the three hunters have to arrive one at a time through known entrances.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "fight_from_chokepoint", "at": "lower_entrance" }
+    },
+    {
+      "id": "library-largest-arena-feel",
+      "kind": "meta",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "This is the most densely furnished of the dedicated arenas, which is why it supports four players without feeling cramped and why two-player matches on it drag.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "floors" },
+      "because": "Library carries seventy-one prop records against Basement's twenty-one, the widest spread among the arenas."
+    }
+  ]
+}

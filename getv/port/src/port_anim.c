@@ -1,4 +1,4 @@
-/* GoldenEye tvOS port - the animation-table loader.
+/* GoldenEye native port - the animation-table loader.
  *
  * What the N64 did (initanitable.c, alloc_load_expand_ani_table):
  *   1. romCopy() one contiguous animation-data segment out of the cartridge,

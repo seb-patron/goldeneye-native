@@ -1,0 +1,152 @@
+{
+  "level": "stack",
+  "arena": true,
+  "notes": [
+    "Stack is a multi-level arena built around interconnected passages, with two armours and a good deal of breakable glass. Its defining quirk is that the vertical advantage runs the opposite way to most maps.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "stack-low-ground-wins",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Between a player above and a player below, the lower one has the easier shot here, which inverts the height rule that holds on almost every other arena.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hold_low_ground" }
+    },
+    {
+      "id": "stack-dont-linger-up-top",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Time spent on the upper levels is time spent as the easier target, so the upper floors are crossed rather than held.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "avoid", "target": "upper_level_camping" }
+    },
+    {
+      "id": "stack-two-armours-need-a-route",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Two armours is enough to rotate between but few enough that both can be contested, so knowing the fastest path between them is worth more than holding either.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "Stack carries two Armour records, against one in Basement and Temple and three in Complex and Library."
+    },
+    {
+      "id": "stack-know-the-fastest-armour-route",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The map rewards knowing the shortest path to the nearest armour from wherever you happen to respawn, because the fights that matter are the ones fought on the way to it.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "nearest_armour" }
+    },
+    {
+      "id": "stack-passages-connect-unexpectedly",
+      "kind": "route",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The value of this map is in knowing which passage leads where; an opponent who does not can be reached from a direction they had no reason to watch.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "via": "flank_route" }
+    },
+    {
+      "id": "stack-glass-is-a-sightline",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "There is a great deal of breakable glass, so walls that look solid are shootable and cover that appeared reliable stops being so once someone has fired through it.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "break_line_of_sight", "beware": "glass" },
+      "because": "Stack carries twelve Glass records, among the most of any arena."
+    },
+    {
+      "id": "stack-shoot-through-the-glass",
+      "kind": "weapon",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Glass can be shot out deliberately to open a firing line that did not exist a moment earlier, which is a way to attack a camper who thinks they are covered.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "bait_into", "via": "broken_glass" },
+      "because": "The arena's twelve Glass records are destructible props rather than static geometry."
+    },
+    {
+      "id": "stack-doors-are-chokepoints",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "The map has an unusual number of doors, which makes it a doorway map: engagements happen at thresholds rather than in rooms.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "Stack carries ten Door records, more than any other dedicated arena."
+    },
+    {
+      "id": "stack-mine-the-doors",
+      "kind": "mode",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "With movement funnelled through many doorways, mines on doors cover a large share of the map's traffic for very little effort.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "door" },
+      "because": "Stack carries ten Door records, the most of any dedicated arena."
+    },
+    {
+      "id": "stack-five-spawns-can-be-pressured",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Five spawn points across a multi-level map means reappearances are predictable enough to pressure, though the vertical spread makes covering them harder than the count suggests.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "few_spawns" },
+      "because": "Stack carries five Spawn records."
+    },
+    {
+      "id": "stack-ammo-is-plentiful",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Ammunition is well supplied here, so sustained fire is affordable and suppressing a stairway or doorway is a viable use of it.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "contest_pickup", "item": "ammo" },
+      "because": "Stack carries twenty AmmoBox records, second only to Library."
+    },
+    {
+      "id": "stack-vertical-sound",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Because the levels stack directly over one another, footsteps heard nearby are often on a different floor entirely, which makes sound less reliable here than on flat maps.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "footsteps", "caveat": "may_be_other_floor" }
+    },
+    {
+      "id": "stack-ltk-favours-below",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The map's low-ground advantage becomes decisive when a single hit kills, so the lower floors are where a one-hit match should be fought.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "hold_low_ground" }
+    },
+    {
+      "id": "stack-flag-uses-the-vertical",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A carrier breaks pursuit best by changing floors rather than by running along one, since pursuers lose the audio and visual thread at every level change.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "rotate_between", "anchor": "floors" }
+    },
+    {
+      "id": "stack-golden-gun-from-below",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A marked gun holder should stay low, where the map's own geometry gives them the better shot against the three players hunting them.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "hold_low_ground" }
+    }
+  ]
+}

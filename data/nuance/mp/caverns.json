@@ -1,0 +1,132 @@
+{
+  "level": "caverns",
+  "arena": true,
+  "notes": [
+    "Caverns is the largest multiplayer stage in the game and the only converted map with fewer spawns than its size suggests. That combination makes it the one arena where players can genuinely lose each other, which changes the whole rhythm of a match.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "caverns-mp-largest-stage",
+      "kind": "meta",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "This is by some distance the biggest arena, so two-player matches involve long stretches of searching and it only really works with a full complement.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "high_traffic_routes" },
+      "because": "Three hundred and seventy pads, against one hundred and twenty-one for Bunker and thirty-five for Caves."
+    },
+    {
+      "id": "caverns-mp-hunt-the-routes-not-the-player",
+      "kind": "control",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Chasing an opponent across a map this size wastes the match; the productive approach is to sit on the routes that connect its areas and let them come.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "control_area", "around": "connecting_route" }
+    },
+    {
+      "id": "caverns-mp-strong-vertical",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The stage has serious height between its walkways and floors, so opponents appear above and below far more often than on the flat arenas.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "caverns-mp-doors-punctuate-the-space",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Despite the open feel, the areas connect through a substantial number of doors, which are the reliable places to find people in a map otherwise too big to search.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "The arena carries seventeen Door records."
+    },
+    {
+      "id": "caverns-mp-machinery-is-cover",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Industrial fittings break up the larger spaces, so the open areas are not as exposed as they first appear and can be crossed by working between them.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "lean_from_cover", "at": "machinery" },
+      "because": "The arena carries eighteen StandardProp records, the most of any converted stage."
+    },
+    {
+      "id": "caverns-mp-sniping-actually-works",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The size and the height give the long clear lines that most arenas lack, making this one of the few stages where precision weapons are genuinely strong.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "caverns-mp-explosives-have-room",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "There is enough space to fire explosives without catching yourself, which is not true of Bunker or Basement.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "hold_high_ground" }
+    },
+    {
+      "id": "caverns-mp-seven-spawns-spread-thin",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Seven spawn points across the largest map means reappearances are widely separated, so a killed opponent is genuinely gone rather than immediately back.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "opportunistic" },
+      "because": "Seven Spawn records spread across three hundred and seventy pads, the lowest spawn density of any arena."
+    },
+    {
+      "id": "caverns-mp-armour-is-worth-the-trip",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Unlike the compact conversions, the two armours here are far apart, so taking one is a real commitment and denying both is not possible.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "The standard two Armour records are spread over the largest arena in the game."
+    },
+    {
+      "id": "caverns-mp-sound-is-the-main-sensor",
+      "kind": "positioning",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "On a map this large, gunfire is the most reliable indicator of where anyone is, so firing unnecessarily is a real cost.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "listen_for", "signal": "gunfire" }
+    },
+    {
+      "id": "caverns-mp-ltk-goes-slow",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills across long sightlines make players extremely cautious, and matches here become slow and positional rather than frantic.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "camp_at", "position": "overwatch" }
+    },
+    {
+      "id": "caverns-mp-flag-holds-are-long",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The size means an unarmed carrier can stay lost for a long time, so a single good hold can decide the match and pursuers should split up rather than follow together.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "control_area", "around": "connecting_route" }
+    },
+    {
+      "id": "caverns-mp-golden-gun-can-hide",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A marked holder benefits enormously from the space, since the marker tells hunters who to chase but the map makes reaching them slow.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "hold_high_ground" }
+    }
+  ]
+}

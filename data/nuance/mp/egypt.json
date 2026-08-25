@@ -1,0 +1,123 @@
+{
+  "level": "egypt",
+  "arena": true,
+  "notes": [
+    "Egypt is the simplest converted arena: six doors, six spawns and almost no destructible clutter. It is wide open stone rooms, which makes it the converted map that plays most like Temple and least like Facility.",
+    "See mp/_general.json for the cross-arena layer."
+  ],
+  "nuance": [
+    {
+      "id": "egypt-mp-open-rooms",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "The stage is large open chambers with very little furniture, so there is almost nothing to hide behind and fights are decided at range in the open.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "strafe_unpredictably", "at": "open_room" },
+      "because": "The arena carries no StandardProp or Glass records at all, unlike every other converted stage."
+    },
+    {
+      "id": "egypt-mp-few-doors",
+      "kind": "positioning",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "With only six doors, the connections between areas are few and obvious, so movement is highly predictable and worth watching.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "fight_from_chokepoint", "at": "doorway" },
+      "because": "The arena carries six Door records, fewest of any converted stage and a sixth of Bunker's thirty-six."
+    },
+    {
+      "id": "egypt-mp-mine-the-few-doors",
+      "kind": "mode",
+      "confidence": "verified",
+      "source": "community+game-data",
+      "claim": "Because there are so few connections, a handful of mines covers essentially all movement between areas, which is a far higher return than on the door-dense maps.",
+      "applies": { "weapon_set": "proximity_mines" },
+      "action": { "verb": "mine_chokepoint", "at": "door" },
+      "because": "Six Door records is the smallest connection set of any converted arena."
+    },
+    {
+      "id": "egypt-mp-six-spawns-are-workable",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Six spawn points in a moderate space makes spawn pressure viable, particularly with the few doors funnelling movement afterwards.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "deny_spawn", "viable_when": "few_spawns" },
+      "because": "The arena carries six Spawn records against eight on Facility and Archives."
+    },
+    {
+      "id": "egypt-mp-sniping-is-strong",
+      "kind": "weapon",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Long clear lines across open stone rooms make precision weapons unusually effective, and there is little cover to break the shot.",
+      "applies": { "weapon_set": "sniper_rifles" },
+      "action": { "verb": "camp_at", "position": "room_end" }
+    },
+    {
+      "id": "egypt-mp-explosives-are-safe-here",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "The rooms are large enough to fire explosives at range without self-damage, making those sets viable in a way they are not on the tight conversions.",
+      "applies": { "weapon_set": "rockets" },
+      "action": { "verb": "break_line_of_sight", "when": "close_range" }
+    },
+    {
+      "id": "egypt-mp-nowhere-to-break-contact",
+      "kind": "threat",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "With few doors and no clutter, disengaging is hard: a fight that starts usually finishes, so committing to one should be a decision rather than an accident.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "avoid", "target": "unwanted_engagement" }
+    },
+    {
+      "id": "egypt-mp-standard-loadout",
+      "kind": "control",
+      "confidence": "verified",
+      "source": "game-data",
+      "claim": "Pickups are the normalised conversion set, so armour is convenient rather than contested and position is the only real advantage.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "rotate_between", "anchor": "body_armour" },
+      "because": "The arena carries the standard conversion loadout of two Armour, sixteen AmmoBox and nine Collectable records."
+    },
+    {
+      "id": "egypt-mp-light-stone-favours-dark-characters",
+      "kind": "character",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "Against pale stone at the ranges this map fights at, a dark character is the more visible one, so lighter choices are better here.",
+      "applies": { "mode": "any" },
+      "action": { "verb": "pick_character", "character": "light_uniform" }
+    },
+    {
+      "id": "egypt-mp-ltk-is-a-shooting-gallery",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "One-hit kills with no cover and long lines make crossing a room close to suicide, so the mode collapses into holding doorways and waiting.",
+      "applies": { "mode": "licence_to_kill" },
+      "action": { "verb": "camp_at", "position": "door_overwatch" }
+    },
+    {
+      "id": "egypt-mp-flag-is-nearly-impossible",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "An unarmed carrier has no cover to break line of sight with and few routes to take, so holds here are the shortest of any arena.",
+      "applies": { "mode": "the_living_daylights" },
+      "action": { "verb": "prioritise_target", "target": "flag_carrier", "over": "all" }
+    },
+    {
+      "id": "egypt-mp-golden-gun-is-dominant-here",
+      "kind": "mode",
+      "confidence": "community",
+      "source": "community-consensus",
+      "claim": "A one-shot weapon in a map with long open sightlines and no cover is overwhelming, so contesting the initial pickup matters more here than anywhere else.",
+      "applies": { "mode": "the_man_with_the_golden_gun" },
+      "action": { "verb": "contest_pickup", "item": "golden_gun" }
+    }
+  ]
+}
