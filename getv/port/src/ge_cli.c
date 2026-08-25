@@ -181,6 +181,54 @@ static void ge_cli_report(int frame)
         }
     }
 
+    /* EVERYTHING NEARBY, not just the landmarks worth walking to.
+     *
+     * The nearest-of-each-kind lines answer "where should I go". They do not answer "what am I
+     * about to walk into", and those are different questions: a crate two metres ahead never
+     * appears as the nearest collectable, so a player steering by landmarks walks straight into
+     * furniture the level knowledge knew about all along.
+     *
+     * So: every prop within reach, whatever its kind, with range and relative bearing. Sorted by
+     * distance because the near ones are the ones that decide the next step. The level already
+     * carries all 4,871 of them; withholding the ones with no navigational purpose was the
+     * mistake. */
+    {
+        struct { float d, b; int kind; } near[10];
+        int count = 0;
+
+        n = geWorldPropCount();
+        for (i = 0; i < n; i++) {
+            GeWorldProp p2;
+            float dx, dz, d;
+            int j, k;
+
+            if (!geWorldProp(i, &p2)) { continue; }
+            dx = p2.x - st.x;
+            dz = p2.z - st.z;
+            d = (float) sqrt((double) ((dx * dx) + (dz * dz)));
+            if (d > 900.0f) { continue; }
+
+            /* Insertion sort into a fixed ten: a report longer than that stops being readable,
+             * and the tenth-nearest crate has never changed anyone's next move. */
+            k = count < 10 ? count : 9;
+            while (k > 0 && near[k - 1].d > d) {
+                if (k < 10) { near[k] = near[k - 1]; }
+                k--;
+            }
+            if (k < 10) {
+                for (j = (count < 10 ? count : 9); j > k; j--) { near[j] = near[j - 1]; }
+                near[k].d = d;
+                near[k].b = ge_cli_rel(st.x, st.z, p2.x, p2.z, st.angle);
+                near[k].kind = p2.kind;
+                if (count < 10) { count++; }
+            }
+        }
+        for (i = 0; i < count; i++) {
+            printf("near   %-13s %4.0f away, turn %+.0f\n",
+                   geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b);
+        }
+    }
+
     {
         GeWorldObjective ob;
         if (geWorldObjective(0, &ob)) {
