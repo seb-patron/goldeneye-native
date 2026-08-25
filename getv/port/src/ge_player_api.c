@@ -194,8 +194,49 @@ static s32 ge_playback(struct contsample *samples, s32 curlast)
             ge_advance_slot(slot);
             ge_pad_from_input(slot, &ge_held[slot], pad);
             if (ge_held_left[slot] > 0) { ge_held_left[slot]--; }
+
         } else {
             ge_pad_from_hardware(slot, pad);
+        }
+    }
+
+    /* A player slot is not always one pad, so movement is routed in a SECOND PASS.
+     *
+     * Under the four twin-stick styles -- 2.1 Plenty, 2.2 Galore, 2.3 Domino, 2.4 Goodhead --
+     * the engine reads MOVEMENT from a second controller at playernum + getPlayerCount() and
+     * leaves only the turn on the slot's own pad (bondview2.c:5371). This port defaults to 2.2
+     * Galore precisely so a modern dual analog stick maps onto it, so the split is the normal
+     * case here rather than an exotic one. A caller posting "walk forward" should not have to
+     * know any of that.
+     *
+     * It has to be a second pass. Writing the companion pad inside the loop above works and is
+     * then immediately undone: the loop visits slots in order, so slot 1's own iteration
+     * overwrites whatever slot 0 wrote into pads[1], and it overwrites it from HARDWARE, which
+     * is neutral. The symptom is an injected bot that turns correctly and never moves, with no
+     * sign that anything was written at all.
+     *
+     * The axes are split rather than mirrored. Writing the whole input to both pads would also
+     * land stick_x on the companion, where it means STRAFE, so the bot would sidestep every
+     * time it turned -- a subtler bug than the one being fixed, and one that reads as drift. */
+    for (slot = 0; slot < GE_MAX_SLOTS; slot++) {
+        extern int gePortPlayerMovePad(int idx);
+        int movepad;
+
+        if (ge_src[slot] != GE_SLOT_INJECTED) { continue; }
+
+        movepad = gePortPlayerMovePad(slot);
+        if (movepad == slot || movepad < 0 || movepad >= GE_MAX_SLOTS) { continue; }
+        if (ge_src[movepad] == GE_SLOT_INJECTED) { continue; }  /* a real player owns it */
+
+        {
+            OSContPad *own = &samples[index].pads[slot];
+            OSContPad *mp  = &samples[index].pads[movepad];
+
+            mp->button  = own->button;
+            mp->stick_x = 0;              /* strafe: not expressed by this API yet */
+            mp->stick_y = own->stick_y;   /* walk */
+            mp->errno   = 0;
+            own->stick_y = 0;             /* the slot's own pad no longer walks */
         }
     }
 

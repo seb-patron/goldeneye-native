@@ -213,7 +213,29 @@ void gePortBotRouteFrame(int frame)
     err = ge_br_norm180(bearing - ge_br_heading);
 
     {
-        float sx = err * GE_BR_TURN_GAIN;
+        /* NEGATED, and that is the fix rather than a convention wobble.
+         *
+         * The stick and the heading run in opposite senses: bondview2.c:7312 integrates
+         * vv_theta += speedtheta * delta * 3.5, and speedtheta is built from analogTurn with the
+         * sign the pad gives it, so a positive stick DECREASES the heading that atan2(x, z)
+         * reports. Steering with err * gain therefore drives the bot away from its waypoint
+         * instead of towards it.
+         *
+         * The failure is worse than "turns the wrong way", which is why it read as a freeze.
+         * The bot rotates away until the error reaches 180 degrees, and at the antipode the
+         * normalised error flips sign on the smallest heading change -- so the stick alternates
+         * hard left and hard right every frame and the net rotation is nothing. Measured on
+         * Bunker 1: heading went 360 to 325 away from a bearing of 146, then sat between
+         * err=-178 and err=+177 while distance grew from 2384 to 2503.
+         *
+         * GETV_BOT_ROUTE_SIGN=1 restores the old sense for an A/B. */
+        static int sign = 0;
+        float sx;
+        if (sign == 0) {
+            const char *e = getenv("GETV_BOT_ROUTE_SIGN");
+            sign = (e && *e && *e != '0') ? 1 : -1;
+        }
+        sx = (float) sign * err * GE_BR_TURN_GAIN;
         if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
         if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
         in.stick_x = (signed char) sx;
