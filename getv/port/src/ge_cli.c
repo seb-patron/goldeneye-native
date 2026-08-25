@@ -148,6 +148,28 @@ static void ge_cli_report(int frame)
     if (!gePlayerStateGet(ge_cli_slot, &st) || !st.present) { return; }
 
     printf("\n--- f%d ---\n", frame);
+    /* WHERE IN THE MAP, not just what is in front.
+     *
+     * Every other line here is relative to facing, which is the right form for acting on one
+     * thing and the wrong form for holding a picture. A reader given only bearings has to
+     * re-derive the world every time it turns, and cannot form a belief like "the objective is
+     * at the west end and I have been working west" -- which is the belief that would stop the
+     * player doubling back, as it currently does.
+     *
+     * Cardinals are a convenience OVER the axes, not a second coordinate system: north is -z,
+     * east is +x, stated once here so nothing downstream has to infer it and disagree. */
+    {
+        static const char *card[8] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+        float a = st.angle;
+        int idx;
+
+        while (a < 0.0f)      { a += 360.0f; }
+        while (a >= 360.0f)   { a -= 360.0f; }
+        idx = ((int) ((a + 22.5f) / 45.0f)) & 7;
+
+        printf("compass facing %s (%.0f deg)   north is -z, east is +x\n", card[idx], (double) a);
+    }
+
     printf("you    (%.0f %.0f %.0f) facing %.0f  room %d  hp %.0f%%  weapon %d  ammo %d/%d\n",
            (double) st.x, (double) st.y, (double) st.z, (double) st.angle, st.room,
            (double) (st.health * 100.0f), st.weapon, st.ammo_clip, st.ammo_reserve);
@@ -227,7 +249,7 @@ static void ge_cli_report(int frame)
      * carries all 4,871 of them; withholding the ones with no navigational purpose was the
      * mistake. */
     {
-        struct { float d, b; int kind; } near[10];
+        struct { float d, b, x, z; int kind; } near[10];
         int count = 0;
 
         n = geWorldPropCount();
@@ -254,12 +276,15 @@ static void ge_cli_report(int frame)
                 near[k].d = d;
                 near[k].b = ge_cli_rel(st.x, st.z, p2.x, p2.z, st.angle);
                 near[k].kind = p2.kind;
+                near[k].x = p2.x;
+                near[k].z = p2.z;
                 if (count < 10) { count++; }
             }
         }
         for (i = 0; i < count; i++) {
-            printf("near   %-13s %4.0f away, turn %+.0f\n",
-                   geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b);
+            printf("near   %-13s %4.0f away, turn %+.0f, at (%.0f %.0f)\n",
+                   geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b,
+                   (double) near[i].x, (double) near[i].z);
         }
     }
 

@@ -156,10 +156,58 @@ can a test.
 
 **Done when:** destroying a brake unit flips the objective to complete in the CLI report.
 
+## M3b. An ABSOLUTE frame per level, not just bearings relative to the player
+
+Every spatial answer the API gives is **relative to where the player is looking**: "door 278
+away, turn +89". That is the right form for acting on one thing, and it is the wrong form for
+building a picture. A bot told only relative bearings has to re-derive the whole world every time
+it turns, and it cannot hold a belief like "the objective is at the east end and I have been
+working west" — which is exactly the belief that would stop it doubling back, as it currently
+does on Train.
+
+The engine has an absolute frame already; we are throwing it away at the report boundary.
+
+**Do:**
+1. Report absolute world position for every listed thing, alongside the relative bearing. Both,
+   not one — the relative form is what you act on, the absolute form is what you remember.
+2. Give each level a stated frame: which world axis is north, and the extent of the playable
+   volume in each direction. `+x`, `+z` and `+y` are already consistent across the engine; what
+   is missing is saying so once, per level, so a consumer never has to infer it.
+3. A compass line in the CLI: the player's absolute facing as a cardinal plus the level's bounds,
+   so a reader knows where in the MAP they are rather than only what is in front of them.
+
+⚠️ Cardinals are a convenience over the axes, not a new coordinate system. Do not introduce a
+second frame that can disagree with the first — name the axes and derive the compass from them.
+
+**Done when:** the CLI report says where the player is in the level ("west third, facing north")
+and every listed object carries an absolute position, and a bot can answer "have I been here
+before" without re-deriving it from bearings.
+
 ## M4. Co-op with two humans
 
 Both players spawn apart, both cameras work, both walk. `GETV_SCRIPT` moves nobody, so this needs
 the player API driving slot 1 or a person at the second pad.
+
+## M6. Z-fighting: a steel plate clipping through the curved carriage wall
+
+Captured on Train: a riveted steel-plate texture punches through the lower half of a curved wall,
+appearing in front of geometry it should be behind. Classic depth-precision failure — two
+surfaces close enough together that the depth buffer cannot order them, so which one wins varies
+with view angle and distance.
+
+⚠️ **Do not "fix" this by nudging geometry.** The assets are the game's own and are correct on
+hardware; if a surface has to move, the port is wrong somewhere else. The N64 uses a 15.3
+fixed-point depth encoding with a specific near/far arrangement, and `N64_RCP_GRAPHICS.md` §O–§P
+carries the current far-plane truth — a depth range mapped differently in the port would produce
+exactly this, and would produce it on flat walls elsewhere too.
+
+**First questions, cheapest first:** does it move with distance or with angle? Does
+`GETV_SUPERSAMPLE` change it, which would implicate precision rather than ordering? Does the
+plate belong to the room display list or the prop path — the two go through different converters,
+and one of them has been wrong before.
+
+**Done when:** the plate renders behind the wall from every angle, and a flat-wall control
+elsewhere on Train is unchanged.
 
 ## M5. Frame timing, step 3
 
