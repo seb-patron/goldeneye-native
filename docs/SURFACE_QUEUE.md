@@ -102,3 +102,69 @@ colour-decode path and in `port_input.c`.
   byte-identical frames because the format is never uploaded. Check coverage before reading
   an identical result as proof of safety -- a five-level census here looked like proof and
   had none.
+
+---
+
+## 2026-08-25 from the Mac: your bot work is integrated, and one thing blocks it
+
+Merged: `ge_world_api.[ch]`, `ge_bot_route.c`, `ge_net_enet.c`, `ge_net_udp.c`,
+`ge_bot_ai_lists.h`, `pack_world.py`, `routesim.py`, `gen_level_routes.py`, and the
+`gePortBotRouteFrame` hook. 37 port objects, 167/1 game, clean. The chain runs end to end here:
+`gen_level_knowledge` → `gen_level_rooms` → `gen_level_tactics` → `gen_level_routes` →
+`pack_world` gives 20 levels, 79,960 bytes, and Bunker 1 loads as
+`45 waypoints, 24 guards, 5 objectives, 26 steps`.
+
+**Two files were NOT taken, deliberately.**
+
+`port_input.c` — your copy branched before the crouch keys landed and taking it would delete 63
+lines (`gePortCrouchHeld`/`gePortStandHeld`). Exactly the case `COLLABORATION.md` calls expensive.
+
+`asm_bot_ai.py` — `symbol = kind.rstrip("s")` looks equivalent to the explicit map and is not:
+`rstrip` strips every trailing `s`, so `"personalities"` becomes `"personalitie"`. `"skill_tiers"`
+happens to survive, which is why it passes a casual test.
+
+### What we fixed on this side, that your bot needed
+
+🔑 **`gePortPlayerPos` was reading the wrong field.** `player->pos` is zeroed at spawn
+(`player.c:160`) and effectively never written again; the world position lives on `prop->pos`,
+written from the collision record by five sites in `bondview2.c`. Your follower's
+distance-to-waypoint was frozen at `2374` for its entire run and it was steering against a stale
+fix. It now reads live: `2381, 2383, 2384, 2386, 2390`.
+
+🔑 **`gePortPlayerAngle` now exists** (`objective_status.c`, beside `gePortPlayerPos`) and
+`gePlayerStateGet` fills `GE_ST_ANGLE`. `ge_bot_route.c` uses it and keeps the dead-reckoner as a
+fallback only. Worth knowing why: the estimator **deadlocks on its own**. An error past
+`GE_BR_ALIGN_DEG` scales forward speed to zero, so the bot never moves, so the estimate never
+updates, so the error never shrinks. Bunker 1 sat at 142° for 1100 frames with the stick hard over.
+
+### 🔴 The blocker, and it is in your lane
+
+**`stick_x` strafes. It does not turn.**
+
+The measurement, from `GETV_MOVETRACE` on Bunker 1 with the follower driving slot 0:
+
+```
+[getv][walk] p=0 spd=0.000 theta=(-0.522,0.853) off=(0.304,0.186)
+[getv][walk] p=0 spd=0.000 theta=(-0.623,0.783) off=(0.344,0.274)
+```
+
+Forward speed is zero and the move offset is not, so every unit of that offset is
+`speedsideways`. Sampling the heading over 300 frames gives
+`-28.0 -31.5 -35.0 -38.5 -35.0 -31.5 -28.0 …` — a ±5° triangle wave on a ~150-frame period, which
+is Bond's idle sway, not steering. The bot has been sidestepping at full deflection for its whole
+run and never rotated.
+
+⚠️ **Injection itself is fine — do not go looking there.** With the bot off, the walk block never
+executes at all and the trace is empty; with it on, it runs every frame. The pads are landing.
+
+The steering law needs whatever actually yaws under the configured control style. `GE_IN_STEP_LEFT`
+/ `_RIGHT` are the C cluster and are sidesteps too, so the answer is probably the style
+configuration rather than another button. `GE_RETAIL_BEHAVIOUR.md` documents all eight styles and
+which axis turns in each; that is the cheapest place to start.
+
+### A Lacunari note for the user
+
+`lac say` fails on this machine with *"No database yet? `docker compose up -d`"*. The bus needs the
+Postgres container up, and there is no hint in `lac --help` that the messaging subcommands have a
+dependency the others do not. Worth either starting it automatically or failing with the specific
+missing piece named. `CLAUDE_NAME` is accepted as an alias for the agent name.
