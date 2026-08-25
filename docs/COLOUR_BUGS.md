@@ -194,3 +194,50 @@ and now by pointer width moving every field behind it. Grep for the SHAPE --
 ⚠️ Historical note: paintball genuinely was a GameShark function on hardware, which is why
 the cheat exists in the codebase at all. That made the symptom read as a cheat firing on its
 own, and it never was: `cheatIsActive(CHEAT_PAINTBALL)` measures 0 throughout.
+
+---
+
+## 7. The tree-wide sweep for the same pattern
+
+Prompted by section 6: a byte offset into a struct is only valid for the ABI it was written
+against, so the whole decomp was swept for the shape rather than for that one instance.
+477 source files, four shapes.
+
+### Fixed
+
+| site | was | why it was wrong here |
+|---|---|---|
+| `glass2.c:648` | `((u8 *) thing)[0x28..0x2b]` | pointer width grew the struct 0x2c→0x38; 0x28 became a **float**. The paintball flash. |
+| `propobj.c:2284` | `((u8 *) obj)[3] == 1` | byte 3 is `type` in FILE order, but `GE_SUBWORD3` reorders to `type state extrascale` on little-endian, so byte 3 is the **high byte of extrascale** |
+| `vtxstore.c:309,314` | `((s16 *) &<s32 global>)[1]` | halfword 1 is the LOW half on MIPS and the **HIGH** half here, which for a count of 0x50 or 0x14 is always **0** |
+| `chrprop.c:1344` | `((u8 *) &g_Textures[n])[0] & 0xf` | bitfield order: yields `hitTexture` on MIPS, `hitSound` here (section 5) |
+
+### Checked and cleared, with the reason
+
+- **`options.c` ×12** — `(u8 *) game_control_styles + n * 20 + k`. Looks exactly like the bad
+  shape and is fine: `game_control_styles` is a plain `u16[]`, so a 20-byte stride is 10
+  entries on every platform. **Struct-free arithmetic does not have this bug.**
+- **`gunfire.c:1293-1316`** — `((f32 *) nodepos)[0..2]` reads a `coord3d` as three floats.
+  Layout-independent.
+- **`gunfire.c:6939, 7012, 7126`** — `((u8 *) imageoffset)[4]` indexes ROM asset bytes, not a
+  host struct. The asset layout is fixed by the file format.
+- **`propobj.c:9152`** — `((f32 *) rodata)[n]` indexes a float table.
+- **`model.c:251`** — genuinely wrong (`*(model + 0x14)` on a `Model *`) but inside
+  `#ifdef DEBUG`, which this port never defines. Dead, left alone, noted here so the next
+  sweep does not re-flag it.
+- **`unk_092E50.c`, `propobj.c:8565`** — already carry written-up notes about this exact class
+  from earlier work.
+
+### How to run it again
+
+```bash
+grep -nE '\(\((u8|s8|u16|s16|u32|s32|f32|char) ?\*\)[^)]*\) ?\[ ?(0x[0-9a-fA-F]+|[1-9][0-9]*) ?\]' <files>
+grep -nE '\* ?\( ?(u8|s8|u16|s16|u32|s32|f32) ?\* ?\) ?\( ?\( ?(u8|char) ?\* ?\)' <files>
+```
+
+⚠️ **Triage on one question: does the offset land inside a struct whose layout the host ABI
+can change?** Asset bytes, `u16[]` tables and float triples are all fine. Structs with
+pointers, bitfields, or `long` are not.
+
+Smoke-tested after the changes on stages 9, 25, 33, 37 and 41: all boot, render and exit
+cleanly (`drawn` = 1, 2, 5, 5, 31).

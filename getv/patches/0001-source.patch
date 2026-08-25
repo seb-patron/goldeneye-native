@@ -25798,7 +25798,7 @@ index 8c877b2..bce9903 100644
      }
      else
 diff --git a/src/game/propobj.c b/src/game/propobj.c
-index 0ae7a3f..978329d 100644
+index 0ae7a3f..95ad74b 100644
 --- a/src/game/propobj.c
 +++ b/src/game/propobj.c
 @@ -6,6 +6,7 @@
@@ -25929,7 +25929,20 @@ index 0ae7a3f..978329d 100644
      copy_tile_RGB_as_24bit(prop->stan, prop->pos.x, prop->pos.z, col);
  
      tmp = (col[0] * 79 + col[1] * 156 + col[2] * 21) >> 8;
-@@ -6767,6 +6867,22 @@ void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88)
+@@ -2181,7 +2281,11 @@ void objSettle(ObjectRecord *obj, coord3d *arg1)
+ 
+     projectile = obj->projectile;
+ 
+-    if (((u8 *)obj)[3] == 1) {
++    /* Was ((u8 *)obj)[3], which meant `type`: it is byte 3 of the first FILE word, declared
++     * GE_SUBWORD3(extrascale, state, type) in PropDefHeaderRecord. On little-endian that macro
++     * reorders the group to `type state extrascale`, so physical byte 3 is the HIGH BYTE OF
++     * EXTRASCALE here and not the type at all. Read it by name. */
++    if (obj->type == 1) {
+         projectileFree(projectile);
+         obj->projectile = 0;
+         obj->runtime_bitflags &= ~0x80;
+@@ -6767,6 +6871,22 @@ void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88)
  
  Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorRecord *screen, Gfx *gdl, s32 arg4, s32 arg5)
  {
@@ -25952,7 +25965,7 @@ index 0ae7a3f..978329d 100644
      if (node && (node->Opcode & 0xff) == MODELNODE_OPCODE_DLCOLLISION) 
      {
          Vertex *vertices = dynAllocateVertices(4);
-@@ -6830,7 +6946,12 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
+@@ -6830,7 +6950,12 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
                  screen->offset += 3;
                  break;
              case TVCMD_SETTEXTURE:
@@ -25966,7 +25979,7 @@ index 0ae7a3f..978329d 100644
                  screen->offset += 2;
                  break;
              case TVCMD_PAUSE:
-@@ -6858,12 +6979,12 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
+@@ -6858,12 +6983,12 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
                  }
                  break;
              case TVCMD_SETCMDLIST:
@@ -25981,7 +25994,7 @@ index 0ae7a3f..978329d 100644
                  } 
                  else 
                  {
-@@ -7009,6 +7130,9 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
+@@ -7009,6 +7134,9 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
              }
          }
  
@@ -25991,7 +26004,7 @@ index 0ae7a3f..978329d 100644
          // Set up everything for rendering
          rwdata->DisplayListCollisions.gdl = gdl;
          rwdata->DisplayListCollisions.Vertices = vertices;
-@@ -7172,8 +7296,8 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
+@@ -7172,8 +7300,8 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
  
          if (destroyed)
          {
@@ -26002,7 +26015,7 @@ index 0ae7a3f..978329d 100644
          }
  
          gdl = mrData->gdl;
-@@ -8156,6 +8280,24 @@ s32 objDrop(PropRecord *prop)
+@@ -8156,6 +8284,24 @@ s32 objDrop(PropRecord *prop)
          chrpropActivate(prop);
          chrpropEnable(prop);
  
@@ -26027,7 +26040,7 @@ index 0ae7a3f..978329d 100644
          obj->runtime_pos.x = prop->pos.x = spB8.m[3][0];
          obj->runtime_pos.y = prop->pos.y = spB8.m[3][1];
          obj->runtime_pos.z = prop->pos.z = spB8.m[3][2];
-@@ -8413,6 +8555,55 @@ BoundVec D_8003207C = {-0x8000, -0x8000, -0x8000};
+@@ -8413,6 +8559,55 @@ BoundVec D_8003207C = {-0x8000, -0x8000, -0x8000};
  coord3d  D_80032088 = {0, 0, 0};
  
  
@@ -26083,7 +26096,7 @@ index 0ae7a3f..978329d 100644
  bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *gdl2, Vertex *vertices, struct HitThing *hitthing)
  {
      Vertex *vtxbase;
-@@ -8444,15 +8635,24 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8444,15 +8639,24 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
      s32 i;
      s32 op;
      s32 texnum;
@@ -26111,7 +26124,7 @@ index 0ae7a3f..978329d 100644
          {
              if (gdl2 == 0)
              {
-@@ -8469,24 +8669,29 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8469,24 +8673,29 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
              continue;
          }
  
@@ -26149,7 +26162,7 @@ index 0ae7a3f..978329d 100644
  
              for (i = 0; i < 3; i++)
              {
-@@ -8530,13 +8735,13 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8530,13 +8739,13 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                      dy = (f32) (((s32) hitbuf.hitpos.y) - ((s32) arg0->y));
                      dz = (f32) (((s32) hitbuf.hitpos.z) - ((s32) arg0->z));
                      tcmd = gdl;
@@ -26165,7 +26178,7 @@ index 0ae7a3f..978329d 100644
                              {
                                  break;
                              }
-@@ -8550,8 +8755,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8550,8 +8759,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                      }
                      else
                      {
@@ -26175,7 +26188,7 @@ index 0ae7a3f..978329d 100644
                      }
  
                      d = ((dx * dx) + (dy * dy)) + (dz * dz);
-@@ -8576,7 +8780,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8576,7 +8784,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                  }
              }
          }
@@ -26184,7 +26197,7 @@ index 0ae7a3f..978329d 100644
          {
              s2 = 0;
              do
-@@ -8584,29 +8788,33 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8584,29 +8792,33 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                  bboxMin2 = D_80032070;
                  bboxMax2 = D_8003207C;
  
@@ -26230,7 +26243,7 @@ index 0ae7a3f..978329d 100644
                  }
  
                  for (i = 0; i < 3; i++)
-@@ -8652,12 +8860,12 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8652,12 +8864,12 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                          dz = (f32) (((s32) hitbuf.hitpos.z) - ((s32) arg0->z));
                          tcmd = gdl;
  
@@ -26245,7 +26258,7 @@ index 0ae7a3f..978329d 100644
                                  {
                                      break;
                                  }
-@@ -8671,8 +8879,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
+@@ -8671,8 +8883,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                          }
                          else
                          {
@@ -26255,7 +26268,7 @@ index 0ae7a3f..978329d 100644
                          }
  
                          d = ((dx * dx) + (dy * dy)) + (dz * dz);
-@@ -8739,7 +8946,11 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
+@@ -8739,7 +8950,11 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
                      {
                          if (rwdata->gdl == rodata->Primary)
                          {
@@ -26268,7 +26281,7 @@ index 0ae7a3f..978329d 100644
                          }
                          else
                          {
-@@ -8748,7 +8959,11 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
+@@ -8748,7 +8963,11 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
  
                          if (rodata->Secondary != NULL)
                          {
@@ -26281,7 +26294,7 @@ index 0ae7a3f..978329d 100644
                          }
  
                          vertices = rwdata->Vertices;
-@@ -8762,11 +8977,19 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
+@@ -8762,11 +8981,19 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
  
                      if (rodata->Primary != NULL)
                      {
@@ -26303,7 +26316,7 @@ index 0ae7a3f..978329d 100644
                          }
  
                          vertices = (void *)(uintptr_t)rodata->BaseAddr;
-@@ -9045,11 +9268,11 @@ void chrobjMaybeDetonateObjectIfFlags(ObjectRecord *obj, f32 damage, coord3d *po
+@@ -9045,11 +9272,11 @@ void chrobjMaybeDetonateObjectIfFlags(ObjectRecord *obj, f32 damage, coord3d *po
  
  
  ObjectRecord blank_07_object = {
@@ -26320,7 +26333,7 @@ index 0ae7a3f..978329d 100644
      0x00000001, //flags
      0, //flags2
      NULL, //prop
-@@ -9219,6 +9442,17 @@ apply_damage:
+@@ -9219,6 +9446,17 @@ apply_damage:
      }
  
      // What is this?
@@ -26338,7 +26351,7 @@ index 0ae7a3f..978329d 100644
      if (obj->type == PROPDEF_AMMO)
      {
          if (objGetDestroyedLevel(obj) == 1)
-@@ -9240,6 +9474,12 @@ apply_damage:
+@@ -9240,6 +9478,12 @@ apply_damage:
                          u16 modelnum = slotview->slots[0].modelnum;
  
                          tmpobj = blank_07_object;
@@ -26351,7 +26364,7 @@ index 0ae7a3f..978329d 100644
                          *(ObjectRecord *)crate = tmpobj;
  
                          // Matching trick.
-@@ -9258,6 +9498,30 @@ apply_damage:
+@@ -9258,6 +9502,30 @@ apply_damage:
                          {
                              modelSetScale(crate->model, crate->model->scale);
                              chrpropReparent(crate->prop, obj->prop);
@@ -26382,7 +26395,7 @@ index 0ae7a3f..978329d 100644
                          }
  
                          break;
-@@ -9450,7 +9714,7 @@ dummy_label_995911:
+@@ -9450,7 +9718,7 @@ dummy_label_995911:
                      }
                  }
  
@@ -26391,7 +26404,7 @@ index 0ae7a3f..978329d 100644
              }
          }
      }
-@@ -9490,6 +9754,8 @@ void objHit(ShotData *shotdata, BulletHit *hit)
+@@ -9490,6 +9758,8 @@ void objHit(ShotData *shotdata, BulletHit *hit)
      coord3d pos;
      PropRecord *rootprop;
  
@@ -26400,7 +26413,7 @@ index 0ae7a3f..978329d 100644
      rootprop = hit->prop;
  
      while (rootprop->parent != NULL)
-@@ -9811,7 +10077,9 @@ void sub_GAME_7F04F244(PropRecord* prop, rect4f** polygon, s32* edges, f32* top,
+@@ -9811,7 +10081,9 @@ void sub_GAME_7F04F244(PropRecord* prop, rect4f** polygon, s32* edges, f32* top,
  }
  
  
@@ -26411,7 +26424,7 @@ index 0ae7a3f..978329d 100644
  {
    u8 *str;
  
-@@ -10768,12 +11036,65 @@ extern s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
+@@ -10768,12 +11040,65 @@ extern s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
  extern bool bondinvHasDualWeapon(ITEM_IDS right, ITEM_IDS left);
  extern s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE type);
  
@@ -26477,7 +26490,7 @@ index 0ae7a3f..978329d 100644
      if ((objIsCollectable(obj) != 0) && (obj->type != PROPDEF_HAT))
      {
          if (obj->flags & PROPFLAG_UNCOLLECTABLE)
-@@ -11025,11 +11346,35 @@ TICKOP objTickPlayer(struct PropRecord* prop)
+@@ -11025,11 +11350,35 @@ TICKOP objTickPlayer(struct PropRecord* prop)
          if ((pickup != 0) && !(obj->flags2 & 0x1000)) 
          {
              struct StandTile* stan = temp_v0_5->stan;
@@ -26514,7 +26527,7 @@ index 0ae7a3f..978329d 100644
          }
  
          if (pickup != 0) 
-@@ -11139,6 +11484,23 @@ PropRecord *hatApplyToChr(HatRecord *hat, ChrRecord *chr, ModelFileHeader *filed
+@@ -11139,6 +11488,23 @@ PropRecord *hatApplyToChr(HatRecord *hat, ChrRecord *chr, ModelFileHeader *filed
      {
          f32 scale = hat->extrascale * (1.0f / 256.0f);
  
@@ -26538,7 +26551,7 @@ index 0ae7a3f..978329d 100644
          modelSetScale(hat->model, hat->model->scale * scale);
          hat->model->attachedto = chr->model;
          hat->model->attachedto_objinst = chr->model->obj->Switches[6];
-@@ -11195,11 +11557,10 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
+@@ -11195,11 +11561,10 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
      if (hat && prop && model)
      {
          HatRecord tmp = {
@@ -26554,7 +26567,7 @@ index 0ae7a3f..978329d 100644
              0x00004000, // flags
              0,      // flags2
              NULL,   // prop
-@@ -11222,6 +11583,12 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
+@@ -11222,6 +11587,12 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
              { 0xFF, 0xFF, 0xFF, 0x00 }, // nextcol
          };
  
@@ -26567,7 +26580,7 @@ index 0ae7a3f..978329d 100644
          *hat = tmp;
  
          hat->obj = modelnum;
-@@ -11769,6 +12136,32 @@ PropRecord *sub_GAME_7F051F30(WeaponObjRecord *weapon, ChrRecord *chr, ModelFile
+@@ -11769,6 +12140,32 @@ PropRecord *sub_GAME_7F051F30(WeaponObjRecord *weapon, ChrRecord *chr, ModelFile
  	if (prop && weapon->model)
  	{
  		f32 scale = weapon->extrascale * (1.0f / 256.0f);
@@ -26600,7 +26613,7 @@ index 0ae7a3f..978329d 100644
  
  		modelSetScale(weapon->model, weapon->model->scale * scale);
          chrEquipWeapon(weapon, chr);
-@@ -11797,11 +12190,10 @@ void sub_GAME_7F052030(WeaponObjRecord* arg0, ChrRecord* arg1)
+@@ -11797,11 +12194,10 @@ void sub_GAME_7F052030(WeaponObjRecord* arg0, ChrRecord* arg1)
  
  
  WeaponObjRecord blank_08_object_preset_1 = {
@@ -26616,7 +26629,7 @@ index 0ae7a3f..978329d 100644
      0x00000000, //flags
      0, //flags2
      NULL, // prop
-@@ -11820,9 +12212,9 @@ WeaponObjRecord blank_08_object_preset_1 = {
+@@ -11820,9 +12216,9 @@ WeaponObjRecord blank_08_object_preset_1 = {
      1000.0f,//damage
      { 0xFF, 0xFF, 0xFF, 0x00 }, // shadecol
      { 0xFF, 0xFF, 0xFF, 0x00 }, // nextcol
@@ -26629,7 +26642,7 @@ index 0ae7a3f..978329d 100644
      NULL //dualweapon
  };
  
-@@ -11863,6 +12255,13 @@ ObjectRecord *create_new_item_instance_of_model(PROP modelnum, s32 weaponid)
+@@ -11863,6 +12259,13 @@ ObjectRecord *create_new_item_instance_of_model(PROP modelnum, s32 weaponid)
      if (obj != NULL && prop != NULL && model != NULL)
      {
          WeaponObjRecord tmp = blank_08_object_preset_1;
@@ -26643,7 +26656,7 @@ index 0ae7a3f..978329d 100644
  
          *obj = tmp;
  
-@@ -11902,11 +12301,11 @@ void chrSetWeaponFlag4(ChrRecord *chr, GUNHAND hand) //#MATCH
+@@ -11902,11 +12305,11 @@ void chrSetWeaponFlag4(ChrRecord *chr, GUNHAND hand) //#MATCH
  }
  
  WeaponObjRecord blank_08_object_preset_4001 = {
@@ -26660,7 +26673,7 @@ index 0ae7a3f..978329d 100644
      0x00000000, //flags
      0, //flags2
      NULL, //prop
-@@ -11925,9 +12324,9 @@ WeaponObjRecord blank_08_object_preset_4001 = {
+@@ -11925,9 +12328,9 @@ WeaponObjRecord blank_08_object_preset_4001 = {
      1000.0f, //damage
      { 0xFF, 0xFF, 0xFF, 0x00 }, // shadecol
      { 0xFF, 0xFF, 0xFF, 0x00 }, // nextcol
@@ -26673,7 +26686,7 @@ index 0ae7a3f..978329d 100644
      NULL //dualweapon
  };
  
-@@ -11966,6 +12365,13 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
+@@ -11966,6 +12369,13 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
      if (weapon && lastobjentry && objinst)
      {
          WeaponObjRecord new_weapon = blank_08_object_preset_4001;
@@ -26687,7 +26700,7 @@ index 0ae7a3f..978329d 100644
          *weapon = new_weapon;
  
          weapon->weaponnum = itemid;
-@@ -12027,6 +12433,16 @@ ModelRenderData D_800322A4 = {
+@@ -12027,6 +12437,16 @@ ModelRenderData D_800322A4 = {
  };
  
  
@@ -26704,7 +26717,7 @@ index 0ae7a3f..978329d 100644
  /**
   * Render the weapon(s) characters are holding including the muzzle flash.
   * Address: 0x7f0523f8
-@@ -12045,12 +12461,22 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
+@@ -12045,12 +12465,22 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
      chr = ((ChrRenderContext *)renderContext)->chr;
      prop = chrGetEquippedWeaponProp(chr, hand);
  
@@ -26727,7 +26740,7 @@ index 0ae7a3f..978329d 100644
              if ((s32)(weaponObj->flags2 << 12) >= 0) 
              {
                  heldModel = weaponObj->model;
-@@ -12071,11 +12497,147 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
+@@ -12071,11 +12501,147 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
                  renderData.mtxlist = dynAllocate(heldModel->obj->numMatrices * sizeof(Mtxf));
                  instcalcmatrices(&renderData, heldModel);
  
@@ -26875,7 +26888,7 @@ index 0ae7a3f..978329d 100644
                      }
                  }
  
-@@ -12683,6 +13245,14 @@ void sub_GAME_7F053A3C(DoorRecord* arg0)
+@@ -12683,6 +13249,14 @@ void sub_GAME_7F053A3C(DoorRecord* arg0)
      s32 close_playing;
      s32 sp1C;
  
@@ -26890,7 +26903,7 @@ index 0ae7a3f..978329d 100644
      open_playing = (arg0->openSoundState != NULL) && (sndGetPlayingState(arg0->openSoundState) != 0);
      close_playing = (arg0->closeSoundState != NULL) && (sndGetPlayingState(arg0->closeSoundState) != 0);
  
-@@ -12737,6 +13307,26 @@ void doorPlayOpenSound0(DoorRecord *door) {
+@@ -12737,6 +13311,26 @@ void doorPlayOpenSound0(DoorRecord *door) {
  
      door7F053B10(door);
  
@@ -26917,7 +26930,7 @@ index 0ae7a3f..978329d 100644
      if (door->openSoundState == NULL)
      {
          pendingState = &door->openSoundState;
-@@ -12861,6 +13451,13 @@ void doorPlayOpenSound0(DoorRecord *door) {
+@@ -12861,6 +13455,13 @@ void doorPlayOpenSound0(DoorRecord *door) {
  
  
  void doorPlayOpenSound1(DoorRecord *door) {
@@ -26931,7 +26944,7 @@ index 0ae7a3f..978329d 100644
      ALSoundState *soundState = NULL;
      ALSoundState *pendingState = NULL;
  
-@@ -12974,6 +13571,13 @@ void doorPlayOpenSound1(DoorRecord *door) {
+@@ -12974,6 +13575,13 @@ void doorPlayOpenSound1(DoorRecord *door) {
  
  
  void doorPlayCloseSound0(DoorRecord *door) {
@@ -26945,7 +26958,7 @@ index 0ae7a3f..978329d 100644
      ALSoundState *soundState = NULL;
  
      door7F053B10(door);
-@@ -13568,6 +14172,20 @@ void door7F054FB4(DoorRecord *door)
+@@ -13568,6 +14176,20 @@ void door7F054FB4(DoorRecord *door)
          else if  (var_s1->doorFlags & DOORFLAG_CLIP_TO_BBOX)
          {
              temp_a0 = var_s1->model;
@@ -26966,7 +26979,7 @@ index 0ae7a3f..978329d 100644
              temp_a1 = temp_a0->obj->RootNode->Child->Child;
              temp_s0 = (struct ModelRoData_DisplayList_CollisionRecord *)temp_a1->Data;
              temp_v0_3 = (struct ModelRwData_DisplayList_CollisionRecord*)modelGetNodeRwData(temp_a0, temp_a1);
-@@ -13582,6 +14200,9 @@ void door7F054FB4(DoorRecord *door)
+@@ -13582,6 +14204,9 @@ void door7F054FB4(DoorRecord *door)
              }
  
              temp_v0_3->Vertices = var_s1->unkcc;
@@ -26976,7 +26989,7 @@ index 0ae7a3f..978329d 100644
          }
  
          var_s1->lastcalc60i = g_GlobalTimer;
-@@ -14356,3 +14977,44 @@ void drop_inventory(void)
+@@ -14356,3 +14981,44 @@ void drop_inventory(void)
          }
      }
  }
@@ -29513,7 +29526,7 @@ index cd8b5c1..552f5ea 100644
          zbufAllocate();
      }
 diff --git a/src/game/vtxstore.c b/src/game/vtxstore.c
-index fca37a6..a1871fb 100644
+index fca37a6..647fb53 100644
 --- a/src/game/vtxstore.c
 +++ b/src/game/vtxstore.c
 @@ -8,7 +8,10 @@
@@ -29595,8 +29608,26 @@ index fca37a6..a1871fb 100644
  {
      s16* var_t3;
      s16 temp_t2;
-@@ -290,7 +314,7 @@ s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3)
-             var_a2 = ((s16 *)&dword_CODE_bss_8007A0DC)[1];
+@@ -278,19 +302,23 @@ s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3)
+     s16 var_v1_2;
+     struct unk_09B7A0_struct_parent* var_t0;
+ 
++    /* Both reads below were ((s16 *)&<s32 global>)[1], the SECOND halfword of a 32-bit word.
++     * On big-endian MIPS that is the low half, which is the whole value for these counts
++     * (0x50, 0x14). On little-endian it is the HIGH half, which for a small count is always
++     * zero -- so this silently read 0 on every host build. Take the low 16 bits by value. */
+     switch (type) {
+         case 0xCCCC:
+             var_t0 = dword_CODE_bss_8007A0E8;
+             var_t3 = &word_CODE_bss_8007A0F0;
+-            var_a2 = ((s16 *)&dword_CODE_bss_8007A0D4)[1];
++            var_a2 = (s16) dword_CODE_bss_8007A0D4;
+             break;
+         case 0xB0B:
+             var_t0 = dword_CODE_bss_8007A0EC;
+             var_t3 = &word_CODE_bss_8007A0F2;
+-            var_a2 = ((s16 *)&dword_CODE_bss_8007A0DC)[1];
++            var_a2 = (s16) dword_CODE_bss_8007A0DC;
              break;
          default:
 -            return 0;
@@ -29604,7 +29635,7 @@ index fca37a6..a1871fb 100644
      }
  
      var_v1_2 = 0;
-@@ -311,7 +335,7 @@ s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3)
+@@ -311,7 +339,7 @@ s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3)
      if (var_a2 < var_v0) {
          sub_GAME_7F09B7A8();
          sub_GAME_7F09B7E4();
@@ -29613,7 +29644,7 @@ index fca37a6..a1871fb 100644
      }
      // FAKE
      if (var_v0) {}
-@@ -344,7 +368,7 @@ s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3)
+@@ -344,7 +372,7 @@ s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3)
          } else {
              *var_t3 -= temp_t2;
          }
