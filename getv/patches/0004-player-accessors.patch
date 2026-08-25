@@ -1,5 +1,5 @@
 diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..c122970 100644
+index 4ebf14b..c0ab2ef 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -1,7 +1,11 @@
@@ -235,7 +235,7 @@ index 4ebf14b..c122970 100644
          if (objectiveStatuses[i] != status) {
              objectiveStatuses[i] = status;
              if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +695,818 @@ void objectiveTakePictureHandler(void)
+@@ -523,3 +695,842 @@ void objectiveTakePictureHandler(void)
  
  
  //filebreak
@@ -844,10 +844,34 @@ index 4ebf14b..c122970 100644
 +     * on that axis. Using the min alone assumes a centred model, which every crate in this game
 +     * is; an off-centre one would report a radius that is too small on one side, and that is a
 +     * reason to prefer the radius over the half-extents rather than to guess a correction. */
-+    hx = chrpropBBOXGetXmin(bb);
-+    hz = chrpropBBOXGetZmin(bb);
-+    if (hx < 0.0f) { hx = -hx; }
-+    if (hz < 0.0f) { hz = -hz; }
++    /* 🔑 THROUGH THE OBJECT'S MATRIX, not the raw model box.
++     *
++     * The model box is in MODEL space and the engine never uses it directly: loadobjectmodel.c:607
++     * runs it through chrpropSumMatrixPosX/NegX with obj->mtx, which carries the model's SCALE and
++     * its ROTATION. Both matter and both were open questions:
++     *
++     *   scale    -- roughly 0.1 to 0.15 here, so raw model boxes overstate props by about ten
++     *               times, and a bot using them refuses gaps it fits through
++     *   rotation -- a long crate at forty-five degrees occupies more width than its half-extent
++     *
++     * Using the same helpers the engine uses means we cannot disagree with it about how big
++     * something is, which is the whole reason to ask the engine rather than the assets. */
++    {
++        extern f32 chrpropSumMatrixPosX(struct ModelRoData_BoundingBoxRecord *, Mtxf *);
++        extern f32 chrpropSumMatrixNegX(struct ModelRoData_BoundingBoxRecord *, Mtxf *);
++        extern f32 chrpropSumMatrixPosZ(struct ModelRoData_BoundingBoxRecord *, Mtxf *);
++        extern f32 chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *, Mtxf *);
++
++        f32 x0 = chrpropSumMatrixNegX(bb, &pr->obj->mtx);
++        f32 x1 = chrpropSumMatrixPosX(bb, &pr->obj->mtx);
++        f32 z0 = chrpropSumMatrixNegZ(bb, &pr->obj->mtx);
++        f32 z1 = chrpropSumMatrixPosZ(bb, &pr->obj->mtx);
++
++        hx = (x1 - x0) * 0.5f;
++        hz = (z1 - z0) * 0.5f;
++        if (hx < 0.0f) { hx = -hx; }
++        if (hz < 0.0f) { hz = -hz; }
++    }
 +
 +    if (out_hx != NULL)     { *out_hx = hx; }
 +    if (out_hz != NULL)     { *out_hz = hz; }
