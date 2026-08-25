@@ -232,6 +232,33 @@ conversion needs checking against retail.
 
 ---
 
+## Prior art: akratch/mgb64 — worth mining, and MIT
+
+Another native GoldenEye port from the same `n64decomp/007` base. **687 commits, archived
+2026-08-18**, read-only. Its own notice says "other community projects have since surpassed this
+one".
+
+**First-party code is MIT**, which means we may actually use it with attribution — unlike
+GoldenRecomp (Windows-only binaries) or GoldenPad (not reproducible from its own repo), both of
+which looked more useful than they were.
+
+🔑 **The one thing it has that we do not: a METAL rendering backend**, in `src/platform/`. That
+matters more than it sounds, because tvOS was this project's original goal and Metal is the
+supported path there — GL ES is deprecated. We are OpenGL-only today.
+
+Its shape is otherwise close to ours: SDL2, an in-process ImGui launcher, a libultra shim,
+assets read from the user's own ROM at runtime, and a faithful-versus-remaster split.
+
+⚠️ **It has no co-op, no bots, no player or world API, no netplay, and no mod surface.** That is
+worth stating because it tells us what this project is actually for: the port itself is no longer
+the differentiator, and the API layer is.
+
+**If we take anything, take the Metal backend** — and take it as a port, not a copy. Their
+renderer is written against their platform layer, not ours, and the SM64-versus-libultraship
+lesson applies: a reference implementation written for a different tree is actively misleading
+even when it descends from the same code. Credit them in `README.md` alongside Rare and the
+decomp team.
+
 ## Standing corrections — do not re-derive these
 
 - **`levelscale`**: `runtime = asset / levelscale`. 19 of 20 spawn "failures" were this.
