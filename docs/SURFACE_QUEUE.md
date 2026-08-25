@@ -1,36 +1,76 @@
 # Surface queue
 
-Ordered. Everything above the line is unblocked and has a clear finish condition; the rest is
-real work with the reasoning attached so it can be picked up without asking.
+Ordered. Each item says what "done" means, because a task without a finish condition gets
+reported as finished by whoever is tired.
 
-Path locks and lane rules are in `docs/LACUNARI_SURFACE.md`. Fetch `C:\mac-work.bundle` before
-touching a shared file — `ge_player_api.c` and `gen_level_routes.py` have each been reverted once
-by a push that predated the other side's work.
+Lane rules: `docs/COLLABORATION.md`. Work flows Surface → Mac → `main`; the Mac integrates file
+by file. Fetch `C:\mac-work.bundle` before touching a shared file.
 
 ---
 
-## 1. Trustworthy seeds for the edge validator 🔴 the one that unblocks the bots
+## 0. Apply `0004-player-accessors.patch` 🔴 your link has been failing on this for a day
 
-The validator measures every waypoint pair with the engine's own line test, and the answer
-depends entirely on the seed tile. Same level, same 2926 pairs on Bunker 1:
+`vendor/` is gitignored, so decomp symbols never travel in a bundle. Everything you have tested
+is stub-verified only.
 
-| seed | walkable |
+```
+cd C:\ge\vendor\ge-decomp && git apply ..\..\getv\patches\0004-player-accessors.patch
+```
+
+Now carries the player accessors, the control-style helpers, both navigation probes,
+`gePortTeleportProbe`, and the two sensing primitives.
+
+**Done when:** the port layer links and one API test runs against a live game rather than a stub.
+
+---
+
+## 1. THE SENSING API IS THE PRIORITY — build out what a bot can perceive 🔴
+
+This is the half of the platform that was missing, and it matters more than routing. Waypoints
+say where things are. **Interaction** is knowing you are against a wall rather than a crate,
+whether the thing ahead can be opened or must be shot, and whether anyone can see you.
+
+`ge_sense_api.[ch]` is the seam and the first primitives are in and measured:
+
+| | |
 |---|---|
-| player 0's tile | 98% |
-| stan lookup at each line's start | 73% |
-| snap-distance guard, any tolerance | 0% |
+| `geSenseLine` | what blocks a line, as a bitmask: WALL / DOOR / OBJECT / BODY |
+| `geSenseAhead` | walks a ray in samples: what, how far, and the last clear point |
+| `geSenseClearestHeading` | the smallest turn that opens up |
+| `geSenseVisibleTo` | does this character have a clear line to this player |
+| `geSenseWatchers` | how many living enemies do |
 
-`sub_GAME_7F0AFB78` snaps to the nearest standable tile, and *nearest* can be through a wall — so
-a snap-seeded test reports clear lines the player demonstrably cannot walk. The spawn measures a
-clear 1109-unit line to a portal that a reachability map drawn from the player's own tile shows
-is behind a wall.
+Live on Train: `clear at 300u`, then `WALL DOOR OBJECT BODY at 300u`, then `OBJECT BODY at 50u,
+clearest +40 deg`.
 
-**The only seed known to be correct is the tile a body is standing on.** So put a body at every
-node: move the player to each waypoint during a validation run and test from there. It mutates
-player state, which a dedicated validation mode can afford.
+**What is missing, and it is yours:**
 
-Finish condition: Bunker 1's spawn has no walkable edge to the portal at 1109 units, and does
-have one along the corridor toward the door.
+**1a. Facing, so sight means attention.** `geSenseVisibleTo` is line of sight only. A guard facing
+away has a clear line and is not looking. GoldenEye's AI uses a facing cone plus distance
+attenuation and `hearingscale` for sound. Add `geSenseNoticedBy(enemy, player)` that combines
+line, cone and alertness — and keep the two separate rather than replacing one with the other,
+because "could see me if it turned" is a different and useful question.
+
+⚠️ Train currently reports 17–19 watchers of 40 guards. That is what an unobstructed line down a
+row of carriages looks like, **not** seventeen guards watching. Do not tune the line test to make
+that number smaller; add the cone.
+
+**1b. Contact, not just prediction.** Everything so far predicts along a ray. A bot also needs to
+know it is *touching* something right now — the difference between "there is a wall ahead" and
+"I am pressed against it and my last four moves did nothing".
+
+**1c. Reachability with a body, not a line.** A line test passes through a gap narrower than the
+player. Sweep the player's collision radius, or sample parallel lines either side.
+
+**1d. Interaction verbs.** `geSenseUsable(x, z)` — is there a door, switch or pickup within reach
+of this spot, and what is it. The prop API knows where they are; nothing says "you can act on
+this from here".
+
+**Done when:** `mods/level_atlas` can print, for the player's current position: what is ahead and
+how far, whether it can be opened, which way is clear, how many enemies could see it and how many
+actually are, and what it could interact with without moving.
+
+---
 
 ## 2. Heights — the graph is planar and levels are not
 
