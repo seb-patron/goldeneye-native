@@ -11651,7 +11651,7 @@ index 1cdcd37..76ed0d3 100644
 +
  #endif
 diff --git a/src/game/explosion.c b/src/game/explosion.c
-index d80769b..f255c9b 100644
+index d80769b..381ec79 100644
 --- a/src/game/explosion.c
 +++ b/src/game/explosion.c
 @@ -1723,7 +1723,19 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
@@ -11674,7 +11674,34 @@ index d80769b..f255c9b 100644
  
          if (particles->unk00 > 0)
          {
-@@ -2149,6 +2161,14 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
+@@ -2015,6 +2027,26 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
+         impact_type = 0x10;
+     }
+ 
++    /* GETV_IMPACT=1: which impact row a hit resolves to, and the apptype that row selects.
++     * apptype 2 is the per-channel random 0/0xff colour below, which is the paintball look,
++     * and row 16 is the only row carrying it. Reports the cheat state alongside so a report
++     * of paintball-without-the-cheat can be attributed rather than guessed at. */
++    {
++        static s32 ge_impact_on = -1;
++        if (ge_impact_on < 0) {
++            const char *e = getenv("GETV_IMPACT");
++            ge_impact_on = (e && *e && *e != '0') ? 1 : 0;
++        }
++        if (ge_impact_on) {
++            s32 it = (s32) impact_type;
++            s32 n  = (s32) (sizeof(g_ImpactTypes) / sizeof(g_ImpactTypes[0]));
++            osSyncPrintf("[getv][impact] type=%d %s apptype=%d paintball_cheat=%d\n",
++                         it, (it < 0 || it >= n) ? "OUT-OF-RANGE" : "ok",
++                         (it >= 0 && it < n) ? (s32) g_ImpactTypes[it].apptype : -1,
++                         (s32) cheatIsActive(CHEAT_PAINTBALL));
++        }
++    }
++
+     spA0.f[0] = pos->f[0];
+     spA0.f[1] = pos->f[1];
+     spA0.f[2] = pos->f[2];
+@@ -2149,6 +2181,14 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16
                  osSyncPrintf("Wallhit colour %d not implemented, substituting black\n", sp50->apptype);
  #endif
                  var_s0 = 0;
