@@ -1,4 +1,4 @@
-/* GoldenEye native port - the bridge from the game's display list to Fast3D.
+/* GoldenEye tvOS port - the bridge from the game's display list to Fast3D.
  *
  * Kept in its own translation unit deliberately. port_os.c is compiled against the N64
  * SDK headers (PR/*.h) and must not pull in Fast3D's; this file is the one place the
@@ -251,6 +251,14 @@ void gePortRenderDisplayList(void *firstGdl)
     {
         extern void gePortBotFrame(int frame);
         gePortBotFrame(rendered);
+    }
+
+    /* The other bot path: AI lists attached to CHARACTERS rather than to player slots. These
+     * are NPC opponents, not players, so they compose with the slot policies above rather than
+     * competing with them. Inert unless GETV_BOT_AI names an archetype. */
+    {
+        extern void gePortBotAiFrame(int frame);
+        gePortBotAiFrame(rendered);
     }
 
     {

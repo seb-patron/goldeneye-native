@@ -516,6 +516,10 @@ this design follows; no code needs to be taken from any of them.
 
 ## 14. Netplay: the verdict
 
+See [`docs/NETPLAY.md`](NETPLAY.md), which argues the opposite and has a working lockstep
+session behind it. The disagreement is open; the determinism audit named there is what settles
+it either way.
+
 **Not lockstep.** Two independent reasons, either sufficient:
 
 1. **Cross-platform bit-exactness is not realistically achievable.** x87 vs SSE vs ARM, and
