@@ -70,6 +70,7 @@ struct ge_mod {
 
 static struct ge_mod ge_mods[GE_LUA_MAX_MODS];
 static int ge_mod_count;
+static int ge_mod_off_count;    /* found on disk but disabled via GETV_MODS_OFF */
 static int ge_lua_ready;
 
 /* ---------------------------------------------------------------- game accessors
@@ -198,6 +199,54 @@ static void ge_load_mod(const char *dir, const char *name)
 #include <dirent.h>
 #include <sys/stat.h>
 
+/* GETV_MODS_OFF -- a comma-separated list of mod directory names NOT to load.
+ *
+ * A DENYLIST rather than an allowlist, deliberately. The documented contract (wiki/Lua-mods.md)
+ * is "drop a directory under mods/ with a mod.lua in it and it loads at startup", and an
+ * allowlist would quietly break that: every newly dropped mod would be off until someone
+ * remembered to add it. With a denylist the contract holds, unset means "load everything"
+ * exactly as before, and turning a mod off is the only thing that has to be recorded.
+ *
+ * Names are matched whole, so "hello" does not disable "hello_goldeneye". Leading and
+ * trailing spaces are ignored so a hand-edited goldeneye.cfg with ", " separators works. */
+static int ge_mod_disabled(const char *name)
+{
+    static const char *list = (const char *) 1;
+    const char *p;
+    size_t n;
+
+    if (list == (const char *) 1) list = getenv("GETV_MODS_OFF");
+    if (list == NULL || *list == '\0') return 0;
+
+    n = strlen(name);
+    p = list;
+    while (*p != '\0') {
+        const char *end;
+        size_t len;
+
+        while (*p == ',' || *p == ' ' || *p == '\t') p++;
+        end = p;
+        while (*end != '\0' && *end != ',') end++;
+        len = (size_t) (end - p);
+        while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\t')) len--;
+
+        if (len == n && strncmp(p, name, n) == 0) return 1;
+        p = (*end == ',') ? end + 1 : end;
+    }
+    return 0;
+}
+
+/* Does this directory actually hold a mod? Without the check, every stray subdirectory under
+ * mods/ reaches luaL_loadfile and reports "cannot open .../mod.lua" as though something were
+ * broken. A directory with no mod.lua is not an error, it is not a mod. */
+static int ge_dir_has_mod(const char *dir, const char *name)
+{
+    char path[512];
+    struct stat st;
+    snprintf(path, sizeof(path), "%s/%s/mod.lua", dir, name);
+    return stat(path, &st) == 0 && !S_ISDIR(st.st_mode);
+}
+
 void gePortLuaInit(void)
 {
     const char *dir = getenv("GETV_MODDIR");
@@ -230,18 +279,32 @@ void gePortLuaInit(void)
         if (e->d_name[0] == '.') continue;
         snprintf(sub, sizeof(sub), "%s/%s", dir, e->d_name);
         if (stat(sub, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+        if (!ge_dir_has_mod(dir, e->d_name)) continue;
+        if (ge_mod_disabled(e->d_name)) {
+            /* Named, not silent. "I disabled it and it still ran" and "I enabled it and it
+             * did not" are the two questions this line has to be able to answer. */
+            printf("[getv][lua] skipping \"%s\" (disabled)\n", e->d_name);
+            ge_mod_off_count++;
+            continue;
+        }
         ge_load_mod(dir, e->d_name);
     }
     closedir(d);
 
     if (ge_mod_count == 0) {
+        if (ge_mod_off_count > 0) {
+            printf("[getv][lua] 0 mods active from \"%s\" (%d disabled)\n",
+                   dir, ge_mod_off_count);
+        }
         lua_close(ge_L);
         ge_L = NULL;
         return;
     }
     ge_lua_ready = 1;
-    printf("[getv][lua] %d mod%s active from \"%s\"\n",
+    printf("[getv][lua] %d mod%s active from \"%s\"",
            ge_mod_count, ge_mod_count == 1 ? "" : "s", dir);
+    if (ge_mod_off_count > 0) printf(" (%d disabled)", ge_mod_off_count);
+    printf("\n");
 }
 
 /* ---------------------------------------------------------------- dispatch

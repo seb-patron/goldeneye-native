@@ -7675,6 +7675,46 @@ index 71e949a..ae59082 100644
 +void display_image_at_position(Gfx **gdlptr, f32 *position, f32 *size, s32 twidth, u32 theight, u32 flipXY, u32 flipX, u32 flipY, u32 r, u32 g, u32 b, u32 alpha, u32 mipmapped_texture, u32 highlight_mode);
  
  #endif
+diff --git a/src/game/cheat.c b/src/game/cheat.c
+index 6b14d67..1f46007 100644
+--- a/src/game/cheat.c
++++ b/src/game/cheat.c
+@@ -1674,8 +1674,35 @@ char *cheatGetMenuTextPointer(CHEAT_ID cheat_id)
+ /**
+  * Address 0x7F0927BC.
+  */
++/* GETV_CHEATDUMP=1: report every cheat flag that is set, once, the first time anything asks.
++ * Cheats reaching the game without being asked for is a user-visible bug -- paintball impacts
++ * and confetti explosions are both cheat effects -- and the flag array is the only place that
++ * can come from. */
++void gePortCheatDump(void)
++{
++    static s32 done = -1;
++    s32 i;
++
++    if (done == -1) {
++        const char *e = getenv("GETV_CHEATDUMP");
++        done = (e && *e == '1') ? 0 : 1;
++    }
++    if (done) return;
++    done = 1;
++
++    osSyncPrintf("[getv][cheatdump] player=%d", (s32) get_cur_playernum());
++    for (i = 0; i <= CHEAT_INVALID; i++) {
++        if (g_CheatPlayerTextRelated[i] != 0) {
++            osSyncPrintf(" [%d]=0x%02x", i, (s32) g_CheatPlayerTextRelated[i]);
++        }
++    }
++    osSyncPrintf("  (nothing listed means every flag is clear)\n");
++}
++
++
+ bool cheatIsActive(CHEAT_ID cheat)
+ {
++    gePortCheatDump();
+     return ((bool) (u8) g_CheatPlayerTextRelated[cheat] >> get_cur_playernum()) & 1;
+ }
+ 
 diff --git a/src/game/chr.c b/src/game/chr.c
 index 50544ec..1c20bc8 100644
 --- a/src/game/chr.c

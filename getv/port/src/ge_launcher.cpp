@@ -40,6 +40,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>   /* struct stat: MinGW gets it transitively, Clang does not */
 
 /* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so that
  * PR/os.h's struct fields of that name can parse; MSVCRT exposes the value through
@@ -59,6 +61,7 @@
 #include <process.h>   /* _execv */
 #else
 #include <unistd.h>
+#include <dirent.h>
 #endif
 
 /* Windows needs an extension loader before any GL header. opengl32.dll exports GL 1.1 and
@@ -86,6 +89,10 @@
 #endif
 
 namespace {
+
+/* Defined further down, used above it. */
+bool self_path(char *out, size_t n);
+
 
 /* ---------------------------------------------------------------- the model
  *
@@ -199,9 +206,16 @@ const int kCheatCount = (int)(sizeof kCheats / sizeof kCheats[0]);
 const char *kRulesets[] = { "classic", "hardcore", "survival", "chaos", "horde" };
 const int   kRulesetCount = 5;
 
+/* Matches GE_LUA_MAX_MODS in ge_lua.c. Listing more here than the loader will accept would
+ * offer mods that silently never load. */
+#define GE_MAX_MODS 32
+
 struct Model {
     /* profile */
-    int  profile;             /* 0 faithful, 1 GoldenEye+ */
+    /* 0 = "97 Console" (the game as shipped), 1 = GoldenEye+. The profile is only a display
+     * name here; the config-file token in ge_config.c is still `preset = faithful`, and is
+     * deliberately unchanged so existing goldeneye.cfg files keep parsing. */
+    int  profile;
 
     /* ruleset */
     int  ruleset;             /* index into kRulesets */
@@ -223,11 +237,124 @@ struct Model {
     bool fullscreen;
     char resolution[64];
 
+    /* presentation. The four CRT terms are held as whole percent and divided by 100 on the
+     * way out, because every control in this window is an integer slider and a float one
+     * would be the only one of its kind. */
+    bool fxaa;
+    bool crt;
+    int  crt_scan, crt_mask, crt_curve, crt_vig;
+
+    /* mods, discovered by scanning rather than typed. `found` is what is on disk now; `on`
+     * is per-entry and parallel to it. */
+    int  mod_count;
+    char mod_name[GE_MAX_MODS][64];
+    bool mod_on[GE_MAX_MODS];
+    char mod_scanned[512];        /* the directory `found` was filled from, for the UI */
+
     /* misc */
     bool cheat_on[kCheatCount];
     bool dev_overlay;
     char moddir[512];
 };
+
+/* Where the game will actually look for mods, resolved the same way ge_lua.c resolves it:
+ * GETV_MODDIR if set, otherwise "mods". ge_lua.c opens that path relative to the process's
+ * working directory, so the launcher has to try the same relative path AND the directory the
+ * binary sits in -- started from a shortcut or from Explorer those are not the same place,
+ * and a launcher that scanned only one of them would show an empty list for a mods folder the
+ * game is about to load happily. */
+bool mod_dir_resolve(const Model &m, char *out, size_t n)
+{
+    const char *want = (m.moddir[0] != '\0') ? m.moddir : "mods";
+    struct stat st;
+
+    /* An absolute path is taken as given. */
+    if (want[0] == '/' || want[0] == '\\' ||
+        (want[0] != '\0' && want[1] == ':')) {
+        snprintf(out, n, "%s", want);
+        return stat(out, &st) == 0 && S_ISDIR(st.st_mode);
+    }
+
+    snprintf(out, n, "%s", want);
+    if (stat(out, &st) == 0 && S_ISDIR(st.st_mode)) return true;
+
+    char exe[4096];
+    if (self_path(exe, sizeof exe)) {
+        char *fw = strrchr(exe, '/');
+        char *bw = strrchr(exe, '\\');
+        char *cut = (bw && (!fw || bw > fw)) ? bw : fw;
+        if (cut) {
+            *cut = '\0';
+            snprintf(out, n, "%s/%s", exe, want);
+            if (stat(out, &st) == 0 && S_ISDIR(st.st_mode)) return true;
+        }
+    }
+    snprintf(out, n, "%s", want);
+    return false;
+}
+
+/* Scan for mods. A directory is a mod when it contains a mod.lua -- the same test ge_lua.c
+ * applies, so the list shown here is exactly the list the game would load. Preserves the
+ * enabled state of anything already known, so a rescan after adding a folder does not reset
+ * the user's choices. */
+void mod_scan(Model &m)
+{
+    bool  prev_on[GE_MAX_MODS];
+    char  prev_name[GE_MAX_MODS][64];
+    int   prev_count = m.mod_count;
+    for (int i = 0; i < prev_count && i < GE_MAX_MODS; i++) {
+        prev_on[i] = m.mod_on[i];
+        snprintf(prev_name[i], sizeof prev_name[i], "%s", m.mod_name[i]);
+    }
+
+    m.mod_count = 0;
+    mod_dir_resolve(m, m.mod_scanned, sizeof m.mod_scanned);
+
+    DIR *d = opendir(m.mod_scanned);
+    if (d == NULL) return;
+
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL && m.mod_count < GE_MAX_MODS) {
+        if (e->d_name[0] == '.') continue;
+
+        char sub[1024];
+        struct stat st;
+        snprintf(sub, sizeof sub, "%s/%s", m.mod_scanned, e->d_name);
+        if (stat(sub, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+
+        snprintf(sub, sizeof sub, "%s/%s/mod.lua", m.mod_scanned, e->d_name);
+        if (stat(sub, &st) != 0 || S_ISDIR(st.st_mode)) continue;
+
+        int k = m.mod_count++;
+        snprintf(m.mod_name[k], sizeof m.mod_name[k], "%s", e->d_name);
+        m.mod_on[k] = true;                       /* new mods default on, per wiki/Lua-mods.md */
+        for (int j = 0; j < prev_count; j++) {
+            if (strcmp(prev_name[j], m.mod_name[k]) == 0) { m.mod_on[k] = prev_on[j]; break; }
+        }
+    }
+    closedir(d);
+}
+
+/* Apply GETV_MODS_OFF to a freshly scanned list. */
+void mod_apply_off(Model &m)
+{
+    const char *list = getenv("GETV_MODS_OFF");
+    if (list == NULL || *list == '\0') return;
+
+    for (int i = 0; i < m.mod_count; i++) {
+        size_t n = strlen(m.mod_name[i]);
+        const char *p = list;
+        while (*p != '\0') {
+            while (*p == ',' || *p == ' ' || *p == '\t') p++;
+            const char *end = p;
+            while (*end != '\0' && *end != ',') end++;
+            size_t len = (size_t)(end - p);
+            while (len > 0 && (p[len - 1] == ' ' || p[len - 1] == '\t')) len--;
+            if (len == n && strncmp(p, m.mod_name[i], n) == 0) { m.mod_on[i] = false; break; }
+            p = (*end == ',') ? end + 1 : end;
+        }
+    }
+}
 
 void model_load(Model &m)
 {
@@ -285,6 +412,20 @@ void model_load(Model &m)
     m.fullscreen  = env_bool("GETV_FULLSCREEN", false);
     env_str("GETV_WINDOW", m.resolution, sizeof m.resolution, "1280x960");
 
+    /* Defaults mirror ge_postfx_config() in gfx_opengl.c. They are repeated rather than
+     * shared because the launcher is a separate process that has not loaded the renderer,
+     * and a launcher showing different numbers from the ones the game will use is worse than
+     * a duplicated constant. */
+    m.fxaa      = env_bool("GETV_FXAA", false);
+    m.crt       = env_bool("GETV_CRT", false);
+    {
+        const char *e;
+        e = getenv("GETV_CRT_SCANLINE"); m.crt_scan  = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 28;
+        e = getenv("GETV_CRT_MASK");     m.crt_mask  = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 18;
+        e = getenv("GETV_CRT_CURVE");    m.crt_curve = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 3;
+        e = getenv("GETV_CRT_VIGNETTE"); m.crt_vig   = (e && *e) ? (int)(atof(e) * 100.0 + 0.5) : 22;
+    }
+
     {
         const char *c = getenv("GETV_CHEATS");
         if (c && *c) {
@@ -296,6 +437,9 @@ void model_load(Model &m)
     }
     m.dev_overlay = env_bool("GETV_IMGUI", false);
     env_str("GETV_MODDIR", m.moddir, sizeof m.moddir, "");
+    /* After moddir is known: the scan needs it to decide where to look. */
+    mod_scan(m);
+    mod_apply_off(m);
 }
 
 void model_store(const Model &m)
@@ -340,6 +484,26 @@ void model_store(const Model &m)
     setenv("GETV_FULLSCREEN", m.fullscreen ? "1" : "0", 1);
     put_str("GETV_WINDOW", m.resolution);
 
+    setenv("GETV_FXAA", m.fxaa ? "1" : "0", 1);
+    setenv("GETV_CRT",  m.crt  ? "1" : "0", 1);
+    /* Only when CRT is on. Sent unconditionally they would pin the four terms at whatever the
+     * sliders happened to read, so turning CRT on later would not pick up the preset -- the
+     * same reasoning as the nine ruleset percentages above. */
+    if (m.crt) {
+        static const char *kCrtKeys[4] = {
+            "GETV_CRT_SCANLINE", "GETV_CRT_MASK", "GETV_CRT_CURVE", "GETV_CRT_VIGNETTE"
+        };
+        const int cv[4] = { m.crt_scan, m.crt_mask, m.crt_curve, m.crt_vig };
+        for (int i = 0; i < 4; i++) {
+            char b[32];
+            snprintf(b, sizeof b, "%.3f", (double) cv[i] / 100.0);
+            setenv(kCrtKeys[i], b, 1);
+        }
+    } else {
+        unsetenv("GETV_CRT_SCANLINE");  unsetenv("GETV_CRT_MASK");
+        unsetenv("GETV_CRT_CURVE");     unsetenv("GETV_CRT_VIGNETTE");
+    }
+
     {
         char list[512];
         list[0] = '\0';
@@ -353,10 +517,24 @@ void model_store(const Model &m)
 
     setenv("GETV_IMGUI", m.dev_overlay ? "1" : "0", 1);
     put_str("GETV_MODDIR", m.moddir);
+
+    /* Only the mods that were switched OFF are recorded; see the denylist note in ge_lua.c.
+     * A mod added to the folder later is on by default, which is the documented behaviour and
+     * the reason this is not an allowlist. */
+    {
+        char off[1024];
+        off[0] = '\0';
+        for (int i = 0; i < m.mod_count; i++) {
+            if (m.mod_on[i]) continue;
+            if (off[0]) strncat(off, ",", sizeof off - strlen(off) - 1);
+            strncat(off, m.mod_name[i], sizeof off - strlen(off) - 1);
+        }
+        put_str("GETV_MODS_OFF", off);
+    }
 }
 
 /* GoldenEye+ is a profile over the same gates, not a fork. It turns on what this port has
- * added and verified; it does not enable anything inert. Faithful clears the same set rather
+ * added and verified; it does not enable anything inert. 97 Console clears the same set rather
  * than merely not setting it, so switching back is symmetric and cannot leave a stray
  * enhancement behind. */
 void apply_profile(Model &m)
@@ -844,7 +1022,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
         model_load(am);
         model_store(am);
         printf("[getv][launcher] autoplay: profile=%s ruleset=%s%s\n",
-               am.profile ? "goldeneye+" : "faithful",
+               am.profile ? "goldeneye+" : "97-console",
                kRulesets[am.ruleset], am.horde ? " horde" : "");
         relaunch();
         return 0;
@@ -917,7 +1095,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
      * cannot reach -- the probe never clicks anything -- can each be rendered and looked at
      * without a human driving the mouse. */
     int  page    = env_int("GETV_LAUNCHER_PAGE", 0);
-    if (page < 0 || page > 4) page = 0;
+    if (page < 0 || page > 5) page = 0;
     const int probe_frames = env_int("GETV_LAUNCHER_PROBE", 0);
     int probe_seen = 0;
 
@@ -965,7 +1143,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
             TextLS(g_fSmall, 12.0f, ImVec2(W - 336, 26), kDim, "PROFILE", 2.6f);
             {
                 int prev_profile = m.profile;
-                static const char *const kProf[] = { "FAITHFUL", "GOLDENEYE+" };
+                static const char *const kProf[] = { "97 CONSOLE", "GOLDENEYE+" };
                 ImGui::SetCursorScreenPos(ImVec2(W - 336, 46));
                 Segmented("prof", &m.profile, kProf, 2, 150.0f);
                 if (m.profile != prev_profile) apply_profile(m);
@@ -975,12 +1153,14 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
             dl->AddRectFilled(ImVec2(0, headerH), ImVec2(navW, H - footerH), kPanel);
             dl->AddLine(ImVec2(navW, headerH), ImVec2(navW, H - footerH), kLine, 1.0f);
 
-            static const char *const kPages[] = { "MISSION", "RULES", "CHEATS", "VIDEO", "MODS" };
+            static const char *const kPages[] =
+                { "MISSION", "RULES", "CHEATS", "VIDEO", "CRT SCREEN", "MODS" };
+            const int kPageCount = (int)(sizeof kPages / sizeof kPages[0]);
             ImGui::SetCursorScreenPos(ImVec2(0, headerH + 20));
             ImGui::PushStyleColor(ImGuiCol_ChildBg, v4(kPanel));
             ImGui::BeginChild("nav", ImVec2(navW, H - footerH - headerH - 20),
                               ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
-            for (int i = 0; i < 5; i++) if (NavItem(kPages[i], page == i, i)) page = i;
+            for (int i = 0; i < kPageCount; i++) if (NavItem(kPages[i], page == i, i)) page = i;
             ImGui::EndChild();
             ImGui::PopStyleColor();
 
@@ -1154,8 +1334,8 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
                 Section("IMAGE QUALITY");
                 if (m.profile == 0) {
-                    Hint("The Faithful profile pins these to the console's own values. Switch to "
-                         "GoldenEye+ in the header to change them.");
+                    Hint("The 97 Console profile pins these to the console's own values. Switch "
+                         "to GoldenEye+ in the header to change them.");
                     ImGui::Dummy(ImVec2(0, 10));
                 }
                 {
@@ -1167,6 +1347,12 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 }
                 Hint("Field of view is a percentage of the original. 100 is the N64's.");
 
+                ImGui::Dummy(ImVec2(0, 8));
+                ImGui::Checkbox("FXAA", &m.fxaa);
+                Hint("Edge antialiasing over the finished frame. Cheaper than supersampling "
+                     "and softer. Belongs here rather than with the CRT terms because it is "
+                     "an image-quality choice, not a look.");
+
                 Section("TIMING");
                 SliderRow("Frame rate", &m.framerate, 30, 60, " fps", vw, true);
                 Hint("Game logic is tied to the frame step, so the ceiling is 60.");
@@ -1175,13 +1361,127 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 ImGui::Checkbox("Show the developer overlay in game", &m.dev_overlay);
             }
 
+            /* Its own page rather than a fifth section on Video. Five stacked sections put the
+             * CRT controls below the fold at every window size the display here can show, and
+             * a control nobody scrolls to is a control nobody has. */
             else if (page == 4) {
-                Section("MODS");
-                InputRow("Mod directory", m.moddir, sizeof m.moddir,
-                         ImGui::GetContentRegionAvail().x);
-                ImGui::Dummy(ImVec2(0, 10));
-                Hint("Directory to scan. Every subdirectory containing a mod.lua is loaded. "
-                     "Leave this blank to use ./mods next to the executable.");
+                Section("CRT SCREEN");
+                ImGui::Checkbox("Emulate a CRT", &m.crt);
+                if (m.crt) {
+                    Hint("Scanlines, an aperture mask, a curved tube and a vignette, applied "
+                         "as one pass over the finished frame. Brightness is compensated "
+                         "exactly for what the scanlines and mask absorb, so this changes the "
+                         "texture of the image without changing its exposure.");
+                    ImGui::Dummy(ImVec2(0, 12));
+                    float cw = ImGui::GetContentRegionAvail().x;
+                    SliderRow("Scanlines",     &m.crt_scan,  0, 100, "%", cw, true);
+                    SliderRow("Aperture mask", &m.crt_mask,  0, 100, "%", cw, true);
+                    SliderRow("Tube curve",    &m.crt_curve, 0, 10,  "%", cw, true);
+                    SliderRow("Vignette",      &m.crt_vig,   0, 100, "%", cw, true);
+                    ImGui::Dummy(ImVec2(0, 6));
+                    Hint("Scanlines are drawn at 240 lines, the console's own count, rather "
+                         "than one per output pixel -- a tube's line pitch is a property of "
+                         "the tube and not of the signal fed to it.");
+                } else {
+                    Hint("Not an enhancement, so it is offered under either profile: it "
+                         "changes how the finished frame is presented, not what the game "
+                         "draws.");
+                }
+            }
+
+            else if (page == 5) {
+                float mw = ImGui::GetContentRegionAvail().x;
+
+                Section("MOD DIRECTORY");
+                InputRow("Folder", m.moddir, sizeof m.moddir, mw - 130.0f);
+                ImGui::SameLine();
+                {
+                    ImVec2 p = ImGui::GetCursorScreenPos();
+                    ImGui::SetCursorScreenPos(ImVec2(p.x + 10, p.y - 2));
+                    if (Btn("RESCAN", ImVec2(110, 32), false)) { mod_scan(m); }
+                }
+                ImGui::Dummy(ImVec2(0, 8));
+                Hint("Blank means ./mods beside the executable. A subdirectory counts as a mod "
+                     "when it contains a mod.lua -- the same test the loader applies, so this "
+                     "list is exactly what the game would load.");
+
+                Section("INSTALLED");
+                if (m.mod_count == 0) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, v4(kWarn));
+                    ImGui::PushFont(g_fSmall);
+                    ImGui::TextWrapped("Nothing found in %s", m.mod_scanned);
+                    ImGui::PopFont();
+                    ImGui::PopStyleColor();
+                    ImGui::Dummy(ImVec2(0, 6));
+                    Hint("Drop a folder containing a mod.lua in there and press Rescan.");
+                } else {
+                    int on = 0;
+                    for (int i = 0; i < m.mod_count; i++) if (m.mod_on[i]) on++;
+
+                    {
+                        char hdr[256];
+                        snprintf(hdr, sizeof hdr, "%d found in %s, %d enabled",
+                                 m.mod_count, m.mod_scanned, on);
+                        Hint(hdr);
+                    }
+                    ImGui::Dummy(ImVec2(0, 8));
+
+                    if (Btn("ENABLE ALL", ImVec2(140, 32), false))
+                        for (int i = 0; i < m.mod_count; i++) m.mod_on[i] = true;
+                    ImGui::SameLine();
+                    {
+                        ImVec2 p = ImGui::GetCursorScreenPos();
+                        ImGui::SetCursorScreenPos(ImVec2(p.x + 10, p.y));
+                        if (Btn("DISABLE ALL", ImVec2(140, 32), false))
+                            for (int i = 0; i < m.mod_count; i++) m.mod_on[i] = false;
+                    }
+                    ImGui::Dummy(ImVec2(0, 14));
+
+                    /* One row per mod, full width and clickable across the whole row rather
+                     * than only on the checkbox -- these are the primary control on this page
+                     * and a 16px hit target for each would be the wrong way round. */
+                    for (int i = 0; i < m.mod_count; i++) {
+                        const float h = 40.0f;
+                        ImVec2 p = ImGui::GetCursorScreenPos();
+
+                        ImGui::PushID(i);
+                        bool clicked = ImGui::InvisibleButton("mod", ImVec2(mw, h));
+                        bool hov = ImGui::IsItemHovered();
+                        ImGui::PopID();
+                        if (clicked) m.mod_on[i] = !m.mod_on[i];
+
+                        ImDrawList *ml = ImGui::GetWindowDrawList();
+                        ml->AddRectFilled(p, ImVec2(p.x + mw, p.y + h),
+                                          m.mod_on[i] ? mix(kPanel, kGold, 0.16f)
+                                                      : (hov ? mix(kPanel2, kGold, 0.07f) : kPanel2));
+                        ml->AddRect(p, ImVec2(p.x + mw, p.y + h),
+                                    m.mod_on[i] ? kGold : kLine, 0.0f, 0, 1.0f);
+                        if (m.mod_on[i])
+                            ml->AddRectFilled(p, ImVec2(p.x + 3, p.y + h), kGoldHi);
+
+                        /* Tick box drawn rather than an ImGui::Checkbox, so the whole row can
+                         * be the hit target without two overlapping widgets fighting. */
+                        ImVec2 b0(p.x + 16, p.y + h * 0.5f - 8.0f), b1(b0.x + 16, b0.y + 16);
+                        ml->AddRect(b0, b1, m.mod_on[i] ? kGoldHi : kDim, 0.0f, 0, 1.0f);
+                        if (m.mod_on[i]) ml->AddRectFilled(ImVec2(b0.x + 4, b0.y + 4),
+                                                           ImVec2(b1.x - 4, b1.y - 4), kGoldHi);
+
+                        ml->AddText(g_fBody, 18.0f, ImVec2(p.x + 48, p.y + h * 0.5f - 11.0f),
+                                    m.mod_on[i] ? kText : kDim, m.mod_name[i]);
+
+                        const char *state = m.mod_on[i] ? "ENABLED" : "DISABLED";
+                        float sw = TextLSWidth(g_fSmall, 12.0f, state, 1.6f);
+                        TextLS(g_fSmall, 12.0f, ImVec2(p.x + mw - sw - 14, p.y + h * 0.5f - 7.0f),
+                               m.mod_on[i] ? kGold : kDim, state, 1.6f);
+
+                        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + 6.0f));
+                        ImGui::Dummy(ImVec2(0, 0));
+                    }
+
+                    ImGui::Dummy(ImVec2(0, 10));
+                    Hint("Disabled mods are recorded by name, so a mod added to the folder "
+                         "later is enabled by default rather than silently ignored.");
+                }
             }
 
             ImGui::EndChild();
@@ -1208,7 +1508,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                     n += snprintf(sum + n, sizeof sum - n, "TITLE SCREEN");
                 }
                 n += snprintf(sum + n, sizeof sum - n, "   /   %s",
-                              m.profile ? "GOLDENEYE+" : "FAITHFUL");
+                              m.profile ? "GOLDENEYE+" : "97 CONSOLE");
                 n += snprintf(sum + n, sizeof sum - n, "   /   %s",
                               m.rs_custom ? "CUSTOM RULES" : kRulesets[m.ruleset]);
                 if (m.horde) n += snprintf(sum + n, sizeof sum - n, "   /   HORDE");
