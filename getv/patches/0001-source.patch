@@ -7313,7 +7313,7 @@ index e83a09c..0a8bf87 100644
  extern s32 upper_text_buffer_index;
  extern s32 display_upper_text_window;
 diff --git a/src/game/bondview_r.c b/src/game/bondview_r.c
-index 48cd024..0b77a77 100644
+index 48cd024..80b3c78 100644
 --- a/src/game/bondview_r.c
 +++ b/src/game/bondview_r.c
 @@ -1,3 +1,6 @@
@@ -7748,7 +7748,7 @@ index 48cd024..0b77a77 100644
  #ifdef DEBUG
          assert(g_Startpad[rand_pad_index]->stan); //              (".\\ported\\bondview_r.cpp",0x171,"Assertion failed: g_Startpad[sp]->stan");
  #endif
-@@ -391,6 +655,83 @@ void bondviewLoadSetupIntroSection(void)
+@@ -391,6 +655,109 @@ void bondviewLoadSetupIntroSection(void)
          start_pos.f[0] = g_Startpad[rand_pad_index]->pos.f[0];
          start_pos.f[2] = g_Startpad[rand_pad_index]->pos.f[2];
  
@@ -7776,34 +7776,60 @@ index 48cd024..0b77a77 100644
 +            if (ge_idx > 0)
 +            {
 +                static f32 ge_spread = -1.0f;
++                /* Eight directions, so a corridor still has somewhere to put the second
++                 * player even when the obvious sideways step is into a wall. */
++                static const f32 ge_dx[8] = { 1.0f, 0.0f, -1.0f,  0.0f,  0.707f, -0.707f,  0.707f, -0.707f };
++                static const f32 ge_dz[8] = { 0.0f, 1.0f,  0.0f, -1.0f,  0.707f,  0.707f, -0.707f, -0.707f };
++                f32 base_x = start_pos.f[0];
++                f32 base_z = start_pos.f[2];
++                f32 pad_y  = g_Startpad[rand_pad_index]->pos.f[1];
++                s32 placed = 0;
++                s32 dir, ring;
++
 +                if (ge_spread < 0.0f)
 +                {
 +                    const char *e = getenv("GETV_COOP_SPREAD");
-+                    ge_spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 200.0f;
++                    ge_spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 120.0f;
 +                    if (ge_spread < 0.0f) { ge_spread = 0.0f; }
 +                }
-+                switch (ge_idx & 3)
++
++                /* Try the requested distance first, then closer. A player standing slightly
++                 * too near the first is far better than one embedded in a wall, and a wall is
++                 * what a blind offset produces in a corridor: the sideways step at Bunker's
++                 * start pad lands inside the geometry.
++                 *
++                 * A candidate counts only if the stan query finds a tile there. Keeping the
++                 * pad's own tile for a position that is not on it, which is what this did
++                 * first, is exactly how a player ends up inside the level. */
++                for (ring = 0; ring < 3 && !placed; ring++)
 +                {
-+                case 1: start_pos.f[0] += ge_spread; break;
-+                case 2: start_pos.f[2] += ge_spread; break;
-+                case 3: start_pos.f[0] -= ge_spread; break;
-+                default: break;
++                    f32 dist = ge_spread * (1.0f - (0.3f * (f32) ring));
++                    for (dir = 0; dir < 8 && !placed; dir++)
++                    {
++                        s32 k = (dir + ((ge_idx - 1) * 2)) & 7;
++                        f32 qx = base_x + (ge_dx[k] * dist);
++                        f32 qy = pad_y;
++                        f32 qz = base_z + (ge_dz[k] * dist);
++                        StandTile *t = sub_GAME_7F0AFB78(&qx, &qy, &qz, 30.0f);
++                        if (t != NULL)
++                        {
++                            start_pos.f[0] = qx;
++                            start_pos.f[2] = qz;
++                            start_stan = t;
++                            placed = 1;
++                            printf("[getv][coop] player %d placed at (%.1f,%.1f), "
++                                   "dir %d ring %d dist %.0f\n",
++                                   (int) ge_idx, qx, qz, (int) k, (int) ring, dist);
++                        }
++                    }
 +                }
-+                /* Resample the floor under the new spot. The pad's own tile is the wrong
-+                 * answer once we have stepped off it, and a wrong tile puts the player
-+                 * through the ground or leaves them hovering. Keep the pad's tile if the
-+                 * query finds nothing rather than handing NULL downstream. */
++                if (!placed)
 +                {
-+                    f32 qx = start_pos.f[0];
-+                    f32 qy = g_Startpad[rand_pad_index]->pos.f[1];
-+                    f32 qz = start_pos.f[2];
-+                    StandTile *t = sub_GAME_7F0AFB78(&qx, &qy, &qz, 30.0f);
-+                    if (t != NULL) { start_stan = t; }
++                    /* Nowhere standable within reach. Sharing the pad looks wrong and is at
++                     * least somewhere the player can walk out of. */
++                    printf("[getv][coop] player %d: no standable spot within %.0f units, "
++                           "sharing the pad\n", (int) ge_idx, ge_spread);
 +                }
-+                printf("[getv][coop] player %d fanned to (%.1f,%.1f), spread %.0f, "
-+                       "%d pad(s) available\n",
-+                       (int) ge_idx, start_pos.f[0], start_pos.f[2], ge_spread,
-+                       (int) startpadcount);
 +                fflush(stdout);
 +            }
 +        }
@@ -7832,7 +7858,7 @@ index 48cd024..0b77a77 100644
  
          start_stan = g_Startpad[rand_pad_index]->stan;
  
-@@ -398,15 +739,63 @@ void bondviewLoadSetupIntroSection(void)
+@@ -398,15 +765,63 @@ void bondviewLoadSetupIntroSection(void)
          start_pos.f[1] = g_CurrentPlayer->eyeheight + stan_height;
          g_CurrentPlayer->field_70 = stan_height;
          start_look_angle = M_TAU_F - atan2f(g_Startpad[rand_pad_index]->look.f[0], g_Startpad[rand_pad_index]->look.f[2]);
@@ -7896,7 +7922,7 @@ index 48cd024..0b77a77 100644
      g_CurrentPlayer->vv_theta = (start_look_angle * 360.0f) / M_TAU_F;
      g_CurrentPlayer->stanHeight = stan_height;
      g_CurrentPlayer->field_6C = stan_height / FIELD_6C_FACTOR;
-@@ -424,6 +813,26 @@ void bondviewLoadSetupIntroSection(void)
+@@ -424,6 +839,26 @@ void bondviewLoadSetupIntroSection(void)
          dword_CODE_bss_80079DA8[i] = 0;
      }
  
@@ -7923,7 +7949,7 @@ index 48cd024..0b77a77 100644
      bondviewResetIntroCameraMessageDialogs();
      bondviewResetUpperTextDisplay();
      g_CurrentPlayer->prop = chrpropAllocate();
-@@ -456,6 +865,31 @@ void bondviewLoadSetupIntroSection(void)
+@@ -456,6 +891,31 @@ void bondviewLoadSetupIntroSection(void)
          bondviewSetCameraMode(CAMERAMODE_MP);
      }
  
