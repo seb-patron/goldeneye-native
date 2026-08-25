@@ -12,6 +12,13 @@ There are two, split by *when* they can be applied rather than by subject.
 |---|---|---|---|
 | `0001-source.patch` | 1.4 MB, 140 files | `src/` (131), `include/` (8), `tools/` (1) | immediately after cloning the decomp |
 | `0002-assets.patch` | 212 KB, 8 files | generated asset sources | at the end of the asset pipeline |
+| `0003-enemy-shim.patch` | 2.9 KB, 1 file | `src/game/objective_status.c` | after `0001`, any time before building |
+
+`0003` adds `gePortEnemyCount` / `gePortEnemyAt` beside `gePortPlayerPos` — the live-enemy
+accessors `getv/port/src/ge_enemy_api.c` registers at boot. See `docs/ENEMY_API.md`.
+
+It is a **separate file rather than folded into `0001`** for a reason that is worth reading before
+you regenerate anything.
 
 The split exists because the eight files in `0002` do not exist in a fresh decomp - they are
 produced from the ROM by the pipeline in `docs/SETUP.md` section 3.5. Applying it early fails,
@@ -30,6 +37,36 @@ git apply ../../getv/patches/0002-assets.patch
 ```
 
 ## Refresh (before any commit that touches the decomp)
+
+> **CHECK THAT `vendor/ge-decomp` IS A GIT REPOSITORY FIRST.**
+>
+> `git diff` in a directory that is not a repo prints **nothing and exits 0**. Redirecting that
+> into `0001-source.patch` replaces 1.4 MB across 140 files with an empty file, and since
+> `vendor/` is gitignored there is no other copy. The refresh command below is the single most
+> destructive line in this repository.
+>
+> On at least one machine here the decomp is a plain directory rather than a clone — the sources
+> are present and patched, but there is no `.git`. Verify before running anything:
+>
+> ```bash
+> cd vendor/ge-decomp
+> git rev-parse --is-inside-work-tree || echo "NOT A REPO -- do not regenerate"
+> ```
+>
+> Without a repo, add changes as a **new numbered patch** instead (that is what `0003` is), or
+> generate one against a saved copy of the file:
+>
+> ```bash
+> cp src/game/foo.c /tmp/foo.c.orig     # before editing
+> diff -u /tmp/foo.c.orig src/game/foo.c > /tmp/raw.patch
+> # then rewrite the two header lines to a/src/game/foo.c and b/src/game/foo.c
+> ```
+>
+> Whichever route, verify it round-trips onto a pristine copy before trusting it:
+>
+> ```bash
+> patch -p1 --dry-run < ../../getv/patches/000N-thing.patch
+> ```
 
 Each patch must be regenerated over its own paths. A bare `git diff` would sweep the entire
 extracted asset tree into `0001` - hundreds of megabytes of ROM-derived data.

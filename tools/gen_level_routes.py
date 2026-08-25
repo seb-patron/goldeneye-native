@@ -45,6 +45,8 @@ import glob
 import json
 import os
 import sys
+import heapq
+import math
 from collections import deque
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -111,26 +113,59 @@ def augment_with_regions(know):
     return graph, bridges
 
 
-def bfs(graph, start, goal):
-    """Shortest node sequence from start to goal, or None.
+def bfs(graph, start, goal, pos=None):
+    """Cheapest node sequence from start to goal, or None. Weighted by DISTANCE.
 
-    Breadth-first rather than weighted: the graph's edges are the game's own waypoint links,
-    which are already short hops between adjacent places. Fewest hops is a good proxy for
-    shortest walk, and pretending to a precision the data does not carry would be worse.
+    🔑 This was breadth-first, and the comment defending it -- that the edges are already short
+    hops, so fewest hops is a good proxy -- stopped being true the moment synthetic nodes were
+    added. A spawn node links to whatever is nearest and a portal or door node links across a
+    room, so the graph now carries edges from 40 to 1300 units and BFS PRICES THEM THE SAME.
+
+    It picks the long leap every time, and the long leap is exactly the edge least likely to be
+    walkable. Bunker 1: the router chose spawn -> portal at 1342 units over spawn -> door at 555,
+    then the bot spent every run pressed against the wall the 1342-unit line passes through. The
+    route was well formed and unwalkable, which is this project's most expensive failure shape.
+
+    Falls back to hop counting when no positions are supplied, so a caller without them gets the
+    old behaviour rather than a crash.
     """
     if start == goal:
         return [start]
-    seen = {start}
-    q = deque([(start, [start])])
-    while q:
-        node, path = q.popleft()
+    if pos is None:
+        seen = {start}
+        q = deque([(start, [start])])
+        while q:
+            node, path = q.popleft()
+            for nxt in graph.get(node, []):
+                if nxt in seen:
+                    continue
+                if nxt == goal:
+                    return path + [nxt]
+                seen.add(nxt)
+                q.append((nxt, path + [nxt]))
+        return None
+
+    def cost(a, b):
+        pa, pb = pos.get(a), pos.get(b)
+        if pa is None or pb is None:
+            # An edge with no geometry cannot be priced. Charge it heavily rather than free, so
+            # it is a last resort instead of a shortcut the router reaches for.
+            return 10000.0
+        return math.hypot(pa[0] - pb[0], pa[2] - pb[2])
+
+    best = {start: 0.0}
+    heap = [(0.0, start, [start])]
+    while heap:
+        d, node, path = heapq.heappop(heap)
+        if node == goal:
+            return path
+        if d > best.get(node, float("inf")):
+            continue
         for nxt in graph.get(node, []):
-            if nxt in seen:
-                continue
-            if nxt == goal:
-                return path + [nxt]
-            seen.add(nxt)
-            q.append((nxt, path + [nxt]))
+            nd = d + cost(node, nxt)
+            if nd < best.get(nxt, float("inf")):
+                best[nxt] = nd
+                heapq.heappush(heap, (nd, nxt, path + [nxt]))
     return None
 
 
@@ -444,8 +479,79 @@ def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3)
     return index
 
 
+def inject_door_nodes(know, graph, max_link=200.0):
+    """Put the level's doors in the graph, because that is how you get between rooms.
+
+    The waypoint set comes from PADS and a door is a PROP, so doorways were missing from the
+    graph entirely -- and a doorway is the single most load-bearing place in a level. The result
+    is routes that cut from a node in one room to a node in another along a line no body can
+    walk, and a bot that presses into the wall beside the door forever.
+
+    Bunker 1 is the clean example. The spawn links to node 6, and there is a Door prop 42 units
+    from node 6 at (-1267, 1741) -- the route runs THROUGH it, and nothing in the graph said so.
+    The bot spent every run scraping the corridor wall 400 units short of the doorway.
+
+    Each door becomes a node joined to its own nav_node -- the prop export already resolves that,
+    with the distance -- plus any other waypoint close enough to be the far side of the same
+    opening. That second link is what makes a door a passage rather than a dead end hanging off
+    one room.
+
+    ⚠️ Doors are not walls but they are not free either: a locked door still stops a bot, and
+    nothing here knows which are locked. That shows up as a route that stalls at a real doorway,
+    which is a much better failure than one that stalls at a blank wall -- and the follower
+    presses the action button when it stalls.
+    """
+    waypoints = [w for w in know.get("waypoints", []) if w.get("pos")]
+    if not waypoints:
+        return 0
+
+    doors = [pr for pr in know.get("props", [])
+             if str(pr.get("type", "")).lower() == "door" and pr.get("pos")]
+    if not doors:
+        return 0
+
+    next_index = max(w["index"] for w in know["waypoints"]) + 1
+    added = 0
+
+    for d in doors:
+        dx, dy, dz = d["pos"]
+        near = [w for w in waypoints
+                if ((w["pos"][0] - dx) ** 2 + (w["pos"][2] - dz) ** 2) <= max_link * max_link]
+
+        # The prop export already resolved the nearest nav node, so use it rather than
+        # recomputing a slightly different answer from slightly different rounding.
+        nav = d.get("nav_node")
+        links = {w["index"] for w in near}
+        if nav is not None:
+            links.add(nav)
+        if not links:
+            continue
+
+        know["waypoints"].append({
+            "index": next_index,
+            "pad": None,
+            "pos": [dx, dy, dz],
+            "pad_name": "door",
+            "synthetic": True,
+            "door": True,
+            "needs_action": True,
+        })
+        graph.setdefault(next_index, [])
+        for other in links:
+            if other not in graph[next_index]:
+                graph[next_index].append(other)
+            graph.setdefault(other, [])
+            if next_index not in graph[other]:
+                graph[other].append(next_index)
+
+        next_index += 1
+        added += 1
+
+    return added
+
+
 def link_spawn_through_portals(know, graph, rooms, spawn_index, spawn_pos, spawn_room,
-                               walls=None):
+                               level="?", walls=None):
     """Connect the spawn room to the rest of the level through its actual doorways.
 
     THIS IS THE ONE THAT MATTERS. The waypoint set is built from PADS, and no pad sits in the
@@ -505,13 +611,29 @@ def link_spawn_through_portals(know, graph, rooms, spawn_index, spawn_pos, spawn
             "portal": por.get("portal"),
             "rooms": pair,
         })
+        # ⚠️ VALIDATE BOTH ENDS. An unchecked link from the spawn to a portal is a straight line
+        # across a room the spawn may not open onto, and a weighted router will happily take it
+        # because it is one long cheap hop -- Bunker 1 chose spawn -> portal at 1342 units over
+        # spawn -> door at 555 and then walked into the wall the long line crosses. Distance
+        # weighting cannot rescue an edge that should not exist.
         graph.setdefault(next_index, [])
         for other_end in (spawn_index, target["index"]):
+            end_pos = spawn_pos if other_end == spawn_index else target["pos"]
+            if walls and end_pos and not path_is_clear(walls, [cx, cy, cz], end_pos):
+                continue
             if other_end not in graph[next_index]:
                 graph[next_index].append(other_end)
             graph.setdefault(other_end, [])
             if next_index not in graph[other_end]:
                 graph[other_end].append(next_index)
+
+        if not graph[next_index]:
+            # A portal node joined to nothing is worse than no node: it enlarges the graph and
+            # can never be routed through. Drop it and say so.
+            know["waypoints"].pop()
+            print("  %-10s portal %s dropped -- no clear line to either side"
+                  % (level, por.get("portal")))
+            continue
 
         next_index += 1
         added += 1
@@ -683,11 +805,23 @@ def main():
         props_by_tag = {p["tag"]: p for p in know.get("props", []) if p.get("tag") is not None}
         # Prefer a real node AT the spawn over the nearest node to it: starting the route where
         # the bot actually is removes the unmapped first leg entirely.
+        # Positions for the weighted search, rebuilt AFTER every synthetic node is added --
+        # a table built earlier would silently price the new nodes at the no-geometry penalty and
+        # the router would avoid exactly the doorways this pass exists to add.
+        # (assigned below, once the graph is final)
+
+        # Doors BEFORE the spawn node, so the spawn can link to a doorway if that is genuinely
+        # its nearest way out -- which on Bunker 1 it is.
+        _doors = inject_door_nodes(know, graph)
+        if _doors:
+            print("  %-10s %d door node(s) added" % (level, _doors))
+
         start = inject_spawn_node(know, graph, level, measured, rooms)
         if start is not None:
             _rec = measured.get(level) or {}
             _n = link_spawn_through_portals(know, graph, rooms, start, _rec.get("pos"),
-                                            _rec.get("room"))
+                                            _rec.get("room"), level,
+                                            (rooms or {}).get("walls") or [])
             if _n:
                 print("  %-10s %d portal node(s) out of spawn room %s"
                       % (level, _n, _rec.get("room")))
@@ -701,6 +835,9 @@ def main():
         start_measured = start is not None
         if start is None:
             start = spawn_node(know, graph)
+
+        node_positions = {w["index"]: w["pos"]
+                          for w in know.get("waypoints", []) if w.get("pos")}
 
         routes = []
         for obj in tact.get("objectives", []):
@@ -728,7 +865,7 @@ def main():
             here = start
             for t, p in targets:
                 goal = p["nav_node"]
-                path = bfs(graph, here, goal) if here is not None else None
+                path = bfs(graph, here, goal, pos=node_positions) if here is not None else None
                 legs.append({
                     "tag": t, "type": p.get("type"), "pad": p.get("pad"),
                     "pos": p.get("pos"), "node": goal,

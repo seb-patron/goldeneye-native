@@ -348,6 +348,20 @@ int SDL_main(int argc, char *argv[])
     /* Mods load before any game code runs, so a mod's chunk body can configure things
      * that are only read at startup. Silent and free when there is no mods/ directory. */
     { extern void gePortLuaInit(void); gePortLuaInit(); }
+
+    /* Hand the live-enemy accessors to ge_enemy_api. They live game-side because ChrRecord is a
+     * game type the port layer cannot name (see objective_status.c), and they are REGISTERED
+     * rather than linked so that ge_enemy_api stays free of game symbols and testable without
+     * one. Installing here rather than per level is safe: the accessors read g_ChrSlots and
+     * g_NumChrSlots each call, so between levels they simply report an empty world. */
+    {
+        extern int  gePortEnemyCount(void);
+        extern int  gePortEnemyAt(int index, float *out, int count);
+        extern void geEnemySourceInstall(int (*count)(void),
+                                         int (*at)(int, float *, int));
+        geEnemySourceInstall(gePortEnemyCount, gePortEnemyAt);
+    }
+
     printf("[getv] libge.a linked; bossGetStageNum() -> %d\n", bossGetStageNum());
 
     /* macOS is the only target with a real window, so it is the only one with

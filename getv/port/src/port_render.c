@@ -287,7 +287,8 @@ void gePortRenderDisplayList(void *firstGdl)
      * n is the half-width in cells; the cell size is GETV_FLOORMAP_STEP (default 60, about the
      * radius the stan query snaps within). Printed once, at a fixed frame, so two runs compare.
      *
-     * Legend: '@' the player, '#' no standable tile, '.' floor at the player's level, and
+     * Legend: '@' the player, '#' no standable tile, 'x' floor the player cannot reach in a straight line,
+     * '.' reachable floor at the player's level, and
      * '^'/'v' floor more than a step above or below -- height matters, since a tile a bot cannot
      * climb to is not a route even though the query says it is standable.
      */
@@ -300,6 +301,7 @@ void gePortRenderDisplayList(void *firstGdl)
         if (done < 0 && rendered >= 600) {
             extern int gePortProbeStandable(float x, float y, float z, float radius,
                                             float *out_y, int *out_room);
+            extern int gePortProbeWalkable(float from_x, float from_z, float to_x, float to_z);
             int n = -done;
             const char *se = getenv("GETV_FLOORMAP_STEP");
             float cell = (se && *se) ? (float) atof(se) : 60.0f;
@@ -332,6 +334,12 @@ void gePortRenderDisplayList(void *firstGdl)
                             ch = '@';
                         } else if (!gePortProbeStandable(px, base, pz, probe_r, &fy, NULL)) {
                             ch = '#';
+                        } else if (!gePortProbeWalkable(ps.x, ps.z, px, pz)) {
+                            /* Floor is there and the line to it is blocked. Drawn separately
+                             * because the two failures mean completely different things: '#' is
+                             * "no ground", 'x' is "ground you cannot reach from here". Conflating
+                             * them is what made a room with one doorway look like open floor. */
+                            ch = 'x';
                         } else if (fy - base > 40.0f) {
                             ch = '^';
                         } else if (base - fy > 90.0f) {

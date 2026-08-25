@@ -69,6 +69,15 @@
 #define GE_BR_MAX_STEP      40.0f
 #define GE_BR_MAX_DROP      90.0f
 
+/* How long to lean on the action button before deciding an obstacle is not a door.
+ *
+ * Doors need opening, and a bot that only ever walks and turns will scrape along a closed one
+ * forever. Bunker 1's spawn corridor is exactly that: a reachability map shows it sealed at both
+ * ends with CDTYPE_DOORS in the mask and open at both ends without it, so the two exits ARE
+ * doors. Long enough to cover the open animation, short enough that a real wall is not mistaken
+ * for a stuck door for more than a moment. */
+#define GE_BR_USE_TICKS     45
+
 #define GE_BR_STUCK_TICKS   30
 #define GE_BR_DETOUR_TICKS  26
 
@@ -80,6 +89,7 @@ static int   ge_br_step;            /* which step of the route we are on */
 static int   ge_br_joined;          /* has the bot reached the route's first node yet */
 static int   ge_br_stuck;           /* consecutive ticks commanded forward with no movement */
 static int   ge_br_held;            /* frames spent waiting on a contested waypoint */
+static int   ge_br_use;             /* ticks left pressing the action button at a door */
 static int   ge_br_detour;          /* ticks left steering around an obstacle */
 static float ge_br_detour_sign;     /* which way round it -- kept until the detour ends */
 static int   ge_br_steps;
@@ -381,12 +391,30 @@ void gePortBotRouteFrame(int frame)
         float moved = (st.x - ge_br_px) * (st.x - ge_br_px)
                     + (st.z - ge_br_pz) * (st.z - ge_br_pz);
 
-        if (ge_br_detour > 0) {
+        if (ge_br_use > 0) {
+            /* Press USE and keep walking into it. Both matter: the button opens the door and the
+             * forward pressure carries the bot through as soon as it swings, without waiting for
+             * another stuck cycle to notice the way is now clear. */
+            ge_br_use--;
+            in.buttons |= GE_IN_USE;
+            in.stick_y = (signed char) GE_BR_WALK;
+        } else if (ge_br_detour > 0) {
             ge_br_detour--;
             in.stick_x = (signed char) (ge_br_detour_sign * GE_BR_STICK_MAX);
             in.stick_y = (signed char) GE_BR_WALK;
         } else if (in.stick_y > 0 && moved < (GE_BR_MOVE_EPSILON * GE_BR_MOVE_EPSILON)) {
             ge_br_stuck++;
+            /* TRY THE DOOR FIRST. Turning away from a closed door is the wrong move and it looks
+             * exactly like the right one -- the bot makes progress along a wall and comes back.
+             * Trying the button costs 45 ticks and settles it. */
+            if (ge_br_stuck == GE_BR_STUCK_TICKS / 2) {
+                ge_br_use = GE_BR_USE_TICKS;
+                if (ge_br_trace) {
+                    printf("[getv][botroute] stuck at (%.0f %.0f) -- trying the action button\n",
+                           (double) st.x, (double) st.z);
+                    fflush(stdout);
+                }
+            }
             if (ge_br_stuck >= GE_BR_STUCK_TICKS) {
                 /* ASK THE FLOOR WHICH WAY IS OPEN, rather than guessing.
                  *
@@ -405,6 +433,8 @@ void gePortBotRouteFrame(int frame)
                  */
                 extern int gePortProbeStandable(float x, float y, float z, float radius,
                                                 float *out_y, int *out_room);
+                extern int gePortProbeWalkable(float from_x, float from_z,
+                                               float to_x, float to_z);
                 /* THE FULL CIRCLE, not a forward cone.
                  *
                  * A cone of +/-110 degrees cannot consider retreating, and a bot pressed into a
@@ -462,6 +492,22 @@ void gePortBotRouteFrame(int frame)
                      * ⚠️ Still not a proof. Samples are 55 units apart and a thin wall between two
                      * of them is invisible. It is a much better guess, bounded by the detour
                      * timer, and it is not a pathfinder. */
+                    /* Walls first, and this is the term that was missing.
+                     *
+                     * The sampled version below asks stan, and stan does not know about walls --
+                     * it snaps to the nearest standable tile rather than testing a point, so it
+                     * answered yes in every direction while the bot could not cross x=-1361. A
+                     * floor map of this spawn showed 840x840 units of open floor and no wall
+                     * anywhere. gePortProbeWalkable is the engine's own line test with CDTYPE_BG,
+                     * so it sees the geometry that actually refuses the move. */
+                    if (!gePortProbeWalkable(st.x, st.z, st.x + sn * reach, st.z + cs * reach)) {
+                        continue;
+                    }
+
+                    /* Then the floor, which the line test does not check: an unobstructed line
+                     * can still cross a hole or a drop, and stan is the right authority for
+                     * where the ground is and how high. The two answer different questions and
+                     * both are needed. */
                     for (step = 1; step <= 4 && walkable; step++) {
                         float d = reach * ((float) step / 4.0f);
                         float sy;
