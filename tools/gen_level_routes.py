@@ -444,6 +444,81 @@ def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3)
     return index
 
 
+def link_spawn_through_portals(know, graph, rooms, spawn_index, spawn_pos, spawn_room,
+                               walls=None):
+    """Connect the spawn room to the rest of the level through its actual doorways.
+
+    THIS IS THE ONE THAT MATTERS. The waypoint set is built from PADS, and no pad sits in the
+    room the player starts in -- Bunker 1 spawns in room 29 and the waypoint rooms are
+    {2,4,...,30} with no 29 in them. So the bot is confined to its spawn room with no node in it,
+    and every route begins somewhere it cannot walk to. Measured: 109 detours, closest approach
+    426 against an arrive radius of 120, never leaving room 29.
+
+    A straight line to the nearest node cannot fix that, and the wall test correctly refuses to
+    pretend otherwise. What connects two rooms in this engine is a PORTAL, and rooms.json already
+    carries them with their polygons -- a doorway is a real, walkable place, which is exactly the
+    thing proximity cannot express.
+
+    So: a node at each portal of the spawn room, joined to the spawn on one side and to the
+    nearest waypoint in the room beyond on the other. That is a path a body can actually walk.
+
+    Returns the number of portal nodes added.
+    """
+    if spawn_room is None or not rooms:
+        return 0
+
+    portals = rooms.get("portals") or []
+    wr = rooms.get("waypoint_room") or {}
+    by_index = {w["index"]: w for w in know.get("waypoints", []) if w.get("pos")}
+
+    added = 0
+    next_index = max(w["index"] for w in know["waypoints"]) + 1
+
+    for por in portals:
+        pair = por.get("rooms") or []
+        poly = por.get("poly") or []
+        if spawn_room not in pair or len(poly) < 3:
+            continue
+
+        other = pair[0] if pair[1] == spawn_room else pair[1]
+
+        # The doorway itself, as a point a body can stand on. The polygon is a vertical quad, so
+        # the centre of its FOOTPRINT is the walkable spot -- averaging the y as well would put
+        # the node halfway up the door frame.
+        cx = sum(pt[0] for pt in poly) / float(len(poly))
+        cz = sum(pt[2] for pt in poly) / float(len(poly))
+        cy = min(pt[1] for pt in poly)
+
+        # Nearest waypoint on the far side. Without one the portal leads nowhere useful, and a
+        # node with a single edge back to the spawn is just a dead end with extra steps.
+        cands = [w for i, w in by_index.items() if wr.get(str(i)) == other]
+        if not cands:
+            continue
+        target = min(cands, key=lambda w: (w["pos"][0] - cx) ** 2 + (w["pos"][2] - cz) ** 2)
+
+        know["waypoints"].append({
+            "index": next_index,
+            "pad": None,
+            "pos": [cx, cy, cz],
+            "pad_name": "portal_%d" % por.get("portal", -1),
+            "synthetic": True,
+            "portal": por.get("portal"),
+            "rooms": pair,
+        })
+        graph.setdefault(next_index, [])
+        for other_end in (spawn_index, target["index"]):
+            if other_end not in graph[next_index]:
+                graph[next_index].append(other_end)
+            graph.setdefault(other_end, [])
+            if next_index not in graph[other_end]:
+                graph[other_end].append(next_index)
+
+        next_index += 1
+        added += 1
+
+    return added
+
+
 def measured_spawn_node(know, graph, level, spawns):
     """The graph node nearest to where the game ACTUALLY puts the player.
 
@@ -609,6 +684,18 @@ def main():
         # Prefer a real node AT the spawn over the nearest node to it: starting the route where
         # the bot actually is removes the unmapped first leg entirely.
         start = inject_spawn_node(know, graph, level, measured, rooms)
+        if start is not None:
+            _rec = measured.get(level) or {}
+            _n = link_spawn_through_portals(know, graph, rooms, start, _rec.get("pos"),
+                                            _rec.get("room"))
+            if _n:
+                print("  %-10s %d portal node(s) out of spawn room %s"
+                      % (level, _n, _rec.get("room")))
+            else:
+                # Loud, because a spawn room with no usable portal is the difference between a
+                # route a bot can walk and one it cannot, and nothing downstream can tell.
+                print("  %-10s NO PORTAL out of spawn room %s -- routes start walled in"
+                      % (level, _rec.get("room")))
         if start is None:
             start = measured_spawn_node(know, graph, level, measured)
         start_measured = start is not None
@@ -677,6 +764,20 @@ def main():
         }
         with open(os.path.join(out_dir, level + ".routes.json"), "w", encoding="utf-8") as fh:
             json.dump(doc, fh, indent=1)
+
+        # Persist the synthetic nodes back into the knowledge file.
+        #
+        # The spawn and portal nodes were added to `know` in memory, and pack_world reads the
+        # waypoint table from this file -- so without writing them back the pack carried 45
+        # waypoints while the routes referenced 48. The follower looks each step's waypoint up by
+        # id, does not find it, and RETURNS SILENTLY: no trace, no error, a bot that simply never
+        # starts. That is a worse failure than a wrong route and it cost a full test cycle.
+        #
+        # gen_level_knowledge overwrites this file, which is fine: it runs before this tool and
+        # this tool re-adds the nodes every time.
+        if any(w.get("synthetic") for w in know.get("waypoints", [])):
+            with open(kp, "w", encoding="utf-8") as fh:
+                json.dump(know, fh, indent=1)
 
         shown = ", ".join(
             "obj%s:%s" % (r["objective"],
