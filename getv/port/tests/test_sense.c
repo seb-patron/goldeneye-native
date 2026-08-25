@@ -67,6 +67,11 @@ int gePortEnemyFacing(int chr_index, float *out_deg)
     return 1;
 }
 
+/* Suppress the weak fallbacks in the unit under test: this file supplies its own, so that the 1d
+ * coverage can drive a fake population. Without this both definitions land in one translation
+ * unit and the build fails on redefinition. */
+#define GE_SENSE_NO_WEAK_USABLE 1
+
 #define FAKE_USABLES 4
 static struct { float x, y, z, kind, prop; } usable[FAKE_USABLES];
 static int n_usables;

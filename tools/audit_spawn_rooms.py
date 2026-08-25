@@ -20,6 +20,7 @@ from inference all day:
 Nothing here needs a running game -- the capture already happened.
 """
 
+import importlib.util
 import json
 import os
 import sys
@@ -27,6 +28,30 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LEVELS = os.path.join(ROOT, "build", "levels")
 SPAWNS = os.path.join(ROOT, "docs", "captures", "spawns.json")
+
+
+def level_scales():
+    """Per-level scale from bg.c's levelinfotable, via mac-getv's parser in pack_world.py.
+
+    ⚠️ THIS IS WHY THE FIRST VERSION OF THIS FILE WAS WRONG. The extraction is in ASSET space and
+    the game runs in a scaled one: runtime = asset / levelscale, applied at load by setLevelScale.
+    Dam's scale is 0.23364, its floor tiles reach x=4735, and the measured spawn is x=20198 -- the
+    same place, expressed twice.
+
+    Comparing the two directly reported 17 of 20 spawns outside their own level and 19 of 20 with
+    no floor beneath them. Both numbers were real and neither meant what I said it meant.
+
+    Imported rather than reimplemented: pack_world.py owns this table, and a second parser is a
+    second thing to be wrong. That is the walkable_verdicts lesson.
+    """
+    path = os.path.join(ROOT, "tools", "pack_world.py")
+    spec = importlib.util.spec_from_file_location("pack_world", path)
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except SystemExit:
+        pass
+    return mod.load_level_scales(ROOT)
 
 
 def containing_tiles(floors, x, z):
@@ -53,6 +78,7 @@ def main():
 
     doc = json.load(open(SPAWNS, encoding="utf-8"))
     spawns = doc.get("spawns") or {}
+    scales = level_scales()
 
     print("Measured spawns against the extracted floor (frame %s)\n" % doc.get("frame"))
     print("%-10s %-22s %5s %6s %8s %8s  %s"
@@ -71,7 +97,10 @@ def main():
         if not floors:
             continue
 
-        x, y, z = pos[0], pos[1], pos[2]
+        # Runtime -> asset, so the spawn can be compared to the extracted floor at all.
+        # runtime = asset / levelscale, therefore asset = runtime * levelscale.
+        sc = scales.get(level, 1.0) or 1.0
+        x, y, z = pos[0] * sc, pos[1] * sc, pos[2] * sc
         inside = containing_tiles(floors, x, z)
         near, dist = nearest_tile(floors, x, z)
 

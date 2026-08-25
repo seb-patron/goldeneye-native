@@ -132,9 +132,15 @@ def main():
           % (avg(flagged, "median"), avg(flagged, "p90"), avg(flagged, "far_pct"), FAR))
     print("everything else: median %.0f, p90 %.0f, %.1f%% of floor beyond %.0f units"
           % (avg(other, "median"), avg(other, "p90"), avg(other, "far_pct"), FAR))
-    print("\nIF THE TWO ROWS LOOK ALIKE, sparse coverage does not explain the flagging and the")
-    print("  spawn measurement is pointing at something else. IF THE FLAGGED ROW IS MUCH WORSE,")
-    print("  the graph genuinely does not reach parts of those levels and nodes are the answer.")
+    print("\nTHE TWO ROWS LOOK ALIKE, and the question they were asked to settle is now closed.")
+    print("  The eight FLAGGED levels came from spawn distances measured before anyone knew the")
+    print("  game applies a per-level scale at load (bg.c levelinfotable; runtime = asset /")
+    print("  levelscale). Scaled, every spawn lands on its own floor, so that grouping was an")
+    print("  artefact of comparing two coordinate spaces and means nothing here.")
+    print("\n  The COVERAGE numbers stand -- floor tiles and waypoints are both asset space, so")
+    print("  nothing in this table crossed the boundary. Kept because 'is the graph dense enough'")
+    print("  is worth being able to ask; the flagged/unflagged split is retained only so the")
+    print("  obsolete list is visibly obsolete rather than quietly deleted.")
     return 0
 
 

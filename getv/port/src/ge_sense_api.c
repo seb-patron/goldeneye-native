@@ -300,6 +300,38 @@ int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSens
 extern int gePortUsableCount(void);
 extern int gePortUsableAt(int index, float *out);
 
+/* WEAK FALLBACKS so the port links before the game side exists.
+ *
+ * These are the ONLY two accessors it is safe to default, and the distinction matters. A
+ * placeholder gePortPlayerMovePad would have silently disabled the two-pad movement fix while the
+ * tree looked merged -- a build that runs and quietly does the wrong thing, which is worse than
+ * one that will not link. Refusing to stub that was right.
+ *
+ * These answer "nothing is within reach", which geSenseUsable already treats as a legitimate
+ * state and which every caller must handle anyway. The failure mode is a bot that never notices a
+ * door, not a bot that acts on a door that is not there.
+ *
+ * Weak, so mac-getv's real implementations override them at link with no edit here. When they
+ * land these become dead and should be deleted -- a fallback that outlives its reason is how a
+ * subsystem quietly stays switched off.
+ */
+/* test_sense.c includes this file and supplies its own definitions so it can drive a fake
+ * population; both would land in one translation unit. It defines GE_SENSE_NO_WEAK_USABLE to
+ * suppress these rather than lose that coverage. */
+#if defined(__GNUC__) && !defined(GE_SENSE_NO_WEAK_USABLE)
+__attribute__((weak)) int gePortUsableCount(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int gePortUsableAt(int index, float *out)
+{
+    (void) index;
+    (void) out;
+    return 0;
+}
+#endif
+
 int geSenseUsable(float x, float y, float z, GeUsable *out, int max)
 {
     int i, n, written = 0;
