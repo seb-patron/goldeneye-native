@@ -22,6 +22,37 @@ What survives, because it was measured directly rather than through that compari
 That last point is worth sitting with: after the camera fix, **co-op is on the correct branch
 and solo is not.** The next real test is a person playing co-op, not another scripted run.
 
+## The movement is computed correctly and then rejected
+
+This is the tightest the search has been. With the camera fix in place, in co-op:
+
+```
+[getv][start] dispatch cammode=4 timeractive=1 stick=(0,68) branch=MoveBond lockctl=0
+[getv][walk]  p=0 spd=0.972 theta=(-1.000,-0.006) dt=1.00 off=(-0.762,-0.013)
+[getv][walk]  p=0 spd=0.972 theta=(-1.000,-0.006) dt=1.00 off=(-2.063,-0.084)
+```
+
+Every link works:
+
+1. The injected stick reaches `bondviewMovePlayerUpdateViewport` as `(0,68)`.
+2. The dispatch sends it to **MoveBond**, the real movement path, with controls unlocked and
+   the camera in FP.
+3. `bondviewProcessInput` produces `speedforwards = 0.972`.
+4. `bondview2.c:7781` builds a real `move_offset` from the speed and the camera rotation, and
+   it grows frame over frame: -0.762, -1.447, -2.063.
+5. `bondviewCalcUpdatePlayerCollision(&move_offset, ...)` receives it.
+6. **The position does not change.**
+
+So the movement is calculated correctly and rejected inside the collision update. Everything
+upstream of that function is exonerated by measurement rather than by argument.
+
+**Not the other player.** At `GETV_COOP_SPREAD=6000` the players are 6000 units apart and
+player 0 is equally stuck, so mutual collision is excluded.
+
+The next step is inside `bondviewCalcUpdatePlayerCollision` (`bondview2.c:2861`): find which
+of its guards refuses the offset when a second player exists. That is one function, and the
+inputs to it are known good.
+
 ## What the harness would need
 
 `bondview2.c:8615` dispatches on the camera mode:
