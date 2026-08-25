@@ -111,6 +111,8 @@ static int   ge_br_step;            /* which step of the route we are on */
 static int   ge_br_joined;          /* has the bot reached the route's first node yet */
 static int   ge_br_stuck;           /* consecutive ticks commanded forward with no movement */
 static int   ge_br_held;            /* frames spent waiting on a contested waypoint */
+static float ge_br_turn_sign;       /* latched turn direction; 0 when not committed */
+static float ge_br_turn_from;       /* |err| when the turn was committed to */
 static int   ge_br_use;             /* ticks left pressing the action button at a door */
 static int   ge_br_avoid;           /* ticks left committed to an avoidance heading */
 static float ge_br_avoid_h;         /* the heading committed to, held for the whole manoeuvre */
@@ -450,6 +452,7 @@ void gePortBotRouteFrame(int frame)
             return;
         }
         ge_br_step++;
+        ge_br_turn_sign = 0.0f;   /* new target, new decision */
         if (ge_br_trace) {
             printf("[getv][botroute] reached waypoint %d (step %d/%d)\n",
                    step.to, ge_br_step, ge_br_steps);
@@ -491,11 +494,46 @@ steer:
          * GETV_BOT_ROUTE_SIGN=1 restores the old sense for an A/B. */
         static int sign = 0;
         float sx;
+        float mag = (float) fabs((double) err);
+
         if (sign == 0) {
             const char *e = getenv("GETV_BOT_ROUTE_SIGN");
             sign = (e && *e && *e != '0') ? 1 : -1;
         }
+
+        /* 🔑 LATCH THE TURN DIRECTION UNTIL THE ERROR IS MATERIALLY REDUCED.
+         *
+         * Near +/-180 the normalised error flips sign on the smallest heading change, so a policy
+         * that re-derives its turn each tick argues with itself: measured on Train with the
+         * target at bearing -97, the stick alternated -80 and +80 between reports while the
+         * distance GREW from 446 to 828.
+         *
+         * This has now been fixed five times in five separate branches -- the steering sign, the
+         * detour side, door-versus-object, turn-then-walk, threat-versus-progress -- each time by
+         * committing to a manoeuvre inside that one branch. The recurrence is the message: it
+         * belongs HERE, once, where the turn is actually decided.
+         *
+         * Released when the error has dropped by a third or fallen inside the alignment cone, so
+         * a committed turn ends on PROGRESS rather than on a timer -- a timer would release it
+         * mid-swing and hand the oscillation straight back. */
+        if (ge_br_turn_sign != 0.0f) {
+            if (mag < GE_BR_ALIGN_DEG || mag < ge_br_turn_from * 0.66f) {
+                ge_br_turn_sign = 0.0f;
+            }
+        }
+        if (ge_br_turn_sign == 0.0f && mag > GE_BR_ALIGN_DEG) {
+            ge_br_turn_sign = (err < 0.0f) ? -1.0f : 1.0f;
+            ge_br_turn_from = mag;
+        }
+
+        /* Committed: keep turning the way we chose, at the magnitude the error asks for. Only the
+         * SIGN is held -- holding the magnitude too would make the bot overshoot a target it is
+         * nearly lined up with. */
         sx = (float) sign * err * GE_BR_TURN_GAIN;
+        if (ge_br_turn_sign != 0.0f) {
+            float held = (float) sign * ge_br_turn_sign * mag * GE_BR_TURN_GAIN;
+            sx = held;
+        }
         if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
         if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
         in.stick_x = (signed char) sx;
