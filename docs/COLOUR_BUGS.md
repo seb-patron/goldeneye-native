@@ -63,3 +63,34 @@ pipeline. It is a separate hunt from defect 1 and should not be folded into it.
 Cross-check available: DAM and FRIGATE show their own sky as a large flat fill --
 (15,46,93) x37162 and (16,48,96) x136107 -- which is correct outdoors and is what the same
 measurement looks like when nothing is wrong.
+
+---
+
+## 3. Paintball colours reported in play, and what they are NOT
+
+Reported again during real play, on **both** explosions and bullet impact flashes. Not
+reproducible headlessly across every angle tried. These negatives are recorded so nobody
+spends the same hours on them again.
+
+| ruled out | the measurement that ruled it out |
+|---|---|
+| apptype 2, the real paintball path | its tripwire is unconditional and stays **silent** on every scripted run, including dual RC-P90 held 200 frames while looking up |
+| the paintball **cheat** | `cheatIsActive` returns 0; the id table is right (paintball is 15 against a 76-entry array); the parser uses exact `strcmp`; the commented example line in `goldeneye.cfg` does not apply |
+| RGBA16 byte order **for impacts** | a gunfire frame is **byte-identical** with `GETV_RGBA16BE` 0 and 1 |
+| RGBA32 | **no RGBA32 texture is uploaded at all** in any measured scene |
+| CI palette format | `GETV_TLUTFMT` defaults ON, so IA16 palettes are already read as IA16 |
+
+`GETV_RGBA16BE=1` is still correct **for explosions**: 43.3% of the explosion frame changes,
+purple (64,64,128) to orange (192,192,64).
+
+🔑 **The useful fact.** The formats actually uploaded during gunfire are `CI/4b`, `CI/8b`,
+`IA/8b`, `I/4b` and `I/8b` — **no RGBA of any width**. So whatever colours the impact flash is
+a palette or intensity path, and the RGBA16 fix cannot reach it. Those are different bugs and
+should stop being treated as one.
+
+⚠️ **The gap is the harness, not the game.** Scripted runs shoot walls and characters on a
+fixed path; a person plays levels, surfaces and angles a script never reaches. Impact rows are
+chosen by the surface struck, and scripted runs only ever resolve rows 1, 2 and 7 of sixteen.
+`~/Desktop/GoldenEye-Diagnose.command` captures a real session with `GETV_IMPACT`,
+`GETV_CIPROBE` and `GETV_LIGHTTRACE` together, which is worth more than another round of
+guessing.
