@@ -226,3 +226,4 @@ docs/research/
 build/levels/*.walkthrough.json
 docs/research/TRAIN_WALKTHROUGH.txt
 docs/research/TRAIN_SPATIAL_MODEL.txt
+build/levels/*.brief.json
