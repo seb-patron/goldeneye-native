@@ -1,0 +1,112 @@
+{
+ "level": "cradle",
+ "arena": true,
+ "notes": [
+  "Cradle is the vertical arena: open metal walkways over a long drop, with almost no interior. It is the only stage where the map itself kills people regularly, which changes how every fight is fought.",
+  "See mp/_general.json for the cross-arena layer."
+ ],
+ "nuance": [
+  {
+   "id": "cradle-mp-the-drop-kills",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Falling off the structure is fatal, so the map contributes deaths on its own and knockback, panic movement and blind strafing are all far more dangerous here than elsewhere.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "avoid", "target": "platform_edge" }
+  },
+  {
+   "id": "cradle-mp-push-them-off",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Driving an opponent toward an edge is a legitimate way to kill them, so positioning is aimed at where they will retreat to rather than only at where they are.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "bait_into", "via": "platform_edge" }
+  },
+  {
+   "id": "cradle-mp-fight-across-the-gap",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The open ironwork means opponents on other levels are visible and shootable without being reachable, so many engagements happen across the structure rather than along it.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "hold_high_ground" }
+  },
+  {
+   "id": "cradle-mp-walkways-are-the-chokepoints",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "community+game-data",
+   "claim": "Movement between levels runs through a small number of connections, and those are where the map can actually be controlled, since nothing else on it is enclosed.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "fight_from_chokepoint", "at": "walkway" },
+   "because": "The arena carries only five Door records across one hundred and fifty-two pads."
+  },
+  {
+   "id": "cradle-mp-mine-the-connections",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "With so few ways between levels, mines on the connecting walkways cover most vertical movement on the stage.",
+   "applies": { "weapon_set": "proximity_mines" },
+   "action": { "verb": "mine_chokepoint", "at": "walkway" }
+  },
+  {
+   "id": "cradle-mp-explosives-are-knockback",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Explosives are unusually strong here because a near miss can put someone over an edge, so they do not need to be lethal to score.",
+   "applies": { "weapon_set": "rockets" },
+   "action": { "verb": "bait_into", "via": "platform_edge" }
+  },
+  {
+   "id": "cradle-mp-small-and-exposed",
+   "kind": "timing",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "The stage is compact and almost entirely open, so there is nowhere to reload or recover unobserved and contacts are frequent.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "expect_alarm", "reason": "constant_contact" },
+   "because": "One hundred and fifty-two pads makes this the second smallest arena after Caves."
+  },
+  {
+   "id": "cradle-mp-eight-spawns-in-a-small-space",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "A high spawn count on a small structure means opponents return to the fight almost immediately, so killing someone buys very little time.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "expect_alarm", "reason": "fast_respawn_reentry" },
+   "because": "Eight Spawn records across one hundred and fifty-two pads, one of the highest spawn densities of any stage."
+  },
+  {
+   "id": "cradle-mp-no-concealment",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The open framework hides nobody, so ambushes are impossible and every fight is entered knowingly by both sides.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "avoid", "target": "ambush_plan" }
+  },
+  {
+   "id": "cradle-mp-ltk-is-about-edges",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "With one-hit kills and lethal drops, the safest place is against the inside of the structure rather than on the outer walkways, whatever the sightlines suggest.",
+   "applies": { "mode": "licence_to_kill" },
+   "action": { "verb": "avoid", "target": "platform_edge" }
+  },
+  {
+   "id": "cradle-mp-flag-is-brutal-here",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "An unarmed carrier is visible from everywhere and can be knocked off the structure, so holds are short and largely a matter of staying central.",
+   "applies": { "mode": "the_living_daylights" },
+   "action": { "verb": "rotate_between", "anchor": "inner_structure" }
+  }
+ ]
+}

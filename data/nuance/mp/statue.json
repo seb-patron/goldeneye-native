@@ -1,0 +1,113 @@
+{
+ "level": "statue",
+ "arena": true,
+ "notes": [
+  "Statue Park is the largest open-air arena and the only one with almost no doors: two, across two hundred and twenty-eight pads. It is fought in the open between hard cover, which makes it the closest thing the game has to a field battle.",
+  "See mp/_general.json for the cross-arena layer."
+ ],
+ "nuance": [
+  {
+   "id": "statue-mp-almost-no-doors",
+   "kind": "positioning",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "There are essentially no doorways to fight at, so none of the threshold play that decides Bunker or Facility applies; engagements begin in the open at whatever range they are spotted.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "break_line_of_sight", "at": "statue_cover" },
+   "because": "The arena carries two Door records across two hundred and twenty-eight pads, the lowest door density of any stage."
+  },
+  {
+   "id": "statue-mp-statues-are-the-cover",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The statues and containers are the only hard cover, so movement is planned as hops between them rather than as routes along walls.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "lean_from_cover", "at": "statue" }
+  },
+  {
+   "id": "statue-mp-circle-the-cover",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Because cover is freestanding rather than attached to walls, fights resolve by circling an object rather than by retreating from it, and whoever changes direction first usually wins.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "strafe_unpredictably", "at": "statue" }
+  },
+  {
+   "id": "statue-mp-eight-spawns-spread-wide",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Eight spawn points across a large open map means reappearances are far apart and hard to pressure, so map control beats spawn denial here.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "control_area", "around": "central_cover" },
+   "because": "The arena carries eight Spawn records, joint most of any stage, across two hundred and twenty-eight pads."
+  },
+  {
+   "id": "statue-mp-sniping-is-strong",
+   "kind": "weapon",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Long open sightlines between cover make precision weapons genuinely effective, and a player holding the far end of an open stretch controls it.",
+   "applies": { "weapon_set": "sniper_rifles" },
+   "action": { "verb": "camp_at", "position": "open_stretch_end" }
+  },
+  {
+   "id": "statue-mp-explosives-have-room",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "There is ample distance to use explosives without self-damage, which makes those sets far stronger here than on any interior stage.",
+   "applies": { "weapon_set": "rockets" },
+   "action": { "verb": "camp_at", "position": "open_stretch_end" }
+  },
+  {
+   "id": "statue-mp-mines-have-nowhere-to-go",
+   "kind": "mode",
+   "confidence": "verified",
+   "source": "community+game-data",
+   "claim": "With no doorways and few forced paths, mines have very few reliable placements and are among the weakest sets on this stage.",
+   "applies": { "weapon_set": "proximity_mines" },
+   "action": { "verb": "mine_chokepoint", "at": "body_armour" },
+   "because": "Two Door records means there are almost no chokepoints to mine."
+  },
+  {
+   "id": "statue-mp-darkness-helps",
+   "kind": "character",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The stage is dimly lit outdoors, so at the long ranges it fights at, a dark character is meaningfully harder to pick out against the terrain.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "pick_character", "character": "dark" }
+  },
+  {
+   "id": "statue-mp-armour-is-a-commitment",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "The two armours sit far apart on a large map, so going for one means crossing open ground and is a decision rather than a detour.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "body_armour" },
+   "because": "The standard two Armour records are spread across two hundred and twenty-eight pads."
+  },
+  {
+   "id": "statue-mp-ltk-freezes-the-map",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "One-hit kills across open ground make crossing suicidal, so players hold cover and the match becomes a standoff broken only by flanking.",
+   "applies": { "mode": "licence_to_kill" },
+   "action": { "verb": "camp_at", "position": "statue_cover" }
+  },
+  {
+   "id": "statue-mp-flag-runs-the-perimeter",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "An unarmed carrier does better hugging the edges of the park than crossing the middle, since the open centre offers pursuers clear shots from every side.",
+   "applies": { "mode": "the_living_daylights" },
+   "action": { "verb": "rotate_between", "anchor": "perimeter" }
+  }
+ ]
+}

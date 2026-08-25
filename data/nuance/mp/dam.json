@@ -1,0 +1,102 @@
+{
+ "level": "dam",
+ "arena": true,
+ "notes": [
+  "The Dam arena is the largest multiplayer stage in the game by pad count, and it is almost entirely outdoors: a long dam wall, guard towers and open approaches.",
+  "DATA CAVEAT: this stage exports its prop records as raw words that the extractor cannot yet walk cleanly, so there is no pickup census for it. Its pads and geometry are reliable; nothing here claims an armour or ammunition count, and any entry that would need one is marked community rather than verified.",
+  "See mp/_general.json for the cross-arena layer."
+ ],
+ "nuance": [
+  {
+   "id": "dam-mp-largest-arena",
+   "kind": "meta",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "This is the biggest multiplayer stage in the game, so two-player matches are mostly searching and it needs a full complement to play well.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "control_area", "around": "high_traffic_routes" },
+   "because": "Four hundred and fourteen pads, more than any other arena including Caverns."
+  },
+  {
+   "id": "dam-mp-the-wall-is-a-shooting-gallery",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The dam wall is a long straight run with no cover along most of its length, so crossing it in the open is the single most reliable way to die here.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "break_line_of_sight", "at": "dam_wall" }
+  },
+  {
+   "id": "dam-mp-towers-are-power-positions",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The guard towers overlook the wall and its approaches, so holding one covers a large share of the map's movement.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "camp_at", "position": "guard_tower" }
+  },
+  {
+   "id": "dam-mp-towers-are-also-traps",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "A tower has one way in and no way out, so a strong position becomes a death sentence the moment someone brings an explosive to it.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "avoid", "target": "single_exit_camping" }
+  },
+  {
+   "id": "dam-mp-sniping-is-the-map",
+   "kind": "weapon",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The long outdoor sightlines make precision weapons dominant, more so than on any other stage.",
+   "applies": { "weapon_set": "sniper_rifles" },
+   "action": { "verb": "camp_at", "position": "guard_tower" }
+  },
+  {
+   "id": "dam-mp-use-the-buildings",
+   "kind": "route",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The interiors at either end are the only places to break contact, so a losing fight is taken indoors rather than run from along the wall.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "break_line_of_sight", "at": "building_interior" }
+  },
+  {
+   "id": "dam-mp-explosives-have-room",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The open ground gives explosives distance to travel safely, and they are the answer to anyone holding a tower.",
+   "applies": { "weapon_set": "rockets" },
+   "action": { "verb": "bait_into", "via": "tower_entrance" }
+  },
+  {
+   "id": "dam-mp-mines-on-the-few-interiors",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Mines are wasted in the open, so their placements are the building doorways and tower stairs, which are the only forced paths on the stage.",
+   "applies": { "weapon_set": "proximity_mines" },
+   "action": { "verb": "mine_chokepoint", "at": "building_doorway" }
+  },
+  {
+   "id": "dam-mp-ltk-stops-the-match",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "One-hit kills across a huge outdoor map produce long standoffs, since nobody can cross open ground and everyone can see most of it.",
+   "applies": { "mode": "licence_to_kill" },
+   "action": { "verb": "camp_at", "position": "overwatch" }
+  },
+  {
+   "id": "dam-mp-flag-holds-are-long",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The size means an unarmed carrier can stay away from pursuit for a long time, so a single good hold can decide the match.",
+   "applies": { "mode": "the_living_daylights" },
+   "action": { "verb": "rotate_between", "anchor": "perimeter" }
+  }
+ ]
+}

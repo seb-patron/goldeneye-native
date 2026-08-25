@@ -41,8 +41,6 @@ never touches it. Full steps in [`docs/SETUP.md`](docs/SETUP.md).
 
 ## The frame-rate problem
 
-**[Graslu](https://github.com/Graslu) called this out publicly and was right.**
-
 GoldenEye counts per iteration, not per second. 122 of its 135 game files do per-frame work,
 tuned against the 20 to 30fps real hardware managed. Lock the loop at 60 and everything
 happens twice as often.
@@ -57,6 +55,10 @@ reasoned from the code and not measured, because this was built on a 60Hz panel.
 Working, measurements and method in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md). No 1964 or
 Mouse Injector code is used; those are GPL-2.0 and quarantined
 ([`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md)).
+
+**[Graslu](https://github.com/Graslu) raised this publicly and was right to.** Identifying it
+is the harder half and it is not a licensable thing, so the credit is worth more than the
+code would have been.
 
 ## If you came here looking for a GoldenEye emulator
 
@@ -450,12 +452,60 @@ license.
 
 ## Credits
 
+**GoldenEye 007 was made by Rare in 1997.** Everything here is a wrapper around their work.
+
+### The decompilation
+
+[`n64decomp/007`](https://github.com/n64decomp/007), led by **KholdFuzion** with dozens of
+contributors over nine years, reaching 100% in August 2026. Without it there is no project
+here at all. The mirror of record is
+[gitlab.com/kholdfuzion/goldeneye_src](https://gitlab.com/kholdfuzion/goldeneye_src), and
+[`kholdfuzion/goldeneye_docs`](https://github.com/kholdfuzion/goldeneye_docs) is the reference
+that answers questions the source alone does not.
+
+### Code that ships in this repository
+
+| | |
+|---|---|
+| [sm64ex](https://github.com/sm64pc/sm64ex) | the Fast3D renderer and audio mixer this port's layer descends from |
+| [Emill/n64-fast3d-engine](https://github.com/Emill/n64-fast3d-engine) | the original Fast3D, by **Emill** and **MaikelChan** |
+| [SDL](https://github.com/libsdl-org/SDL) | window, input, audio and gamepads on every platform |
+| [Dear ImGui](https://github.com/ocornut/imgui) | **Omar Cornut's** immediate-mode UI, behind the launcher and the dev overlay |
+| [Lua](https://www.lua.org/) | PUC-Rio's language, which is what makes mods possible without a rebuild |
+| [Roboto Condensed](https://github.com/googlefonts/roboto-classic) | The Roboto Project Authors, under the SIL Open Font License 1.1 |
+
+Provenance for every file, line by line, is in
+[`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) and [`NOTICE`](NOTICE).
+
+### Work that shaped this without a line of code being taken
+
+Ports are built on each other's hard-won knowledge as much as their source, and several
+projects below are licence-quarantined precisely so that nothing was taken. The debt is real
+regardless.
+
+- **[Graslu](https://github.com/Graslu)** identified the frame-rate problem publicly. It is
+  the single most-cited complaint about the game above 30fps and naming it correctly is the
+  harder half of fixing it.
+- **[The Perfect Dark PC port](https://github.com/perfect-dark-pc-port/perfect_dark)** is the
+  closest sibling to this work, and the more mature one. Its structure showed what a
+  decompilation port should look like; its netplay design settled the client-server question
+  here; and its simulant model shaped how bots are approached. Read for approach, not copied.
+- **Joel Middendorf** and the **1964** emulator (1999-2002), and **`Graslu/1964GEPD`** which
+  forked it for GoldenEye and Perfect Dark. GPL-2.0 and quarantined, so what was taken is a
+  list of symptoms worth chasing and nothing else.
+- **[Ship of Harkinian](https://github.com/HarbourMasters/Shipwright)** and
+  **[libultraship](https://github.com/kenix3/libultraship)** proved this shape of port on
+  console-class hardware years before this started.
+- **GoldenRecomp**, **`cblock85/GoldenEye64Recomp`** and **`chrissotraidis/goldenpad`** took
+  different routes at the same problem. All on the do-not-read list here, all worth knowing
+  about.
+- The wider **N64 decompilation and homebrew community**, whose documentation of the RCP,
+  TMEM, F3D microcode and the RDP's combiner is why the renderer came up in weeks rather than
+  years.
+
+If your work is in here and is not named, that is an oversight rather than an opinion. Open
+an issue and it gets fixed.
+
+### This port
+
 Built by Evan King ([@SegfaultEvan](https://github.com/SegfaultEvan)).
-
-The game's C source is the work of the [`n64decomp/007`](https://github.com/n64decomp/007)
-decompilation project. The renderer and audio mixer descend from
-[sm64ex](https://github.com/sm64pc/sm64ex), which in turn derives its Fast3D implementation from
-[Emill/n64-fast3d-engine](https://github.com/Emill/n64-fast3d-engine); neither is redistributed
-here. See [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) and [`NOTICE`](NOTICE).
-
-GoldenEye 007 was made by Rare.

@@ -1,0 +1,102 @@
+{
+ "level": "runway",
+ "arena": true,
+ "notes": [
+  "The Runway arena is a wide open airstrip flanked by cliffs, with a handful of structures. It is the most exposed stage in the game and one of the smallest by pad count, which is a punishing combination: nowhere to hide and nowhere far to run.",
+  "DATA CAVEAT: this stage exports its prop records as raw words the extractor cannot yet walk cleanly, so it has no pickup census. Pads and geometry are reliable; no entry here claims an armour or ammunition count.",
+  "See mp/_general.json for the cross-arena layer."
+ ],
+ "nuance": [
+  {
+   "id": "runway-mp-small-and-exposed",
+   "kind": "threat",
+   "confidence": "verified",
+   "source": "community+game-data",
+   "claim": "The stage is compact and almost entirely open ground, so contacts are frequent and unavoidable and there is no route that avoids being seen.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "expect_alarm", "reason": "constant_contact" },
+   "because": "One hundred and ninety-two pads makes this one of the smallest arenas, and it is outdoors throughout."
+  },
+  {
+   "id": "runway-mp-the-strip-is-a-killing-field",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The runway itself is flat, wide and completely bare, so anyone on it is visible from both ends and from the flanking ground.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "avoid", "target": "open_runway" }
+  },
+  {
+   "id": "runway-mp-fight-from-the-edges",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The structures and cliff bases along the sides are the only cover, so the map is played around its perimeter rather than through its middle.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "perimeter" }
+  },
+  {
+   "id": "runway-mp-sniping-dominates",
+   "kind": "weapon",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Sightlines run the full length of the strip, so a precision weapon held at one end covers most of the stage.",
+   "applies": { "weapon_set": "sniper_rifles" },
+   "action": { "verb": "camp_at", "position": "strip_end" }
+  },
+  {
+   "id": "runway-mp-explosives-are-safe-and-strong",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "There is ample distance for explosives, and with no cover to absorb them they are close to unanswerable in the open.",
+   "applies": { "weapon_set": "rockets" },
+   "action": { "verb": "camp_at", "position": "strip_end" }
+  },
+  {
+   "id": "runway-mp-mines-are-weak",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "With almost no forced paths, mines have very few worthwhile placements and are among the weakest sets here.",
+   "applies": { "weapon_set": "proximity_mines" },
+   "action": { "verb": "mine_chokepoint", "at": "building_doorway" }
+  },
+  {
+   "id": "runway-mp-buildings-are-the-only-refuge",
+   "kind": "route",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The structures are the only places to break line of sight, which makes them both the safest and the most contested ground on the map.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "break_line_of_sight", "at": "building_interior" }
+  },
+  {
+   "id": "runway-mp-strafing-is-survival",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Crossing open ground is sometimes unavoidable, and doing it in a straight line is what gets people killed; unpredictable movement is the only defence available.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "strafe_unpredictably" }
+  },
+  {
+   "id": "runway-mp-ltk-is-a-standoff",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "One-hit kills on a bare airstrip mean nobody moves, and matches are decided by whoever finds an angle on a stationary opponent first.",
+   "applies": { "mode": "licence_to_kill" },
+   "action": { "verb": "camp_at", "position": "strip_end" }
+  },
+  {
+   "id": "runway-mp-flag-has-nowhere-to-go",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "An unarmed carrier is visible across the whole stage with no cover to break pursuit, so holds here are among the shortest in the game.",
+   "applies": { "mode": "the_living_daylights" },
+   "action": { "verb": "prioritise_target", "target": "flag_carrier", "over": "all" }
+  }
+ ]
+}

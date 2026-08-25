@@ -48,6 +48,7 @@ in a generator -- vendor/ does not travel between machines.
 """
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -286,15 +287,182 @@ def nearest_waypoint(pos, waypoints):
     return best, (bestd ** 0.5 if bestd is not None else None)
 
 
-def parse_prop_census(text):
+_SCHEMA_CACHE = None
+
+
+def _array_body(text, stem, kind):
+    """The body of one setup array, or None. propDefs and intro are separate arrays."""
+    m = re.search(r"s32\s+%s\w*_%s\[\]\s*=\s*\{(.*?)\n\};" % (re.escape(stem), kind), text, re.S)
+    return m.group(1) if m else None
+
+
+def record_schemas():
+    """{kind: {type_number: (name, size_in_words)}}, learned from the annotated setup files.
+
+    Some multiplayer setups export their records as bare s32 hex words with no type comments --
+    Dam, Runway and Frigate all do. They are the same records without the labels, so the layout
+    is learned from the files that DO carry labels and then applied to the ones that do not.
+
+    Derived rather than hand-written, and checked: across 34 annotated setups and several
+    thousand records, every type has exactly one observed size. A hand-copied size table would
+    be the same hazard as the hand-copied bank list that cost five levels their objective text.
+
+    propDefs and intro are derived SEPARATELY because their type numbering is independent:
+    intro type 0 is Spawn while propDefs type 0 is unused, and intro type 1 is StartWeapon
+    against propDefs type 1 Door. Merging them would silently corrupt both.
+    """
+    global _SCHEMA_CACHE
+    if _SCHEMA_CACHE is not None:
+        return _SCHEMA_CACHE
+
+    rec = re.compile(r"/\*\s*Type\s*=\s*(\w+)\s*;\s*index\s*=\s*(\d+)\s*\*/")
+    hdr = re.compile(r"_mkword\(\s*[^,]+,\s*_mkshort\(\s*[^,]+,\s*(\d+)\s*\)\s*\)")
+    out = {}
+    paths = []
+    for d in SETUP_DIRS:
+        if os.path.isdir(d):
+            paths += sorted(glob.glob(os.path.join(d, "*setup*.c")))
+
+    for kind in ("propDefs", "intro"):
+        table = {}
+        for path in paths:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            m = re.search(r"s32\s+\w+_%s\[\]\s*=\s*\{(.*?)\n\};" % kind, text, re.S)
+            if not m:
+                continue
+            body = m.group(1)
+            marks = list(rec.finditer(body))
+            for i, mm in enumerate(marks):
+                start = mm.end()
+                end = marks[i + 1].start() if i + 1 < len(marks) else len(body)
+                chunk = body[start:end]
+                hm = hdr.search(chunk)
+                if not hm:
+                    continue
+                depth = words = 0
+                for ch in chunk:
+                    if ch == "(":
+                        depth += 1
+                    elif ch == ")":
+                        depth -= 1
+                    elif ch == "," and depth == 0:
+                        words += 1
+                if i + 1 == len(marks):
+                    words += 1        # the last record carries no trailing comma
+                if words:
+                    table.setdefault(int(hm.group(1)), (mm.group(1), words))
+        out[kind] = table
+
+    _SCHEMA_CACHE = out
+    return out
+
+
+def parse_props_raw(text, stem):
+    """Walk a raw hex propDefs array using the derived schema.
+
+    Returns the same shape as parse_props so the caller cannot tell which export it got. The
+    record header is _mkword(extrascale, _mkshort(state, type)), so the type is the low byte of
+    word 0, and for the record types that carry one, word 1 is _mkword(obj, pad).
+    """
+    body = _array_body(text, stem, "propDefs")
+    if body is None:
+        return [], {}
+    words = [int(w, 16) for w in re.findall(r"0x([0-9a-fA-F]{8})", body)]
+    if not words:
+        return [], {}
+
+    schema = record_schemas()["propDefs"]
+    props, tags, i, idx, clean = [], {}, 0, 0, False
+    while i < len(words):
+        t = words[i] & 0xFF
+        entry = schema.get(t)
+        if entry is None:
+            break                      # drifted: stop rather than walk off into garbage
+        name, size = entry
+        if name == "EndProps":
+            clean = True               # walked the whole array and landed on its terminator
+            break
+        if size >= 2 and i + 1 < len(words):
+            w1 = words[i + 1]
+            hi, lo = (w1 >> 16) & 0xFFFF, w1 & 0xFFFF
+            if name == "Tag":
+                off = lo - 0x10000 if lo >= 0x8000 else lo
+                tags[hi] = idx + off
+            else:
+                props.append({"type": name, "propdef": idx, "obj": hi, "pad": lo})
+        i += size
+        idx += 1
+
+    # Only a walk that lands exactly on EndProps is trustworthy. Anything else drifted, and a
+    # drifted walk does not fail loudly -- it reports a confident census of records that were
+    # never there. Dam's arena decodes as seventy StandardProps and no pickups at all, which is
+    # not a stage anyone could play; the true next header sits one word before where the walk
+    # expected it, so a record size is off by one somewhere in this export.
+    if not clean:
+        return [], {}, False
+    return props, tags, True
+
+
+def parse_intro_census_raw(text, stem):
+    """Census of a raw hex intro array, walked with the derived intro schema.
+
+    This is where multiplayer spawn points live, so without it the raw-export arenas report no
+    spawns at all -- which reads as "this arena has none" rather than "this parser cannot see
+    them".
+    """
+    body = _array_body(text, stem, "intro")
+    if body is None:
+        return {}
+    words = [int(w, 16) for w in re.findall(r"0x([0-9a-fA-F]{8})", body)]
+    if not words:
+        return {}
+    schema = record_schemas()["intro"]
+    census, i = {}, 0
+    while i < len(words):
+        entry = schema.get(words[i] & 0xFF)
+        if entry is None:
+            break
+        name, size = entry
+        census[name] = census.get(name, 0) + 1
+        if name == "EndIntro":
+            break
+        i += size
+    return census
+
+
+def parse_intro_census(text, stem):
+    """Counts from the INTRO array, which is where multiplayer spawns and start weapons live.
+
+    Kept separate from the prop census because they are separate arrays with independent type
+    numbering; counting them together reports Spawn and Door as if they came from one table.
+    """
+    body = _array_body(text, stem, "intro")
+    if body is None:
+        return {}
+    census = {}
+    for mm in re.finditer(r"/\*\s*Type\s*=\s*(\w+)\s*;", body):
+        census[mm.group(1)] = census.get(mm.group(1), 0) + 1
+    return census
+
+
+def parse_prop_census(text, stem):
     """propDefs are macro-encoded, but each record is preceded by a comment naming its type:
 
         /* Type = WatchMenuObjectiveText; index = 0 */
 
     Counting by type is honest and useful -- it says what the level contains -- without
-    pretending to decode a bit layout this script has not verified."""
+    pretending to decode a bit layout this script has not verified.
+
+    Scoped to the propDefs array specifically. It used to scan the whole file, which swept in
+    the INTRO array too -- so Spawn, StartWeapon, Cuff and EndIntro were reported as props. They
+    are intro records, a separate array with its own independent type numbering (intro type 1 is
+    StartWeapon where propDefs type 1 is Door), and merging the two describes neither."""
+    body = _array_body(text, stem, "propDefs")
+    if body is None:
+        return {}
     census = {}
-    for mm in re.finditer(r"/\*\s*Type\s*=\s*(\w+)\s*;", text):
+    for mm in re.finditer(r"/\*\s*Type\s*=\s*(\w+)\s*;", body):
         census[mm.group(1)] = census.get(mm.group(1), 0) + 1
     return dict(sorted(census.items(), key=lambda kv: (-kv[1], kv[0])))
 
@@ -307,9 +475,29 @@ def build(name, stem, stage_id, mission, path):
     waypoints = parse_waypoints(text, stem)
     nav     = parse_nav(text, stem)
     regions = parse_regions(text, stem)
-    census = parse_prop_census(text)
+    census = parse_prop_census(text, stem)
     props  = parse_props(text)
     tags   = parse_tags(text)
+
+    # Dam, Runway and Frigate export their arena records as bare hex with no type comments, so
+    # the comment-driven parsers find nothing. Fall back to walking the words with the derived
+    # schema. Which export a file used is not otherwise observable, and a silently empty arena
+    # is exactly the failure this whole file keeps running into.
+    raw_used = False
+    if not props:
+        rprops, rtags, rclean = parse_props_raw(text, stem)
+        if rclean and (rprops or rtags):
+            props, tags, raw_used = rprops, rtags or tags, True
+
+    intro_census = parse_intro_census(text, stem)
+    if raw_used:
+        # Both censuses come from comments, which a raw export does not have. Rebuild the prop
+        # census from the records actually walked, and the intro census from its own walker.
+        census = {}
+        for pr in props:
+            census[pr["type"]] = census.get(pr["type"], 0) + 1
+        census = dict(sorted(census.items(), key=lambda kv: (-kv[1], kv[0])))
+        intro_census = parse_intro_census_raw(text, stem)
     pad3d  = parse_pad3d(text, stem)
 
     # Resolve each waypoint to a world position through its pad, which is what makes the graph
@@ -402,6 +590,13 @@ def build(name, stem, stage_id, mission, path):
             "tags": len(tags),
             "tags_resolved": tagged,
         },
+        # "unreadable" means the file exports raw records that could not be walked cleanly, so
+        # this stage has reliable pads and geometry but NO prop or pickup census. Stated rather
+        # than left as a zero, because a zero reads as "this arena has no armour".
+        "prop_export": ("raw" if raw_used
+                        else "annotated" if props
+                        else "unreadable"),
+        "intro_census": intro_census,
         "pads": pads,
         "waypoints": waypoints,
         "graph": {str(k): v for k, v in sorted(nav.items())},
@@ -423,6 +618,15 @@ def find_setup(stem):
     return None
 
 
+# Depot is the one stage whose arena stem is not derivable: the campaign file is Usetupdepo and
+# the arena file is Ump_setupdepot, with a t the campaign name does not have. Without this the
+# lookup misses and Depot silently has no arena data at all -- which is how it came to be the
+# one arena stage with no nuance written for it.
+MP_STEM_OVERRIDE = {
+    "Usetupdepo": "Ump_setupdepot",
+}
+
+
 def mp_stem(stem):
     """The multiplayer variant of a setup stem, or None if it is already one.
 
@@ -433,7 +637,7 @@ def mp_stem(stem):
     """
     if stem.startswith("Ump_") or not stem.startswith("U"):
         return None
-    return "Ump_" + stem[1:]
+    return MP_STEM_OVERRIDE.get(stem, "Ump_" + stem[1:])
 
 
 def main():

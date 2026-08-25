@@ -1,0 +1,104 @@
+{
+ "level": "depot",
+ "arena": true,
+ "notes": [
+  "The Depot arena is a rail yard: large open ground between warehouse interiors and rolling stock. It is one of the biggest stages, and it mixes the two extremes -- exposed yard and tight interior -- more sharply than any other.",
+  "DATA CAVEAT: this stage exports its prop records as raw words the extractor cannot yet walk cleanly, so it has no pickup census. Pads and geometry are reliable; no entry here claims an armour or ammunition count.",
+  "It was also the last arena to get any data at all: its setup stem is Ump_setupdepot where the campaign file is Usetupdepo, so the derived name missed and it silently had no arena file until that was fixed.",
+  "See mp/_general.json for the cross-arena layer."
+ ],
+ "nuance": [
+  {
+   "id": "depot-mp-large-mixed-stage",
+   "kind": "meta",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "This is one of the largest arenas and it is split between open yard and enclosed interiors, so no single playstyle covers it and the right weapon depends on which half you are in.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "yard_and_interior" },
+   "because": "Three hundred and eighty-nine pads, second only to Dam among the arenas."
+  },
+  {
+   "id": "depot-mp-yard-is-exposed",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The open yard has long sightlines from the surrounding buildings, so crossing it is done deliberately and against cover rather than casually.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "break_line_of_sight", "at": "yard" }
+  },
+  {
+   "id": "depot-mp-rolling-stock-is-cover",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The carriages and containers break the yard into lanes, which is what makes crossing it survivable at all; movement follows them rather than the shortest line.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "lean_from_cover", "at": "rolling_stock" }
+  },
+  {
+   "id": "depot-mp-interiors-decide-close-fights",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The warehouse interiors are tight and multi-roomed, so a fight taken indoors is a completely different engagement from one in the yard, and taking it there is a choice worth making deliberately.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "fight_from_chokepoint", "at": "warehouse_doorway" }
+  },
+  {
+   "id": "depot-mp-sniping-covers-the-yard",
+   "kind": "weapon",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "A precision weapon held from an interior looking out over the yard controls a large share of the map, and is nearly useless the moment someone closes.",
+   "applies": { "weapon_set": "sniper_rifles" },
+   "action": { "verb": "camp_at", "position": "warehouse_overlook" }
+  },
+  {
+   "id": "depot-mp-mines-on-the-warehouse-doors",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "The interiors have few entrances and everyone uses them to escape the yard, which makes those doorways the most reliable mine placements on the stage.",
+   "applies": { "weapon_set": "proximity_mines" },
+   "action": { "verb": "mine_chokepoint", "at": "warehouse_doorway" }
+  },
+  {
+   "id": "depot-mp-explosives-outdoors-only",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Explosives are strong across the yard and dangerous inside the warehouses, so the same weapon set swings between excellent and suicidal within one match.",
+   "applies": { "weapon_set": "rockets" },
+   "action": { "verb": "break_line_of_sight", "when": "close_range" }
+  },
+  {
+   "id": "depot-mp-six-spawns",
+   "kind": "control",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "Six spawn points across a large stage means reappearances are widely spread and slow to reach, so a kill genuinely removes an opponent for a while.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "deny_spawn", "viable_when": "opportunistic" },
+   "because": "Six Spawn records across three hundred and eighty-nine pads, a low spawn density."
+  },
+  {
+   "id": "depot-mp-ltk-splits-the-map",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "One-hit kills make the yard effectively impassable, so the whole match relocates into the warehouses and the outdoor half of the stage goes unused.",
+   "applies": { "mode": "licence_to_kill" },
+   "action": { "verb": "rotate_between", "anchor": "warehouse_interior" }
+  },
+  {
+   "id": "depot-mp-flag-uses-both-halves",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "A carrier survives longest by alternating between yard and interior, since pursuers who commit to one kind of ground are wrong-footed by the other.",
+   "applies": { "mode": "the_living_daylights" },
+   "action": { "verb": "rotate_between", "anchor": "yard_and_interior" }
+  }
+ ]
+}

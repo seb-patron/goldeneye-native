@@ -1,0 +1,102 @@
+{
+ "level": "frigate",
+ "arena": true,
+ "notes": [
+  "The Frigate arena is a ship interior: narrow corridors, hatches and several decks connected by stairs. It is the tightest multi-level stage in the game, and it plays like Basement stacked vertically.",
+  "DATA CAVEAT: this stage exports its prop records as raw words the extractor cannot yet walk cleanly, so it has no pickup census. Pads and geometry are reliable; no entry here claims an armour or ammunition count.",
+  "See mp/_general.json for the cross-arena layer."
+ ],
+ "nuance": [
+  {
+   "id": "frigate-mp-corridors-throughout",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Almost the entire stage is narrow corridor, so engagements are head-on at short range and there is very little flanking available on a single deck.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "fight_from_chokepoint", "at": "corridor" }
+  },
+  {
+   "id": "frigate-mp-decks-are-the-flank",
+   "kind": "route",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Because a deck cannot be flanked along its length, the way around an opponent is to change deck and come back, which makes the stairs the most important geometry on the ship.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "rotate_between", "anchor": "stairs" }
+  },
+  {
+   "id": "frigate-mp-mines-own-the-stairs",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Since all vertical movement funnels through a few stairwells, mines there cover the routes everyone must use and are extremely strong.",
+   "applies": { "weapon_set": "proximity_mines" },
+   "action": { "verb": "mine_chokepoint", "at": "stairs" }
+  },
+  {
+   "id": "frigate-mp-explosives-are-suicidal",
+   "kind": "threat",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "There is nowhere with enough distance to fire an explosive safely, so those sets mostly kill the person using them.",
+   "applies": { "weapon_set": "rockets" },
+   "action": { "verb": "avoid", "target": "own_blast_radius" }
+  },
+  {
+   "id": "frigate-mp-no-sniping",
+   "kind": "weapon",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "No sightline on the ship is long enough to reward a precision weapon, so rate of fire decides fights instead.",
+   "applies": { "weapon_set": "sniper_rifles" },
+   "action": { "verb": "avoid", "target": "long_range_plan" }
+  },
+  {
+   "id": "frigate-mp-sound-crosses-decks",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Footsteps carry between decks, so audio tells you someone is close without telling you whether they are above, below or around the corner.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "listen_for", "signal": "footsteps", "caveat": "may_be_other_floor" }
+  },
+  {
+   "id": "frigate-mp-corners-decide-fights",
+   "kind": "positioning",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "Most contacts happen at a corner or a hatch at point-blank range, so whoever is already aiming wins regardless of weapon quality.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "camp_at", "position": "corner" }
+  },
+  {
+   "id": "frigate-mp-moderate-size",
+   "kind": "timing",
+   "confidence": "verified",
+   "source": "game-data",
+   "claim": "The stage is small enough that opponents are found quickly, so there is little downtime between fights and reloading has to be done expecting interruption.",
+   "applies": { "mode": "any" },
+   "action": { "verb": "expect_alarm", "reason": "constant_contact" },
+   "because": "Two hundred and six pads, at the smaller end of the arena range."
+  },
+  {
+   "id": "frigate-mp-ltk-favours-patience",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "One-hit kills in corridors mean the player who moves through a hatch first usually dies, so waiting beats pushing.",
+   "applies": { "mode": "licence_to_kill" },
+   "action": { "verb": "camp_at", "position": "corner" }
+  },
+  {
+   "id": "frigate-mp-flag-uses-the-decks",
+   "kind": "mode",
+   "confidence": "community",
+   "source": "community-consensus",
+   "claim": "A carrier survives by cycling between decks rather than running along one, since pursuers lose the thread at every stairwell.",
+   "applies": { "mode": "the_living_daylights" },
+   "action": { "verb": "rotate_between", "anchor": "floors" }
+  }
+ ]
+}
