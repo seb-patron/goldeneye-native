@@ -69,7 +69,7 @@ in memory, in source order, with nothing in between.
 
 1. **GCC emits `.data` in reverse declaration order.** `tile_0` landed at the end of the
    section and `tile_1` before it, so walking forward from `tile_0` ran straight off the end
-   after one tile. Clang emits in source order, which is the whole reason macOS never showed
+   after one tile. Clang emits in source order, which is why macOS never showed
    this and why the bug looked platform-specific in a way that suggested endianness.
 
 2. **The all-zero terminator tile went to `.bss`.** `tile_1066` is entirely zero, so GCC put
@@ -148,6 +148,6 @@ affected by exactly this and needs the same two flags. The `extern` change is in
 asset sources and covers it already. macOS is clang and is unaffected either way, but the
 flags are GCC spellings and must not be added to the clang batches.
 
-This is worth stating plainly because the failure mode is silent: nothing warns, nothing
+Say this plainly, because the failure mode is silent: nothing warns, nothing
 crashes, triangle counts stay plausible, and the game runs at full speed rendering an empty
 world.

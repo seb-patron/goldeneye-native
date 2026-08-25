@@ -315,9 +315,9 @@ the same rounds and simply connects less often.
 
 **This is not obviously a bug, and it is deliberately not "fixed" here.** Guard positions
 advance once per tick, so at divider 2 a moving target occupies a coarser set of positions and
-a scripted shot fired at a fixed frame can pass between them. That is what running a simulation
-at half rate MEANS, and it is the same trade any 30Hz game makes against a 60Hz one. Converting
-a timer would not change it.
+a scripted shot fired at a fixed frame can pass between them. Running the simulation at half
+rate does that, and any 30Hz game makes the same trade against a 60Hz one. Converting a timer
+would not change it.
 
 What would settle it: whether guard movement interpolates for the purpose of hit tests, which
 is the same question as step 2 but for props rather than the camera, and a much larger one --

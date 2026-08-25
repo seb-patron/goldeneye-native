@@ -65,9 +65,8 @@ Working, measurements and method in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.m
 Mouse Injector code is used; those are GPL-2.0 and quarantined
 ([`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md)).
 
-**[Graslu](https://github.com/Graslu) raised this publicly and was right to.** Identifying it
-is the harder half and it is not a licensable thing, so the credit is worth more than the
-code would have been.
+**[Graslu](https://github.com/Graslu) raised this publicly and was right to.** He worked it out
+first. No code of his is here and none needed to be.
 
 ## If you came here looking for a GoldenEye emulator
 
@@ -393,8 +392,8 @@ frame. No rebuild, no recompile.
 three texture filters including the N64's own three-point.
 
 **Bots and an agent API.** Alpha, and honest about it: the input path and state readout exist
-and a first bot runs against them, but it does not play yet. The interesting part is that
-GoldenEye already ships a behaviour VM -- 250 AI opcodes with a program counter, branches and
+and a first bot runs against them, but it does not play yet. GoldenEye already ships a
+behaviour VM -- 250 AI opcodes with a program counter, branches and
 subroutine calls, driving every guard in the campaign -- so bots are assembly over machinery
 that already works. See [`docs/BOTS.md`](docs/BOTS.md).
 
@@ -415,8 +414,8 @@ authority multiplayer needs. This is the seam bots, external agents and future n
 share, which is why it was built once instead of three times.
 [`docs/PLAYER_API.md`](docs/PLAYER_API.md).
 
-**Bots.** A first bot runs against that API. It does not play yet. The reason to be optimistic
-is what the decompilation exposed: GoldenEye already carries a behaviour VM. 250 AI opcodes
+**Bots.** A first bot runs against that API. It does not play yet. What makes this tractable is
+something the decompilation exposed: GoldenEye already carries a behaviour VM. 250 AI opcodes
 with a program counter, conditional branches and subroutine calls, driving every guard in the
 campaign and exercised by twenty levels of shipped content. Bots are assembly over machinery
 that already runs, not a new AI system.
@@ -575,9 +574,8 @@ Ports are built on each other's hard-won knowledge as much as their source, and 
 projects below are licence-quarantined precisely so that nothing was taken. The debt is real
 regardless.
 
-- **[Graslu](https://github.com/Graslu)** identified the frame-rate problem publicly. It is
-  the single most-cited complaint about the game above 30fps and naming it correctly is the
-  harder half of fixing it.
+- **[Graslu](https://github.com/Graslu)** worked out the frame-rate problem and said so
+  publicly. It is the thing people complain about most above 30fps, and he got there first.
 - **[The Perfect Dark PC port](https://github.com/perfect-dark-pc-port/perfect_dark)** is the
   closest sibling to this work, and the more mature one. Its structure showed what a
   decompilation port should look like; its netplay design settled the client-server question
