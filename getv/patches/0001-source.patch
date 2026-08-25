@@ -5393,7 +5393,7 @@ index 82300b4..6ee52d6 100644
 +
  #endif
 diff --git a/src/game/bondview.c b/src/game/bondview.c
-index acfea50..d930d96 100644
+index acfea50..3da17bb 100644
 --- a/src/game/bondview.c
 +++ b/src/game/bondview.c
 @@ -1,4 +1,8 @@
@@ -5573,7 +5573,7 @@ index acfea50..d930d96 100644
          currentPlayerEquipWeaponWrapper(GUNLEFT, starting_weapon[GUNLEFT]);
          currentPlayerEquipWeaponWrapper(GUNRIGHT, starting_weapon[GUNRIGHT]);
  
-@@ -1631,6 +1720,44 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
+@@ -1631,6 +1720,50 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
          g_CurrentPlayer->pos.f[0] = pos->f[0];
          g_CurrentPlayer->pos.f[1] = pos->f[1];
          g_CurrentPlayer->pos.f[2] = pos->f[2];
@@ -5590,8 +5590,14 @@ index acfea50..d930d96 100644
 +         * the floor, so a player nudged sideways still lands on the ground rather than
 +         * inside it.
 +         *
-+         * GETV_COOP_SPREAD sets the radius in world units, default 60. Player 0 is never
-+         * moved, so solo play and the first co-op player keep the mission's own start. */
++         * GETV_COOP_SPREAD sets the radius in world units, default 200. Player 0 is never
++         * moved, so solo play and the first co-op player keep the mission's own start.
++         *
++         * 200 rather than the 60 this shipped with. 60 separated the positions but not the
++         * bodies: a player is roughly 340 units tall in these coordinates, so 60 apart still
++         * has the two models visibly intersecting, which is what a screenshot of two heads in
++         * the same space showed. 200 clears a body width with room to spare and still puts the
++         * other player beside you rather than across the room. */
 +        {
 +            extern s32 gePortCoopPlayers(void);
 +            if (gePortCoopPlayers() >= 2) {
@@ -5600,7 +5606,7 @@ index acfea50..d930d96 100644
 +                    static f32 spread = -1.0f;
 +                    if (spread < 0.0f) {
 +                        const char *e = getenv("GETV_COOP_SPREAD");
-+                        spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 60.0f;
++                        spread = (e && *e) ? (f32) strtol(e, NULL, 10) : 200.0f;
 +                        if (spread < 0.0f) { spread = 0.0f; }
 +                    }
 +                    /* Four fixed directions, so two players end up opposite each other
@@ -5762,7 +5768,7 @@ index 3539224..a38297d 100644
  Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
  f32 getPlayer_c_lodscalez(void);
 diff --git a/src/game/bondview2.c b/src/game/bondview2.c
-index 677ea82..1580daf 100644
+index 677ea82..44a345e 100644
 --- a/src/game/bondview2.c
 +++ b/src/game/bondview2.c
 @@ -1,4 +1,5 @@
@@ -6450,7 +6456,32 @@ index 677ea82..1580daf 100644
  
      phi_f0 = g_CurrentPlayer->eyeheight +
          ((g_CurrentPlayer->field_88 + g_CurrentPlayer->ducking_height_offset) * g_playerPerm->player_perspective_height);
-@@ -4812,6 +5252,20 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -4807,11 +5247,45 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+     moveData.controlStickXRaw = (s32)stick_x;
+     moveData.controlStickYRaw = (s32)stick_y;
+ 
++    /* GETV_MOVETRACE: why a player who is receiving input does not walk.
++     *
++     * canLookAhead defaults to 0 above and is only set inside the per-control-style branches.
++     * If a player's control type does not reach one of those branches it stays 0, walking is
++     * gated off at :5997, and firing still works because triggerOn is set elsewhere. That is
++     * exactly the co-op symptom, so print the inputs and the gate together for each player. */
++    {
++        static s32 ge_mt = -1;
++        if (ge_mt < 0) { const char *e = getenv("GETV_MOVETRACE"); ge_mt = (e && *e && *e != '0'); }
++        if (ge_mt) {
++            osSyncPrintf("[getv][move] p=%d ctype=%d stick=(%d,%d) safe=(%d,%d) "
++                         "aim=%d locked=%d\n",
++                         (s32) get_cur_playernum(), (s32) cur_player_get_control_type(),
++                         (s32) stick_x, (s32) stick_y,
++                         (s32) moveData.controlStickXSafe, (s32) moveData.controlStickYSafe,
++                         (s32) g_CurrentPlayer->insightaimmode,
++                         (s32) lvlGetControlsLockedFlag());
++        }
++    }
++
+     moveData.analogTurn = moveData.controlStickXSafe;
+     moveData.analogPitch = moveData.controlStickYSafe;
      moveData.analogStrafe = moveData.controlStickXSafe;
      moveData.analogWalk = moveData.controlStickYSafe;
  
@@ -6471,7 +6502,7 @@ index 677ea82..1580daf 100644
      if (g_CurrentPlayer->bonddead == FALSE
          && g_bondviewForceDisarm <= 0
          && (
-@@ -5034,12 +5488,12 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -5034,12 +5508,12 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                  }
  
                  moveData.crouchDown = (bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH) == 0)
@@ -6488,7 +6519,7 @@ index 677ea82..1580daf 100644
  
                  if ((
                             (((buttons & A_BUTTON) != 0) && (((buttons & ~oldbuttons) & B_BUTTON) != 0))
-@@ -5295,12 +5749,12 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -5295,12 +5769,12 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                      }
  
                      moveData.crouchDown = (bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH) == 0)
@@ -6505,7 +6536,7 @@ index 677ea82..1580daf 100644
  
                      moveData.rLeanLeft = (g_CurrentPlayer->insightaimmode)
                          && ((buttons & (L_JPAD | L_CBUTTONS)));
-@@ -5447,6 +5901,11 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -5447,6 +5921,11 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
          moveData.triggerOn = 0;
      }
  
@@ -6517,7 +6548,42 @@ index 677ea82..1580daf 100644
      gunTickGameplay(moveData.triggerOn);
  
      if (bondviewGetVisibleToGuardsFlag()
-@@ -7321,8 +7780,31 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -5535,6 +6014,18 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+                 targetSpeed = 1.0f;
+                 ftemp_nostack_spE8 = 1.0f;
+ 
++                {
++                    static s32 ge_mt2 = -1;
++                    if (ge_mt2 < 0) { const char *e = getenv("GETV_MOVETRACE"); ge_mt2 = (e && *e && *e != '0'); }
++                    if (ge_mt2) {
++                        osSyncPrintf("[getv][move] p=%d GATE canLookAhead=%d analogWalk=%d "
++                                     "stepFwd=%d\n",
++                                     (s32) get_cur_playernum(), (s32) moveData.canLookAhead,
++                                     (s32) moveData.analogWalk,
++                                     (s32) moveData.digitalStepForward);
++                    }
++                }
++
+                 if (moveData.canLookAhead)
+                 {
+                     ftemp_nostack_spD8 = (f32) moveData.analogWalk / 70.0f;
+@@ -5632,6 +6123,15 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+         if (moveData.canLookAhead)
+         {
+             g_CurrentPlayer->speedforwards = (f32) moveData.analogWalk / 70.0f;
++            {
++                static s32 ge_mt3 = -1;
++                if (ge_mt3 < 0) { const char *e = getenv("GETV_MOVETRACE"); ge_mt3 = (e && *e && *e != '0'); }
++                if (ge_mt3 && moveData.analogWalk != 0) {
++                    osSyncPrintf("[getv][move] p=%d SET analogWalk=%d -> speedforwards=%.3f\n",
++                                 (s32) get_cur_playernum(), (s32) moveData.analogWalk,
++                                 (double) g_CurrentPlayer->speedforwards);
++                }
++            }
+ 
+             if (moveData.analogWalk > 60)
+             {
+@@ -7321,8 +7821,31 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
  
                  nd = sqrtf((sp16C * sp16C) + (sp168 * sp168));
  
@@ -6549,7 +6615,7 @@ index 677ea82..1580daf 100644
  
                  sp164 =
                      ((start_collision_pos_x - bondCollision.bondCollision.f[0]) * sp16C) +
-@@ -7389,8 +7871,46 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -7389,8 +7912,46 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                      sp310 = sp24C;
                  }
  
@@ -6596,7 +6662,7 @@ index 677ea82..1580daf 100644
  
                  g_CurrentPlayer->field_488.collision_position.f[0] = start_collision_pos_x;
                  g_CurrentPlayer->field_488.collision_position.f[2] = start_collision_pos_z;
-@@ -7562,10 +8082,19 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
+@@ -7562,10 +8123,19 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                          if (sp6C->actiontype == ACT_DIE)
                          {
  #if defined(VERSION_US)
@@ -6618,7 +6684,7 @@ index 677ea82..1580daf 100644
  #endif
                              {
                                  sp6C->chrflags |= CHRFLAG_01000000;
-@@ -7912,7 +8441,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
+@@ -7912,7 +8482,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
  
      if ((cameraBufferToggle != 0) && (viGetFrameBuf2() == (u8*)(cfb_16[1])))
      {
@@ -6627,7 +6693,7 @@ index 677ea82..1580daf 100644
      }
  
  #ifdef VERSION_EU
-@@ -7970,6 +8499,31 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
+@@ -7970,6 +8540,31 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
      if (1);
  #endif
  
@@ -6659,7 +6725,7 @@ index 677ea82..1580daf 100644
      if ((g_CameraMode == CAMERAMODE_NONE) || ((g_CameraMode == CAMERAMODE_FP) && (is_timer_active != 0)) || (g_CameraMode == CAMERAMODE_FADE_TO_TITLE))
      {
          if (get_cur_playernum() == 0)
-@@ -8077,6 +8631,78 @@ void store_BONDdata_curpos_to_previous(void) {
+@@ -8077,6 +8672,78 @@ void store_BONDdata_curpos_to_previous(void) {
  /**
   * Address: 7F0876C4
   */
@@ -6738,7 +6804,7 @@ index 677ea82..1580daf 100644
  void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord3d* cam_up)
  {
      Mtx sp108;
-@@ -8091,6 +8717,35 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
+@@ -8091,6 +8758,35 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
      s32 j;
      s32 i;
  
@@ -6774,7 +6840,7 @@ index 677ea82..1580daf 100644
      i = bondviewGetCurrentPlayersRoom();
      bondviewUpdateCurrentRoomPosition(i);
  
-@@ -8152,7 +8807,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
+@@ -8152,7 +8848,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
  	}
  
      guMtxF2L((f32 (*)[4]) &sp60, temp_s0);
@@ -6783,7 +6849,7 @@ index 677ea82..1580daf 100644
  
      scale = bgGetLevelVisibilityScale();
  
-@@ -8165,7 +8820,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
+@@ -8165,7 +8861,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
      currentPlayerSetMatrix10CC((Mtxf* ) g_CurrentPlayer->field_64);
      currentPlayerSetViewToWorldMtxf((Mtxf* ) g_CurrentPlayer->field_68);
  
@@ -6792,7 +6858,7 @@ index 677ea82..1580daf 100644
      bondviewUpdateFrustumPlanes();
      store_BONDdata_curpos_to_previous();
  }
-@@ -8417,7 +9072,17 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8417,7 +9113,17 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
      watchpos = ZeroCoordWatchPos;
      objheader = get_ptr_itemheader_in_hand(GUNLEFT);
      nodepos = (f32 *) objheader->Switches[3];
@@ -6811,7 +6877,7 @@ index 677ea82..1580daf 100644
      perspmtx = dynAllocateMatrix();
  #if defined(VERSION_EU)
      guPerspective(perspmtx, &perspNorm, g_CurrentPlayer->zoominfovy, 1.4005603f, 10.0f, 300.0f, 1.0f);
-@@ -8425,7 +9090,10 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8425,7 +9131,10 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
      guPerspective(perspmtx, &perspNorm, g_CurrentPlayer->zoominfovy, 1.4545455f, 10.0f, 300.0f, 1.0f);
  #endif
   
@@ -6823,7 +6889,7 @@ index 677ea82..1580daf 100644
      gSPPerspNormalize(gdl++, perspNorm);
  
      // Keep this nested block for matching.
-@@ -8459,22 +9127,22 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8459,22 +9168,22 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
          matrix_4x4_set_position_and_rotation_around_y(watchpos.f, (360.0f - g_CurrentPlayer->vv_theta) * 0.017453292f, &watchmtx);
          matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &watchmtx);
          matrices = dynAllocate(objheader->numMatrices << 6);
@@ -6852,7 +6918,7 @@ index 677ea82..1580daf 100644
      
          matrix_4x4_set_basis_and_position_target(&targetmtx, 0.0f, 0.0f, 0.0f, g_CurrentPlayer->field_1E0, g_CurrentPlayer->field_1E4, g_CurrentPlayer->field_1E8, g_CurrentPlayer->field_1EC, g_CurrentPlayer->field_1F0, g_CurrentPlayer->field_1F4);
          matrix_4x4_get_rotation_around_xyz(matrices, &currot);
-@@ -8485,7 +9153,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8485,7 +9194,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
          quaternion_slerp(quat1, quat2, t, quat3);
          quaternion_to_matrix(quat3, matrices->m);
          matrix_4x4_set_position(&targetpos, matrices);
@@ -6861,7 +6927,7 @@ index 677ea82..1580daf 100644
          total_seconds = time / 60;
          seconds = total_seconds % 60;
          total_minutes = total_seconds / 60;
-@@ -8531,7 +9199,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8531,7 +9240,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
              renderdata.envcolour.word = g_CurrentPlayer->tileColor.a | (((g_CurrentPlayer->tileColor.r << 24) | (g_CurrentPlayer->tileColor.g << 16)) | (g_CurrentPlayer->tileColor.b << 8));
          }
      
@@ -6870,7 +6936,7 @@ index 677ea82..1580daf 100644
          gdl = renderdata.gdl;
          nodepos2 = (f32 *) objheader->Switches[2]->Data;
          finalmtx = dynAllocateMatrix();
-@@ -8542,7 +9210,14 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
+@@ -8542,7 +9251,14 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
          matrix_4x4_7F058C88();
          gdl = draw_watch_current_page(gdl, finalmtx, (g_CurrentPlayer->watch_animation_state == 5) || (g_CurrentPlayer->watch_animation_state == 12));
          matrix_4x4_7F058C64();
@@ -6886,7 +6952,7 @@ index 677ea82..1580daf 100644
          matrix_4x4_7F058C88();
      }
   
-@@ -8563,13 +9238,17 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
+@@ -8563,13 +9279,17 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
      Mtx *orthomtx;
      Mtxf lookatmtxf;
  
@@ -6906,7 +6972,7 @@ index 677ea82..1580daf 100644
  
      // Create an orthographic render state for the gauge.
      lookatmtx = dynAllocateMatrix();
-@@ -8611,7 +9290,7 @@ void mp_respawn_handler(void)
+@@ -8611,7 +9331,7 @@ void mp_respawn_handler(void)
  {
      coord3d start_pos = ZeroCoordSpawnPos;
      f32 start_look_angle;
@@ -6915,7 +6981,7 @@ index 677ea82..1580daf 100644
      s32 pad;
      f32 stan_height;
      s32 var_v0;
-@@ -8703,7 +9382,13 @@ void mp_respawn_handler(void)
+@@ -8703,7 +9423,13 @@ void mp_respawn_handler(void)
              switch (intro_record->type) 
              {
                  case 0: // INTROTYPE_SPAWN
@@ -6930,7 +6996,7 @@ index 677ea82..1580daf 100644
                      break;
                  case 1: // INTROTYPE_ITEM
                      if (check_ramrom_flags() == ((struct SetupIntroAmmo*)intro_record)->is_demo_playback) {
-@@ -8713,28 +9398,28 @@ void mp_respawn_handler(void)
+@@ -8713,28 +9439,28 @@ void mp_respawn_handler(void)
                              bondinvAddInvItem(((struct SetupIntroItem*)intro_record)->item_right);
                          }
                      }
@@ -6966,7 +7032,7 @@ index 677ea82..1580daf 100644
                      break;
              }
      #ifdef DEBUG
-@@ -8938,6 +9623,37 @@ Gfx *maybe_mp_interface(Gfx *gdl)
+@@ -8938,6 +9664,37 @@ Gfx *maybe_mp_interface(Gfx *gdl)
      s32 i;
      s32 total;
  
@@ -7004,7 +7070,7 @@ index 677ea82..1580daf 100644
      if (g_CurrentPlayer->cameramode == 1)
      {
          bondviewIntroCameraTextTick();
-@@ -8946,6 +9662,12 @@ Gfx *maybe_mp_interface(Gfx *gdl)
+@@ -8946,6 +9703,12 @@ Gfx *maybe_mp_interface(Gfx *gdl)
          gdl = sub_GAME_7F08AAE8(gdl);
          gdl = countdownTimerRender(gdl);
          gdl = currentPlayerDrawFade(gdl);
@@ -7017,7 +7083,7 @@ index 677ea82..1580daf 100644
          return bondviewRenderCredits(gdl);
      }
  
-@@ -9085,6 +9807,9 @@ Gfx *maybe_mp_interface(Gfx *gdl)
+@@ -9085,6 +9848,9 @@ Gfx *maybe_mp_interface(Gfx *gdl)
      gdl = sub_GAME_7F08AAE8(gdl);
      gunDrawSight(&gdl);
      gdl = generate_ammo_total_microcode(gdl);
@@ -7027,7 +7093,7 @@ index 677ea82..1580daf 100644
      gdl = countdownTimerRender(gdl);
      gdl = display_red_blue_on_radar(gdl);
      return currentPlayerDrawFade(gdl);
-@@ -9478,13 +10203,65 @@ s32 get_obj_collision_flag(void) {
+@@ -9478,13 +10244,65 @@ s32 get_obj_collision_flag(void) {
  /**
   * Address 0x7F089F98.
   */
@@ -7093,7 +7159,7 @@ index 677ea82..1580daf 100644
      return g_CurrentPlayer->field_488.current_tile_ptr_for_portals->room;
  }
  
-@@ -9698,7 +10475,7 @@ void hudmsgsSetOff(s32 flags)
+@@ -9698,7 +10516,7 @@ void hudmsgsSetOff(s32 flags)
  
  
  #ifdef VERSION_US
@@ -7102,7 +7168,7 @@ index 677ea82..1580daf 100644
  {
      copy_2ndfonttable = arg0;
      copy_1stfonttable = arg1;
-@@ -9902,7 +10679,11 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
+@@ -9902,7 +10720,11 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
              }
  
              view_vert = view_top - view_top_offset;
@@ -7115,7 +7181,7 @@ index 677ea82..1580daf 100644
              arg0 = combiner_bayer_lod_perspective(textRenderOutlined(arg0, &view_left, &view_vert, stringbuffer_lowerleft[status_bar_text_buffer_index], BONDVIEW_2ND_FONTTABLE(status_bar_text_buffer_index), BONDVIEW_1ST_FONTTABLE(status_bar_text_buffer_index), -1, 0x646464FFU, (s16) (s32) viGetX(), (s16) viGetY(), 0, 0));
          }
      }
-@@ -10134,9 +10915,37 @@ s32 playerTick(PropRecord *prop)
+@@ -10134,9 +10956,37 @@ s32 playerTick(PropRecord *prop)
      s32 ret;
      s32 sub;
      PropRecord *leftprop;
@@ -7155,7 +7221,7 @@ index 677ea82..1580daf 100644
      f32 angle;
      f32 frame;
      f32 local90;
-@@ -10148,7 +10957,7 @@ s32 playerTick(PropRecord *prop)
+@@ -10148,7 +10998,7 @@ s32 playerTick(PropRecord *prop)
      coord3d off;
      s32 i;
      s32 found;
@@ -7164,7 +7230,7 @@ index 677ea82..1580daf 100644
      PropRecord *rightprop;
      struct WeaponObjRecord *leftobj;
      struct WeaponObjRecord *rightobj;
-@@ -10260,7 +11069,7 @@ s32 playerTick(PropRecord *prop)
+@@ -10260,7 +11110,7 @@ s32 playerTick(PropRecord *prop)
              {
                  cur = ppointers[index]->players_cur_animation;
   
@@ -7173,7 +7239,7 @@ index 677ea82..1580daf 100644
                  {
                      found = 1;
                  }
-@@ -10273,7 +11082,7 @@ s32 playerTick(PropRecord *prop)
+@@ -10273,7 +11123,7 @@ s32 playerTick(PropRecord *prop)
              }
              else
              {
@@ -7182,7 +7248,7 @@ index 677ea82..1580daf 100644
                  angle = 0.5f;
              }
   
-@@ -10455,7 +11264,7 @@ lean_return_to_centre:
+@@ -10455,7 +11305,7 @@ lean_return_to_centre:
   
              if (fa->anim != 0)
              {
@@ -7191,7 +7257,7 @@ index 677ea82..1580daf 100644
              }
   
              angle *= fa->x;
-@@ -10468,7 +11277,9 @@ lean_return_to_centre:
+@@ -10468,7 +11318,9 @@ lean_return_to_centre:
  join_768:
          if ((firingtable != NULL) && (anim == 0))
          {
@@ -7202,7 +7268,7 @@ index 677ea82..1580daf 100644
          }
   
          if (anim != cur)
-@@ -10729,7 +11540,8 @@ void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
+@@ -10729,7 +11581,8 @@ void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
  
      for (i = 0, j = 0; i < count; i++, j += sizeof(Mtxf))
      {
