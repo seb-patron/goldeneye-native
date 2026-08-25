@@ -89,7 +89,7 @@ places, and runtime coordinates reach 86,000. A flat `1e-3` fails seven levels.
 **Done when:** the CLI's `near` lines carry a radius, and the Train player walks past the crate it
 currently traps itself on.
 
-## S2. Navmesh nodes — the structural fix behind most of our failures
+## S2. Navmesh nodes — ✅ DONE, and the acceptance test passed
 
 Pads are prop markers, not places to walk. Measured with the teleport probe: **139 of Train's 180
 nodes cannot be stood on**, and across the twenty solo levels it runs 33 to 240 each. A follower
@@ -103,12 +103,31 @@ snapping to place. Pads go back to being what they are: markers for props and sp
 ⚠️ **Declare which coordinate space the extractor emits.** The pack scales at the boundary today
 and that is fine, but it must be stated rather than assumed. `runtime = asset / levelscale`.
 
-**Done when:** routing Train produces a line through seven doors. The walkthrough says seven brake
-units in a linear chain of carriages; the CLI says every landmark is 90° right. If the graph
-reproduces that shape it is right — **and you can check that without a bot and without a running
-game**, which is the point.
+**✅ Passed.** `tools/route_doors.py` routes the TILE graph from the measured spawn:
 
-## S3. Enemy facing — turn sight into attention
+```
+level      reachable   ratio    monotonic
+train           100%   53.4:1        100%     <- 117 of 117 steps advancing along X
+facility         85%    5.6:1         90%
+bunker1          84%    0.8:1         69%
+```
+
+30 distinct rooms, zero revisited, 682 tiles reachable. The graph reproduces the linear chain of
+carriages **and does so distinctively** — Train is an outlier against every other level, which is
+what makes it a test rather than a coincidence.
+
+🔑 They flagged their own "linear chain: yes" check as WEAK because every level passes it,
+including open ones. A check that cannot fail is not a check, and saying so is worth more than
+the check was.
+
+⚠️ Two spaces reconciled explicitly on the way: the JSONs are asset space and the measured spawn
+is runtime, so Train's spawn reads x=779 where the tile map ends at x=213. `asset = runtime *
+levelscale`.
+
+**Now the bot must ROUTE ON THIS GRAPH** rather than the pad graph — that is M1's real content and
+it is unblocked.
+
+## S3. Enemy facing — ✅ DONE
 
 `gePortEnemyFacing` refuses and `geSenseNoticedBy` falls back to line of sight, so a bot hides
 from a guard facing the other way and strolls past one staring at it. Train reports 17–19 watchers
@@ -121,8 +140,16 @@ when building the model matrix; that is where the answer probably starts.
 ⚠️ **Do not tune the line test to shrink the watcher count.** Add the cone. And keep both
 questions: "could see me if it turned" is different from "is looking at me", and both are useful.
 
-**Done when:** Train reports fewer watchers than it has guards with a clear line, and the
-difference is guards facing away.
+**✅ Done.** The heading is `getsubroty(chr->model)` (model.c:698), **not** `chr->aimsideback` —
+which was my hint and was wrong. aimsideback is an AIM OFFSET applied to a body part while the
+model is drawn, so a cone built on it swings with where a guard POINTS ITS GUN rather than which
+way it faces, and would have read as roughly right most of the time.
+
+🔑 Same shape as `prop->pos` versus `player->pos`, which has now caught us three times: **the
+value lives on the object the engine maintains, not the record that looks like it owns it.**
+
+They proved the convention from `chraction.c:9629` rather than assuming it — the game subtracts
+`getsubroty` directly from `atan2f(dx, dz)`, so it is radians in exactly our convention.
 
 ## S4. Audit the line-versus-body substitution across your callers
 
