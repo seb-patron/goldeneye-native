@@ -12312,7 +12312,7 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..dd17227 100644
+index cb8e24a..e5fd35f 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
 @@ -1,3 +1,4 @@
@@ -12358,7 +12358,7 @@ index cb8e24a..dd17227 100644
  
      #ifdef BUGFIX_R1
      jpD_800484CC = (f32) deltaFrames;
-@@ -72,6 +95,89 @@ void updateFrameCounters(s32 deltaFrames)
+@@ -72,6 +95,133 @@ void updateFrameCounters(s32 deltaFrames)
   * Waits until the appropriate time has passed before updating the frame counters.
   * This function effectively controls the frame rate by waiting for the next tick.
   */
@@ -12401,6 +12401,11 @@ index cb8e24a..dd17227 100644
 +
 +/* File scope rather than function statics, because gePortSimAlpha() below reads them from
 + * the render path. */
++/* The cadence GoldenEye's per-frame systems were authored against, and the floor below which
++ * the fastest weapon's fire rate clips. See docs/FRAME_TIMING.md. */
++#define GE_SIM_TARGET_HZ 30
++#define GE_SIM_MIN_HZ    30
++
 +static s32 ge_sim_div = -1;
 +static s32 ge_sim_phase = 0;
 +
@@ -12427,9 +12432,48 @@ index cb8e24a..dd17227 100644
 +
 +    if (ge_sim_div < 0) {
 +        const char *e = getenv("GETV_SIMDIV");
-+        ge_sim_div = (e && *e) ? atoi(e) : 1;
++
++        /* GETV_SIMDIV=auto picks the divider from the refresh rate so the SIMULATION lands on
++         * GE_SIM_TARGET_HZ, which is the cadence the game was authored for.
++         *
++         * 🔑 The divider is not the thing that matters -- the resulting sim rate is. A divider
++         * of 4 is wrong at 60Hz (15Hz sim) and exactly right at 120Hz (30Hz sim), so a fixed
++         * number cannot be correct across displays and asking the user for one invites the
++         * misconfiguration this exists to prevent.
++         *
++         * The floor is a measured quantity, not a taste: a weapon cannot fire more often than
++         * the simulation ticks, and the fastest in the game wants 29.2 rounds a second, so a
++         * sim below ~30Hz clips its rate no matter how correct the time base is. */
++        if (e != NULL && (*e == 'a' || *e == 'A')) {
++            const char *f = getenv("GETV_FPS");
++            s32 hz = (f && *f) ? atoi(f) : 0;
++            if (hz <= 0) hz = 60;                 /* the default present rate */
++            ge_sim_div = hz / GE_SIM_TARGET_HZ;
++            if (ge_sim_div < 1) ge_sim_div = 1;
++            osSyncPrintf("[getv][simdiv] auto: %dHz display / %dHz target = divider %d "
++                         "(simulation %dHz)\n",
++                         (s32) hz, (s32) GE_SIM_TARGET_HZ, (s32) ge_sim_div,
++                         (s32) (hz / ge_sim_div));
++        } else {
++            ge_sim_div = (e && *e) ? atoi(e) : 1;
++        }
 +        if (ge_sim_div < 1) ge_sim_div = 1;
 +        if (ge_sim_div > 8) ge_sim_div = 8;
++
++        /* Warn when the resulting simulation rate cannot carry the fastest weapon. This is the
++         * whole of the "divider 4 is broken" report: it was never the divider, it was a 15Hz
++         * simulation being asked for 29.2 rounds a second. */
++        {
++            const char *f = getenv("GETV_FPS");
++            s32 hz = (f && *f) ? atoi(f) : 60;
++            if (hz > 0 && (hz / ge_sim_div) < GE_SIM_MIN_HZ) {
++                osSyncPrintf("[getv][simdiv] WARNING: divider %d at %dHz gives a %dHz "
++                             "simulation, below the %dHz the fastest weapon needs (29.2 "
++                             "rounds/sec). Fire rates WILL clip. Use GETV_SIMDIV=auto.\n",
++                             (s32) ge_sim_div, (s32) hz, (s32) (hz / ge_sim_div),
++                             (s32) GE_SIM_MIN_HZ);
++            }
++        }
 +        if (ge_sim_div > 1) {
 +            osSyncPrintf("[getv][simdiv] simulation runs 1 frame in %d; rendering every frame. "
 +                         "EXPERIMENTAL\n", ge_sim_div);
@@ -12448,7 +12492,7 @@ index cb8e24a..dd17227 100644
  void waitForNextFrame(void) //maybe WaitForTick
  {
    u32 nextFrameTime; //next frame time?
-@@ -84,7 +190,32 @@ void waitForNextFrame(void) //maybe WaitForTick
+@@ -84,7 +234,32 @@ void waitForNextFrame(void) //maybe WaitForTick
      #endif
    } while (nextFrameTime < frameDelay);
  

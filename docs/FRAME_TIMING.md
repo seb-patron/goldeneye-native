@@ -324,6 +324,37 @@ is the same question as step 2 but for props rather than the camera, and a much 
 hit detection is exactly the place where blending state the AI reads as fact gets dangerous.
 Filed, not guessed at.
 
+### GETV_SIMDIV=auto, and the sim-rate floor
+
+The divider is the wrong thing to ask a user for. What matters is the **simulation rate** it
+produces, and the same number is right or wrong depending on the display: 4 gives a 15Hz
+simulation at 60Hz and a 30Hz one at 120Hz.
+
+`GETV_SIMDIV=auto` picks the divider so the simulation lands on 30Hz, the cadence the game was
+authored for. Verified:
+
+```
+60Hz  -> divider 2 (simulation 30Hz)
+120Hz -> divider 4 (simulation 30Hz)
+144Hz -> divider 4 (simulation 36Hz)
+```
+
+A guard now warns when a manual divider would put the simulation under 30Hz, because that is
+the entire content of the "divider 4 is broken" report: a 15Hz simulation cannot deliver 29.2
+rounds a second whatever the time base does. It fires on `SIMDIV=4` at 60Hz and stays silent
+on `SIMDIV=2`.
+
+🔴 **A claim I made and then had to withdraw.** I reasoned that divider 4 must therefore be
+correct at 120Hz, and then measured it: `GETV_FPS=60` and `GETV_FPS=120` at divider 4 both
+give **20 shots in 20 ticks**. `GETV_FPS` does not change the field accounting, so the
+saturation is per-TICK and independent of the present rate as far as this harness can see.
+
+⚠️ **So whether a real 120Hz display makes each frame worth half a field of game time is
+UNVERIFIED.** It depends on the retrace path feeding `deltaFrames`, which a headless run does
+not exercise because it is not vsync-locked. `auto` encodes the intended relationship and the
+guard catches the clearly-wrong cases; proving the high-refresh case needs a real high-refresh
+display, and until someone runs one this stays an open item rather than a solved one.
+
 **Divider 4 is limited, not quantised.** `shots`, `beams`, `traces` and `objhit` all show the
 same 22.5% drift and move together, because they are all downstream of `shots` and inherit the
 saturation ceiling above: a weapon cannot fire more often than the simulation ticks.
