@@ -54,10 +54,10 @@ Then supply your ROM, generate the assets, and build:
 ./getv/build-mac/goldeneye     # --launcher opens the launcher first
 ```
 
-**[`docs/SETUP.md`](docs/SETUP.md) is the real guide.** Every prerequisite, every command, the
-output each one should produce, and a troubleshooting section. Read it if you haven't built this before.
-The asset-generation step is the one you can't shortcut, and skipping any part of it gets you a
-tree that either fails to compile or misbehaves quietly.
+**[`docs/SETUP.md`](docs/SETUP.md) is the real guide.** Every prerequisite, every command,
+the output each one should produce, and a troubleshooting section. Read it if you haven't
+built this before. The asset-generation step is the one you can't shortcut, and skipping any
+part of it gets you a tree that either fails to compile or misbehaves quietly.
 
 One thing that will look wrong and isn't: `src/tlb_manage.c` fails to build, every time, on
 purpose. It programs the R4300's translation lookaside buffer, there's no TLB here, and nothing
@@ -96,8 +96,8 @@ code is here and none needed to be. Naming the thing was the hard half.
 An emulator runs the retail ROM by pretending to be an N64. It works, and for a lot of people
 it's the right answer. What it can't do is change the game, because the game inside it is
 compiled MIPS machine code. Frame-rate quirks, control schemes, resolution limits, anything else
-baked into the original logic: all of it stays baked in. The usual workaround is reaching in and patching
-memory from outside, which is fragile and only ever works against one build.
+baked into the original logic: all of it stays baked in. The usual workaround is reaching in
+and patching memory from outside, which is fragile and only ever works against one build.
 
 A decompilation gives you the game as editable C, compiled to a normal executable. No core to
 configure, no plugin to pick, no ROM loaded at runtime, no emulation overhead.
@@ -194,23 +194,23 @@ kept both documents and both say so. The audit that settles it hasn't been run.
 
 All of it is off until you turn it on, and none of it needs a rebuild.
 
-**CRT** — a real one, not a filter slapped on top. Scanlines, aperture mask, barrel curve and
+**CRT.** A real one, not a filter slapped on top. Scanlines, aperture mask, barrel curve and
 vignette are four independent terms over the same post-process target FXAA uses, so you tune a
 look instead of picking from a menu of three. It ships as a Lua mod in `mods/crt_screen/` that
 you can read, change or untick.
 
-**Horde** — guards respawn where they fell and the waves grow as you clear them. Any level
+**Horde.** Guards respawn where they fell and the waves grow as you clear them. Any level
 becomes a survival map, including the ones that were absolutely never meant to be.
 
-**Rulesets** — enemy health, damage, accuracy, ammo, player health and explosion strength, each a
+**Rulesets.** Enemy health, damage, accuracy, ammo, player health and explosion strength, each a
 percentage, with presets for classic, hardcore, survival, chaos and horde. Make the guards
 one-shot snipers. Or make yourself one.
 
-**Cheats by name** — the game's own, from the launcher or a config file. No GameShark codes and
+**Cheats by name.** The game's own, from the launcher or a config file. No GameShark codes and
 no memory patching, because we have the source. `paintball`, `dk_mode`, `infinite_ammo`,
 `no_radar`, `enemy_rockets` and the rest, set as flags the game itself reads.
 
-**Lua** — `onFrame`, `onPlayerSpawn` and `onWeaponFire`, with a read API into live game state and
+**Lua.** `onFrame`, `onPlayerSpawn` and `onWeaponFire`, with a read API into live game state and
 `ge.postfx{}` to write the CRT parameters every frame.
 
 Start at [`docs/MODDING.md`](docs/MODDING.md). The roughly 275 `GETV_*` gates are the real
