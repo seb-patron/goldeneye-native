@@ -283,6 +283,47 @@ The turret turns out to have been time-correct all along. Reaction stepping is s
 **unmeasured** -- guards did not engage on the scripted paths tried, so there is no number for
 it yet, and it should not be listed as either fixed or broken.
 
+### Guard reaction stepping: converted
+
+`chraction.c:6701` had the player's defect in the AI. `firecount[hand]` advanced once per TICK
+against a `% rate` gate, so guards fired every N ticks whatever a tick was worth. Converted to
+the same crossing-on-elapsed-fields test, sharing `GETV_TIMEFIRE` so the two halves cannot be
+switched independently and an A/B cannot compare a mixed state.
+
+Bunker 1, n=3 per cell, zero spread within every cell, damage taken over a fixed 2600-frame run:
+
+| | SIMDIV=1 | SIMDIV=2 | ratio |
+|---|---|---|---|
+| `GETV_TIMEFIRE=0` | 0.190 | 0.120 | 1.58 |
+| **`GETV_TIMEFIRE=1`** | 0.190 | **0.190** | **1.00** |
+
+🔑 It needed `GETV_CHR_FIRERATE` to measure at all. With issued weapons a scripted run sits
+~1400 frames before anything shoots back, and the signal is too weak to separate from noise.
+Giving every guard an automatic weapon's cadence makes guard fire the dominant term.
+
+### The twelve-level sweep
+
+`tools/divider_audit.py` at dividers 1 and 2, scripted fire, on stages 9, 20, 22, 24, 25, 27,
+28, 30, 33, 34, 37 and 39.
+
+**Eleven of twelve are clean.** Nothing flagged; the residual is 2-8% mean drift on `xhair`,
+`beams`, `shots`, `traces` and `objhit`, which is one-frame timing offset, not quantisation.
+
+🔴 **Stage 37 JUNGLE is the exception: `chrhit` 8 at divider 1 against 3 at divider 2**, n=3
+each with zero spread, so systematic rather than chaotic. `shots` is identical, so Bond fires
+the same rounds and simply connects less often.
+
+⚠️ **This is not obviously a bug, and it is deliberately not "fixed" here.** Guard positions
+advance once per tick, so at divider 2 a moving target occupies a coarser set of positions and
+a scripted shot fired at a fixed frame can pass between them. That is what running a simulation
+at half rate MEANS, and it is the same trade any 30Hz game makes against a 60Hz one. Converting
+a timer would not change it.
+
+What would settle it: whether guard movement interpolates for the purpose of hit tests, which
+is the same question as step 2 but for props rather than the camera, and a much larger one --
+hit detection is exactly the place where blending state the AI reads as fact gets dangerous.
+Filed, not guessed at.
+
 **Divider 4 is limited, not quantised.** `shots`, `beams`, `traces` and `objhit` all show the
 same 22.5% drift and move together, because they are all downstream of `shots` and inherit the
 saturation ceiling above: a weapon cannot fire more often than the simulation ticks.
