@@ -189,6 +189,33 @@ def parse_objectives(setup_text):
             for (p, o, t, d) in _records(setup_text, OBJ_START_TYPE)]
 
 
+# THE COMPLETION FLAGS ARE OFF BY EIGHT BITS, AND IT IS NOT YET KNOWN WHOSE FAULT THAT IS.
+#
+# 48 of the game's 80 objectives have no tagged target, so they cannot be routed to. Their
+# completion is a flag instead, and the chain that would resolve them is:
+#
+#   objective's complete flag -> the AI list that sets it -> what that list is attached to -> a
+#   position a bot can walk to
+#
+# The machinery is all there. objective_status.c evaluates a complete condition with
+# chrHasStageFlag, which reads objectiveregisters1 (chraction.c:10053). That register has
+# exactly one writer, chrSetStageFlags, called only from the AI opcode SetObjectiveBitfield. So
+# every completion flag in the game is set by a line of AI bytecode, which is readable.
+#
+# The obstacle: the numbers do not line up. Dam's objectives test 0x100, 0x200, 0x400, 0x800,
+# 0x1000, 0x2000 while its AI lists set 0x10000 through 0x200000 -- EXACTLY A FACTOR OF 256.
+# Across the levels that have both, 18 of 27 objective flags equal an AI-set flag shifted eight
+# bits; Dam is 6 of 6, Bunker 1 is 5 of 5, Depot 1 of 1, and Caverns 0 of 7.
+#
+# That is far too consistent to be coincidence and too incomplete to paper over. Either this
+# parser reads the ObjRefID at the wrong byte offset, or the two sides genuinely use different
+# conventions and Caverns is a third case. Shifting the value to make the numbers agree would be
+# fitting to a pattern rather than explaining it, and the same instinct has produced three wrong
+# answers already this session.
+#
+# Settling it needs the AiSetObjectiveBitfieldRecord and the complete-condition record laid side
+# by side, byte for byte. GETV_OBJ_DEBUG=1 already exists in chrai.c and dumps exactly that at
+# runtime -- which needs a build, and is the cheapest way to know rather than guess.
 def parse_objective_conditions(setup_text):
     """What each objective actually requires, from the records nested inside it.
 

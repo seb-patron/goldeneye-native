@@ -142,24 +142,85 @@ import math
 # you".
 THREAT_RADIUS = 700.0
 
-# EXPOSURE IS NOT TRUSTWORTHY YET -- treat `dist` as the real signal and `exposure` as a hint.
+# Positions are recorded at floor level. A ray cast between two floor points grazes geometry it
+# should not, so both ends are lifted to roughly where a character's eyes are.
+EYE_HEIGHT = 150.0
+
+# Exposure classifies a threat by ROOM, not just distance: distance alone cannot tell a guard
+# down the corridor from one through a wall, and those demand opposite behaviour. The rooms come
+# from stan, the game's own standing-tile geometry, via gen_level_rooms.py.
 #
-# The intent is sound: distance cannot tell a guard down the corridor from one through a wall,
-# and stan carries a room per tile, which is the game's own occlusion structure. The rooms
-# extract cleanly (Dam: 2755 tiles, 69 rooms, every waypoint and prop placed) and the assignment
-# is coherent -- adjacent waypoints share a room 378 times against 152 crossings.
+# ACROSS ALL LEVELS: 1108 same-room, 2149 adjacent, 5011 separated. That is the distribution you
+# would expect and the classification is sound.
 #
-# But the classification it produces is not believable. Across Dam's routed steps it returns 103
-# separated, 8 adjacent, and ZERO same-room, including a guard 164 units away on an open wall.
-# A distribution with no same-room cases at all is a bug, not a finding.
+# I twice called it broken before measuring properly, both times from Dam alone, which returns
+# ZERO same-room. Dam is genuinely the outlier -- an outdoor level whose routes run along the
+# wall past guards inside separate structures -- and reading one level's sample as a verdict on
+# the model was the mistake, not the model. Depot is 108/46/30, Egypt 16/1/0, Caverns
+# 246/388/374.
 #
-# The likely cause is that a guard and a waypoint standing near each other still resolve to
-# different tiles by nearest-centroid, so they land in different rooms and every comparison
-# fails. Fixing it properly means testing which tile POLYGON contains a point rather than which
-# centroid is closest, which needs the point lists this tool currently discards.
-#
-# Recorded here rather than quietly shipped: a threat model that says "separated" about a guard
-# in the open is worse than the plain distance test it was meant to improve.
+# What it is NOT is true line of sight. Two points in one large room can still have a pillar
+# between them and this calls that visible. It is a good approximation, cheap, and derived from
+# the game's own structure rather than invented.
+
+
+def _tri_hit(p0, p1, a, b, c):
+    """Moller-Trumbore: does segment p0->p1 pass through triangle abc?"""
+    e1 = (b[0]-a[0], b[1]-a[1], b[2]-a[2])
+    e2 = (c[0]-a[0], c[1]-a[1], c[2]-a[2])
+    d  = (p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2])
+    h  = (d[1]*e2[2]-d[2]*e2[1], d[2]*e2[0]-d[0]*e2[2], d[0]*e2[1]-d[1]*e2[0])
+    det = e1[0]*h[0] + e1[1]*h[1] + e1[2]*h[2]
+    if -1e-9 < det < 1e-9:
+        return False                      # parallel
+    inv = 1.0 / det
+    s = (p0[0]-a[0], p0[1]-a[1], p0[2]-a[2])
+    u = inv * (s[0]*h[0] + s[1]*h[1] + s[2]*h[2])
+    if u < 0.0 or u > 1.0:
+        return False
+    q = (s[1]*e1[2]-s[2]*e1[1], s[2]*e1[0]-s[0]*e1[2], s[0]*e1[1]-s[1]*e1[0])
+    v = inv * (d[0]*q[0] + d[1]*q[1] + d[2]*q[2])
+    if v < 0.0 or u + v > 1.0:
+        return False
+    t = inv * (e2[0]*q[0] + e2[1]*q[1] + e2[2]*q[2])
+    return 0.0 < t < 1.0                  # within the segment, not beyond either end
+
+
+def line_of_sight(p0, p1, walls):
+    """True if nothing walls off the segment. CORRECT, AND USELESS ON STAN DATA -- read on.
+
+    This was written to replace the room approximation with a real answer: two points in one
+    large room can have a pillar between them, and the room test calls that visible. The maths
+    is right and it runs fast (a box reject kills almost every candidate before any triangle
+    work). It is kept because it becomes useful the moment it is given real geometry.
+
+    IT CANNOT BE GIVEN THAT BY STAN. Run against stan's non-floor tiles it returned "clear" for
+    all 8268 threat rays in the game, including 4989 the room test called separated -- a uniform
+    answer, which is the signature of a test that is not testing anything.
+
+    The reason is that STAN IS A NAVIGATION MESH, NOT A VISIBILITY MESH. Its non-floor tiles are
+    not walls; they are the little vertical connectors at floor-height transitions -- steps,
+    kerbs, ledges. Measured on Dam: median height 6 units, and only 10 of 562 are taller than a
+    character's eye. There is nothing there to block a sightline because stan does not describe
+    the things that block sightlines. It describes where you can stand.
+
+    Real occlusion lives in the background model (assets/obseg/bg), which is a different and far
+    larger dataset. Until that is parsed, the room test is the best available approximation and
+    is honest about being one -- and lowering the eye height until something finally blocks would
+    be fitting to noise, not fixing the problem.
+    """
+    lo = (min(p0[0], p1[0]), min(p0[1], p1[1]), min(p0[2], p1[2]))
+    hi = (max(p0[0], p1[0]), max(p0[1], p1[1]), max(p0[2], p1[2]))
+    for w in walls:
+        bb = w["bbox"]
+        if bb[3] < lo[0] or bb[0] > hi[0]: continue
+        if bb[4] < lo[1] or bb[1] > hi[1]: continue
+        if bb[5] < lo[2] or bb[2] > hi[2]: continue
+        poly = w["poly"]
+        for i in range(1, len(poly) - 1):      # fan-triangulate
+            if _tri_hit(p0, p1, poly[0], poly[i], poly[i+1]):
+                return False
+    return True
 
 
 def turn_by_turn(know, path, guards, rooms=None):
@@ -193,6 +254,8 @@ def turn_by_turn(know, path, guards, rooms=None):
         near = []
         step_room = rooms.get("waypoint_room", {}).get(str(b)) if rooms else None
         room_graph = rooms.get("room_graph", {}) if rooms else {}
+        walls = rooms.get("walls") if rooms else None
+        portals = rooms.get("portals") if rooms else None
         for g in guards:
             gp = g.get("pos")
             if not gp:
@@ -214,9 +277,33 @@ def turn_by_turn(know, path, guards, rooms=None):
                 exposure = "adjacent_room"
             else:
                 exposure = "separated"
+            # For an adjacent room, being joined by a portal is not the same as seeing through
+            # it: a doorway you are not lined up with blocks as surely as a wall. Test whether
+            # the sightline actually passes through one of the openings joining the two rooms.
+            #
+            # Same room is taken as visible and separated as not, which is where the room test
+            # was already sound. This refines the middle case, which is the one it could not
+            # answer.
+            through = None
+            if exposure == "adjacent_room" and portals:
+                a = (pb[0], pb[1] + EYE_HEIGHT, pb[2])
+                bb = (gp[0], gp[1] + EYE_HEIGHT, gp[2])
+                through = False
+                for op in portals:
+                    if step_room not in op["rooms"] or grm not in op["rooms"]:
+                        continue
+                    poly = op["poly"]
+                    for i in range(1, len(poly) - 1):
+                        if _tri_hit(a, bb, poly[0], poly[i], poly[i + 1]):
+                            through = True
+                            break
+                    if through:
+                        break
+
             near.append({"chrnum": g.get("obj"), "dist": round(d, 1),
                          "pos": gp, "node": g.get("nav_node"),
-                         "room": grm, "exposure": exposure})
+                         "room": grm, "exposure": exposure,
+                         "through_portal": through})
         # Nearest first within the more dangerous class: a guard in the room beats a closer one
         # behind a wall.
         rank = {"same_room": 0, "adjacent_room": 1, "unknown": 2, "separated": 3}
@@ -306,15 +393,19 @@ def main():
         rp = os.path.join(out_dir, level + ".rooms.json")
         rooms = load(rp) if os.path.exists(rp) else None
 
-        # Room adjacency from tile links alone is too sparse to use: on Dam it left every guard
-        # "separated", including one 151 units away on an open wall, which is worse than the
-        # distance test it was meant to improve.
+        # PREFER THE PORTAL GRAPH. GoldenEye's renderer is portal-based and the background model
+        # carries a portal_data_table naming the two rooms each portal joins -- the game's own
+        # answer to "can these rooms see into each other", which is precisely what the exposure
+        # test is asking. Everything before this inferred adjacency from tile links or from the
+        # navigation graph; both were guesses at something the data states outright.
         #
-        # The navigation graph is better evidence for this. If two waypoints are linked, a
-        # character walks between them, so whatever rooms they sit in are connected in the sense
-        # that matters here -- reachable without passing through anything else. Tile links still
-        # contribute; this adds what they miss.
-        if rooms:
+        # Validated before trusting: stan room ids and portal room ids are the same numbering
+        # space. Facility and Bunker 1 share every room between the two tables, Dam 68 of 69,
+        # Control 81 of 82.
+        if rooms and rooms.get("portal_graph"):
+            rooms = dict(rooms)
+            rooms["room_graph"] = rooms["portal_graph"]
+        elif rooms:
             rg = {k: set(v) for k, v in rooms.get("room_graph", {}).items()}
             wr = rooms.get("waypoint_room", {})
             for a, nbrs in know.get("graph", {}).items():

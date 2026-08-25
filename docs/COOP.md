@@ -1,4 +1,43 @@
-# Co-op: one bug fixed, one still open
+# Co-op: three fixes, and a baseline that was wrong
+
+READ THIS FIRST. Most of this document was written against a control that does not hold.
+
+**GETV_SCRIPT has never moved a player, in any mode.** Solo on Dam travels from
+(16872, 9502) to (17795, 18011) over 570 frames **with the script and without it, identically**.
+That travel is the intro swirl camera animating, not input driving the player.
+
+So every "solo moves 900 units, co-op moves nothing" comparison in this file compared a camera
+animation against a stationary player. The conclusion that co-op movement is broken was never
+demonstrated. It may be broken; it may work for a person at a keyboard. This harness cannot
+tell the difference and should not have been used to claim one.
+
+What survives, because it was measured directly rather than through that comparison:
+
+- Each player now has their own camera (was: player 1 held player 0's).
+- Player 2 spawns somewhere standable (was: inside a wall).
+- Co-op reaches CAMERAMODE_FP (was: stuck at NONE).
+- With FP reached, co-op takes the **MoveBond** dispatch branch, which is the real movement
+  path. Solo, still in SWIRL at the same frame, takes the FROZEN branch that discards input.
+
+That last point is worth sitting with: after the camera fix, **co-op is on the correct branch
+and solo is not.** The next real test is a person playing co-op, not another scripted run.
+
+## What the harness would need
+
+`bondview2.c:8615` dispatches on the camera mode:
+
+```c
+if (mode == NONE || (mode == FP && is_timer_active) || mode == FADE_TO_TITLE)
+    MoveBond(stick_x, stick_y, buttons, ...);      /* real movement */
+else
+    bondviewFrozenMoveBond(...);                   /* input discarded */
+```
+
+Both branches receive `stick=(0,0)` under GETV_SCRIPT, so the injected stick is not reaching
+this function at all. Fixing the harness means finding where the script's stick is lost between
+the pad and here -- and that is a harness bug, not a game one.
+
+## Original write-up, kept for the measurements
 
 Two players in a single-player mission. They spawn, and they appear to be standing inside each
 other and unable to move. Neither of those is quite what is happening.

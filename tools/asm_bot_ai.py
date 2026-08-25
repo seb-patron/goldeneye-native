@@ -428,11 +428,7 @@ def main():
                     errors += 1
                     continue
 
-                # rstrip("s") strips a CLASS of characters rather than one suffix, so
-                # "personalities" came out as "personalitie". These become C symbols that
-                # engine code refers to, so they are worth getting right.
-                singular = {"personalities": "personality", "skill_tiers": "skill_tier"}
-                symbol = "bot_ai_%s_%s" % (singular.get(kind, kind), arch["name"])
+                symbol = "bot_ai_%s_%s" % ({"personalities":"personality","skill_tiers":"skill_tier"}.get(kind, kind), arch["name"])
                 if lvl_name:
                     symbol += "_" + lvl_name
                 c_parts.append(a.to_c(symbol))
