@@ -19,7 +19,15 @@
 #endif
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void sys_fatal(const char *fmt, ...) __attribute__((noreturn));
 void sys_sleep(double sec);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

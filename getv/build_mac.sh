@@ -39,12 +39,28 @@
 # space-free path. The repo lives under ".../Code Projects/...", and a space in a header
 # search path breaks the build in ways that are hard to trace.
 #
-# usage: ./build_mac.sh {sdl|lib|port|app|all|run|env}
+# GETV_RENDERER=gl|metal (default gl, i.e. today's behaviour, byte-for-byte unchanged).
+# metal selects port/fast3d/gfx_metal.mm -- a native Metal backend behind the same
+# GfxRenderingAPI, the tvOS/iOS unlock (GL ES is deprecated there and our fast3d wants
+# desktop GL 2.1, which does not exist on tvOS at all). See docs/ROADMAP.md "Phase 3" and
+# docs/REUSE_AUDIT.md. It gets its own BUILD dir and binary name (build-mac-metal/,
+# goldeneye-metal) so it can never collide with or regress the gl path's objects.
+#
+# usage: GETV_RENDERER=metal ./build_mac.sh {sdl|lib|port|app|all|run|env}
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
-BUILD="$HERE/build-mac"
+RENDERER="${GETV_RENDERER:-gl}"
+case "$RENDERER" in
+  gl|metal) ;;
+  *) echo "unknown GETV_RENDERER: $RENDERER (want gl or metal)" >&2; exit 1 ;;
+esac
+if [ "$RENDERER" = "metal" ]; then
+  BUILD="$HERE/build-mac-metal"
+else
+  BUILD="$HERE/build-mac"
+fi
 SDL="$HOME/.n64tvos/sdl2-mac"
 # Optional Lua mod scripting. Built by tools/fetch_lua.sh into the same out-of-repo prefix
 # SDL2 uses, because deps/ is not tracked. Absent is the normal case: without it the build
@@ -91,7 +107,11 @@ case "${MACARCH:-$HOSTARCH}" in
   *) echo "unsupported host arch: ${MACARCH:-$HOSTARCH}" >&2; exit 1 ;;
 esac
 TARGET="${MACARCH}-apple-macos13.0"
-BIN="$BUILD/goldeneye"
+if [ "$RENDERER" = "metal" ]; then
+  BIN="$BUILD/goldeneye-metal"
+else
+  BIN="$BUILD/goldeneye"
+fi
 
 # --------------------------------------------------------------------------- SDL2
 cmd_sdl() {
@@ -150,6 +170,7 @@ require_thirdparty() {
   for f in \
     port/fast3d/gfx_cc.c port/fast3d/gfx_cc.h \
     port/fast3d/gfx_opengl.c port/fast3d/gfx_opengl.h \
+    port/fast3d/gfx_metal.mm port/fast3d/gfx_metal.h \
     port/fast3d/gfx_pc.c port/fast3d/gfx_pc.h \
     port/fast3d/gfx_rendering_api.h port/fast3d/gfx_screen_config.h \
     port/fast3d/gfx_sdl.h port/fast3d/gfx_sdl2.c \
@@ -192,7 +213,8 @@ build_port_layer() {
     -target "$TARGET" -isysroot "$SDK"
     -I "$HERE/port" -I "$HERE/port/include" -I "$HERE/port/fast3d" -I "$HERE/port/src"
     -I "$SDL/include" -I "$SDL/include/SDL2"
-    -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DRAPI_GL -DWAPI_SDL2
+    -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DWAPI_SDL2
+    $([ "$RENDERER" = "metal" ] && echo -DRAPI_METAL || echo -DRAPI_GL)
     -DGE_PLATFORM_MAC
     -DGE_PLATFORM_DESKTOP
     # Desktop GL on macOS is deprecated-but-present; silence only that, so a real
@@ -221,6 +243,16 @@ build_port_layer() {
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
     if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
+    else pfail=$((pfail+1)); rm -f "$o"; echo "  mac port FAILED: $(basename "$f")"; fi
+  done
+  # Objective-C++: gfx_metal.mm. Always compiled, both renderers -- under -DRAPI_GL its
+  # whole body is inert (the file is one big #ifdef RAPI_METAL), exactly symmetric with
+  # gfx_opengl.c compiling to nothing under -DRAPI_METAL. ARC (-fobjc-arc) manages the
+  # id<MTL...> objects; only needed under metal but harmless (a no-op) under gl.
+  for f in "$HERE"/port/fast3d/*.mm; do
+    [ -e "$f" ] || continue
+    local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
+    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
     else pfail=$((pfail+1)); rm -f "$o"; echo "  mac port FAILED: $(basename "$f")"; fi
   done
   # The harness. Shared verbatim with the tvOS app target (getv/Sources) -- it is plain
@@ -469,9 +501,9 @@ case "${1:-}" in
   all)  cmd_lib && cmd_app ;;
   run)  shift; cmd_run "$@" ;;
   env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "BUILD=$BUILD"
-        echo "BIN=$BIN" ;;
-  *) echo "usage: $0 {sdl|lib|port|app|all|run|env}"
-        echo "  sdl  = build SDL2 2.30.9 arm64 from deps/ into $SDL (once)"
+        echo "BIN=$BIN"; echo "RENDERER=$RENDERER" ;;
+  *) echo "usage: GETV_RENDERER=gl|metal $0 {sdl|lib|port|app|all|run|env}  (default gl)"
+        echo "  sdl  = build SDL2 2.30.9 arm64 from deps/ into $SDL (once, shared by both renderers)"
         echo "  lib  = compile game + assets + audio + port layer for arm64 macOS"
         echo "  port = recompile getv/port/** and the harness only (seconds)"
         echo "  app  = link $BIN"

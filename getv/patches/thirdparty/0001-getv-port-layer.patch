@@ -1,6 +1,6 @@
 diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
---- a/getv/port/audio/ge_mixer.c	2026-08-26 13:13:50
-+++ b/getv/port/audio/ge_mixer.c	2026-08-26 13:13:50
+--- a/getv/port/audio/ge_mixer.c	2026-08-26 15:49:28
++++ b/getv/port/audio/ge_mixer.c	2026-08-26 15:49:29
 @@ -0,0 +1,22 @@
 +/* GoldenEye native port -- the RSP audio microcode (aspMain), in software.
 + *
@@ -443,8 +443,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
 +    }
 +    return 0;
 diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
---- a/getv/port/audio/ge_mixer.h	2026-08-26 13:13:50
-+++ b/getv/port/audio/ge_mixer.h	2026-08-26 13:13:50
+--- a/getv/port/audio/ge_mixer.h	2026-08-26 15:49:28
++++ b/getv/port/audio/ge_mixer.h	2026-08-26 15:49:29
 @@ -1,2 +1,21 @@
 -#ifndef MIXER_H
 -#define MIXER_H
@@ -541,8 +541,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 +
 +#endif /* GE_MIXER_H */
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
---- a/getv/port/fast3d/gfx_cc.c	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_cc.c	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_cc.c	2026-08-26 15:49:27
++++ b/getv/port/fast3d/gfx_cc.c	2026-08-26 15:49:28
 @@ -3 +3 @@
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features) {
@@ -554,8 +554,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
 +    }
 +    cc_features->two_cycle = (shader_id & SHADER_OPT_2CYC) != 0;
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
---- a/getv/port/fast3d/gfx_cc.h	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_cc.h	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_cc.h	2026-08-26 15:49:27
++++ b/getv/port/fast3d/gfx_cc.h	2026-08-26 15:49:28
 @@ -6,0 +7,14 @@
 +/* Two-cycle combiners. GoldenEye is two-cycle nearly everywhere.
 + *
@@ -616,8 +616,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features);
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features);
 diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
---- a/getv/port/fast3d/gfx_opengl.c	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_opengl.c	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_opengl.c	2026-08-26 15:49:27
++++ b/getv/port/fast3d/gfx_opengl.c	2026-08-26 15:49:28
 @@ -4,0 +5 @@
 +#include <stdio.h>
 @@ -27 +28,6 @@
@@ -1469,8 +1469,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +#endif
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
---- a/getv/port/fast3d/gfx_pc.c	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_pc.c	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_pc.c	2026-08-26 15:49:27
++++ b/getv/port/fast3d/gfx_pc.c	2026-08-26 15:49:28
 @@ -22,0 +23 @@
 +#include "ge_sky_rdp.h"
 @@ -31 +32,39 @@
@@ -5980,8 +5980,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +        ge_tri_count = 0;
 +    }
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
---- a/getv/port/fast3d/gfx_pc.h	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_pc.h	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_pc.h	2026-08-26 15:49:28
++++ b/getv/port/fast3d/gfx_pc.h	2026-08-26 15:49:28
 @@ -12,0 +13,5 @@
 +// gfx_current_dimensions is the INTERNAL render size. With supersampling it is
 +// larger than the window; gfx_output_dimensions is the real drawable that the
@@ -5989,16 +5989,16 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
 +extern struct GfxDimensions gfx_output_dimensions;
 +extern unsigned int gfx_supersample;
 diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rendering_api.h
---- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 15:49:28
++++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 15:49:28
 @@ -14,2 +14,2 @@
 -    struct ShaderProgram *(*create_and_load_new_shader)(uint32_t shader_id);
 -    struct ShaderProgram *(*lookup_shader)(uint32_t shader_id);
 +    struct ShaderProgram *(*create_and_load_new_shader)(uint64_t shader_id);
 +    struct ShaderProgram *(*lookup_shader)(uint64_t shader_id);
 diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
---- a/getv/port/fast3d/gfx_sdl2.c	2026-08-26 13:13:49
-+++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-26 13:13:50
+--- a/getv/port/fast3d/gfx_sdl2.c	2026-08-26 15:49:28
++++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-26 15:49:29
 @@ -19 +19,8 @@
 -#ifdef OSX_BUILD
 +/* Desktop GL when we are NOT on a GLES target. USE_GLES is defined only by the tvOS
@@ -6011,7 +6011,17 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +#if defined(OSX_BUILD) || !defined(USE_GLES)
 @@ -28,0 +36 @@
 +#include <stdlib.h>
-@@ -39 +47,41 @@
+@@ -30,0 +39,9 @@
++/* RAPI_METAL: no GL context at all -- the window carries a CAMetalLayer instead, handed
++ * to gfx_metal.mm via gePortMetalLayer. SDL_metal.h's three entry points are plain C
++ * (SDL_MetalView is void*), so this stays a .c file; only gfx_metal.mm itself needs
++ * Objective-C. See gfx_metal.h for why this is a global rather than a gfx_init() param. */
++#ifdef RAPI_METAL
++#include <SDL2/SDL_metal.h>
++#include "gfx_metal.h"
++#endif
++
+@@ -39 +56,41 @@
 -// TODO: figure out if this shit even works
 +/* Dear ImGui dev overlay. Plain C header, no ImGui or C++ types in it, and every entry
 + * point is a no-op unless the binary was built with ImGui AND GETV_IMGUI is set -- see
@@ -6054,19 +6064,27 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 + *
 + * Env gate: GETV_FPS=<n>. 0 or "off" removes the cap entirely (vsync still
 + * applies). Unset = 60 on NTSC, 50 on PAL. */
-@@ -41 +89 @@
+@@ -41 +98 @@
 -# define FRAMERATE 25
 +# define GE_FRAMERATE_DEFAULT 50
-@@ -43 +91 @@
+@@ -43 +100 @@
 -# define FRAMERATE 30
 +# define GE_FRAMERATE_DEFAULT 60
-@@ -45,0 +94,5 @@
+@@ -45,0 +103,5 @@
 +/* Deliberately non-static: `nm <binary> | grep ge_pace_framerate` is a
 + * runtime-independent check that a rebuild of the port layer actually landed. A stale
 + * port layer otherwise makes an env gate silently inert. */
 +int ge_pace_framerate = GE_FRAMERATE_DEFAULT;
 +
-@@ -156 +209,30 @@
+@@ -47,0 +110,3 @@
++#ifdef RAPI_METAL
++static SDL_MetalView metal_view = NULL;
++#endif
+@@ -148,0 +214 @@
++#ifndef RAPI_METAL
+@@ -150,0 +217 @@
++#endif
+@@ -156 +223,31 @@
 -    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 +    /* GETV_DEPTH_BITS and GETV_MSAA.
 +     *
@@ -6078,6 +6096,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +     * The N64 stored depth in 16 bits, so its z-fighting is a precision artefact rather than
 +     * an artistic choice, and a deeper buffer removes it without changing anything the game
 +     * draws. 16 is offered to reproduce the original behaviour deliberately. */
++#ifndef RAPI_METAL
 +    {
 +        int want_depth = 24, want_msaa = 0;
 +        const char *e = getenv("GETV_DEPTH_BITS");
@@ -6098,7 +6117,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, want_msaa);
 +        }
 +    }
-@@ -159,0 +242,7 @@
+@@ -159,0 +257,7 @@
 +    #ifdef TVOS_SUPERSAMPLE
 +    // ES 3.0: supersampling resolves with glBlitFramebuffer, which does not
 +    // exist in ES2. ESSL 1.00 shaders still compile on an ES3 context, so the
@@ -6106,20 +6125,38 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 +    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 +    #else
-@@ -161,0 +251 @@
+@@ -161,0 +266 @@
 +    #endif
-@@ -165,3 +254,0 @@
+@@ -163,0 +269 @@
++#endif // !RAPI_METAL
+@@ -165,3 +270,0 @@
 -    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 -    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 -
-@@ -175,0 +263,6 @@
+@@ -173,0 +277,3 @@
++#ifdef RAPI_METAL
++        SDL_WINDOW_METAL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
++#else
+@@ -174,0 +281 @@
++#endif
+@@ -175,0 +283,16 @@
 +    {
 +        /* The window carries the launcher's icon. See ge_icon_apply.c. */
 +        extern void gePortSetWindowIcon(SDL_Window *win);
 +        gePortSetWindowIcon(wnd);
 +    }
 +
-@@ -177,0 +271,18 @@
++#ifdef RAPI_METAL
++    /* No GL context, no ImGui-on-GL init -- gePortImguiInit() is never called on this
++     * path, so gePortImguiActive() stays false and every ge_imgui.h entry point is the
++     * safe no-op its header promises. A Metal ImGui backend is a fast follow, not done
++     * here yet. */
++    metal_view = SDL_Metal_CreateView(wnd);
++    if (!metal_view) sys_fatal("SDL_Metal_CreateView failed: %s", SDL_GetError());
++    gePortMetalLayer = SDL_Metal_GetLayer(metal_view);
++    if (!gePortMetalLayer) sys_fatal("SDL_Metal_GetLayer returned NULL");
++#else
+@@ -177,0 +301,18 @@
 +    /* Immediately after the context exists and before anything else touches GL. ImGui's
 +     * GL2 backend builds a font texture on its first frame, not here, so this is only
 +     * bookkeeping -- but it must still come after context creation, because the SDL2
@@ -6138,7 +6175,9 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +        fflush(stdout);
 +    }
 +
-@@ -184 +295,30 @@
+@@ -178,0 +320 @@
++#endif // RAPI_METAL
+@@ -184 +326,30 @@
 -    frame_rate = perf_freq / FRAMERATE;
 +    {
 +        const char *e = getenv("GETV_FPS");
@@ -6170,12 +6209,14 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +
 +    use_timer  = (ge_pace_framerate > 0);
 +    frame_rate = use_timer ? (perf_freq / ge_pace_framerate) : 0.0;
-@@ -185,0 +326,4 @@
+@@ -185,0 +357,6 @@
++#ifndef RAPI_METAL
 +    SDL_GL_SetSwapInterval(configWindow.vsync);
++#endif
 +    printf("[getv] pace: %d fps cap %s (GETV_FPS), vsync=%d\n",
 +           ge_pace_framerate, use_timer ? "on" : "OFF", (int)configWindow.vsync);
 +    fflush(stdout);
-@@ -226 +370,12 @@
+@@ -226 +403,12 @@
 -    if (state[SDL_SCANCODE_LALT] && state[SDL_SCANCODE_RETURN]) {
 +    /* Alt+Enter is the inherited Windows convention and still works. On macOS neither
 +     * half of it is discoverable -- LALT is the Option key and nothing on the platform
@@ -6189,30 +6230,42 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +                           && state[SDL_SCANCODE_F];
 +
 +    if (alt_enter || f11 || cmd_f) {
-@@ -239,0 +395,6 @@
+@@ -239,0 +428,6 @@
 +        /* Observational only: the game's own handling below runs for every event either
 +         * way, so turning the overlay on cannot swallow a keypress or a window resize.
 +         * When the overlay grows controls that need to capture input, that decision
 +         * belongs here (io.WantCaptureKeyboard / io.WantCaptureMouse) and it should be a
 +         * deliberate, separately gated change. */
 +        gePortImguiEvent(&event);
-@@ -285,0 +447,4 @@
+@@ -285,0 +480,4 @@
 +    /* gfx_pc.c calls handle_events() (above) and then start_frame(), so by here the SDL
 +     * event queue for this frame has already been fed to ImGui. Widgets are built now;
 +     * nothing is drawn until swap_buffers_begin(). */
 +    gePortImguiNewFrame();
-@@ -289,0 +455,4 @@
+@@ -289,0 +488,4 @@
 +    // GETV_FPS=0 removes the cap entirely: run as fast as the GPU and vsync allow.
 +    // `use_timer` was declared by sm64ex and never read; it is the honest home for this.
 +    if (!use_timer) { return; }
 +
-@@ -306,0 +476,6 @@
+@@ -306,0 +509,11 @@
++#ifdef RAPI_METAL
++    /* gfx_rapi->end_frame() (gfx_metal.mm) already presented the drawable and committed
++     * the command buffer before this runs -- Metal has no separate "swap" call the way GL
++     * does, and no ImGui-on-Metal renderer exists yet to draw here either. */
++#else
 +    /* The overlay draws last, into the same back buffer, after gfx_rapi->end_frame() and
 +     * before the present. Deliberately not inside gfx_opengl.c: this is a window-manager
 +     * concern, and putting it there would also place it before GETV_SHOTFRAME's capture,
 +     * which is supposed to photograph the game and not the debug UI. */
 +    gePortImguiRender();
 +
-@@ -326,0 +502,2 @@
+@@ -309,0 +523 @@
++#endif
+@@ -326,0 +541,5 @@
++#ifdef RAPI_METAL
++        if (metal_view) { SDL_Metal_DestroyView(metal_view); metal_view = NULL; }
++#else
 +        /* Before the context goes away: the GL2 backend deletes its font texture here. */
 +        gePortImguiShutdown();
+@@ -327,0 +547 @@
++#endif

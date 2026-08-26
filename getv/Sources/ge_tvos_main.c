@@ -51,6 +51,9 @@
 
 #include "gfx_pc.h"
 #include "gfx_opengl.h"
+#ifdef RAPI_METAL
+#include "gfx_metal.h"
+#endif
 #include "gfx_sdl.h"
 #include "gfx_rendering_api.h"
 #include "gfx_window_manager_api.h"
@@ -371,8 +374,13 @@ int SDL_main(int argc, char *argv[])
     { extern void gePortMacWindowConfig(void); gePortMacWindowConfig(); }
 #endif
 
-    // Fast3D brings up SDL, the GL ES context and the window itself.
+    // Fast3D brings up SDL and the window itself, plus the GL context (RAPI_GL) or the
+    // CAMetalLayer (RAPI_METAL) -- see gfx_sdl2.c and gfx_metal.mm respectively.
+#ifdef RAPI_METAL
+    gfx_init(&gfx_sdl, &gfx_metal_api, "GoldenEye 007");
+#else
     gfx_init(&gfx_sdl, &gfx_opengl_api, "GoldenEye 007");
+#endif
     printf("[getv] Fast3D up: %dx%d internal, %dx%d output, supersample %u\n",
            gfx_current_dimensions.width, gfx_current_dimensions.height,
            gfx_output_dimensions.width, gfx_output_dimensions.height,

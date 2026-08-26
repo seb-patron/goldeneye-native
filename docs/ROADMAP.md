@@ -557,8 +557,18 @@ is unproven and `gePlayerSeedFingerprint` exists for exactly that.
 
 ## Phase 3: presentation and platforms
 
-**The Metal backend, ported from akratch/mgb64.** MIT, archived, and the one capability they have
-that we lack; see the prior-art note below.
+**✅ The Metal backend — DONE 2026-08-26, macOS proven.** `getv/port/fast3d/gfx_metal.mm`, behind
+`GETV_RENDERER=metal ./build_mac.sh {lib,app,run}` (own `build-mac-metal/` + `goldeneye-metal`,
+never touches the GL path's objects). Boots the full engine end to end — TLB/heap, object
+loading, audio ("audio backend LIVE"), `bossMainloop` → `lvlStageLoad` — and renders real frames
+through the title sequence (screenshotted: the "Starring / Natalya Simonova" credits crawl,
+correctly textured and anti-aliased), sustaining ~1000-1400 triangles/frame at frame 1500+ with
+no crash. **Not from `akratch/mgb64` in the end** — see the corrected prior-art note below,
+`kenix3/libultraship` (`vendor/soh/libultraship`, already in-tree from the OoT port work) was the
+better, already-scoped source. v1 known gaps, deliberate and staged: no ImGui/launcher rendering
+on this backend yet, no supersample/CRT/FXAA post-processing, no `GETV_SHOTFRAME`, no 3-point
+texture filtering. None blocked the first real frame; all are fast follows. tvOS/iOS bring-up
+(same backend, new Xcode targets) is next.
 
 **This is the tvOS unlock, and tvOS was this project's original goal.** GL ES is deprecated on
 Apple platforms and Metal is the supported path; the OpenGL renderer we run today is a dead end
@@ -567,7 +577,9 @@ there however well it works on desktop.
 **Port it, do not copy it.** Theirs is written against their platform layer. The
 sm64ex-versus-libultraship lesson has already cost this project five separate bugs: a reference
 implementation written for a different tree is actively misleading even when it descends from the
-same code. Budget it as a rewrite with a working reference, not a transplant.
+same code. Budget it as a rewrite with a working reference, not a transplant. (Done: the combiner
+formula was transliterated from this project's own `gfx_opengl.c`, not from either reference's
+shader generator, because it has to match our exact `SHADER_*`/`CC_C2_*` bit layout.)
 
 **Then tvOS itself.** The build/sign/deploy loop already exists from the earlier work and rendered
 frames on the Apple TV. What killed it was the renderer, which is what Metal fixes.
@@ -676,6 +688,19 @@ renderer is written against their platform layer, not ours, and the SM64-versus-
 lesson applies: a reference implementation written for a different tree is actively misleading
 even when it descends from the same code. Credit them in `README.md` alongside Rare and the
 decomp team.
+
+**⚠️ CORRECTION 2026-08-26 — we did not, in the end, take mgb64's Metal backend.**
+`docs/REUSE_AUDIT.md` and `docs/research/GE_ENGINE_AND_PRIOR_ART.md` §11.3 (both already dated
+2026-08-24, i.e. newer than the mgb64 write-up above, but never folded back into this section)
+had already found a better-scoped source: **`kenix3/libultraship`**, MIT, verified 2026-08-24,
+with the adapter delta already measured at ~8 signature differences against our own
+`GfxRenderingAPI` — and mgb64's own `gfx_metal.mm` says in its `PROVENANCE.md` that it used
+libultraship as a *structural reference* anyway, so going to libultraship directly skips a
+generation of indirection. Also unlocked by this: `vendor/soh/libultraship` (Ship of Harkinian,
+already vendored in this repo from the OoT port) contains that exact Metal backend locally —
+`src/fast/backends/gfx_metal.{h,cpp}`, `gfx_metal_shader.cpp`, `shaders/metal/default.shader.metal`
+— no fetch needed. Standing lesson for whoever reads this next: **check this project's own newer
+research docs before re-deriving a plan from an older section of this same file.**
 
 ## Standing corrections: do not re-derive these
 
