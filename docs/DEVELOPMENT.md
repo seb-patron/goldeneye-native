@@ -79,3 +79,16 @@ for hours while everything still builds and runs. Two cheap checks:
 - Count callers. Zero callers on a function you added is the tell.
 
 Both were learned the hard way, in both directions.
+
+## Files that keep reverting
+
+Three files carry wording that the other tree's older copies overwrite on every
+integration, and they have had to be fixed four times:
+
+- `tools/routesim.py`
+- `docs/PORTING.md`
+- `docs/PLAYER_API.md`
+
+Along with `ge_gl_debug.c`, `ge_gpu_timer.c` and the five build scripts, which
+lose their platform guards and the `tlb_manage.c` exclusion the same way. Check
+these before taking a batch by path, or exclude them from the take entirely.

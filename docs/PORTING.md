@@ -344,7 +344,7 @@ setup and stan.
 9. Debugging the first run. **Unbounded and not estimated.**
 
 Steps 1-4 are worth doing regardless of whether anyone builds for Windows: they are all
-verifiable on macOS today and every one of them makes the macOS build more robust.
+verifiable on macOS today, and every one of them makes the macOS build harder to break.
 
 **Honest overall assessment.** Getting to a first *link* on Windows is on the order of
 **one to two weeks** for someone with the machine, assuming they follow the MinGW route.
