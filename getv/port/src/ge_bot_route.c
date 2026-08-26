@@ -36,6 +36,16 @@
 #include "ge_player_api.h"
 #include "ge_world_api.h"
 #include "ge_walls.h"
+
+/* The engine's own navigation graph and player position, exposed from objective_status.c where
+ * the setup and player structures are visible. */
+extern int gePortNavNearestPad(float x, float z);
+extern int gePortNavCount(void);
+extern int gePortNavAt(int index, int *out_pad, float *out_pos, int *out_group);
+extern int gePortNavNearest(float x, float z);
+extern int gePortNavRoute(int from, int to, int *out, int max);
+extern int gePortPlayerPos(int idx, float *out);
+
 #include "ge_enemy_api.h"
 #include "ge_sense_api.h"
 #include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
@@ -183,6 +193,171 @@ static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
 }
 
 
+
+#define GE_BR_CLEARSTEP 260.0f   /* how far ahead a candidate heading is tested, runtime units */
+
+
+
+/* ROUTING ON THE ENGINE'S OWN GRAPH.
+ *
+ * padhalllv.c has been in the tree the whole time: a two-level waypoint graph in the level setup,
+ * with the guards routing over it every time they walk anywhere. Our 682-node tile graph is a
+ * reconstruction of it. Train's real graph is 104 waypoints, 206 links and 6 groups, its waypoint
+ * 1 is pad 186 at (779 300 -60) which is Bond's spawn to the unit, and the engine's own
+ * waypointFindRoute returns 63 hops from there to the far end of the level.
+ *
+ * It is better than ours in the way that matters: every edge was authored by people who could
+ * playtest it, so an edge existing means a body can walk it, doors and all. Our graph infers that
+ * and is wrong at exactly the places that are hard.
+ *
+ * Held as indices into the engine's waypoint list, which is also the id space worth reporting --
+ * "waypoint 41 in group 3" means something in the level's own data, where our node numbers mean
+ * something only to us.
+ */
+#define GE_BR_NAV_MAX 128
+
+static int   ge_br_nav[GE_BR_NAV_MAX];
+static int   ge_br_nav_len = 0;
+static int   ge_br_use_nav = 0;
+
+static void ge_br_nav_build(void)
+{
+    float spawn[3];
+    GeWorldObjective ob;
+    int from, to = -1;
+
+    ge_br_nav_len = 0;
+    if (!ge_br_use_nav) { return; }
+    if (gePortNavCount() <= 0) {
+        printf("[getv][nav] this level ships no waypoint graph -- staying on the tile graph\n");
+        ge_br_use_nav = 0;
+        return;
+    }
+
+    /* From where the bot actually is, to the objective's target. Both resolved to nav waypoints,
+     * because a route between two arbitrary points is not something this graph answers. */
+    if (!gePortPlayerPos(ge_br_slot, spawn)) { ge_br_use_nav = 0; return; }
+    from = gePortNavNearest(spawn[0], spawn[2]);
+
+    if (geWorldObjective(ge_br_obj, &ob) && ob.steps > 0) {
+        to = gePortNavNearest(ob.tx, ob.tz);
+    }
+    if (from < 0 || to < 0 || from == to) {
+        printf("[getv][nav] no nav endpoints for objective %d -- staying on the tile graph\n",
+               ge_br_obj);
+        ge_br_use_nav = 0;
+        return;
+    }
+
+    ge_br_nav_len = gePortNavRoute(from, to, ge_br_nav, GE_BR_NAV_MAX);
+    if (ge_br_nav_len <= 0) {
+        printf("[getv][nav] engine found no route %d -> %d -- staying on the tile graph\n",
+               from, to);
+        ge_br_use_nav = 0;
+        return;
+    }
+    printf("[getv][nav] routing on the ENGINE graph: %d hop(s), waypoint %d -> %d\n",
+           ge_br_nav_len, from, to);
+    fflush(stdout);
+}
+
+/* THE FLIGHT RECORDER.
+ *
+ * The trace prints every sixtieth frame, which is fine for watching and useless for answering
+ * "it turned right there and it should have turned left". That question needs every decision, in
+ * order, with the ids and the positions attached -- so it is written to a file instead, one row
+ * per event, tab separated so it opens in anything.
+ *
+ * Columns: frame, event, node, pad, x, z, heading, bearing, err, stick_x, stick_y, note.
+ * A row is written when the bot ARRIVES somewhere, when it CHOOSES a turn, and when it hits
+ * something -- the three things that together explain a wrong turn.
+ *
+ * GETV_BOT_LOG names the file; unset writes build/botlog-<level>.tsv.
+ */
+
+static FILE *ge_br_log = NULL;
+static int   ge_br_last_target = -1;
+/* Centring the avoidance sweep on the target bearing rather than the current heading is a real
+ * fix for a real bug -- caught at Train frame 12769, steering asking -66 while the posted stick
+ * was +80 -- but it did NOT move the wall: both centres stall at the same x, so it is off by
+ * default until something measures it better. GETV_BOT_NEWSWEEP=1 to enable. */
+static int   ge_br_recentre = 0;
+
+static void ge_br_log_open(const char *level)
+{
+    const char *path = getenv("GETV_BOT_LOG");
+    char buf[512];
+
+    if (path == NULL || *path == '\0') {
+        snprintf(buf, sizeof buf, "build/botlog-%s.tsv", level);
+        path = buf;
+    }
+    ge_br_log = fopen(path, "w");
+    if (ge_br_log == NULL) { return; }
+    fprintf(ge_br_log, "frame\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
+    fflush(ge_br_log);
+    printf("[getv][botroute] logging every decision to %s\n", path);
+    fflush(stdout);
+}
+
+static void ge_br_logf(int frame, const char *event, int node, int pad,
+                       float x, float z, float heading, float bearing, float err,
+                       int sx, int sy, const char *note)
+{
+    if (ge_br_log == NULL) { return; }
+    fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
+            frame, event, node, pad, (double) x, (double) z,
+            (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
+    fflush(ge_br_log);   /* a crash mid-run is exactly when the last rows matter most */
+}
+
+/* THE HEADING THE GAME ITSELF PERMITS.
+ *
+ * gePortPathClear is the engine's own answer -- stanTestLineUnobstructed for the run, then
+ * stanTestVolume at the far end for the body's width -- and it is a better authority than either
+ * of the two things this file was using. The sense sweep reports what a ray can see from here;
+ * the derived wall set is a reconstruction, and both are approximations of exactly this call.
+ *
+ * Preference order is the bearing to the target FIRST, then the smallest deviation from it that
+ * the engine says is clear. A detour is a cost, so the cheapest legal one wins.
+ *
+ * Returns -1 for "no answer" -- gePortPathClear cannot seed a tile -- which is not the same as
+ * blocked and must not be treated as such.
+ */
+static int ge_br_use_clear;
+
+static int ge_br_heading_clear(float x, float z, float deg)
+{
+    extern int gePortPathClear(float x0, float z0, float x1, float z1);
+    float r = deg * (float) (3.14159265358979323846 / 180.0);
+    /* heading is atan2(dx, dz), so forward is (+sin, +cos). */
+    float nx = x + sinf(r) * GE_BR_CLEARSTEP;
+    float nz = z + cosf(r) * GE_BR_CLEARSTEP;
+    return gePortPathClear(x, z, nx, nz);
+}
+
+static float ge_br_clear_heading(float x, float z, float want, int *found)
+{
+    float off;
+
+    if (found != NULL) { *found = 0; }
+    if (ge_br_heading_clear(x, z, want) == 1) {
+        if (found != NULL) { *found = 1; }
+        return want;
+    }
+    for (off = 12.0f; off <= 168.0f; off += 12.0f) {
+        if (ge_br_heading_clear(x, z, want + off) == 1) {
+            if (found != NULL) { *found = 1; }
+            return ge_br_norm180(want + off);
+        }
+        if (ge_br_heading_clear(x, z, want - off) == 1) {
+            if (found != NULL) { *found = 1; }
+            return ge_br_norm180(want - off);
+        }
+    }
+    return want;
+}
+
 /* The level's own facts, loaded beside the route.
  *
  * build/levels/<level>.brief.json carries what the walkthroughs say about the place -- Train's
@@ -256,8 +431,73 @@ void gePortBotRouteInit(void)
         ge_br_slot = -1;
         return;
     }
+    ge_br_recentre = (getenv("GETV_BOT_NEWSWEEP") != NULL);
+    ge_br_use_nav  = (getenv("GETV_BOT_NAV") != NULL);
+    ge_br_log_open(e);
     ge_br_load_brief(e);
+
+    /* WHAT THE ENGINE ITSELF THINKS THE NAV GRAPH IS.
+     *
+     * Reported once at init because it settles a question our own routing has been guessing at:
+     * GoldenEye ships a waypoint graph in the level setup and the guards route on it. If it is
+     * populated here, our tile graph is a reconstruction of something we already had. */
+    {
+        extern int gePortNavCount(void);
+        extern int gePortNavAt(int index, int *out_pad, float *out_pos, int *out_group);
+        extern int gePortNavNeighbours(int index, int *out, int max);
+        int n = gePortNavCount();
+        float st0x = 779.0f, st0z = -60.0f;   /* Bond's measured Train spawn */
+
+        printf("[getv][nav] engine waypoint graph: %d waypoint(s)\n", n);
+        if (n > 0) {
+            int i, links = 0, groups = -1;
+            for (i = 0; i < n; i++) {
+                int nb[32], g = -1, pad = -1;
+                float pos[3];
+                links += gePortNavNeighbours(i, nb, 32);
+                if (gePortNavAt(i, &pad, pos, &g) && g > groups) { groups = g; }
+                if (i < 3) {
+                    printf("[getv][nav]   waypoint %d: pad %d at (%.0f %.0f %.0f) group %d, %d neighbour(s)\n",
+                           i, pad, (double) pos[0], (double) pos[1], (double) pos[2], g,
+                           gePortNavNeighbours(i, nb, 32));
+                }
+            }
+            printf("[getv][nav] %d link(s), %d group(s)\n", links, groups + 1);
+
+            /* Does the engine's own pathfinder route across it? Spawn to the farthest waypoint,
+             * which is the hardest question the graph can be asked. */
+            {
+                extern int gePortNavNearest(float x, float z);
+                extern int gePortNavRoute(int from, int to, int *out, int max);
+                int route[64];
+                int from = gePortNavNearest(st0x, st0z);
+                int far = -1, k;
+                float fx[3], bestd = -1.0f, p0[3];
+
+                if (from >= 0 && gePortNavAt(from, NULL, p0, NULL)) {
+                    for (k = 0; k < n; k++) {
+                        if (gePortNavAt(k, NULL, fx, NULL)) {
+                            float dd = (fx[0]-p0[0])*(fx[0]-p0[0]) + (fx[2]-p0[2])*(fx[2]-p0[2]);
+                            if (dd > bestd) { bestd = dd; far = k; }
+                        }
+                    }
+                }
+                if (from >= 0 && far >= 0) {
+                    int got = gePortNavRoute(from, far, route, 64);
+                    printf("[getv][nav] route %d -> %d: %d hop(s)\n", from, far, got);
+                    if (got > 0) {
+                        int j;
+                        printf("[getv][nav]   ");
+                        for (j = 0; j < got && j < 20; j++) { printf("%d ", route[j]); }
+                        printf("%s\n", got > 20 ? "..." : "");
+                    }
+                }
+            }
+        }
+        fflush(stdout);
+    }
     ge_br_use_walls = (getenv("GETV_BOT_WALLS") != NULL);
+    ge_br_use_clear = (getenv("GETV_BOT_CLEAR") != NULL);
     geWallsLoad(e);
     (void) ge_br_use_walls;
 
@@ -419,6 +659,28 @@ void gePortBotRouteFrame(int frame)
         }
     }
 
+    if (ge_br_use_nav && ge_br_nav_len == 0) {
+        /* Built on the first tick rather than at init: the route starts from where the bot IS,
+         * and at init it has no position yet -- player.c zeroes it until the first spawn. */
+        ge_br_nav_build();
+    }
+
+    if (ge_br_use_nav) {
+        /* The engine route is a plain chain of waypoints, so a "step" is just this hop and the
+         * next. No join phase: the route already starts at the waypoint nearest the bot. */
+        float here[3], there[3];
+        if (ge_br_step + 1 >= ge_br_nav_len) { return; }
+        if (!gePortNavAt(ge_br_nav[ge_br_step], NULL, here, NULL)) { return; }
+        if (!gePortNavAt(ge_br_nav[ge_br_step + 1], NULL, there, NULL)) { return; }
+        ge_br_joined = 1;
+        step.from = ge_br_nav[ge_br_step];
+        step.to   = ge_br_nav[ge_br_step + 1];
+        step.threats = 0;
+        wp.id = step.to;
+        wp.x = there[0]; wp.y = there[1]; wp.z = there[2];
+        goto have_target;
+    }
+
     if (!geWorldRouteStep(ge_br_obj, ge_br_step, &step)) { return; }
 
     /* JOIN THE ROUTE BEFORE WALKING IT.
@@ -461,11 +723,14 @@ void gePortBotRouteFrame(int frame)
     {
         int i, found = 0;
         int want = (ge_br_step == 0 && !ge_br_joined) ? step.from : step.to;
+        ge_br_last_target = want;   /* so the log rows below can name where it was heading */
         for (i = 0; i < geWorldWaypointCount(); i++) {
             if (geWorldWaypoint(i, &wp) && wp.id == want) { found = 1; break; }
         }
         if (!found) { return; }
     }
+
+have_target:
 
     /* Is anyone else heading for this waypoint? With no enemy source installed geEnemyThreatAt
      * returns 0 and the bot behaves exactly as before, so the policy is inert rather than wrong
@@ -510,6 +775,8 @@ void gePortBotRouteFrame(int frame)
         }
         ge_br_step++;
         ge_br_turn_sign = 0.0f;   /* new target, new decision */
+        ge_br_logf((int) frame, "arrive", step.to, gePortNavNearestPad(st.x, st.z),
+                   st.x, st.z, ge_br_heading, 0.0f, 0.0f, 0, 0, "");
         if (ge_br_trace) {
             printf("[getv][botroute] reached waypoint %d (step %d/%d)\n",
                    step.to, ge_br_step, ge_br_steps);
@@ -594,6 +861,9 @@ steer:
         if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
         if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
         in.stick_x = (signed char) sx;
+        ge_br_logf((int) frame, "steer", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
+                   st.x, st.z, ge_br_heading, bearing, err, (int) sx, 0,
+                   ge_br_turn_sign != 0.0f ? "latched" : "free");
     }
     align = 1.0f - (float) fabs((double) err) / GE_BR_ALIGN_DEG;
     if (align < 0.0f) { align = 0.0f; }
@@ -630,6 +900,11 @@ steer:
              * A door wins over an object when both are seen, because a doorway usually has a
              * frame beside it and the frame is what reads as OBJECT. Steering away from a door
              * because of its own frame is precisely the wrong move. */
+            ge_br_logf((int) frame, "contact", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
+                       st.x, st.z, ge_br_heading, bearing, c.distance, 0, 0,
+                       (c.what & GE_SENSE_DOOR) ? "door"
+                       : (c.what & GE_SENSE_WALL) ? "wall"
+                       : (c.what & GE_SENSE_OBJECT) ? "object" : "body");
             if (ge_br_avoid > 0) {
                 float turn2 = ge_br_norm180(ge_br_avoid_h - ge_br_heading);
                 float sx3 = -turn2 * GE_BR_TURN_GAIN;
@@ -659,8 +934,29 @@ steer:
                  * keeps wedging itself into passes it and gets reported as the clearest heading
                  * available -- the router then commits to the one direction it cannot fit
                  * through, and the trace says it chose correctly every time. */
-                float open_h = geSenseClearestHeadingForBody(st.x, st.z, ge_br_heading,
-                                                             180.0f, GE_BR_LOOKAHEAD, NULL);
+                int   engine_said = 0;
+                float open_h = ge_br_use_clear
+                             ? ge_br_clear_heading(st.x, st.z, bearing, &engine_said)
+                             : 0.0f;
+                if (!engine_said) {
+                    /* 🔑 CENTRED ON THE BEARING, NOT ON THE CURRENT HEADING.
+                     *
+                     * Sweeping from where the bot FACES answers "which way is open from here",
+                     * which is the right question for an atlas and the wrong one for a follower:
+                     * the nearest opening to the bot's nose can be the opposite side from its
+                     * waypoint, and the avoidance branch then overwrites the steering with the
+                     * opposite sign. Caught in the flight recorder at Train frame 12769 -- the
+                     * steering block asked for -66 every frame while the posted input flipped to
+                     * +80, the two cancelled, and the heading sat frozen at 257 degrees for the
+                     * rest of the run while the bot pressed into a crate.
+                     *
+                     * Centred on the bearing, the sweep returns the open heading NEAREST the way
+                     * the bot needs to go, so avoiding an obstacle and pursuing the waypoint can
+                     * no longer disagree about which way is left. */
+                    open_h = geSenseClearestHeadingForBody(st.x, st.z,
+                                                           ge_br_recentre ? bearing : ge_br_heading,
+                                                           180.0f, GE_BR_LOOKAHEAD, NULL);
+                }
                 float turn = ge_br_norm180(open_h - ge_br_heading);
 
                 /* Hold this heading for the manoeuvre rather than re-deciding next tick. */
@@ -890,6 +1186,17 @@ steer:
             ge_br_stuck = 0;
         }
     }
+
+    /* GROUND TRUTH, LOGGED WHERE THE INPUT ACTUALLY LEAVES.
+     *
+     * The steer row above records what the steering block WANTED, and several branches below it
+     * overwrite stick_x afterwards -- so reading the steer rows alone tells you the bot asked for
+     * a left turn at a moment it in fact sent a right one. This row is the input as posted. When
+     * the two disagree, the disagreement is the bug. */
+    ge_br_logf((int) frame, "post", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
+               st.x, st.z, ge_br_heading, 0.0f, 0.0f,
+               (int) in.stick_x, (int) in.stick_y,
+               (in.buttons & GE_IN_USE) ? "use" : "");
 
     /* Post for the NEXT tick: the playback handler has already run for this frame, so posting
      * "now" is posting into the past and gePlayerPost correctly refuses it. */
