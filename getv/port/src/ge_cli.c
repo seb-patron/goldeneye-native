@@ -233,6 +233,16 @@ static void ge_cli_report(int frame)
     if (!gePlayerStateGet(ge_cli_slot, &st) || !st.present) { return; }
 
     printf("\n--- f%d ---\n", frame);
+    {
+        /* The level's own terms. A coordinate says where the player is; this says whether that
+         * is progress. See ge_places.c. */
+        extern int gePortPlaceName(const char *level, float x, float z, char *out, int n);
+        const char *lv = getenv("GETV_BOT_ROUTE_LEVEL");
+        char place[64];
+        if (lv != NULL && gePortPlaceName(lv, st.x, st.z, place, (int) sizeof place)) {
+            printf("place  %s\n", place);
+        }
+    }
     /* where IN the map, not just what is in front.
      *
      * Every other line here is relative to facing, which is the right form for acting on one
