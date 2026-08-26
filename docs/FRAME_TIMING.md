@@ -256,13 +256,37 @@ The tick-based column is what every previous attempt at this shipped. It also pi
 fastest weapon wants one shot every two video fields, and a 30Hz simulation delivers exactly that,
 with no drift. That is why the auto divider targets 30 and will not go under.
 
+## The other frame-quantised systems
+
+Fire rate was the one that needed converting. The rest were checked, and most were already
+correct for a reason worth writing down.
+
+**Reload timing** keys off `handptr->field_890`, which is the same field counter the fire gate
+uses: it accumulates `g_ClockTimer` and is compared against a threshold. A threshold on a count of
+video fields is time-based whatever the divider does. Not measured directly, because holding the
+trigger empties the magazine without triggering a reload in the harness, so this one rests on the
+shared mechanism rather than on its own number.
+
+**Autogun tracking, truck turning and the door motion** run through `chrobjApplySpeed`
+(`propobj.c`). Its constants are named `PER_FRAME` and are applied with no time factor, which
+looks frame-quantised until you notice the whole body sits inside
+`for (i = 0; i < g_ClockTimer; i++)`. It steps once per elapsed field, so a tick worth n fields
+does n steps and the rate holds. `getv/port/tests/test_field_integrator.c` pins that, and shows
+what removing the loop would cost:
+
+```
+per field: divider 1 = 2.99131   divider 2 = 2.99131   divider 8 = 2.99131
+per tick:  divider 1 = 2.99131   divider 4 = 0.72926
+```
+
+**The tank turret and the autogun beam timer** already multiply by `g_GlobalTimerDelta`, so they
+were never frame-quantised.
+
 ## Still open
 
-**The absolute rates have not been checked against hardware.** Everything above establishes that
-the rate no longer changes with the frame rate, and that it matches the game's own authored
-constants. Whether those constants produce the same rounds per second as a real N64 is a separate
-measurement, and it needs a capture from the real thing.
+**The absolute rates have not been checked against hardware.** Everything here establishes that
+rates no longer change with the frame rate, and that they match the game's own authored constants.
+Whether those constants produce the same rounds per second as a real N64 needs a capture from one.
 
-**Reload timing, turret delay and reaction stepping** go through the same field counter as fire
-rate, so they should behave the same way. Should is doing work in that sentence: only fire rate
-has been measured.
+**Reload has no measurement of its own.** The mechanism it shares with fire rate is measured; the
+reload itself is not, because the harness cannot provoke one.
