@@ -39,6 +39,7 @@
 /* The engine's own navigation graph and player position, exposed from objective_status.c where
  * the setup and player structures are visible. */
 extern int gePortNavNearestPad(float x, float z);
+extern int gePortPlayerHealth(int idx, float *out_hp, float *out_armour, int *out_dead);
 extern int gePortNavCount(void);
 extern int gePortNavAt(int index, int *out_pad, float *out_pos, int *out_group);
 extern int gePortNavNearest(float x, float z);
@@ -309,6 +310,129 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
     return found;
 }
 
+
+/* Fighting back.
+ *
+ * The follower had no combat at all, and on Train that is fatal rather than merely incomplete:
+ * the flight recorder shows health falling 1.00, 0.88, 0.69, 0.39, 0.11 and then DEAD at around
+ * waypoint 11, in a carriage the walkthroughs describe as holding most of the level's guards.
+ * Every stall past that point was a corpse posting stick input, which looks exactly like a
+ * navigation failure from the outside and is why the recorder now logs health.
+ *
+ * The policy is deliberately small. Face the nearest guard that can see us, stop walking, and
+ * fire in bursts. GoldenEye aims for the player once the target is roughly in front, so a
+ * follower does not need a firing solution -- it needs to stop walking away and to point.
+ *
+ * Bursts rather than a held trigger, which is Perfect Dark's shape (botactGetShootInterval60
+ * paces every weapon rather than holding it down). Holding fire empties a clip into a wall
+ * during the turn and leaves nothing for the guard behind it.
+ */
+/* Engagement range. 1400 was too generous on Train: nearly every guard in the carriage qualified,
+ * the bot fought continuously and advanced two waypoints instead of eleven. It survived, which is
+ * the point, but a bot that never arrives is not finishing a mission either. 800 is roughly the
+ * length of a carriage section, so it engages what is in the room and walks past what is not. */
+#define GE_BR_ENGAGE_RANGE   800.0f
+#define GE_BR_ENGAGE_SEEN      150    /* frames: a guard that had eyes on us this recently is shooting */
+#define GE_BR_ENGAGE_KEEP   1100.0f   /* hysteresis: a target already chosen is kept a little longer */
+#define GE_BR_ENGAGE_MAX       420    /* frames to spend on one target before walking on */
+#define GE_BR_ENGAGE_FACE     35.0f   /* degrees; inside this the game's own aim assist takes over */
+#define GE_BR_BURST_ON           6    /* frames holding fire */
+#define GE_BR_BURST_OFF         10    /* frames between bursts */
+
+/* Off by default, and the measurement is why.
+ *
+ * Combat exists because the bot was dying: health fell 1.00, 0.88, 0.69, 0.39, 0.11, DEAD around
+ * waypoint 11, and every stall past that point was a corpse posting stick input. But the deaths
+ * turned out to be downstream of the avoidance hold, which was only held while the sensor kept
+ * agreeing there was something there. With that fixed the bot survives the same carriage without
+ * firing a shot. Measured on Train, same build, 20,000 frames:
+ *
+ *     routing only        waypoint 10, ends at 0.39 health
+ *     routing and combat  waypoint  4, ends at 0.34 health
+ *
+ * So as written it costs six waypoints and buys nothing. It stops to shoot, and stopping is what
+ * it cannot afford on a level with a timer and a moving train. The next version should fire while
+ * still walking the route, and turn to face only what is close enough to matter.
+ *
+ * GETV_BOT_FIGHT=1 to enable it. */
+static int   ge_br_fight = 0;
+static int   ge_br_target_id = -1;    /* chrnum of the guard being fought, -1 for none */
+static int   ge_br_engaged;           /* frames spent on this target */
+static float ge_br_fire_sign;         /* latched turn direction while engaging */
+static float ge_br_fire_from;         /* the error the current turn started from */
+
+/* The stick-versus-heading sense, resolved the same way the steering block resolves it. */
+static int ge_br_sign_of(void)
+{
+    static int sign = 0;
+    if (sign == 0) {
+        const char *e = getenv("GETV_BOT_ROUTE_SIGN");
+        sign = (e && *e && *e != '0') ? 1 : -1;
+    }
+    return sign;
+}
+static int   ge_br_burst;             /* counts down through one on/off cycle */
+
+/* The guard worth shooting at: nearest, alive, within range, and able to see us. Visibility
+ * matters both ways -- a guard that cannot see the bot is not shooting it, and shooting through
+ * a wall wastes the clip and announces the bot to the room. */
+static int ge_br_pick_target(float x, float y, float z, GeEnemy *out)
+{
+    int i, best = -1;
+    float bestd = 0.0f;
+
+    /* Stay on the guard already being fought while it is alive, visible and has not run off.
+     * Re-choosing every frame is the same mistake the steering made before the turn latch: with
+     * several guards at similar range the bot swaps between them and shoots none of them, which
+     * the log shows as two turning frames for every firing frame. */
+    if (ge_br_target_id >= 0 && ge_br_engaged < GE_BR_ENGAGE_MAX) {
+        for (i = 0; i < geEnemyCount(); i++) {
+            GeEnemy e;
+            float dx, dz;
+            if (!geEnemy(i, &e) || e.id != ge_br_target_id) { continue; }
+            dx = e.x - x;
+            dz = e.z - z;
+            if (e.alive && sqrtf(dx * dx + dz * dz) <= GE_BR_ENGAGE_KEEP
+                && geSenseVisibleTo(i, ge_br_slot)) {
+                ge_br_engaged++;
+                *out = e;
+                return i;
+            }
+            break;
+        }
+    }
+
+    ge_br_target_id = -1;
+    ge_br_engaged = 0;
+    ge_br_fire_sign = 0.0f;   /* new target, new decision */
+
+    for (i = 0; i < geEnemyCount(); i++) {
+        GeEnemy e;
+        float dx, dz, d;
+
+        if (!geEnemy(i, &e) || !e.alive) { continue; }
+        dx = e.x - x;
+        dz = e.z - z;
+        d = sqrtf(dx * dx + dz * dz);
+        if (!geSenseVisibleTo(i, ge_br_slot)) { continue; }
+
+        /* Close enough to matter, OR currently engaging us. Distance alone is the wrong test:
+         * tightening it from 1400 to 800 stopped the bot fighting the whole carriage at once and
+         * immediately got it killed again by the guards firing from further down the car. A guard
+         * that had eyes on us in the last two and a half seconds is shooting, whatever the range. */
+        if (d > GE_BR_ENGAGE_RANGE) {
+            if (!(e.fields & GE_EN_BELIEF) || e.saw_target_ago > GE_BR_ENGAGE_SEEN) { continue; }
+        }
+        if (best < 0 || d < bestd) { bestd = d; best = i; *out = e; }
+    }
+    if (best >= 0) {
+        ge_br_target_id = out->id;
+        ge_br_engaged = 0;
+    }
+    (void) y;
+    return best;
+}
+
 /* The flight recorder.
  *
  * The trace prints every sixtieth frame, which is fine for watching and useless for answering
@@ -483,6 +607,7 @@ void gePortBotRouteInit(void)
         return;
     }
     ge_br_recentre = (getenv("GETV_BOT_NEWSWEEP") != NULL);
+    ge_br_fight    = (getenv("GETV_BOT_FIGHT") != NULL);
     ge_br_use_nav  = (getenv("GETV_BOT_NAV") != NULL);
     /* Off until IT wins. The edge model is the right idea and it now genuinely fires -- 173
      * blocking props reported against 4 misses, where the first version using the stan mesh
@@ -931,7 +1056,30 @@ steer:
         /* GE_SENSE_SOLID, not "anything": the line starts at the bot's own feet, so its own
          * collision sets GE_SENSE_BODY on every reading and testing for "not clear" makes every
          * direction on every level look blocked. */
-        if (geSenseAheadForBody(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
+        /* An avoidance manoeuvre already under way runs to completion, whatever the sensor says
+         * this frame.
+         *
+         * The hold used to live inside the branch below, so it only applied while the sensor kept
+         * reporting a contact. The sensor does not: it flickers clear and back within a frame or
+         * two, and on those frames the plain steering ran instead with a different sign. The
+         * recorder shows the result as alternating input on consecutive frames -- +56 with
+         * movement, then -80 without -- which leaves the heading rocking inside a six degree band
+         * and the position moving one unit in ten seconds. Two controllers, each correct in
+         * isolation, cancelling.
+         *
+         * Committing means committing to the whole manoeuvre, not to as much of it as the sensor
+         * happens to agree with. */
+        if (ge_br_avoid > 0) {
+            float turn2 = ge_br_norm180(ge_br_avoid_h - ge_br_heading);
+            float sx3 = -turn2 * GE_BR_TURN_GAIN;
+
+            ge_br_avoid--;
+            if (sx3 >  GE_BR_STICK_MAX) { sx3 =  GE_BR_STICK_MAX; }
+            if (sx3 < -GE_BR_STICK_MAX) { sx3 = -GE_BR_STICK_MAX; }
+            in.stick_x = (signed char) sx3;
+            in.stick_y = (signed char) (GE_BR_WALK * 0.6f);
+
+        } else if (geSenseAheadForBody(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
             && ((c.what & GE_SENSE_SOLID) || (c.what & GE_SENSE_DOOR))) {
 
             /* Commit TO A response and hold IT.
@@ -950,16 +1098,7 @@ steer:
                        (c.what & GE_SENSE_DOOR) ? "door"
                        : (c.what & GE_SENSE_WALL) ? "wall"
                        : (c.what & GE_SENSE_OBJECT) ? "object" : "body");
-            if (ge_br_avoid > 0) {
-                float turn2 = ge_br_norm180(ge_br_avoid_h - ge_br_heading);
-                float sx3 = -turn2 * GE_BR_TURN_GAIN;
-
-                ge_br_avoid--;
-                if (sx3 >  GE_BR_STICK_MAX) { sx3 =  GE_BR_STICK_MAX; }
-                if (sx3 < -GE_BR_STICK_MAX) { sx3 = -GE_BR_STICK_MAX; }
-                in.stick_x = (signed char) sx3;
-                in.stick_y = (signed char) (GE_BR_WALK * 0.6f);
-            } else if ((c.what & GE_SENSE_DOOR) && ge_br_door_ahead(&st, bearing)) {
+            if ((c.what & GE_SENSE_DOOR) && ge_br_door_ahead(&st, bearing)) {
                 /* Walk INTO it while pressing use. Stopping to open a door and then deciding to
                  * walk is two decisions where the game wants one, and the door shuts again. */
                 in.buttons |= GE_IN_USE;
@@ -1265,10 +1404,78 @@ steer:
      * overwrite stick_x afterwards -- so reading the steer rows alone tells you the bot asked for
      * a left turn at a moment it in fact sent a right one. This row is the input as posted. When
      * the two disagree, the disagreement is the bug. */
-    ge_br_logf((int) frame, "post", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
-               st.x, st.z, ge_br_heading, 0.0f, 0.0f,
-               (int) in.stick_x, (int) in.stick_y,
-               (in.buttons & GE_IN_USE) ? "use" : "");
+    {
+        /* Health in the row, because a stalled bot and a dead one look identical from the input
+         * side: both post a stick that changes nothing. */
+        float hp = -1.0f, armour = 0.0f;
+        int dead = 0;
+        char note[40];
+        gePortPlayerHealth(ge_br_slot, &hp, &armour, &dead);
+        snprintf(note, sizeof note, "%shp=%.2f%s",
+                 (in.buttons & GE_IN_USE) ? "use," : "", (double) hp, dead ? ",DEAD" : "");
+        ge_br_logf((int) frame, "post", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
+                   st.x, st.z, ge_br_heading, 0.0f, 0.0f,
+                   (int) in.stick_x, (int) in.stick_y, note);
+    }
+
+    /* Engage before routing. A guard in front of the bot outranks the next waypoint: the route
+     * will still be there afterwards, and on Train the bot that ignored this died at waypoint 11. */
+    if (ge_br_fight) {
+        GeEnemy tgt;
+        int idx = ge_br_pick_target(st.x, st.y, st.z, &tgt);
+
+        if (idx >= 0) {
+            float tdx = tgt.x - st.x;
+            float tdz = tgt.z - st.z;
+            float tb = (float) (atan2((double) tdx, (double) tdz) * 180.0 / 3.14159265358979);
+            float terr = ge_br_norm180(tb - ge_br_heading);
+            float tmag = (float) fabs((double) terr);
+            float sx;
+
+            /* Latched, for the same reason the route turn is latched, and this is the seventh
+             * place that lesson has had to be learned. A guard directly behind the bot puts the
+             * error at exactly -180, where the normalised value flips sign on the smallest change:
+             * the recorder caught seventeen consecutive frames at terr=-180 with the heading
+             * frozen at 180, the bot turning hard one way and hard back, and never firing.
+             *
+             * Held until the error has dropped by a third or the target is in front. */
+            if (ge_br_fire_sign != 0.0f) {
+                if (tmag < GE_BR_ENGAGE_FACE || tmag < ge_br_fire_from * 0.66f) {
+                    ge_br_fire_sign = 0.0f;
+                }
+            }
+            if (ge_br_fire_sign == 0.0f && tmag > GE_BR_ENGAGE_FACE) {
+                /* At the antipode the sign of the error is meaningless, so pick a side and
+                 * commit rather than believing a value that is about to flip. */
+                ge_br_fire_sign = (terr < 0.0f) ? -1.0f : 1.0f;
+                ge_br_fire_from = tmag;
+            }
+
+            sx = (float) ge_br_sign_of() * terr * GE_BR_TURN_GAIN;
+            if (ge_br_fire_sign != 0.0f) {
+                sx = (float) ge_br_sign_of() * ge_br_fire_sign * tmag * GE_BR_TURN_GAIN;
+            }
+            if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
+            if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
+
+            in.stick_x = (signed char) sx;
+            in.stick_y = 0;              /* stand and shoot; walking spoils the game's aim assist */
+            in.buttons &= ~GE_IN_USE;    /* the door can wait */
+
+            if ((float) fabs((double) terr) < GE_BR_ENGAGE_FACE) {
+                if (ge_br_burst <= 0) { ge_br_burst = GE_BR_BURST_ON + GE_BR_BURST_OFF; }
+                if (ge_br_burst > GE_BR_BURST_OFF) { in.buttons |= GE_IN_FIRE; }
+                ge_br_burst--;
+            } else {
+                ge_br_burst = 0;         /* turning: do not spray the room on the way round */
+            }
+
+            ge_br_logf((int) frame, "engage", tgt.id, gePortNavNearestPad(st.x, st.z),
+                       st.x, st.z, ge_br_heading, tb, terr,
+                       (int) in.stick_x, (int) in.stick_y,
+                       (in.buttons & GE_IN_FIRE) ? "fire" : "turning");
+        }
+    }
 
     /* Post for the NEXT tick: the playback handler has already run for this frame, so posting
      * "now" is posting into the past and gePlayerPost correctly refuses it. */
