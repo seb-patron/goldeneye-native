@@ -11363,7 +11363,7 @@ index 1e9f186..7e96c35 100644
              IFICouldSeeBond(lblNext)
              GotoNext(lblRunning)
 diff --git a/src/game/chrprop.c b/src/game/chrprop.c
-index 67c901c..bee0a5c 100644
+index 67c901c..fecd01a 100644
 --- a/src/game/chrprop.c
 +++ b/src/game/chrprop.c
 @@ -1,4 +1,5 @@
@@ -11396,17 +11396,18 @@ index 67c901c..bee0a5c 100644
  
  // bss
  
-@@ -428,9 +446,24 @@ void chrpropDetach(PropRecord* prop) {
+@@ -428,9 +446,25 @@ void chrpropDetach(PropRecord* prop) {
  Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
  {
      u8 type;
 +#ifdef GE_PORT_NATIVE
 +    /* Draw where this prop is BETWEEN simulation ticks rather than where it last landed. The
 +     * position is restored before returning, so nothing outside the render path sees it. */
-+    extern s32  gePortPropInterpBegin(PropRecord *prop, coord3d *saved);
-+    extern void gePortPropInterpEnd(PropRecord *prop, const coord3d *saved);
++    extern s32  gePortPropInterpBegin(PropRecord *prop, coord3d *saved, f32 *saved_yaw);
++    extern void gePortPropInterpEnd(PropRecord *prop, const coord3d *saved, f32 saved_yaw);
 +    coord3d ge_saved_pos;
-+    s32 ge_interp = gePortPropInterpBegin(prop, &ge_saved_pos);
++    f32 ge_saved_yaw = 0.0f;
++    s32 ge_interp = gePortPropInterpBegin(prop, &ge_saved_pos, &ge_saved_yaw);
 +#endif
  
      type = prop->type;
@@ -11421,18 +11422,18 @@ index 67c901c..bee0a5c 100644
      if (type == PROP_TYPE_CHR)
      {
          gdl = chrRenderProp(prop, gdl, withalpha);
-@@ -452,6 +485,10 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
+@@ -452,6 +486,10 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
          gdl = bondviewRenderProp(prop, gdl, withalpha);
      }
  
 +#ifdef GE_PORT_NATIVE
-+    if (ge_interp) { gePortPropInterpEnd(prop, &ge_saved_pos); }
++    if (ge_interp) { gePortPropInterpEnd(prop, &ge_saved_pos, ge_saved_yaw); }
 +#endif
 +
      return gdl;
  }
  
-@@ -467,10 +504,24 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
+@@ -467,10 +505,24 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
      s32 i;
      s32* rp;
      s32 unused2;
@@ -11458,7 +11459,7 @@ index 67c901c..bee0a5c 100644
      if (bossGetStageNum() == LEVELID_CUBA)
      {
          if (renderpass == 0)
-@@ -887,6 +938,155 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d
+@@ -887,6 +939,155 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d
  * the code tracing over stan tiles only cares about the furthest stan's room. Luckily,
  * none of those bugs affect props, so prop hits are always the best candidate.
  */
@@ -11614,7 +11615,7 @@ index 67c901c..bee0a5c 100644
  void chraiDefaultWeaponFireHandler(s32 hand)
  {
      f32 new_var;
-@@ -898,7 +1098,10 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -898,7 +1099,10 @@ void chraiDefaultWeaponFireHandler(s32 hand)
      s32 gotbghit;
      coord3d visiblehitpos;
      s32 bestroom;
@@ -11626,7 +11627,7 @@ index 67c901c..bee0a5c 100644
      HitThing bghit;
      f32 negz;
      coord3d besthitpos;
-@@ -920,7 +1123,15 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -920,7 +1124,15 @@ void chraiDefaultWeaponFireHandler(s32 hand)
      s32 k;
      s32 i;
      u8 rooms[2];
@@ -11642,7 +11643,7 @@ index 67c901c..bee0a5c 100644
      hitbgstan = 0;
      hittile = 0;
      gotbghit = 0;
-@@ -929,6 +1140,9 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -929,6 +1141,9 @@ void chraiDefaultWeaponFireHandler(s32 hand)
      fromtile = playerprop->stan;
      numhits = 0;
      bullet_path_from_screen_center(&shotdata.viewOrigin, &shotdata.viewDir, hand);
@@ -11652,7 +11653,7 @@ index 67c901c..bee0a5c 100644
      shotdata.weapon = getCurrentPlayerWeaponId(hand);
      shotdata.maxdist = M_U32_MAX_VALUE_F;
  
-@@ -1054,6 +1268,12 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1054,6 +1269,12 @@ void chraiDefaultWeaponFireHandler(s32 hand)
          shotdata.maxdist = new_var;
      }
  
@@ -11665,7 +11666,7 @@ index 67c901c..bee0a5c 100644
      for (pp = g_LastOnScreenProp; (--pp) >= g_OnScreenPropList;)
      {
          prop = *pp;
-@@ -1071,6 +1291,21 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1071,6 +1292,21 @@ void chraiDefaultWeaponFireHandler(s32 hand)
          }
      }
  
@@ -11687,7 +11688,7 @@ index 67c901c..bee0a5c 100644
      for (k = 0; k < 10; k++)
      {
          if (shotdata.hits[k].prop != 0)
-@@ -1118,7 +1353,41 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1118,7 +1354,41 @@ void chraiDefaultWeaponFireHandler(s32 hand)
              }
              else
              {
@@ -11730,7 +11731,7 @@ index 67c901c..bee0a5c 100644
              }
  
              if (createSpark)
-@@ -1151,7 +1420,33 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1151,7 +1421,33 @@ void chraiDefaultWeaponFireHandler(s32 hand)
              {
                  recall_joy2_hits_edit_flag(shotdata.weapon, finalpos, besttexture);
  
@@ -11765,7 +11766,7 @@ index 67c901c..bee0a5c 100644
                  {
                      rooms[0] = bestroom;
                      rooms[1] = 255;
-@@ -1171,6 +1466,36 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1171,6 +1467,36 @@ void chraiDefaultWeaponFireHandler(s32 hand)
              }
          }
      }
@@ -11802,7 +11803,7 @@ index 67c901c..bee0a5c 100644
  }
  
  
-@@ -1180,7 +1505,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
+@@ -1180,7 +1506,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
   * Hitscans gather candidate hits along the bullet path. This function records each candidate hit into shotdata
   * and enforces pentration limits and removes hits that should be blocked by closer objects.
   */
@@ -11811,7 +11812,7 @@ index 67c901c..bee0a5c 100644
  {
      s32 pad;
      s32 i;
-@@ -1893,6 +2218,318 @@ void chrpropTick(void)
+@@ -1893,6 +2219,318 @@ void chrpropTick(void)
  }
  
  
@@ -12130,7 +12131,7 @@ index 67c901c..bee0a5c 100644
  /*
  * Address: 0x7F03CA30
  * PD: propsTick (src/game/proptick.c)
-@@ -1965,6 +2602,14 @@ void propsTick(void)
+@@ -1965,6 +2603,14 @@ void propsTick(void)
          loop_set_sound_effect_all_slots();
          propsDefragRoomProps();
      }
@@ -12695,20 +12696,22 @@ index 004247d..684b442 100644
          cur_player_set_aim_control((options & OPTION_AIMCONTROL) != FALSE);
          cur_player_set_sight_onscreen_control((options & OPTION_SIGHTONSCREEN) != FALSE);
 diff --git a/src/game/frametiming.c b/src/game/frametiming.c
-index cb8e24a..0866849 100644
+index cb8e24a..f0dca08 100644
 --- a/src/game/frametiming.c
 +++ b/src/game/frametiming.c
-@@ -1,5 +1,9 @@
+@@ -1,5 +1,11 @@
 +#include <stdlib.h>  /* GETV-INSTR: getenv/atoi */
 +#include <stdint.h>  /* uintptr_t, for keying the prop interpolation table */
  #include <ultra64.h>
  #include "frametiming.h"
 +#include "bondtypes.h"
 +#include "chrai.h"   /* chrpropGetActiveTail */
++#include "model.h"   /* getsubroty, setsubroty */
++#include <math.h>
  
  // data
  s32 lastFrameCounter = -1;
-@@ -9,6 +13,9 @@ s32 currentFrameCounter = 0;
+@@ -9,6 +15,9 @@ s32 currentFrameCounter = 0;
   * Appears to be rendered framerate, or some kind of counter since the last frame update.
   */
  s32 speedgraphframes = 1;
@@ -12718,7 +12721,7 @@ index cb8e24a..0866849 100644
  
  #if defined(BUGFIX_R1)
  // EU address D_8004111C
-@@ -50,7 +57,26 @@ void updateFrameCounters(s32 deltaFrames)
+@@ -50,7 +59,26 @@ void updateFrameCounters(s32 deltaFrames)
  
      lastFrameCounter = currentFrameCounter;
      currentFrameCounter = (s32) (currentFrameCounter + deltaFrames);
@@ -12746,7 +12749,7 @@ index cb8e24a..0866849 100644
  
      #ifdef BUGFIX_R1
      jpD_800484CC = (f32) deltaFrames;
-@@ -72,6 +98,181 @@ void updateFrameCounters(s32 deltaFrames)
+@@ -72,6 +100,181 @@ void updateFrameCounters(s32 deltaFrames)
   * Waits until the appropriate time has passed before updating the frame counters.
   * This function effectively controls the frame rate by waiting for the next tick.
   */
@@ -12928,7 +12931,7 @@ index cb8e24a..0866849 100644
  void waitForNextFrame(void) //maybe WaitForTick
  {
    u32 nextFrameTime; //next frame time?
-@@ -84,7 +285,32 @@ void waitForNextFrame(void) //maybe WaitForTick
+@@ -84,7 +287,32 @@ void waitForNextFrame(void) //maybe WaitForTick
      #endif
    } while (nextFrameTime < frameDelay);
  
@@ -12962,7 +12965,7 @@ index cb8e24a..0866849 100644
    updateFrameCounters(nextFrameTime);
  }
  
-@@ -105,3 +331,108 @@ void eu_sub_7f0c00a4(void)
+@@ -105,3 +333,158 @@ void eu_sub_7f0c00a4(void)
  
  
  
@@ -12989,6 +12992,9 @@ index cb8e24a..0866849 100644
 +    void   *key;
 +    coord3d prev;
 +    coord3d cur;
++    f32     prev_yaw;   /* subroty, radians; only characters carry a meaningful one */
++    f32     cur_yaw;
++    s32     has_yaw;
 +    s32     stamp;      /* tick number this entry was last written */
 +} GePropInterp;
 +
@@ -13015,6 +13021,31 @@ index cb8e24a..0866849 100644
 +
 +static s32 ge_pi_hits = 0;
 +static s32 ge_pi_miss = 0;
++static s32 ge_pi_yaw  = 0;
++
++/* The yaw a prop is drawn at, or 0 with has=0 for anything that does not carry one.
++ *
++ * Only characters rotate visibly between ticks: guards turning to face you is the motion that
++ * shows the step. Objects and doors have their own animation paths and are left alone. */
++static f32 ge_prop_yaw(PropRecord *p, s32 *has)
++{
++    *has = 0;
++    if (p == NULL || p->type != PROP_TYPE_CHR || p->chr == NULL || p->chr->model == NULL) {
++        return 0.0f;
++    }
++    *has = 1;
++    return getsubroty(p->chr->model);
++}
++
++/* Shortest way round. Interpolating 350 degrees to 10 the long way spins the model most of a
++ * full turn in one frame, which is worse than the step this exists to remove. */
++static f32 ge_lerp_angle(f32 from, f32 to, f32 a)
++{
++    f32 d = to - from;
++    while (d >  (f32) M_PI) { d -= (f32) (2.0 * M_PI); }
++    while (d < -(f32) M_PI) { d += (f32) (2.0 * M_PI); }
++    return from + d * a;
++}
 +
 +/* Called once per simulation tick, after the props have moved. */
 +void gePortPropHistoryTick(void)
@@ -13023,8 +13054,8 @@ index cb8e24a..0866849 100644
 +
 +    ge_pi_tick++;
 +    if ((ge_pi_tick % 600) == 0) {
-+        osSyncPrintf("[getv][interp] props interpolated %d, skipped %d\n",
-+                     (s32) ge_pi_hits, (s32) ge_pi_miss);
++        osSyncPrintf("[getv][interp] props interpolated %d (yaw %d), skipped %d\n",
++                     (s32) ge_pi_hits, (s32) ge_pi_yaw, (s32) ge_pi_miss);
 +    }
 +    for (p = chrpropGetActiveTail(); p != NULL; p = p->prev) {
 +        GePropInterp *e = ge_pi_find((void *) p, 1);
@@ -13036,6 +13067,14 @@ index cb8e24a..0866849 100644
 +            e->prev = p->pos;
 +        } else {
 +            e->prev = e->cur;
++        }
++        {
++            s32 has = 0;
++            f32 yaw = ge_prop_yaw(p, &has);
++            if (e->stamp != ge_pi_tick - 1) { e->prev_yaw = yaw; }
++            else                            { e->prev_yaw = e->cur_yaw; }
++            e->cur_yaw = yaw;
++            e->has_yaw = has;
 +        }
 +        e->cur = p->pos;
 +        e->stamp = ge_pi_tick;
@@ -13049,7 +13088,7 @@ index cb8e24a..0866849 100644
 +    if (misses) { *misses = ge_pi_miss; }
 +}
 +
-+s32 gePortPropInterpBegin(PropRecord *prop, coord3d *saved)
++s32 gePortPropInterpBegin(PropRecord *prop, coord3d *saved, f32 *saved_yaw)
 +{
 +    GePropInterp *e;
 +    f32 a = gePortSimAlpha();
@@ -13059,6 +13098,15 @@ index cb8e24a..0866849 100644
 +    if (e == NULL || e->stamp != ge_pi_tick) { ge_pi_miss++; return 0; }
 +    ge_pi_hits++;
 +
++    if (saved_yaw != NULL) {
++        *saved_yaw = 0.0f;
++        if (e->has_yaw && prop->chr != NULL && prop->chr->model != NULL) {
++            *saved_yaw = getsubroty(prop->chr->model);
++            setsubroty(prop->chr->model, ge_lerp_angle(e->prev_yaw, e->cur_yaw, a));
++            ge_pi_yaw++;
++        }
++    }
++
 +    *saved = prop->pos;
 +    prop->pos.f[0] = e->prev.f[0] + (e->cur.f[0] - e->prev.f[0]) * a;
 +    prop->pos.f[1] = e->prev.f[1] + (e->cur.f[1] - e->prev.f[1]) * a;
@@ -13066,9 +13114,14 @@ index cb8e24a..0866849 100644
 +    return 1;
 +}
 +
-+void gePortPropInterpEnd(PropRecord *prop, const coord3d *saved)
++void gePortPropInterpEnd(PropRecord *prop, const coord3d *saved, f32 saved_yaw)
 +{
-+    if (prop != NULL) { prop->pos = *saved; }
++    if (prop == NULL) { return; }
++    prop->pos = *saved;
++    if (prop->type == PROP_TYPE_CHR && prop->chr != NULL && prop->chr->model != NULL
++        && saved_yaw != 0.0f) {
++        setsubroty(prop->chr->model, saved_yaw);
++    }
 +}
 +#endif
 diff --git a/src/game/front.c b/src/game/front.c

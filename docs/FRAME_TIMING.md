@@ -230,7 +230,17 @@ wall clock rather than against frames:
 | uncapped, auto divider | 3.73 rounds/s |
 | uncapped, divider 2 | 3.82 rounds/s |
 
-**The gate itself**, in `getv/port/tests/test_fire_cadence.c`. It models both the retail tick
+**Character rotation** interpolates alongside position, through `subroty` on the chr model. Only
+characters carry a yaw worth interpolating: guards turning to face you is the motion where the
+step shows. Measured over a run at divider 2: 3,620 rotations interpolated, no props skipped, and
+walking speed unchanged at 46.5 against 46.6.
+
+The wrap is the part that goes wrong if it is written carelessly, so it has its own test in
+`getv/port/tests/test_angle_lerp.c`. Turning from 350 degrees to 10 must sweep 20 degrees forward
+through zero rather than 340 backward, and no pair of angles may travel more than a quarter turn
+by the halfway point.
+
+**The fire gate itself**, in `getv/port/tests/test_fire_cadence.c`. It models both the retail tick
 modulo and the ported field-crossing test over a minute of video, and asserts the difference:
 
 ```
@@ -252,9 +262,6 @@ with no drift. That is why the auto divider targets 30 and will not go under.
 the rate no longer changes with the frame rate, and that it matches the game's own authored
 constants. Whether those constants produce the same rounds per second as a real N64 is a separate
 measurement, and it needs a capture from the real thing.
-
-**Rotation is not interpolated, only position.** A prop spinning fast between ticks still steps.
-Nothing in the campaign spins fast enough for it to show.
 
 **Reload timing, turret delay and reaction stepping** go through the same field counter as fire
 rate, so they should behave the same way. Should is doing work in that sentence: only fire rate
