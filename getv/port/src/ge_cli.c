@@ -265,6 +265,31 @@ static void ge_cli_report(int frame)
         printf("compass facing %s (%.0f deg)   north is -z, east is +x\n", card[idx], (double) a);
     }
 
+    {
+        /* THE TILE YOU ARE ON, AND THE ONE YOU ARE WALKING INTO.
+         *
+         * "wall 96 away" is the same sentence at every wall in the game. The floor is a mesh of
+         * numbered tiles and the engine knows which one is under you, so say it: a repeated tile
+         * number is the plainest possible statement that you are stuck, and a tile number ahead
+         * names the specific wall rather than the fact of one. */
+        extern int gePortTileAt(float x, float z, int *out_id, int *out_room);
+        int here = -1, here_room = -1, there = -1, there_room = -1;
+        float ra = (float) (st.angle * 3.14159265358979 / 180.0);
+        float fx = st.x + (float) sin((double) ra) * 150.0f;
+        float fz = st.z + (float) cos((double) ra) * 150.0f;
+
+        if (gePortTileAt(st.x, st.z, &here, &here_room)) {
+            printf("tile   standing on %d (room %d)", here, here_room);
+            if (gePortTileAt(fx, fz, &there, &there_room) && there != here) {
+                printf(", facing %d (room %d)", there, there_room);
+            } else if (there == here) {
+                printf(", same tile ahead");
+            } else {
+                printf(", NO FLOOR ahead");
+            }
+            printf("\n");
+        }
+    }
     printf("you    (%.0f %.0f %.0f) facing %.0f  room %d  hp %.0f%%  weapon %d  ammo %d/%d\n",
            (double) st.x, (double) st.y, (double) st.z, (double) st.angle, st.room,
            (double) (st.health * 100.0f), st.weapon, st.ammo_clip, st.ammo_reserve);
@@ -324,8 +349,11 @@ static void ge_cli_report(int frame)
         unsigned int k;
         for (k = 0; k < 3; k++) {
             if (!geWorldNearestProp(kinds[k], st.x, st.y, st.z, &pr)) { continue; }
-            printf("%-6s %4.0f away, turn %+.0f, room %d\n",
-                   geWorldPropKindName(kinds[k]),
+            /* Named, not just located. "Door 4935 away" is a fact about geometry; "door #212"
+             * is a fact about a specific door, which is what lets a reader notice it is the same
+             * one it failed to open a minute ago. */
+            printf("%-6s tag %-4d %4.0f away, turn %+.0f, room %d\n",
+                   geWorldPropKindName(kinds[k]), pr.tag,
                    (double) sqrt((double) (((pr.x - st.x) * (pr.x - st.x))
                                          + ((pr.z - st.z) * (pr.z - st.z)))),
                    (double) ge_cli_rel(st.x, st.z, pr.x, pr.z, st.angle), pr.room);
@@ -344,7 +372,7 @@ static void ge_cli_report(int frame)
      * carries all 4,871 of them; withholding the ones with no navigational purpose was the
      * mistake. */
     {
-        struct { float d, b, x, z, r; int kind; } near[10];
+        struct { float d, b, x, z, r; int kind, index; } near[10];
         int count = 0;
 
         n = geWorldPropCount();
@@ -361,16 +389,18 @@ static void ge_cli_report(int frame)
 
             /* Insertion sort into a fixed ten: a report longer than that stops being readable,
              * and the tenth-nearest crate has never changed anyone's next move. */
+            /* Find the slot only. The shift belongs to the loop below and doing it here as
+             * well copied every displaced entry twice, so the list reported the same prop at the
+             * same distance in two consecutive rows -- visible the moment the props carried
+             * their pack index, and invisible for as long as they did not. */
             k = count < 10 ? count : 9;
-            while (k > 0 && near[k - 1].d > d) {
-                if (k < 10) { near[k] = near[k - 1]; }
-                k--;
-            }
+            while (k > 0 && near[k - 1].d > d) { k--; }
             if (k < 10) {
                 for (j = (count < 10 ? count : 9); j > k; j--) { near[j] = near[j - 1]; }
                 near[k].d = d;
                 near[k].b = ge_cli_rel(st.x, st.z, p2.x, p2.z, st.angle);
                 near[k].kind = p2.kind;
+                near[k].index = i;
                 near[k].x = p2.x;
                 near[k].z = p2.z;
                 near[k].r = p2.radius;
@@ -392,17 +422,59 @@ static void ge_cli_report(int frame)
              * for clearance, and the half-extents are in the pack for a caller that knows the
              * prop's rotation and wants the tighter number. */
             if (near[i].r > 0.0f) {
-                printf("near   %-13s %4.0f away, turn %+.0f, at (%.0f %.0f), radius %.0f\n",
-                       geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b,
+                printf("near   %-13s #%-4d %4.0f away, turn %+.0f, at (%.0f %.0f), radius %.0f\n",
+                       geWorldPropKindName(near[i].kind), near[i].index,
+                       (double) near[i].d, (double) near[i].b,
                        (double) near[i].x, (double) near[i].z, (double) near[i].r);
             } else {
-                printf("near   %-13s %4.0f away, turn %+.0f, at (%.0f %.0f), radius ?\n",
-                       geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b,
+                printf("near   %-13s #%-4d %4.0f away, turn %+.0f, at (%.0f %.0f), radius ?\n",
+                       geWorldPropKindName(near[i].kind), near[i].index,
+                       (double) near[i].d, (double) near[i].b,
                        (double) near[i].x, (double) near[i].z);
             }
         }
     }
 
+    /* Threats before objectives, deliberately.
+     *
+     * The objective line is the last thing in a report, which makes it the natural signal that a
+     * report is complete -- tools/play_cli.py acts on it. With the enemies printed after it, every
+     * threat decision was taken against the PREVIOUS report's enemy list, one report stale, which
+     * on a moving guard is the difference between shooting at it and shooting where it was.
+     */
+    /* Enemies: only the ones close enough to matter, nearest first would need a sort and this is
+     * a report, not a tactical display. Range and bearing are what a person acts on. */
+    n = geEnemyCount();
+    for (i = 0; i < n && shown < 6; i++) {
+        GeEnemy e;
+        float d;
+        if (!geEnemy(i, &e) || !e.alive) { continue; }
+        d = (float) sqrt((double) (((e.x - st.x) * (e.x - st.x)) + ((e.z - st.z) * (e.z - st.z))));
+        if (d > 2500.0f) { continue; }
+        /* Health and alertness alongside range and bearing, because the three questions a
+         * player actually asks are "can it see me", "is it still a threat" and "is it already
+         * dying". Firing into a corpse is the commonest way an automated player wastes a magazine
+         * and its attention: the death animation runs for a while after health reaches zero, and
+         * the character stays in the world the whole time. */
+        {
+            const char *state = "";
+
+            if ((e.fields & GE_EN_HEALTH) && e.health <= 0.0f) { state = "  DYING"; }
+            else if (geSenseVisibleTo(i, ge_cli_slot))         { state = "  SEES YOU"; }
+
+            printf("enemy  #%-3d %4.0f away, turn %+.0f", e.id, (double) d,
+                   (double) ge_cli_rel(st.x, st.z, e.x, e.z, st.angle));
+            /* Remaining over threshold, not a percentage. Guards on Train report more remaining
+             * than their own threshold, so a percentage here reads as 150% and looks like a bug
+             * in the report rather than a fact about the character. Showing both numbers says
+             * what is actually known without having to explain it. */
+            if (e.fields & GE_EN_HEALTH) { printf(", hp %.0f/%.0f", (double) e.health,
+                                                  (double) e.max_health); }
+            if (e.fields & GE_EN_ALERT)  { printf(", alert %d", e.alertness); }
+            printf("%s\n", state);
+        }
+        shown++;
+    }
     /* Objective STATE, not just where it is. Distance says how far; this says whether it still
      * matters -- and a player told only distance keeps walking at something already done. */
     {
@@ -429,20 +501,6 @@ static void ge_cli_report(int frame)
         }
     }
 
-    /* Enemies: only the ones close enough to matter, nearest first would need a sort and this is
-     * a report, not a tactical display. Range and bearing are what a person acts on. */
-    n = geEnemyCount();
-    for (i = 0; i < n && shown < 6; i++) {
-        GeEnemy e;
-        float d;
-        if (!geEnemy(i, &e) || !e.alive) { continue; }
-        d = (float) sqrt((double) (((e.x - st.x) * (e.x - st.x)) + ((e.z - st.z) * (e.z - st.z))));
-        if (d > 2500.0f) { continue; }
-        printf("enemy  %4.0f away, turn %+.0f%s\n", (double) d,
-               (double) ge_cli_rel(st.x, st.z, e.x, e.z, st.angle),
-               geSenseVisibleTo(i, ge_cli_slot) ? "  SEES YOU" : "");
-        shown++;
-    }
     printf("> ");
     fflush(stdout);
 }

@@ -43,7 +43,14 @@ RE_DOOR = re.compile(r"^Door\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 # for all three kinds server-side).
 RE_LANDMARK = re.compile(r"^(Key|Collectable)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_NEAR = re.compile(r"^near\s+(\S+)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
-RE_ENEMY = re.compile(r"^enemy\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)(\s+SEES YOU)?")
+# hp and alert are optional so an older binary's shorter line still matches rather than being
+# dropped in silence. DYING is the game's death animation already running: the character is still
+# in the world and still reported, and firing into it is the commonest way an automated player
+# wastes a magazine and its attention.
+RE_ENEMY = re.compile(r"^enemy\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)"
+                      r"(?:,\s+hp\s+(-?\d+)/(-?\d+))?"
+                      r"(?:,\s+alert\s+(\d+))?"
+                      r"(\s+SEES YOU|\s+DYING)?")
 
 TURN_PER_TICK = 3.5
 
@@ -59,8 +66,15 @@ class Player:
         self.near_fresh = True
         self.queue = []
         self.enemy_fresh = True
+        self.reports = 0
+        self.hurt_at = -999
+
+    transcript = None
 
     def send(self, cmd):
+        if self.transcript is not None:
+            self.transcript.write("> %s\n" % cmd)
+            self.transcript.flush()
         self.log.write("> %s\n" % cmd)
         self.p.stdin.write(cmd + "\n")
         self.p.stdin.flush()
@@ -99,18 +113,37 @@ class Player:
         if self.best_obj is None or obj_d < self.best_obj:
             self.best_obj = obj_d
 
-        # SHOOT BACK. The player walked the first carriage at 100% health and reached the second
-        # at 22%, because it had a loaded PP7 and never used it. Guards do not stop shooting
-        # because you are busy navigating, and a route that ends in a corpse is not a route.
+        # WHO CAN SEE US, AND ARE WE BEING HIT.
         #
-        # Only at something that can see us: a guard facing elsewhere is not spending ammunition
-        # on us and shooting it just makes noise. Nearest first, since it is doing the damage.
-        # 900, not 2000. At 2000 there is ALWAYS a guard somewhere in a carriage that can see
-        # you, so fighting outranks everything forever and the player never opens the door two
-        # metres in front of it -- measured: it stood at a door 96 units away trading shots for a
-        # whole run. Distant guards are a fact of the level, not an emergency; the ones close
-        # enough to be doing real damage are.
-        threats = sorted((d, b) for (d, b, sees) in s.get("enemies", []) if sees and d < 900)
+        # Two different questions, and the answers call for different play. Being SEEN is the
+        # earlier signal -- the guard has us in its cone and is about to start -- and being hit is
+        # the late one. Acting on the first is what keeps the health bar full; the run that
+        # prompted this reached the second carriage at 22% by treating them as the same thing.
+        #
+        # A DYING guard is not a threat and not a target. The death animation runs for a while
+        # after its health reaches zero and it is reported the whole time, so shooting it is a
+        # magazine and several seconds spent on something already resolved.
+        enemies = [e for e in s.get("enemies", []) if not e["dying"]]
+        seen_by = sorted((e["dist"], e["turn"]) for e in enemies if e["sees"])
+        under_fire = (self.reports - self.hurt_at) <= 3
+        hp = s.get("hp", 100)
+
+        # BREAK CONTACT WHEN LOSING. Trading shots is only sensible while we are winning the
+        # trade. Hurt, under fire and outnumbered means turn away from the nearest one and put
+        # distance and geometry between us -- their cone is a fact we can act on, and a corridor
+        # gives plenty to stand behind.
+        if seen_by and under_fire and hp <= 40 and len(seen_by) > 1:
+            _, b = seen_by[0]
+            self.queue.append("w 80")
+            return self.turn_cmd(180 if b >= 0 else -180)
+
+        # FIGHT BACK BEFORE ANYTHING ELSE. Distant guards are a fact of a carriage rather than an
+        # emergency, so the plain case is bounded at 900 -- at 2000 something can always see you
+        # and the player never gets round to the door two metres away. But once we are actually
+        # being hit, whoever can see us IS the emergency however far off they are, because that is
+        # exactly where the damage is coming from.
+        reach = 2500 if under_fire else 900
+        threats = [(d, b) for (d, b) in seen_by if d < reach]
         if threats:
             d, b = threats[0]
             if abs(b) > 12:
@@ -120,7 +153,37 @@ class Player:
         # A door directly in the way is the way through. Doors are how these levels connect.
         what = s.get("ahead_what", "")
         ahead_d = s.get("ahead_dist", 9999)
-        if "door" in what and ahead_d < 400:
+        # CROSS-CHECK THE DOOR AGAINST THE REPORT'S OWN LANDMARK LINE.
+        #
+        # "ahead" is a bitmask of what the ray touched, and on Train it reads "wall door object"
+        # at a spot where the nearest actual door -- by the report's own Door line, in the same
+        # report -- is 4,935 units away. The mask's door bit fires on the crate at (-373, -80).
+        # Believing it cost 184 "use" commands in one run against a crate, at 88% health and
+        # falling, while the way round sat at "clearest turn +60" in the same four lines.
+        #
+        # So a door is only a door when both halves of the report agree it is there. When they
+        # disagree the mask is treated as the obstacle it also claims, which is what the code
+        # below already knows how to walk around.
+        door_d = s["door"][0] if s.get("door") else None
+        door_real = door_d is not None and door_d <= max(400, ahead_d * 2)
+        if "door" in what and ahead_d < 400 and door_real:
+            # NOT WHILE IT IS BEING WATCHED. A door is a pause: the animation plays, the doorway
+            # funnels us, and anything with eyes on that spot gets a free shot at a player who is
+            # standing still in it. Clear the room first, then walk through.
+            #
+            # The watcher has to be close enough to be the reason, though. Gated only on "can
+            # anything see us", this refused every door on the level to a guard 1,800 units away
+            # and the player stood at its spawn at full health for a whole run -- which is not
+            # caution, it is paralysis. And refusing a door has to mean DOING something about the
+            # guard: a door worth guarding is worth the fight, so this engages at a longer reach
+            # than the plain case rather than waiting for the guard to lose interest.
+            watching = sorted((e["dist"], e["turn"]) for e in enemies
+                              if e["sees"] and e["dist"] < 1400)
+            if watching:
+                d, bear = watching[0]
+                if abs(bear) > 12:
+                    return self.turn_cmd(max(-45, min(45, bear)))
+                return "fire"
             return "use 40"
 
         # Something solid close enough to walk into: take the turn the report worked out, and
@@ -157,11 +220,32 @@ class Player:
 
     def feed(self, line):
         line = line.strip()
+
+        # A REPORT IS A SNAPSHOT, NOT AN ACCUMULATION.
+        #
+        # Lines are only printed when there is something to say: no obstacle ahead means no
+        # "ahead" line, no guard in range means no "enemy" line. Merging each report into the
+        # previous one therefore keeps whatever was last true forever. Measured on Train: the
+        # player stood at (-282, -37) issuing "use 40" a hundred and eighty times against a door
+        # it had walked past long before, because the last "ahead" line it ever saw said door and
+        # nothing since had contradicted it. Clearing on the frame marker means an absent line
+        # reads as absent rather than as unchanged.
+        if line.startswith("--- f"):
+            for k in ("ahead_what", "ahead_dist", "clearest", "near", "enemies",
+                      "door", "Key", "Collectable"):
+                self.state.pop(k, None)
+            self.near_fresh = True
+            self.enemy_fresh = True
+            return
         m = RE_YOU.match(line)
         if m:
             x, y, z, facing, room, hp, weapon, clip, reserve = m.groups()
             x, y, z, facing, room, hp = int(x), int(y), int(z), int(facing), int(room), int(hp)
+            prev_hp = self.state.get("hp")
+            if prev_hp is not None and hp < prev_hp:
+                self.hurt_at = self.reports          # the report we last took damage on
             self.state.update(pos=(x, y, z), facing=facing, room=room, hp=hp)
+            self.reports += 1
             # None on a report from an older binary without these fields (see RE_YOU); left unset
             # rather than defaulted to 0, so "no ammo data yet" cannot be confused with "no ammo".
             if weapon is not None:
@@ -190,8 +274,15 @@ class Player:
             if self.enemy_fresh:
                 self.state["enemies"] = []
                 self.enemy_fresh = False
-            self.state.setdefault("enemies", []).append(
-                (int(m.group(1)), int(m.group(2)), bool(m.group(3))))
+            tail = (m.group(6) or "").strip()
+            self.state.setdefault("enemies", []).append({
+                "dist":  int(m.group(1)),
+                "turn":  int(m.group(2)),
+                "hp":    int(m.group(3)) if m.group(3) is not None else None,
+                "alert": int(m.group(5)) if m.group(5) is not None else None,
+                "sees":  tail == "SEES YOU",
+                "dying": tail == "DYING",
+            })
             return
         m = RE_NEAR.match(line)
         if m:
@@ -248,6 +339,7 @@ def main():
                     help="path to the goldeneye binary; default picked from sys.platform "
                          "(%s)" % default_exe())
     ap.add_argument("--world-dir", default="build/world")
+    ap.add_argument("--transcript", help="write every report line and command sent here")
     args = ap.parse_args()
 
     exe = args.exe or default_exe()
@@ -269,8 +361,20 @@ def main():
                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
     player = Player(p, sys.stdout)
 
+    # The transcript is every line the player saw, in the order it saw them, with the commands it
+    # sent interleaved. The console stays a summary -- position and objective -- because a full
+    # report every frame is unreadable at speed. Diagnosing off the summary is how an afternoon
+    # went into a stale "ahead" reading that the summary never showed: the console had no "ahead"
+    # line in it, so it looked like the game had stopped sending one.
+    transcript = open(args.transcript, "w", encoding="utf-8") if args.transcript else None
+    if transcript is not None:
+        player.transcript = transcript
+
     def pump():
         for line in p.stdout:
+            if transcript is not None:
+                transcript.write(line)
+                transcript.flush()
             player.feed(line)
             if line.startswith("you ") or line.startswith("obj "):
                 sys.stdout.write(line)
