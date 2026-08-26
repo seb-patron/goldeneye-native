@@ -268,7 +268,7 @@ function Build-Lib {
     # crash.c, spectrum.c and tlb_manage.c are N64 hardware and dev-host stubs, and the port
     # replaces them with getv/port/src/ge_link_stubs.c. On macOS and Linux they are not
     # excluded by name because they simply FAIL to compile there, and that failure is the
-    # guard -- CLAUDE.md is explicit that the 167/1 split must not be "fixed".
+    # guard -- the project notes are explicit that the 167/1 split must not be "fixed".
     #
     # This build's permissive flags (see $permissive above) let two of them through, and the
     # result was not a silent success: they compiled, went into the archive, and collided

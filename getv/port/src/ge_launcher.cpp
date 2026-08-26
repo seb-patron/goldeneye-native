@@ -142,7 +142,7 @@ void  put_str(const char *k, const char *v)
     else         unsetenv(k);
 }
 
-/* The stage list. Ids and names are from the table in CLAUDE.md, which is the project's
+/* The stage list. Ids and names are from the table in the project's stage notes, which is the
  * ground truth for which stages are solo, multiplayer-only or have no data at all. Only
  * loadable stages are offered: eleven ids can never load (nine cut, plus CITADEL, whose
  * background exists but whose setup file does not), and offering them would be offering a

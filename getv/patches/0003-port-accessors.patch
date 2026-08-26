@@ -1,5 +1,3 @@
-diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..dfb0541 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
 @@ -1,7 +1,13 @@
@@ -16,261 +14,13 @@ index 4ebf14b..dfb0541 100644
  #include "assets/obseg/text/LmiscE.h"
  #include "language.h"
  #include "PR/os.h"
-@@ -29,6 +35,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
- s32 objective_count = 0xFFFFFFFF;
- s32 objective_status_display_disabled = FALSE;
- 
-+#ifdef GE_PORT_NATIVE
-+/* ================= GETV_OBJ_DEBUG (tvOS/mac port diagnostic) =================
-+ * "objectives failed on mission start" -- state vs display. Every value below is
-+ * read from the objects the evaluator itself uses, so a zero is a real zero.
-+ * GLOBAL on purpose: `nm` on the binary is the rebuild check (statics get stripped).
-+ * ============================================================================ */
-+extern char *getenv(const char *);
-+extern s32 objectiveregisters1;
-+
-+s32 g_geObjDbgEvals;
-+
-+s32 ge_obj_dbg(void)
-+{
-+    static s32 cached = -1;
-+    if (cached < 0) { const char *e = getenv("GETV_OBJ_DEBUG"); cached = (e && *e == '1'); }
-+    return cached;
-+}
-+
-+/* GETV-OBJENDIAN -- `text` and `difficulty` read the wrong half-word / wrong byte on
-+ * little-endian.
-+ *
-+ * The data: a setup file's propDefs are emitted as a native `s32 words[]` array
-+ * (assets/obseg/setup/UsetupdamZ.c), and gePropdefsConvertToNative() copies an
-+ * ObjectiveStart record's four words VERBATIM into the native record
-+ * (ge_propdef_layout.inc.c: PROPDEF_OBJECTIVE_START = {4 filewords, 6 natwords,
-+ * ge_pdefsegs_MissionObjectiveRecord_4 = {0,0,16}}). So the four words arrive as
-+ * little-endian u32 values with their correct numeric content:
-+ *     word0 @0 = header/id      word1 @4 = menu
-+ *     word2 @8 = TextID         word3 @12 = MinDifficulty
-+ *
-+ * The read: `struct objective_entry` (bondtypes.h:4034) is the N64 layout, where the
-+ * sub-word fields sit at the big-endian positions inside those words:
-+ *     u16 text       @0xa  = the low half of the word at 0x8   -> LE it is at 0x8
-+ *     s8  difficulty @0xf  = the low byte of the word at 0xc   -> LE it is at 0xc
-+ * Reading them at 0xa / 0xf on arm64 therefore yields the high half / high byte, which
-+ * for every real record is zero. On DAM (stage 33) all four objectives read
-+ * `text=0 difficulty=0` where the records hold TextID 11286,11287,11288,11289 and
-+ * MinDifficulty 1,2,2,0.
-+ *
-+ * Consequences, both user-visible: the watch objectives screen renders no text
-+ * (langGet(0)), and get_difficulty_for_objective() returns 0 for everything, so every
-+ * `objdiff <= curdiff` filter passes and the Agent / 00 Agent objective sets are wrong.
-+ *
-+ * Read the word and narrow, which is endian-independent and is exactly the N64
-+ * semantics. `struct watchMenuObjectiveText` (the watch briefing text) is the same
-+ * 16-byte record with the same `u16 reserved; u16 text;` pair and the same bug, so it
-+ * gets the same accessor.
-+ *
-+ * GETV_OBJENDIAN=0 restores the raw struct read for A/B on one binary.
-+ * These are globals, not statics: a static inlines at -O1 and leaves no symbol for
-+ * `nm -gU`. */
-+s32 geObjEndianFlag = -1;
-+
-+s32 geObjEndianOn(void)
-+{
-+    if (geObjEndianFlag < 0) {
-+        const char *e = getenv("GETV_OBJENDIAN");
-+        geObjEndianFlag = (e && e[0] == '0') ? 0 : 1;
-+    }
-+    return geObjEndianFlag;
-+}
-+
-+/* TextID: the low u16 of the record's third word. */
-+u16 geObjText(const void *rec)
-+{
-+    if (!geObjEndianOn()) {
-+        return ((const struct objective_entry *) rec)->text;
-+    }
-+    return (u16) ((const u32 *) rec)[2];
-+}
-+
-+/* MinDifficulty: the low s8 of the record's fourth word. */
-+s8 geObjDifficulty(const void *rec)
-+{
-+    if (!geObjEndianOn()) {
-+        return ((const struct objective_entry *) rec)->difficulty;
-+    }
-+    return (s8) (((const u32 *) rec)[3] & 0xff);
-+}
-+
-+/* GETV-OBJENDIAN, third field -- `unkD`.
-+ *
-+ * `text` and `difficulty` are fixed above; `unkD` has the same shape. It is 0 on DAM
-+ * under either reading, but a scan of all 38 U setup files finds four ObjectiveStart
-+ * records whose fourth word is 256 (0x00000100) rather than 0/1/2 --
-+ *     UsetuparkZ.c:550   objective 4, text 3124
-+ *     UsetupcaveZ.c:587  objective 4, text 7192
-+ *     UsetuppeteZ.c:424  objective 2, text 25626
-+ *     u/UsetupsiloZ.c:420 objective 4, text 34838
-+ * (the other 76 ObjectiveStart records hold 0, 1 or 2, and all 105
-+ * WatchMenuObjectiveText records hold 0.)
-+ *
-+ * The field's offset: `struct objective_entry` is
-+ *     u32 id@0; enum menu@4; u16 reserved@8; u16 text@0xa; u16 unkC@0xc;
-+ *     u8 unkD@0xe; s8 difficulty@0xf
-+ * -- unkD's `// d` comment is wrong, natural alignment puts it at 0xe, and the
-+ * _Static_assert below is armed to keep it honest. On the big-endian N64, byte 0xe is
-+ * (word3 >> 8) & 0xff, so word3 == 0x100 gives unkD == 1. Reading the struct field on
-+ * arm64 yields (word3 >> 16) & 0xff == 0 instead.
-+ *
-+ * This is a live path, not a dead field: cleanupObjectives()
-+ * (cleanup_objectives.c:12) tests `unkD & 1` and force-completes those objectives; it
-+ * is called from lvlUnloadStageTextData() (lv.c:1753) at the end of every stage. All
-+ * four affected records are the last objective of their level -- the "escape"
-+ * objective that completes when the mission ends. Under the raw read the flag is 0 on
-+ * arm64, so those four objectives are never force-completed at unload.
-+ *
-+ * Read the word and narrow, exactly as above. GETV_OBJENDIAN=0 restores the raw read. */
-+u8 geObjUnkD(const void *rec)
-+{
-+    if (!geObjEndianOn()) {
-+        return ((const struct objective_entry *) rec)->unkD;
-+    }
-+    return (u8) ((((const u32 *) rec)[3] >> 8) & 0xff);
-+}
-+_Static_assert(__builtin_offsetof(struct objective_entry, unkD) == 0xe,
-+               "objective_entry layout changed: unkD is no longer at 0xe");
-+_Static_assert(__builtin_offsetof(struct objective_entry, difficulty) == 0xf,
-+               "objective_entry layout changed: difficulty is no longer at 0xf");
-+#endif
-+
- 
- 
- /*
-@@ -89,7 +216,11 @@ u8 * get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
-     {
-         if (page == curentry->menu)
-         {
-+#ifdef GE_PORT_NATIVE
-+            textptr = langGet(geObjText(curentry));                   /* GETV-OBJENDIAN */
-+#else
-             textptr = langGet(curentry->text);
-+#endif
-             break;
-         }
+@@ -721,13 +727,781 @@
+     if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) {
+         return 0;
      }
-@@ -128,7 +259,11 @@ u8 * get_text_for_objective(int objectiveIndex)
-     u8 *textptr;
-     
-     if ((objectiveIndex < 10) && (objective_ptrs[objectiveIndex] != 0)) {
-+#ifdef GE_PORT_NATIVE
-+        return langGet(geObjText(objective_ptrs[objectiveIndex]));   /* GETV-OBJENDIAN */
-+#else
-         return langGet(objective_ptrs[objectiveIndex]->text);
-+#endif
-     }
-     return 0;
- }
-@@ -144,7 +279,11 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
-         entry = objective_ptrs[objectiveIndex];
-         if (entry != NULL)
-         {
-+#ifdef GE_PORT_NATIVE
-+            return geObjDifficulty(entry);                            /* GETV-OBJENDIAN */
-+#else
-             return entry->difficulty;
-+#endif
-         }
-     }
-     return 0;
-@@ -153,7 +292,12 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
- 
- 
- //horrible hack to get ai matching, but it does correctly refrence this func with 2 params
-+/* ELF weak alias, ignored on Mach-O. Gated for the same reason as the libultra ones: on
-+ * Linux it is honoured, and an alias emitted from a header-less hack is not something to
-+ * leave to the linker. Nothing in the port calls objectiveGetStatus_WEAK. */
-+#ifndef GE_PORT_NATIVE
- #pragma weak    objectiveGetStatus_WEAK = get_status_of_objective
-+#endif
- 
- /*
-  * Return Status of objective.
-@@ -283,6 +427,19 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
-                             break;
-                         }
-                     }
-+#ifdef GE_PORT_NATIVE
-+                    if (ge_obj_dbg() && g_geObjDbgEvals < 200)
-+                    {
-+                        g_geObjDbgEvals++;
-+                        osSyncPrintf("[obj] n=%d rec=%p type=%d ObjRefID=%d TextID=%d "
-+                                     "MinDiff=%d cur=%d running=%d regs1=0x%08x sz=%d\n",
-+                                     objectiveNum, (void *) objective, (s32) objective->type,
-+                                     (s32) objective->ObjRefID, (s32) objective->TextID,
-+                                     (s32) objective->MinDificulty, (s32) currentstatus,
-+                                     (s32) status, (unsigned) objectiveregisters1,
-+                                     (s32) sizepropdef((PropDefHeaderRecord *) objective));
-+                    }
-+#endif
-                     if (status == OBJECTIVESTATUS_COMPLETE)
-                     {
-                         if (currentstatus != OBJECTIVESTATUS_COMPLETE)
-@@ -351,6 +508,23 @@ void display_objective_status_text_on_status_change(void)
- 
-     for (i = 0; i <= objective_count; i++) {
-         status = get_status_of_objective(i);
-+#ifdef GE_PORT_NATIVE
-+        if (ge_obj_dbg() && g_geObjDbgEvals < 200) {
-+            g_geObjDbgEvals++;
-+            osSyncPrintf("[obj] SUMMARY i=%d/%d ptr=%p text=%d diff=%d seldiff=%d "
-+                         "status=%d prev=%d regs1=0x%08x unkD_raw=%d unkD_fixed=%d "
-+                         "word3=0x%08x\n",
-+                         i, objective_count, (void *) objective_ptrs[i],
-+                         objective_ptrs[i] ? (s32) geObjText(objective_ptrs[i]) : -1,
-+                         (s32) get_difficulty_for_objective(i),
-+                         (s32) lvlGetSelectedDifficulty(),
-+                         (s32) status, (s32) objectiveStatuses[i],
-+                         (unsigned) objectiveregisters1,
-+                         objective_ptrs[i] ? (s32) objective_ptrs[i]->unkD : -1,
-+                         objective_ptrs[i] ? (s32) geObjUnkD(objective_ptrs[i]) : -1,
-+                         objective_ptrs[i] ? (unsigned) ((const u32 *) objective_ptrs[i])[3] : 0u);
-+        }
-+#endif
-         if (objectiveStatuses[i] != status) {
-             objectiveStatuses[i] = status;
-             if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +697,1359 @@ void objectiveTakePictureHandler(void)
- 
- 
- //filebreak
-+
-+#ifdef GE_PORT_NATIVE
-+#include <stdio.h>
-+/* GETV_STATE -- one machine-readable line of progress, called by the port each nth frame.
-+ *
-+ * It lives here rather than in the port layer because the port cannot see struct player or
-+ * OBJECTIVESTATUS, and adding game headers to it would tangle the two together for a
-+ * diagnostic. The port calls gePortStateDump(frame) through a plain prototype.
-+ *
-+ * The point is to make a level attempt assertable. Frame counts and triangle counts say the
-+ * renderer is busy; they cannot say Bond reached the objective. This prints where each
-+ * player is, how many objectives the mission has, each status, and whether the mission is
-+ * complete -- which is what a script needs to decide whether a run passed. */
-+/* Position of one player, for the script host in getv/port/src/ge_lua.c.
-+ *
-+ * It lives here rather than in the port layer for the same reason gePortStateDump() does:
-+ * struct player is a game type, and the offset of pos within it is not the N64 offset
-+ * (the 32-bit pointers ahead of it are 64-bit here), so any port-side copy of that number
-+ * would be wrong now or wrong later. Returns 0 when the slot is empty, which a script
-+ * sees as nil.
-+ *
-+ * g_playerPointers, not g_CurrentPlayer: that pointer is swapped as each viewport is
-+ * drawn, so in split screen it names whichever player was rendered last. */
-+int gePortPlayerPos(int idx, f32 *out)
-+{
-+    extern struct player *g_playerPointers[4];
-+
-+    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) {
-+        return 0;
-+    }
+-    out[0] = g_playerPointers[idx]->pos.x;
+-    out[1] = g_playerPointers[idx]->pos.y;
+-    out[2] = g_playerPointers[idx]->pos.z;
 +    /* prop->pos, NOT player->pos.
 +     *
 +     * player->pos is zeroed at spawn (player.c:160, bondview.c:1423) and only a couple of paths
@@ -692,10 +442,10 @@ index 4ebf14b..dfb0541 100644
 +    if (out_x != NULL) { *out_x = p->field_488.collision_position.f[0]; }
 +    if (out_y != NULL) { *out_y = p->field_488.collision_position.f[1]; }
 +    if (out_z != NULL) { *out_z = p->field_488.collision_position.f[2]; }
-+    return 1;
-+}
-+
-+
+     return 1;
+ }
+ 
+ 
 +/* WHAT is in the way, not merely whether something is. The sensing primitive.
 + *
 + * gePortProbeWalkable answers yes or no, and a bot that only knows "blocked" behaves the same
@@ -1046,58 +796,13 @@ index 4ebf14b..dfb0541 100644
 +}
 +
 +
-+void gePortStateDump(int frame)
-+{
-+    s32 i;
-+    s32 n = getPlayerCount();
-+
-+    /* Why the co-op players do not move, if they do not.
-+     *
-+     * lvlManageMpGame() (lv.c:1098) sets g_ClockTimer to 0 whenever controls are locked or
-+     * the game is paused, and to speedgraphframes otherwise. A zero clock means zero delta,
-+     * and zero delta freezes every player including player 0 while rendering carries on
-+     * normally -- which is exactly the reported symptom: p0 travels 72.5 units in co-op
-+     * against 16930 solo, and separating the spawns (GETV_COOP_SPREAD) did not change it.
-+     *
-+     * Printed rather than assumed, because the alternative explanations -- no input reaching
-+     * players 1-3, spawn collision, missing pads -- have already been ruled out one at a
-+     * time and this is the next candidate rather than a conclusion. */
-+    {
-+        extern s32 g_ControlsLockedFlag;
-+        extern s32 g_ClockTimer;
-+        extern s32 checkGamePaused(void);
-+        printf("[getv][state] locked=%d paused=%d clock=%d",
-+               (int) g_ControlsLockedFlag, (int) checkGamePaused(), (int) g_ClockTimer);
-+    }
-+    printf("[getv][state] f=%d players=%d", frame, (int) n);
-+
-+    /* Every player, not g_CurrentPlayer. That pointer is swapped as each viewport is drawn,
-+     * so in split screen it names whichever player was rendered last -- reading it made
-+     * co-op look motionless when the truth was that consecutive samples described different
-+     * players. g_playerPointers is the stable array. */
-+    {
-+        extern struct player *g_playerPointers[4];
-+        s32 p;
-+        for (p = 0; p < 4; p++) {
-+            if (g_playerPointers[p] == NULL) {
-+                continue;
-+            }
-+            printf(" p%d=%.1f,%.1f,%.1f", (int) p,
-+                   (double) g_playerPointers[p]->pos.x,
-+                   (double) g_playerPointers[p]->pos.y,
-+                   (double) g_playerPointers[p]->pos.z);
-+        }
-+    }
-+    printf(" objectives=%d status=", (int) objective_count);
-+    if (objective_count <= 0) {
-+        printf("-");
-+    } else {
-+        for (i = 0; i < objective_count && i < OBJECTIVES_MAX; i++) {
-+            printf("%d", (int) objectiveStatuses[i]);
-+        }
-+    }
-+    printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
-+    fflush(stdout);
+ void gePortStateDump(int frame)
+ {
+     s32 i;
+@@ -780,5 +1554,502 @@
+     }
+     printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
+     fflush(stdout);
 +}
 +
 +/* ===================================================================== CLEARANCE
@@ -1295,7 +1000,7 @@ index 4ebf14b..dfb0541 100644
 +     * piece of state the pairing depends on. */
 +    return (stanTestVolume(&tile, x1, z1, GE_STAND_WIDTH, mask,
 +                           GE_STAND_HEIGHT, GE_STAND_FOOT) < 0) ? 1 : 0;
-+}
+ }
 +
 +
 +/* ---------------------------------------------------------------------------------------------
@@ -1596,4 +1301,4 @@ index 4ebf14b..dfb0541 100644
 +    return 1;
 +}
 +
-+#endif
+ #endif

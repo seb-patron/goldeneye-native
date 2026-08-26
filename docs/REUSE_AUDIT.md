@@ -44,13 +44,13 @@ Rare N64 games and still happens to be wrong.
 | Developer/debug UI | **Dear ImGui** | MIT | **In progress.** Gated behind `GETV_IMGUI`, off by default. The value is a live panel over player, camera, AI, renderer and memory, which this project currently reads through printf and log grepping. |
 | Profiling | **Tracy** | BSD-3-Clause | **Yes**, once ImGui lands. Frame cost is currently unattributed: there is no measurement separating game tick, render, audio and AI. |
 | GPU capture | **RenderDoc** | external tool | **Yes, and free.** Not a dependency - it attaches to the running binary. Nothing to integrate; it wants a doc section, not a build change. |
-| Metal backend | **libultraship** `gfx_metal.cpp` | **MIT (verified 2026-08-24)** | **Yes.** Removes the deprecated-GL risk on Apple platforms. `CLAUDE.md` scopes the adapter at ~8 signature differences; libultraship refactored the same Emill lineage from a C function-pointer struct into a C++ virtual class. |
+| Metal backend | **libultraship** `gfx_metal.cpp` | **MIT (verified 2026-08-24)** | **Yes.** Removes the deprecated-GL risk on Apple platforms. our own audit scopes the adapter at about 8 signature differences; libultraship refactored the same Emill lineage from a C function-pointer struct into a C++ virtual class. |
 | Modern renderer for GoldenEye+ | **RT64** | **MIT (verified 2026-08-24)** | **The serious candidate - see below.** |
 | Modern controls reference | GoldenEye digital-controls fork | **unchecked** | Check the licence first. If it is a fork of `n64decomp/007` it inherits that project's terms, which are not permissive by default. |
 
 ### RT64, and a correction to this project's own record
 
-`CLAUDE.md` records that **GoldenRecomp** was rejected in August 2026, and that decision
+Our own notes record that **GoldenRecomp** was rejected in August 2026, and that decision
 stands: it needs a special `TLBFREE_NOCOMPRESSION` decomp branch, ships Windows-only
 recompiler binaries, and its own README admits broken Dam skybox and Frigate sky/water.
 

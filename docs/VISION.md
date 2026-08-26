@@ -22,7 +22,7 @@ efforts that happen to share a source tree, and that they have different standar
 proof:
 
 1. **Preserve.** Make the original game run correctly on modern hardware. Correctness is
-   judged against the real N64, and the reference captures in `CLAUDE.md` are the ground
+   judged against the real N64, and our own reference captures are the ground
    truth. A change that makes the game look nicer but diverges from retail fails here.
 2. **Modernise.** Add what the N64 could not do - resolution, framerate, controls, field
    of view. Judged on whether it feels right without breaking (1).
@@ -116,7 +116,7 @@ modern graphics library. See "On bgfx" below.
 
 **AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`). Any
 culling change presents as an AI bug - guards failing to activate, scripts stalling. This
-is documented in `CLAUDE.md` and it means Phase 8 and the renderer are not independent.
+is documented in the project's measurement notes, and it means Phase 8 and the renderer are not independent.
 
 ---
 
@@ -296,7 +296,7 @@ information already crosses the boundary; nothing in the game has to change.
   same conversation as RT64 in `REUSE_AUDIT.md`, which is MIT, N64-aware and already has
   those backends.
 - **Dynamic resolution.** Possible, but it changes the framebuffer size every time it acts,
-  and framebuffer size is already known to move outcomes in this port (`CLAUDE.md` on
+  and framebuffer size is already known to move outcomes in this port (measured, on
   supersample and heap layout). It would make every bug report irreproducible.
 
 ### The ordering this suggests
@@ -331,7 +331,7 @@ The cheaper route to the same reach:
 | Linux | the existing GL backend | **done** - builds and runs, verified on x86_64 |
 | Windows | the same GL backend under SDL2 | small; the sm64ex lineage also carries a D3D11 backend if preferred |
 | Android | the same `gfx_opengl.c` under GL ES 3 | moderate; the tvOS build already exercises the ES path |
-| macOS/tvOS Metal | adapt libultraship's `gfx_metal.cpp` (MIT) | moderate - `CLAUDE.md` scopes the delta at ~8 signature differences |
+| macOS/tvOS Metal | adapt libultraship's `gfx_metal.cpp` (MIT) | moderate -  our audit scopes the delta at about 8 signature differences |
 
 SPIRV-Cross only earns a place if SPIR-V is being emitted, which means Vulkan, which buys
 nothing these targets do not already have.

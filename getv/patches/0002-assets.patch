@@ -572,7 +572,7 @@ index ba7616c..b4c908a 100644
 +     * geIntroConvertToNative() was handed (void *)-1.
 +     *
 +     * Narrowing it to (s32)&e_UsetuplenZ_credits_data_0 is NOT the fix -- that is the dominant
-+     * truncated-pointer bug family (CLAUDE.md), and our heap at 0x1_05xxxxxx makes the
++     * truncated-pointer bug family (see the project notes), and our heap at 0x1_05xxxxxx makes the
 +     * truncated half look exactly like an N64 segment-0x05 address.
 +     *
 +     * Nor can it be kept as an offset. bondview_r.c:356 reads the slot as
@@ -821,7 +821,7 @@ index fe33622..3321c9f 100644
 +     * geIntroConvertToNative() was handed (void *)-1.
 +     *
 +     * Narrowing it to (s32)&j_UsetuplenZ_credits_data_0 is NOT the fix -- that is the dominant
-+     * truncated-pointer bug family (CLAUDE.md), and our heap at 0x1_05xxxxxx makes the
++     * truncated-pointer bug family (see the project notes), and our heap at 0x1_05xxxxxx makes the
 +     * truncated half look exactly like an N64 segment-0x05 address.
 +     *
 +     * Nor can it be kept as an offset. bondview_r.c:356 reads the slot as
@@ -1057,7 +1057,7 @@ index cf548a2..4462e06 100644
 +     * geIntroConvertToNative() was handed (void *)-1.
 +     *
 +     * Narrowing it to (s32)&u_UsetuplenZ_credits_data_0 is NOT the fix -- that is the dominant
-+     * truncated-pointer bug family (CLAUDE.md), and our heap at 0x1_05xxxxxx makes the
++     * truncated-pointer bug family (see the project notes), and our heap at 0x1_05xxxxxx makes the
 +     * truncated half look exactly like an N64 segment-0x05 address.
 +     *
 +     * Nor can it be kept as an offset. bondview_r.c:356 reads the slot as

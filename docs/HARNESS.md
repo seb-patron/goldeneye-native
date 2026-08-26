@@ -42,7 +42,8 @@ itself. Every "the script moved someone" result so far was the level's own intro
 **Never sample with `tail -1`.** `GETV_SCRIPT="400:SY=70:600"` stops holding at frame 1000, so a
 run ending at 1201 spends its last 200 frames with no input, and the last trace line shows
 `spd=0.000`. That reads as "the walk never worked" and is really "you looked after it ended".
-The same trap as the `tris submitted` bimodality in CLAUDE.md, in a different costume.
+The same trap as the `tris submitted` bimodality in the project's measurement notes, in a
+different costume.
 
 ## What to do about it
 
