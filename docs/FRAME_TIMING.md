@@ -209,17 +209,53 @@ a single frame moved bucket. It is a one-frame timing shift at a room boundary, 
 any framerate change does anyway. Worth re-checking if AI behaviour is ever reported odd under
 a divider, and not worth blocking on now.
 
+## Verification
+
+Three measurements, because "it should be fine" is not a claim.
+
+**Game speed.** Train, constant forward input, measured over the steady middle of each run:
+
+| Configuration | Speed |
+|---|---|
+| 60fps, one tick per frame | 46.3, 46.5 units/s |
+| uncapped at 500+ fps, auto divider | 46.6, 46.6 units/s |
+
+**Fire rate**, which is the clearest frame-quantised system in the game. Two players in
+multiplayer armed with the RC-P90 through `GETV_MP_ARM=14`, trigger held, counted against the
+wall clock rather than against frames:
+
+| Configuration | Rate |
+|---|---|
+| divider 1, 60Hz simulation | 3.76 rounds/s |
+| uncapped, auto divider | 3.73 rounds/s |
+| uncapped, divider 2 | 3.82 rounds/s |
+
+**The gate itself**, in `getv/port/tests/test_fire_cadence.c`. It models both the retail tick
+modulo and the ported field-crossing test over a minute of video, and asserts the difference:
+
+```
+time-based:  divider 1 = 900 shots
+time-based:  divider 2 = 900 shots
+time-based:  divider 4 = 900 shots
+tick-based:  divider 2 = 450 shots
+tick-based:  divider 4 = 225 shots
+tick-based:  divider 8 = 112 shots
+```
+
+The tick-based column is what every previous attempt at this shipped. It also pins the floor: the
+fastest weapon wants one shot every two video fields, and a 30Hz simulation delivers exactly that,
+with no drift. That is why the auto divider targets 30 and will not go under.
+
 ## Still open
 
-**Per-system verification against retail.** Fire rates, reload timing, turret delay and reaction
-stepping count iterations rather than seconds. They now tick at the simulation rate rather than
-the render rate, which puts them at roughly the cadence the game was authored for, but each one
-has been checked by argument rather than against the real thing.
+**The absolute rates have not been checked against hardware.** Everything above establishes that
+the rate no longer changes with the frame rate, and that it matches the game's own authored
+constants. Whether those constants produce the same rounds per second as a real N64 is a separate
+measurement, and it needs a capture from the real thing.
 
-**The 30Hz floor is real.** A weapon cannot fire more often than the simulation ticks, and the
-fastest in the game wants 29.2 rounds a second. Holding the simulation below about 30Hz clips it
-no matter how correct the time base is, so the auto divider targets 30 and will not go under.
+**Rotation is not interpolated, only position.** A prop spinning fast between ticks still steps.
+Nothing in the campaign spins fast enough for it to show.
 
-**Rotation is not interpolated, only position.** A prop that spins fast between ticks still steps.
-Nothing in the campaign spins fast enough for it to show, which is why it has not been done, not
-because it would be hard.
+**Reload timing, turret delay and reaction stepping** go through the same field counter as fire
+rate, so they should behave the same way. Should is doing work in that sentence: only fire rate
+has been measured.

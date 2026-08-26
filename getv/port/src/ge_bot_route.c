@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
@@ -476,7 +477,7 @@ static void ge_br_log_open(const char *level)
     }
     ge_br_log = fopen(path, "w");
     if (ge_br_log == NULL) { return; }
-    fprintf(ge_br_log, "frame\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
+    fprintf(ge_br_log, "frame\tms\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
     fflush(ge_br_log);
     printf("[getv][botroute] logging every decision to %s\n", path);
     fflush(stdout);
@@ -487,8 +488,12 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
                        int sx, int sy, const char *note)
 {
     if (ge_br_log == NULL) { return; }
-    fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
-            frame, event, node, pad, (double) x, (double) z,
+    /* Wall-clock milliseconds, because a frame number is not a time: a run at 500 fps and one at
+     * 60 reach frame 600 ten seconds apart, and any rate computed from frames compares the two
+     * against different amounts of reality. */
+    fprintf(ge_br_log, "%d\t%lu\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
+            frame, (unsigned long) (clock() * 1000ul / CLOCKS_PER_SEC),
+            event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
     /* Not flushed per row. Measured on Windows, a flushed line at ~24 ms there -- 516
      * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
@@ -1442,6 +1447,33 @@ steer:
      * (botactGetShootInterval60 paces every weapon). A held trigger empties the clip during a
      * turn and leaves nothing for the guard behind it.
      */
+    /* GETV_BOT_FIRE=1: hold the trigger and log the shot counter.
+     *
+     * Instrumentation for the frame-timing work, not bot behaviour. Fire rate is the clearest
+     * frame-quantised system in the game: retail asks whether a tick counter is a multiple of the
+     * weapon's rate, so without the time-based path the rate is constant per TICK and therefore
+     * halves per second every time the simulation divider rises. Holding the trigger and counting
+     * shots against the wall clock is what tells us whether that has actually been fixed. */
+    if (getenv("GETV_BOT_FIRE") != NULL) {
+        GePlayerState ps;
+        int shots = -1;
+
+        memset(&in, 0, sizeof in);
+        /* Cycle to an automatic weapon first. The starting sidearm on most levels is
+         * semi-automatic, so holding its trigger measures nothing: the rate gate under test only
+         * runs for automatics. Needs the all_guns or extra_weapons cheat to have anything to
+         * cycle to. */
+        in.buttons |= GE_IN_FIRE;
+        if (gePlayerStateGet(ge_br_slot, &ps) && (ps.fields & GE_ST_SCORE)) {
+            shots = ps.shots;
+        }
+        ge_br_logf((int) frame, "fire", shots, (int) ((ps.fields & GE_ST_WEAPON) ? ps.weapon : -1),
+                   st.x, st.z, ge_br_heading, 0.0f, 0.0f, 0, 0,
+                   "trigger");
+        gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
+        return;
+    }
+
     /* GETV_BOT_WALK=1: hold full forward and nothing else.
      *
      * A timing benchmark needs the physics without the policy. The follower's own decisions vary
