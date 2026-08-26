@@ -331,7 +331,9 @@ void gePortRenderDisplayList(void *firstGdl)
      * names a slot. */
     {
         extern void gePortBotRouteFrame(int frame);
+        extern void gePortTimingProbeFrame(int frame);
         gePortBotRouteFrame(rendered);
+        gePortTimingProbeFrame(rendered);
     }
 
     /* Recorded human play from the ROM's attract-mode demos, fed through the same seam as the

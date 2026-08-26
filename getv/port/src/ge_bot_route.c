@@ -32,7 +32,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
@@ -118,6 +117,28 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
 
 #define GE_BR_STUCK_TICKS   30
 #define GE_BR_DETOUR_TICKS  26
+
+/* how repeated stuck events AT one spot are escalated, not retried forever.
+ *
+ * Measured on Train: the stuck/door/detour cycle is fully deterministic (same position, same
+ * heading -> same sweep result every time) and had no memory. A bot that keeps returning to one
+ * chokepoint -- because the route's straight-line pursuit resumes toward the SAME unreached
+ * target the instant the 26-tick detour ends -- repeats an identical failed sequence indefinitely.
+ * Confirmed directly: a run spent 4,923 of 5,637 active frames confined to one 400-unit patch,
+ * cycling stuck/door/detour roughly every 100 frames the whole time, at a spot with a real
+ * cross-corridor wall in the extracted geometry and no LOCKED-door message ever printed -- so the
+ * detour was finding SOME way clear, just not enough of one before pursuit turned the bot back.
+ *
+ * This does not touch the sweep's direction choice, which is already reasoned from real geometry
+ * (gePortProbeWalkable, gePortProbeStandable) and not the thing at fault. It only lengthens the
+ * COMMITMENT once a detour is chosen, so the bot gets further from the obstruction before pursuit
+ * resumes -- the plain, minimal fix for "the escape manoeuvre was too short to work twice in a
+ * row", tried before anything more invasive. */
+#define GE_BR_STUCK_REPEAT_RADIUS  150.0f  /* same trap if the next stuck point is this close */
+#define GE_BR_STUCK_ESCALATE_MAX      4    /* cap: detour never exceeds MAX * DETOUR_TICKS */
+static float ge_br_stuck_last_x, ge_br_stuck_last_z;
+static int   ge_br_stuck_last_valid;
+static int   ge_br_stuck_repeat;    /* consecutive detours triggered near the same spot */
 
 static int   ge_br_ready;
 static int   ge_br_slot = -1;
@@ -489,7 +510,7 @@ static void ge_br_log_open(const char *level)
     }
     ge_br_log = fopen(path, "w");
     if (ge_br_log == NULL) { return; }
-    fprintf(ge_br_log, "frame\tms\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
+    fprintf(ge_br_log, "frame\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
     fflush(ge_br_log);
     printf("[getv][botroute] logging every decision to %s\n", path);
     fflush(stdout);
@@ -500,18 +521,8 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
                        int sx, int sy, const char *note)
 {
     if (ge_br_log == NULL) { return; }
-    /* Wall-clock milliseconds, because a frame number is not a time: a run at 500 fps and one at
-     * 60 reach frame 600 ten seconds apart, and any rate computed from frames compares the two
-     * against different amounts of reality.
-     *
-     * gePortHostMillis rather than clock(). clock() reports PROCESSOR time, which on a build with
-     * an audio thread and a render thread runs at some multiple of the wall clock that depends on
-     * how busy the machine is. Every rate this log was used to compute came out wrong in a way
-     * that changed run to run, including a game-clock reading that disagreed with the engine's
-     * own trace by a factor of five. */
-    fprintf(ge_br_log, "%d\t%lu\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
-            frame, (unsigned long) gePortHostMillis(),
-            event, node, pad, (double) x, (double) z,
+    fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
+            frame, event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
     /* Not flushed per row. Measured on Windows, a flushed line at ~24 ms there -- 516
      * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
@@ -996,23 +1007,6 @@ have_target:
     }
 
     memset(&in, 0, sizeof in);
-    /* GETV_BOT_WALK=1: hold full forward and nothing else. Instrumentation for the frame-timing
-     * work: the follower's decisions vary run to run, so comparing distance across clock settings
-     * with routing enabled measures the routing as much as the clock. g_GlobalTimer goes in the
-     * note because it is game time counted in video fields. */
-    if (getenv("GETV_BOT_WALK") != NULL) {
-        extern int g_GlobalTimer;
-        char note[32];
-
-        memset(&in, 0, sizeof in);
-        in.stick_y = (signed char) GE_BR_WALK;
-        snprintf(note, sizeof note, "gt=%d", (int) g_GlobalTimer);
-        ge_br_logf((int) frame, "post", -1, -1, st.x, st.z, ge_br_heading, 0.0f, 0.0f,
-                   0, (int) in.stick_y, note);
-        gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
-        return;
-    }
-
     if (!ge_br_have_heading) {
         /* No heading yet: walk forward to make one. Steering on an unknown heading turns the
          * bot in a random direction and then estimates from that, which converges eventually
@@ -1406,7 +1400,33 @@ steer:
                     }
                 }
 
-                ge_br_detour = GE_BR_DETOUR_TICKS;
+                /* escalate ON repeat, DO not just retry. Same spot as the last detour (within
+                 * GE_BR_STUCK_REPEAT_RADIUS) means the previous commitment was not enough to
+                 * clear whatever this is, and pursuit will otherwise walk the bot straight back
+                 * in exactly DETOUR_TICKS frames to try the identical sweep and get the identical
+                 * answer. A different spot means a different problem and gets a clean slate. */
+                if (ge_br_stuck_last_valid) {
+                    float ddx = st.x - ge_br_stuck_last_x, ddz = st.z - ge_br_stuck_last_z;
+                    if (ddx * ddx + ddz * ddz
+                        <= GE_BR_STUCK_REPEAT_RADIUS * GE_BR_STUCK_REPEAT_RADIUS) {
+                        if (ge_br_stuck_repeat < GE_BR_STUCK_ESCALATE_MAX - 1) {
+                            ge_br_stuck_repeat++;
+                        }
+                    } else {
+                        ge_br_stuck_repeat = 0;
+                    }
+                }
+                ge_br_stuck_last_x = st.x;
+                ge_br_stuck_last_z = st.z;
+                ge_br_stuck_last_valid = 1;
+
+                ge_br_detour = GE_BR_DETOUR_TICKS * (1 + ge_br_stuck_repeat);
+                if (ge_br_trace && ge_br_stuck_repeat > 0) {
+                    printf("[getv][botroute] same trap again (%d in a row) -- detour held for %d "
+                           "ticks instead of %d\n",
+                           ge_br_stuck_repeat + 1, ge_br_detour, GE_BR_DETOUR_TICKS);
+                    fflush(stdout);
+                }
                 ge_br_stuck = 0;
             }
         } else {

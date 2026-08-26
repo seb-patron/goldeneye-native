@@ -24,11 +24,24 @@ import threading
 import time
 
 NUM = r"(-?\d+)"
+# weapon/ammo_clip/ammo_reserve are the last three fields ge_cli.c:173 sends on this line and were
+# never captured -- re.match only needs the pattern to match from the START of the string, so the
+# old, shorter pattern matched successfully every report and silently threw the trailing fields
+# away rather than failing loudly. Same fix as the Key/Collectable landmarks below: capture what
+# is already being sent. Optional (the \s+... )? group so a report from an OLDER binary without
+# these fields still matches rather than breaking outright.
 RE_YOU = re.compile(r"^you\s+\(" + NUM + r"\s+" + NUM + r"\s+" + NUM + r"\)\s+facing\s+" + NUM
-                    + r"\s+room\s+" + NUM + r"\s+hp\s+" + NUM)
+                    + r"\s+room\s+" + NUM + r"\s+hp\s+" + NUM + r"%?"
+                    + r"(?:\s+weapon\s+" + NUM + r"\s+ammo\s+" + NUM + r"/" + NUM + r")?")
 RE_AHEAD = re.compile(r"^ahead\s+(\S.*?)\s{2,}(\d+)\s+away\s+clearest turn\s+([+-]?\d+)\s*\((\d+) room\)")
 RE_OBJ = re.compile(r"^obj\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_DOOR = re.compile(r"^Door\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
+# ge_cli.c reports the nearest Door, Key AND Collectable this way (ge_cli.c:230-237, all three
+# kinds through the same printf), but only Door was ever parsed here -- the other two landmarks
+# were being sent every report and silently dropped. Same regex shape as RE_DOOR, generalised
+# rather than copy-pasted twice, since the format is identical by construction (one format string
+# for all three kinds server-side).
+RE_LANDMARK = re.compile(r"^(Key|Collectable)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_NEAR = re.compile(r"^near\s+(\S+)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_ENEMY = re.compile(r"^enemy\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)(\s+SEES YOU)?")
 
@@ -146,8 +159,14 @@ class Player:
         line = line.strip()
         m = RE_YOU.match(line)
         if m:
-            x, y, z, facing, room, hp = (int(g) for g in m.groups())
+            x, y, z, facing, room, hp, weapon, clip, reserve = m.groups()
+            x, y, z, facing, room, hp = int(x), int(y), int(z), int(facing), int(room), int(hp)
             self.state.update(pos=(x, y, z), facing=facing, room=room, hp=hp)
+            # None on a report from an older binary without these fields (see RE_YOU); left unset
+            # rather than defaulted to 0, so "no ammo data yet" cannot be confused with "no ammo".
+            if weapon is not None:
+                self.state.update(weapon=int(weapon), ammo_clip=int(clip),
+                                  ammo_reserve=int(reserve))
             return
         m = RE_AHEAD.match(line)
         if m:
@@ -187,6 +206,35 @@ class Player:
         m = RE_DOOR.match(line)
         if m:
             self.state["door"] = (int(m.group(1)), int(m.group(2)))
+            return
+        m = RE_LANDMARK.match(line)
+        if m:
+            # Stored, not acted on. Adding a decide() rule ("go get the key when blocked by a
+            # locked door") needs a measured case where the run actually needed one -- this
+            # project's standing practice is grounding a policy in a failure that was observed,
+            # not one that seems plausible. What was a clear, unjustified gap is that the report
+            # already sends this and it was being thrown away; that half is fixed here. The
+            # decision half is left to whoever has a run that shows it is needed.
+            kind = m.group(1).lower()
+            self.state[kind] = (int(m.group(2)), int(m.group(3)))
+
+
+
+# the mac path was the only path. This tool could not run at all on Windows or Linux --
+# subprocess.Popen would raise FileNotFoundError immediately on "getv/build-mac/goldeneye", every
+# time, on every platform that is not mac. Not a config gap noticed later: the tool never ran here
+# even once before this. Resolved by platform first, with an explicit --exe escape hatch for a
+# custom build location, rather than guessing a single new hardcoded path and reproducing the same
+# problem for whoever is on the third platform.
+_DEFAULT_EXE = {
+    "win32":  "getv/build-windows/goldeneye.exe",
+    "darwin": "getv/build-mac/goldeneye",
+    "linux":  "getv/build-linux/goldeneye",
+}
+
+
+def default_exe():
+    return _DEFAULT_EXE.get(sys.platform, _DEFAULT_EXE["linux"])
 
 
 def main():
@@ -196,12 +244,28 @@ def main():
     ap.add_argument("--frames", default="40001")
     ap.add_argument("--every", default="30")
     ap.add_argument("--seconds", type=int, default=240)
+    ap.add_argument("--exe", default=None,
+                    help="path to the goldeneye binary; default picked from sys.platform "
+                         "(%s)" % default_exe())
+    ap.add_argument("--world-dir", default="build/world")
     args = ap.parse_args()
 
-    env = dict(os.environ, GETV_WORLD_DIR="build/world", GETV_BOT_ROUTE_LEVEL=args.level,
+    exe = args.exe or default_exe()
+    if not os.path.isfile(exe):
+        sys.exit("no binary at %s -- build it first, or pass --exe" % exe)
+
+    env = dict(os.environ, GETV_WORLD_DIR=args.world_dir, GETV_BOT_ROUTE_LEVEL=args.level,
                GETV_CLI="1", GETV_CLI_EVERY=args.every, GETV_PADS="2",
                GETV_STAGE=args.stage, GETV_EXIT_FRAME=args.frames)
-    p = subprocess.Popen(["getv/build-mac/goldeneye"], env=env, stdin=subprocess.PIPE,
+    # MinGW's runtime DLLs, or a Windows launch dies with STATUS_DLL_NOT_FOUND and -- because it
+    # is a GUI-subsystem binary -- produces no output and sets no exit code, so a run that never
+    # happened looks exactly like one that printed nothing. Cost an hour once already, elsewhere
+    # in this project (tools/bench_windows.ps1); no reason to pay it again here.
+    if sys.platform == "win32":
+        mingw = r"C:\msys64\mingw64\bin"
+        if os.path.isdir(mingw) and mingw not in env.get("PATH", ""):
+            env["PATH"] = mingw + os.pathsep + env.get("PATH", "")
+    p = subprocess.Popen([exe], env=env, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
     player = Player(p, sys.stdout)
 
