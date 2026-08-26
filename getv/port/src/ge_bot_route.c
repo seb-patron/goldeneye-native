@@ -354,12 +354,19 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * it cannot afford on a level with a timer and a moving train. The next version should fire while
  * still walking the route, and turn to face only what is close enough to matter.
  *
- * GETV_BOT_FIGHT=1 to enable it. */
+ * Firing without stopping was tried too, on the theory that the cost was the standing still.
+ * It is worse: waypoint 4 and dead, against waypoint 4 and alive for stopping to aim, and
+ * waypoint 10 alive for not fighting at all. Shooting announces the bot to a carriage it cannot
+ * win, and it does not need to win -- it needs to walk past. A bot that shoots badly is worse
+ * than one that does not shoot.
+ *
+ * GETV_BOT_FIGHT=1 to enable it, GETV_BOT_AIM=1 to stop and face the target as well. */
 static int   ge_br_fight = 0;
 static int   ge_br_target_id = -1;    /* chrnum of the guard being fought, -1 for none */
 static int   ge_br_engaged;           /* frames spent on this target */
 static float ge_br_fire_sign;         /* latched turn direction while engaging */
 static float ge_br_fire_from;         /* the error the current turn started from */
+static int   ge_br_aim;               /* GETV_BOT_AIM=1: stop and face the target */
 
 /* The stick-versus-heading sense, resolved the same way the steering block resolves it. */
 static int ge_br_sign_of(void)
@@ -608,6 +615,7 @@ void gePortBotRouteInit(void)
     }
     ge_br_recentre = (getenv("GETV_BOT_NEWSWEEP") != NULL);
     ge_br_fight    = (getenv("GETV_BOT_FIGHT") != NULL);
+    ge_br_aim      = (getenv("GETV_BOT_AIM") != NULL);
     ge_br_use_nav  = (getenv("GETV_BOT_NAV") != NULL);
     /* Off until IT wins. The edge model is the right idea and it now genuinely fires -- 173
      * blocking props reported against 4 misses, where the first version using the stan mesh
@@ -1418,62 +1426,69 @@ steer:
                    (int) in.stick_x, (int) in.stick_y, note);
     }
 
-    /* Engage before routing. A guard in front of the bot outranks the next waypoint: the route
-     * will still be there afterwards, and on Train the bot that ignored this died at waypoint 11. */
+    /* Shoot what is already in front, and never stop walking to do it.
+     *
+     * The first version faced its target and stood still, which is how a person plays and not how
+     * this bot can afford to: measured on Train it reached waypoint 4 against 10 for routing
+     * alone, because stopping on a level with a timer and a moving train costs more than the
+     * guard does. GETV_BOT_AIM=1 restores that behaviour for comparison.
+     *
+     * This version never touches steering. It fires when a visible guard is already inside the
+     * cone the game will aim into, and otherwise says nothing, so routing is bit-for-bit what it
+     * would have been. In a corridor that is most of them, because the route and the guards point
+     * the same way.
+     *
+     * Bursts rather than a held trigger, which is the shape Perfect Dark uses
+     * (botactGetShootInterval60 paces every weapon). A held trigger empties the clip during a
+     * turn and leaves nothing for the guard behind it.
+     */
     if (ge_br_fight) {
         GeEnemy tgt;
         int idx = ge_br_pick_target(st.x, st.y, st.z, &tgt);
 
         if (idx >= 0) {
-            float tdx = tgt.x - st.x;
-            float tdz = tgt.z - st.z;
-            float tb = (float) (atan2((double) tdx, (double) tdz) * 180.0 / 3.14159265358979);
+            float tb = (float) (atan2((double) (tgt.x - st.x),
+                                      (double) (tgt.z - st.z)) * 180.0 / 3.14159265358979);
             float terr = ge_br_norm180(tb - ge_br_heading);
             float tmag = (float) fabs((double) terr);
-            float sx;
 
-            /* Latched, for the same reason the route turn is latched, and this is the seventh
-             * place that lesson has had to be learned. A guard directly behind the bot puts the
-             * error at exactly -180, where the normalised value flips sign on the smallest change:
-             * the recorder caught seventeen consecutive frames at terr=-180 with the heading
-             * frozen at 180, the bot turning hard one way and hard back, and never firing.
-             *
-             * Held until the error has dropped by a third or the target is in front. */
-            if (ge_br_fire_sign != 0.0f) {
-                if (tmag < GE_BR_ENGAGE_FACE || tmag < ge_br_fire_from * 0.66f) {
-                    ge_br_fire_sign = 0.0f;
+            if (ge_br_aim) {
+                /* Face the target and stand. Kept for A/B; see the note above. */
+                float sx;
+                if (ge_br_fire_sign != 0.0f) {
+                    if (tmag < GE_BR_ENGAGE_FACE || tmag < ge_br_fire_from * 0.66f) {
+                        ge_br_fire_sign = 0.0f;
+                    }
                 }
-            }
-            if (ge_br_fire_sign == 0.0f && tmag > GE_BR_ENGAGE_FACE) {
-                /* At the antipode the sign of the error is meaningless, so pick a side and
-                 * commit rather than believing a value that is about to flip. */
-                ge_br_fire_sign = (terr < 0.0f) ? -1.0f : 1.0f;
-                ge_br_fire_from = tmag;
+                if (ge_br_fire_sign == 0.0f && tmag > GE_BR_ENGAGE_FACE) {
+                    /* At the antipode the sign of the error is meaningless, so pick a side and
+                     * commit rather than believing a value that is about to flip. */
+                    ge_br_fire_sign = (terr < 0.0f) ? -1.0f : 1.0f;
+                    ge_br_fire_from = tmag;
+                }
+                sx = (float) ge_br_sign_of() * terr * GE_BR_TURN_GAIN;
+                if (ge_br_fire_sign != 0.0f) {
+                    sx = (float) ge_br_sign_of() * ge_br_fire_sign * tmag * GE_BR_TURN_GAIN;
+                }
+                if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
+                if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
+                in.stick_x = (signed char) sx;
+                in.stick_y = 0;
+                in.buttons &= ~GE_IN_USE;
             }
 
-            sx = (float) ge_br_sign_of() * terr * GE_BR_TURN_GAIN;
-            if (ge_br_fire_sign != 0.0f) {
-                sx = (float) ge_br_sign_of() * ge_br_fire_sign * tmag * GE_BR_TURN_GAIN;
-            }
-            if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
-            if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
-
-            in.stick_x = (signed char) sx;
-            in.stick_y = 0;              /* stand and shoot; walking spoils the game's aim assist */
-            in.buttons &= ~GE_IN_USE;    /* the door can wait */
-
-            if ((float) fabs((double) terr) < GE_BR_ENGAGE_FACE) {
+            if (tmag < GE_BR_ENGAGE_FACE) {
                 if (ge_br_burst <= 0) { ge_br_burst = GE_BR_BURST_ON + GE_BR_BURST_OFF; }
                 if (ge_br_burst > GE_BR_BURST_OFF) { in.buttons |= GE_IN_FIRE; }
                 ge_br_burst--;
             } else {
-                ge_br_burst = 0;         /* turning: do not spray the room on the way round */
+                ge_br_burst = 0;
             }
 
             ge_br_logf((int) frame, "engage", tgt.id, gePortNavNearestPad(st.x, st.z),
                        st.x, st.z, ge_br_heading, tb, terr,
                        (int) in.stick_x, (int) in.stick_y,
-                       (in.buttons & GE_IN_FIRE) ? "fire" : "turning");
+                       (in.buttons & GE_IN_FIRE) ? "fire" : "held");
         }
     }
 
