@@ -115,6 +115,14 @@ def extract_blocks(text):
 
 def level_for(name):
     low = name.lower()
+    # ⚠️ Multiplayer arenas share names with solo levels and are DIFFERENT PLACES -- Facility the
+    # mission and Facility the arena have different geometry and different rules. Filing an arena
+    # guide under the solo level would put wrong tactics on a level that already has right ones.
+    if "multiplayer" in low:
+        for hint, lvl in LEVEL_HINTS:
+            if hint in low:
+                return lvl + "_mp"
+        return "_mp"
     for hint, level in LEVEL_HINTS:
         if hint in low:
             return level
@@ -143,8 +151,16 @@ def main():
 
         level = level_for(entry)
         if level is None:
-            unmapped.append(entry)
-            continue
+            # Engine-wide documents -- mechanics, camera and controls, collision and level space,
+            # multiplayer rules -- are not about a level and were being discarded as unmapped.
+            # They are the most broadly useful of the lot: a level guide helps one level, a
+            # collision writeup helps every consumer of the navigation layer.
+            low = entry.lower()
+            if "goldeneye64" in low or "mechanic" in low or "collision" in low or "camera" in low:
+                level = "_engine"
+            else:
+                unmapped.append(entry)
+                continue
 
         text = read_any(path)
         if text is None:

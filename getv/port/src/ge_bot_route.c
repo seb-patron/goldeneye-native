@@ -35,6 +35,7 @@
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
+#include "ge_walls.h"
 #include "ge_enemy_api.h"
 #include "ge_sense_api.h"
 #include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
@@ -182,6 +183,57 @@ static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
 }
 
 
+/* The level's own facts, loaded beside the route.
+ *
+ * build/levels/<level>.brief.json carries what the walkthroughs say about the place -- Train's
+ * lateral_escape=false, its traversal axis, its carriage dimensions -- and <level>.walls.json
+ * carries the walls derived from the floor mesh. Both are loaded and reported; NEITHER steers
+ * yet, and that is a measured decision rather than an unfinished one:
+ *
+ *     Train, best waypoint of 46 reached
+ *     sense sweep alone ............................ step 10
+ *     wall data as a hard veto on heading .......... step  1
+ *     detour sweep narrowed to the carriage width .. step  2
+ *
+ * The data is right and the lever is wrong. A veto tells the bot where it may not go, which it
+ * mostly already avoids, while making it refuse ground it can walk. What the wall set is actually
+ * for is ROUTING -- choosing the path before the first step -- and that is where it goes next.
+ *
+ * GETV_BOT_WALLS=1 turns the veto on for an A/B.
+ */
+static int ge_br_use_walls = 0;
+
+static void ge_br_load_brief(const char *level)
+{
+    char path[512];
+    const char *dir;
+    FILE *f;
+    long size;
+    char *buf;
+
+    dir = getenv("GETV_BRIEF_DIR");
+    if (dir == NULL || *dir == '\0') { dir = "build/levels"; }
+    snprintf(path, sizeof path, "%s/%s.brief.json", dir, level);
+
+    f = fopen(path, "r");
+    if (f == NULL) { return; }
+    fseek(f, 0, SEEK_END);
+    size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (size <= 0 || size > (1 << 20)) { fclose(f); return; }
+    buf = (char *) malloc((size_t) size + 1);
+    if (buf == NULL) { fclose(f); return; }
+    size = (long) fread(buf, 1, (size_t) size, f);
+    fclose(f);
+    buf[size] = '\0';
+
+    if (strstr(buf, "\"lateral_escape\": false") != NULL ||
+        strstr(buf, "\"lateral_escape\":false") != NULL) {
+        printf("[getv][botroute] %s: the level records no lateral escape\n", level);
+    }
+    free(buf);
+}
+
 void gePortBotRouteInit(void)
 {
     const char *e;
@@ -204,6 +256,11 @@ void gePortBotRouteInit(void)
         ge_br_slot = -1;
         return;
     }
+    ge_br_load_brief(e);
+    ge_br_use_walls = (getenv("GETV_BOT_WALLS") != NULL);
+    geWallsLoad(e);
+    (void) ge_br_use_walls;
+
     if (!geWorldLoad(e)) {
         printf("[getv][botroute] no world data for '%s' -- run tools/pack_world.py\n", e);
         ge_br_slot = -1;
