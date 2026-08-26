@@ -89,6 +89,7 @@ extern int bossGetStageNum(void);
 #include "ge_enemy_api.h"
 #include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
 #include "ge_event.h"
+#include "ge_sense_api.h"
 
 static int ge_l_log(lua_State *L)
 {
@@ -516,6 +517,174 @@ static int ge_l_threat_at(lua_State *L)
     return 1;
 }
 
+/* ---------------------------------------------------------------- sensing
+ *
+ * The interaction half of the API. Where the world bindings answer "what does this level
+ * contain", these answer "what is against me, and who is looking" -- which is what a bot needs to
+ * decide anything.
+ *
+ * Contacts are returned with the raw bitmask AND named booleans. The mask is what a mod tests
+ * cheaply; the booleans are what makes a printed line readable, and this API exists to be read.
+ */
+static void ge_l_push_contact(lua_State *L, const GeSenseContact *c)
+{
+    lua_newtable(L);
+    lua_pushinteger(L, (lua_Integer) c->what);        lua_setfield(L, -2, "what");
+    lua_pushnumber(L, (lua_Number) c->distance);      lua_setfield(L, -2, "distance");
+    lua_pushnumber(L, (lua_Number) c->x);             lua_setfield(L, -2, "x");
+    lua_pushnumber(L, (lua_Number) c->z);             lua_setfield(L, -2, "z");
+    lua_pushboolean(L, c->what == GE_SENSE_CLEAR);    lua_setfield(L, -2, "clear");
+    lua_pushboolean(L, (c->what & GE_SENSE_WALL)   != 0); lua_setfield(L, -2, "wall");
+    lua_pushboolean(L, (c->what & GE_SENSE_DOOR)   != 0); lua_setfield(L, -2, "door");
+    lua_pushboolean(L, (c->what & GE_SENSE_OBJECT) != 0); lua_setfield(L, -2, "object");
+    lua_pushboolean(L, (c->what & GE_SENSE_BODY)   != 0); lua_setfield(L, -2, "body");
+}
+
+/* ge.sense_ahead(x, z, heading [, reach]) -> contact table. A ray. */
+static int ge_l_sense_ahead(lua_State *L)
+{
+    GeSenseContact c;
+    float x = (float) luaL_checknumber(L, 1);
+    float z = (float) luaL_checknumber(L, 2);
+    float h = (float) luaL_checknumber(L, 3);
+    float r = (float) luaL_optnumber(L, 4, 300.0);
+    geSenseAhead(x, z, h, r, &c);
+    ge_l_push_contact(L, &c);
+    return 1;
+}
+
+/* ge.sense_ahead_body(x, z, heading [, reach]) -> contact table.
+ *
+ * The one a bot should steer on. A ray fits through gaps a body does not, so sense_ahead can
+ * report clear down a corridor the player cannot enter. */
+static int ge_l_sense_ahead_body(lua_State *L)
+{
+    GeSenseContact c;
+    float x = (float) luaL_checknumber(L, 1);
+    float z = (float) luaL_checknumber(L, 2);
+    float h = (float) luaL_checknumber(L, 3);
+    float r = (float) luaL_optnumber(L, 4, 300.0);
+    geSenseAheadForBody(x, z, h, r, &c);
+    ge_l_push_contact(L, &c);
+    return 1;
+}
+
+/* ge.clearest_heading(x, z, heading [, span] [, reach]) -> degrees.
+ *
+ * A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
+ * reaches. Do NOT steer a body on it: a line has no width, so a gap narrower than the player
+ * passes cleanly and the sweep then returns that gap as the best way out. Use
+ * ge.clearest_heading_body below for anything that moves. */
+static int ge_l_clearest_heading(lua_State *L)
+{
+    float x = (float) luaL_checknumber(L, 1);
+    float z = (float) luaL_checknumber(L, 2);
+    float h = (float) luaL_checknumber(L, 3);
+    float s = (float) luaL_optnumber(L, 4, 90.0);
+    float r = (float) luaL_optnumber(L, 5, 300.0);
+    lua_pushnumber(L, (lua_Number) geSenseClearestHeading(x, z, h, s, r));
+    return 1;
+}
+
+/* ge.clearest_heading_body(x, z, heading [, span] [, reach]) -> degrees, room
+ *
+ * The one anything steering a body must use. Same outward sweep, so the smallest correction still
+ * wins, but every candidate is judged with a body rather than a ray.
+ *
+ * THIS BINDING WAS THE LAST PLACE THE LYING SENSOR SURVIVED. The router and the CLI were both
+ * moved onto the body test; Lua was not, so every mod -- including our own atlas -- was still
+ * being handed the line answer while the C callers had been corrected. Two callers of one idea
+ * with only one fixed is worse than neither being fixed, because the tree looks done.
+ *
+ * Returns TWO values. The second is how far the chosen heading is actually clear for, so a caller
+ * squeezing through a tight place knows how little it bought; discarding it is fine and is what a
+ * caller that only wants a direction will do. */
+static int ge_l_clearest_heading_body(lua_State *L)
+{
+    float room = 0.0f;
+    float x = (float) luaL_checknumber(L, 1);
+    float z = (float) luaL_checknumber(L, 2);
+    float h = (float) luaL_checknumber(L, 3);
+    float s = (float) luaL_optnumber(L, 4, 90.0);
+    float r = (float) luaL_optnumber(L, 5, 300.0);
+    lua_pushnumber(L, (lua_Number) geSenseClearestHeadingForBody(x, z, h, s, r, &room));
+    lua_pushnumber(L, (lua_Number) room);
+    return 2;
+}
+
+/* ge.noticed_by(enemy_index, slot) -> table
+ *
+ * Reports WHICH condition holds rather than a verdict. line-without-facing is a guard you can walk
+ * behind; facing-without-line is one you must not step in front of. `face_unknown` is deliberately
+ * distinct from facing being false -- on a build with no facing accessor, "nobody is looking" would
+ * be a dangerous thing to imply. */
+static int ge_l_noticed_by(lua_State *L)
+{
+    int idx  = (int) luaL_checkinteger(L, 1);
+    int slot = (int) luaL_checkinteger(L, 2);
+    unsigned int m = geSenseNoticedBy(idx, slot);
+    lua_newtable(L);
+    lua_pushinteger(L, (lua_Integer) m);                        lua_setfield(L, -2, "mask");
+    lua_pushboolean(L, (m & GE_NOTICE_LINE) != 0);              lua_setfield(L, -2, "line");
+    lua_pushboolean(L, (m & GE_NOTICE_FACING) != 0);            lua_setfield(L, -2, "facing");
+    lua_pushboolean(L, (m & GE_NOTICE_ALERT) != 0);             lua_setfield(L, -2, "alert");
+    lua_pushboolean(L, (m & GE_NOTICE_FACE_UNKNOWN) != 0);      lua_setfield(L, -2, "face_unknown");
+    lua_pushboolean(L, (m & GE_NOTICE_SEEN) == GE_NOTICE_SEEN); lua_setfield(L, -2, "seen");
+    return 1;
+}
+
+/* ge.watchers(slot) -> could_see, actually_noticing
+ *
+ * Both, because the gap between them is the useful number: many enemies with a line and few
+ * looking is a room you can cross; the two converging is one you cannot. */
+static int ge_l_watchers(lua_State *L)
+{
+    int slot = (int) luaL_checkinteger(L, 1);
+    lua_pushinteger(L, geSenseWatchers(slot));
+    lua_pushinteger(L, geSenseNoticing(slot));
+    return 2;
+}
+
+/* ge.usable(x, y, z) -> array of things within action reach, nearest first. */
+static int ge_l_usable(lua_State *L)
+{
+    GeUsable u[8];
+    int n, i;
+    float x = (float) luaL_checknumber(L, 1);
+    float y = (float) luaL_checknumber(L, 2);
+    float z = (float) luaL_checknumber(L, 3);
+
+    lua_newtable(L);
+    n = geSenseUsable(x, y, z, u, (int) (sizeof u / sizeof u[0]));
+    for (i = 0; i < n; i++) {
+        lua_newtable(L);
+        lua_pushinteger(L, (lua_Integer) u[i].kind);            lua_setfield(L, -2, "kind");
+        lua_pushinteger(L, u[i].prop);                          lua_setfield(L, -2, "prop");
+        lua_pushnumber(L, (lua_Number) u[i].x);                 lua_setfield(L, -2, "x");
+        lua_pushnumber(L, (lua_Number) u[i].y);                 lua_setfield(L, -2, "y");
+        lua_pushnumber(L, (lua_Number) u[i].z);                 lua_setfield(L, -2, "z");
+        lua_pushnumber(L, (lua_Number) u[i].distance);          lua_setfield(L, -2, "distance");
+        lua_pushboolean(L, (u[i].kind & GE_USABLE_DOOR) != 0);  lua_setfield(L, -2, "door");
+        lua_pushboolean(L, (u[i].kind & GE_USABLE_PICKUP) != 0);lua_setfield(L, -2, "pickup");
+        lua_pushboolean(L, (u[i].kind & GE_USABLE_SWITCH) != 0);lua_setfield(L, -2, "switch");
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/* ge.is_stuck(slot [, ticks]) -> bool, recent_travel
+ *
+ * Contact rather than prediction: this is history, not geometry. A bot told to move that has not
+ * moved is stuck whatever a ray says about the space ahead. */
+static int ge_l_is_stuck(lua_State *L)
+{
+    int slot  = (int) luaL_checkinteger(L, 1);
+    int ticks = (int) luaL_optinteger(L, 2, 8);
+    lua_pushboolean(L, geSenseIsStuck(slot, ticks));
+    lua_pushnumber(L, (lua_Number) geSenseRecentTravel(slot));
+    return 2;
+}
+
 /* ge.player_state(slot) -> table, or nil for an empty slot.
  *
  * Only the fields the game can actually report are present. Position is there; angle, health,
@@ -726,6 +895,14 @@ static const luaL_Reg ge_api[] = {
     { "prop_by_tag",   ge_l_prop_by_tag },
     { "props_in_room", ge_l_props_in_room },
     { "clear_queue",   ge_l_clear_queue },
+    { "sense_ahead",        ge_l_sense_ahead },
+    { "sense_ahead_body",   ge_l_sense_ahead_body },
+    { "clearest_heading",   ge_l_clearest_heading },
+    { "clearest_heading_body", ge_l_clearest_heading_body },
+    { "noticed_by",         ge_l_noticed_by },
+    { "watchers",           ge_l_watchers },
+    { "usable",             ge_l_usable },
+    { "is_stuck",           ge_l_is_stuck },
     { "enemies_near",  ge_l_enemies_near },
     { "enemy",         ge_l_enemy },
     { "enemy_count",   ge_l_enemy_count },

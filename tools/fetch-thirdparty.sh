@@ -174,8 +174,43 @@ cmd_regen() {
   # -U0: zero context. The patch is applied to an exact pinned commit, so no context is
   # needed to place the hunks, and omitting it keeps unmodified upstream lines out of a
   # file this repository does distribute.
-  ( cd "$tmp" && diff -ruN -U0 a b ) > "$PATCHFILE"
-  echo "fetch-thirdparty: wrote $PATCHFILE ($(wc -c < "$PATCHFILE" | tr -d ' ') bytes)"
+  #
+  # WRITE TO A TEMPORARY AND MOVE ONLY ON SUCCESS. This used to redirect straight into
+  # $PATCHFILE, and `>` TRUNCATES BEFORE THE SUBSHELL RUNS -- so any failure inside destroyed the
+  # single file carrying every change this project has made to the fifteen third-party sources.
+  #
+  # Not hypothetical: it happened here. Under MSYS the mkdir/cp forks above died with cygheap
+  # `child_copy` errors, so $tmp/b was empty, diff had nothing to compare, and a 363,467-byte
+  # patch became 0 bytes. The sources themselves survived only because they are gitignored and
+  # sat untouched in the working tree; the patch came back only because it IS tracked. Had both
+  # been regenerated together the project would have lost the lot.
+  #
+  # cmd_verify below did report DIFFERS on every file -- the signal existed, but it arrived after
+  # the destruction rather than before it.
+  local out="$tmp/patch.new"
+  if ! ( cd "$tmp" && diff -ruN -U0 a b ) > "$out"; then
+    # diff exits 1 when files differ, which is the NORMAL case here and not an error. Only a
+    # status above 1 is real trouble.
+    [ $? -gt 1 ] && die "diff failed; $PATCHFILE left untouched"
+  fi
+
+  # REFUSE AN EMPTY OR IMPLAUSIBLY SMALL RESULT. Fifteen heavily modified files cannot diff to
+  # nothing, so an empty patch means the comparison did not happen -- not that the changes went
+  # away. Overwriting a good patch with that is the failure this whole block exists to prevent.
+  local newsz oldsz
+  newsz=$(wc -c < "$out" | tr -d ' ')
+  oldsz=0; [ -f "$PATCHFILE" ] && oldsz=$(wc -c < "$PATCHFILE" | tr -d ' ')
+  if [ "$newsz" -eq 0 ]; then
+    die "regenerated patch is EMPTY; $PATCHFILE left untouched at $oldsz bytes"
+  fi
+  # A large shrink is legitimate when changes are genuinely reverted, so this warns and asks
+  # rather than refusing -- but it must never be silent.
+  if [ "$oldsz" -gt 0 ] && [ "$newsz" -lt $(( oldsz / 2 )) ] && [ "${FORCE:-0}" != "1" ]; then
+    die "regenerated patch is $newsz bytes against $oldsz -- less than half. Refusing. Re-run with FORCE=1 if this shrink is intended."
+  fi
+
+  mv -f "$out" "$PATCHFILE"
+  echo "fetch-thirdparty: wrote $PATCHFILE ($newsz bytes, was $oldsz)"
   cmd_verify
 }
 

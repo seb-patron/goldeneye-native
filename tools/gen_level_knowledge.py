@@ -177,6 +177,20 @@ def parse_waypoints(text, stem):
     for i, mm in enumerate(re.finditer(r"\{\s*(0x[0-9a-fA-F]+|-?\d+)\s*,", body)):
         tok = mm.group(1)
         pad = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
+        # STOP AT THE -1 TERMINATOR. bondtypes.h documents pathwaypoints as a -1 terminated
+        # array, and the terminator was being emitted as a real waypoint on EVERY level: Train
+        # reported 105 nodes where the engine has 104, Dam 206 against 205, and so on. It survived
+        # because it looks like a plain data hole -- one waypoint whose pad will not resolve --
+        # rather than like an off-by-one, and every level having exactly one was read as a quirk
+        # of the assets instead of the signature it is.
+        #
+        # Caught by the Mac build measuring 104 LIVE on Train against my 105 offline. Two independent
+        # counts of the same thing disagreeing by exactly one, on every level, is the whole tell.
+        #
+        # Compared unsigned too: the field is read as u32 here, so -1 arrives as 4294967295.
+        # Testing only for -1 would have left this in place on every level.
+        if pad == -1 or pad == 0xFFFFFFFF:
+            break
         out.append({"index": i, "pad": pad})
     return out
 
@@ -248,15 +262,33 @@ def parse_props(text):
     18 positions, which is what a level actually contains.
     """
     out = []
+    # The header word is now CAPTURED rather than skipped over. It was always being matched -- the
+    # `[^\n]*?\)\)` is exactly `_mkword(extrascale, _mkshort(state, type))` -- and the value inside
+    # is the one thing that made prop extents unusable.
     pat = re.compile(
         r"/\*\s*Type\s*=\s*(\w+)\s*;\s*index\s*=\s*(\d+)\s*\*/[^\n]*\n"
-        r"\s*[^\n]*?\)\)\s*,\s*_mkword\(\s*(\d+)\s*,\s*(\d+)\s*\)")
+        r"(\s*[^\n]*?\)\))\s*,\s*_mkword\(\s*(\d+)\s*,\s*(\d+)\s*\)")
+    # EXTRASCALE IS THE PROP'S SCALE, AND IT IS IN THE SETUP FILE ALL ALONG.
+    #
+    # propobj.c:78 records that sub_GAME_7F051F30 computes `scale = extrascale * (1/256)`, so 256
+    # means 1.0. The model bounding boxes in assets/obseg/prop are MODEL space and are useless as
+    # world lengths without it -- Train's median model box is hx=221 against a level only 111 units
+    # wide, about ten times too large. This is the missing multiplier, and it is per PLACEMENT
+    # rather than per model, which is why it has to come from here and not from the model file.
+    #
+    # Captured as None when the header is not in the _mkword(n, _mkshort(...)) form rather than
+    # defaulting to 256. A record whose scale could not be read is NOT a record scaled by 1.0, and
+    # writing 256 there would silently hand every unreadable prop a plausible wrong size -- the
+    # same absent-is-not-zero rule the rest of this pipeline follows.
+    hdr_pat = re.compile(r"\s*_mkword\(\s*(\d+)\s*,\s*_mkshort\(")
     for mm in pat.finditer(text):
+        hm = hdr_pat.match(mm.group(3))
         out.append({
             "type": mm.group(1),
             "propdef": int(mm.group(2)),
-            "obj": int(mm.group(3)),     # object preset id, or chrnum for a Guard
-            "pad": int(mm.group(4)),
+            "obj": int(mm.group(4)),     # object preset id, or chrnum for a Guard
+            "pad": int(mm.group(5)),
+            "extrascale": int(hm.group(1)) if hm else None,
         })
     return out
 
@@ -514,6 +546,47 @@ def parse_prop_census(text, stem):
     return dict(sorted(census.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
+def _apply_prop_extents(props, level):
+    """Attach asset-space hx/hz/radius to every prop that has a model box and a readable scale.
+
+    Silent no-op when build/levels/_prop_extents.json is absent: that file is produced by
+    tools/gen_prop_extents.py, and a fresh tree runs this extractor first. Failing here would make
+    the ordering a hard dependency for a field that is an enrichment, so the extents simply do not
+    appear and every consumer already has to handle their absence.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    table = os.path.join(here, "..", "build", "levels", "_prop_extents.json")
+    if not os.path.isfile(table):
+        return 0
+    try:
+        by_obj = json.load(open(table, encoding="utf-8"))["by_obj"]
+    except Exception:
+        return 0
+
+    try:
+        from pack_world import load_level_scales
+        ls = load_level_scales(os.path.join(here, "..")).get(level)
+    except Exception:
+        return 0
+    if not ls:
+        # No scale means no honest conversion to asset space. Emitting the model-space numbers
+        # anyway would put values ~6.7x too large in front of a bot, so emit nothing.
+        return 0
+
+    n = 0
+    for pr in props:
+        e = by_obj.get(str(pr.get("obj")))
+        es = pr.get("extrascale")
+        if e is None or es is None or es <= 0:
+            continue
+        s = (es / 256.0) * ls
+        pr["hx"] = round(e["hx"] * s, 2)
+        pr["hz"] = round(e["hz"] * s, 2)
+        pr["radius"] = round(e["radius"] * s, 2)
+        n += 1
+    return n
+
+
 def build(name, stem, stage_id, mission, path):
     with open(path, encoding="utf-8", errors="replace") as fh:
         text = fh.read()
@@ -608,6 +681,35 @@ def build(name, stem, stage_id, mission, path):
                 pr["nav_dist"] = round(dist, 1)
             props_located += 1
             prev_positioned = pr["propdef"]
+
+    # ---- prop extents (S1) --------------------------------------------------------------
+    #
+    # A position is a POINT and the world is made of solids: "crate 278 away" is 278 to its CENTRE,
+    # and a bot that still sees room has already walked into the corner. These three numbers are
+    # what let a reader turn a distance into a surface.
+    #
+    # Three multiplications, and all three are needed:
+    #
+    #   model box     assets/obseg/prop/<name>/Model.c, a ModelRoData_BoundingBoxRecord. MODEL
+    #                 space -- Train's median is hx=221 against a carriage 111 units wide.
+    #   extrascale    the per-PLACEMENT scale from this level's own setup data. propobj.c:78 --
+    #                 `scale = extrascale * (1/256)`. The same hatchbolt model is 600 units as a
+    #                 Collectable and 28 as a StandardProp; without this they would be identical.
+    #   levelscale    model boxes are runtime-proportioned and this file is ASSET space.
+    #
+    # EMITTED IN ASSET SPACE, like every other length here. pack_world.py applies
+    # runtime = asset / levelscale to every position it packs, and these ride the same conversion.
+    # Emitting runtime lengths beside asset positions is the "half in one space" failure its own
+    # comment warns about.
+    #
+    # hx/hz ARE UNROTATED half-extents in the model's own frame; `radius` is the XZ circumradius
+    # and is the only one safe to use without knowing the prop's orientation. Both are emitted and
+    # named rather than silently picking one, because a long crate at 45 degrees occupies more
+    # width than its half-extent suggests.
+    #
+    # A prop with no model box or no readable extrascale gets NO extent fields at all rather than
+    # zeros: absent and zero-sized lead to opposite behaviour, and only one of them is true.
+    _apply_prop_extents(props, name)
 
     by_propdef = {pr["propdef"]: pr for pr in props}
     tagged = 0

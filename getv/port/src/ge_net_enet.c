@@ -129,6 +129,13 @@ static void ge_en_open_session(void)
     int i;
     if (geNetIsOpen()) { return; }
 
+    /* ZERO IT FIRST. This struct is filled field by field, so anything added to GeNetTransport
+     * later is stack garbage here until someone remembers to assign it -- and ge_net.c calls
+     * function pointers it finds non-NULL. That very bug was introduced and caught during this
+     * session by adding one optional callback to the struct. The cost of the memset is nothing;
+     * the cost of omitting it lands on whoever extends the struct next, not on whoever left it
+     * uninitialised. */
+    memset(&tp, 0, sizeof tp);
     tp.ctx = NULL;
     tp.send = ge_en_send;
     tp.recv = ge_en_recv;

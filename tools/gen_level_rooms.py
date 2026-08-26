@@ -251,7 +251,7 @@ STAN_STEM = {
 def floor_under(tiles, pos):
     """Height of the floor a body at `pos` would stand on, or None if nothing is beneath it.
 
-    WHY THIS IS EMITTED AT ALL: the port's runtime edge validator has to seed each line-of-sight
+    WHY THIS IS EMITTED AT ALL: the runtime edge validator has to seed each line-of-sight
     test from a stan tile, and the engine's own lookup SNAPS to the nearest standable tile -- which
     can be on the far side of a wall. Seeded three different ways, the same 2926 Bunker 1 pairs
     came out 98%, 73% and 0% walkable. Those are not three estimates; they are one measurement and
@@ -592,6 +592,32 @@ def main():
             if t["is_floor"]:
                 floor_by_room.setdefault(t["room"], []).append(t)
 
+        # WHICH COMPONENT EACH TILE IS IN, so a portal can bridge to a room's MAIN BODY rather
+        # than to whatever tile happens to sit nearest its opening.
+        #
+        # Bunker 1 is why. Room 30 has 226 tiles and exactly one portal, and the nearest tile to
+        # that opening is in a FOUR-TILE island rather than the 202-tile body. The level therefore
+        # reached room 30 through a dead end, and the room looked unreachable while being perfectly
+        # walkable. Nearest-to-the-door is the right instinct and the wrong tile.
+        comp_of = {}
+        cid = 0
+        for t in floor_tiles:
+            if t["tile"] in comp_of:
+                continue
+            stack = [t["tile"]]
+            comp_of[t["tile"]] = cid
+            while stack:
+                cur = stack.pop()
+                for nb in nav.get(cur, ()):
+                    if nb not in comp_of:
+                        comp_of[nb] = cid
+                        stack.append(nb)
+            cid += 1
+
+        comp_size = {}
+        for c in comp_of.values():
+            comp_size[c] = comp_size.get(c, 0) + 1
+
         # `openings` is None when the background model has no portal table -- several levels have
         # none. Guarded rather than assumed: the first version iterated it directly and died
         # mid-run, and because the crash printed above the summary it would have been easy to read
@@ -610,8 +636,22 @@ def main():
                 if not cand:
                     picked = []
                     break
-                best, bestd = None, None
+                # Restrict to the room's LARGEST component. A room split into a body and a few
+                # islands should be entered at its body -- bridging to an island connects the
+                # doorway to a dead end and reports the room as reached.
+                sizes = {}
                 for t in cand:
+                    c = comp_of.get(t["tile"])
+                    if c is not None:
+                        sizes[c] = sizes.get(c, 0) + 1
+                if sizes:
+                    main = max(sizes, key=lambda c: sizes[c])
+                    body = [t for t in cand if comp_of.get(t["tile"]) == main]
+                else:
+                    body = cand
+
+                best, bestd = None, None
+                for t in body:
                     c = t["poly3"]
                     tx = sum(p[0] for p in c) / len(c)
                     tz = sum(p[2] for p in c) / len(c)
@@ -671,7 +711,7 @@ def main():
             # NOTE FOR CONSUMERS: this y is the FLOOR, not a body position. On Bunker 1 they
             # differ by 157 units (pos.y=329 against a floor at 172), so comparing a player
             # position to one of these directly reports a phantom cliff in every direction at
-            # once. Measured by the port, who lost a test cycle to it.
+            # once. Measured by the Mac build, who lost a test cycle to it.
             # THE LINKS ARE THE NAVIGATION MESH AND THEY WERE BEING THROWN AWAY.
             #
             # parse_stan has always read each tile's links to its neighbours; they were used to

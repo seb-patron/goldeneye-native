@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How much of each level does the waypoint graph actually cover?
 
-TASK_QUEUE item 3: eight levels have no graph node within 4000 units of where the player
+SURFACE_QUEUE item 3: eight levels have no graph node within 4000 units of where the player
 starts. The queue attributes that to a coordinate space mismatch, and that is falsified -- every
 level's waypoints and its stan floor share a bounding box to within a few percent (see the bus,
 and tools/audit_route_heights.py for the height half).

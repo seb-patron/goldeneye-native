@@ -165,7 +165,7 @@ Estimate: **1 day**, mostly building GLEW static for the same triple as everythi
 ## 6. The crash handler
 
 `getv/Sources/ge_tvos_main.c:57-113` is the most Apple-specific code in the tree, and
-it is also essential - it is what cracked the Perfect Dark TCC crash
+it is also necessary - it is what cracked the Perfect Dark TCC crash
 and it is the primary debugging tool on this port.
 
 Non-portable pieces:
@@ -344,7 +344,7 @@ setup and stan.
 9. Debugging the first run. **Unbounded and deliberately not estimated.**
 
 Steps 1-4 are worth doing regardless of whether anyone builds for Windows: they are all
-verifiable on macOS today, and every one of them makes the macOS build harder to break.
+verifiable on macOS today and every one of them makes the macOS build more robust.
 
 **Honest overall assessment.** Getting to a first *link* on Windows is on the order of
 **one to two weeks** for someone with the machine, assuming they follow the MinGW route.

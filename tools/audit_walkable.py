@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is a walkability capture trustworthy, and does it meet item 1's finish condition?
 
-TASK_QUEUE item 1: the edge validator's answer depends entirely on the seed tile. Same Bunker 1
+SURFACE_QUEUE item 1: the edge validator's answer depends entirely on the seed tile. Same Bunker 1
 level, same 2926 pairs, three seeds: 98%, 73%, 0% walkable. `sub_GAME_7F0AFB78` snaps to the
 nearest standable tile and *nearest* can be through a wall, so a snap-seeded run reports clear
 lines the player demonstrably cannot walk.

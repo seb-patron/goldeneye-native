@@ -61,7 +61,7 @@ broken build.
 
 ## What is still needed, and it is not in my lane
 
-`vendor/ge-decomp` is mac-getv's lane. The port half is written, compiled and tested; the
+`vendor/ge-decomp` is the lane. The port half is written, compiled and tested; the
 game-side shim is not, and it is about forty lines beside `gePortPlayerPos`:
 
 ```c

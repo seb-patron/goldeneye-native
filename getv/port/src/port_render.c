@@ -15,9 +15,6 @@
  */
 #include <stdint.h>   /* gfx_pc.h uses uint32_t but does not include it */
 #include <stdio.h>
-#include "ge_player_api.h"
-#include "ge_world_api.h"
-#include "ge_sense_api.h"
 
 #include <PR/gbi.h>
 
@@ -28,6 +25,8 @@
 
 #include "gfx_pc.h"
 #include "ge_sky_rdp.h"
+#include "ge_gpu_timer.h"   /* GETV_GPUTIME=1: GPU busy time vs CPU time in the present */
+#include "ge_gl_debug.h"    /* GETV_GLDEBUG=1: who raises the GL_INVALID_OPERATION, and when */
 
 /* ---- GETV_SKYDUMP: prove the sky RDP triangles are recoverable -----------------
  *
@@ -129,6 +128,13 @@ void gePortRenderDisplayList(void *firstGdl)
         return;
     }
 
+    /* GETV_GLDEBUG=1. Installed on the very first frame, which is as early as this lane can reach
+     * the context -- anything raised during GL init is already in the queue by then and the
+     * callback will never see it, so a silent run here means "not raised after init", not "no
+     * error". The poll below covers that case by reporting what is already pending. */
+    geGlDebugInstall();
+    if (geGlDebugEnabled()) { geGlDebugPoll("entry (raised before this frame)", rendered); }
+
     /* Time each stage separately for the first few frames. "It stalls after frame 1" is
      * not actionable; "gfx_end_frame took 20 seconds" is. */
     if (rendered < 5) {
@@ -137,17 +143,73 @@ void gePortRenderDisplayList(void *firstGdl)
         Uint32 t0 = SDL_GetTicks(), t1, t2, t3;
         printf("[getv] frame %d: -> gfx_start_frame\n", rendered); fflush(stdout);
         gfx_start_frame();  t1 = SDL_GetTicks();
+        /* Polled at each stage boundary so the culprit is BISECTED rather than guessed at:
+         * "after gfx_run" and "after gfx_end_frame" are different bodies of code. */
+        if (geGlDebugEnabled()) { geGlDebugPoll("after gfx_start_frame", rendered); }
         printf("[getv] frame %d: -> gfx_run (%ums)\n", rendered, t1 - t0); fflush(stdout);
         gfx_run((Gfx *)firstGdl); t2 = SDL_GetTicks();
+        if (geGlDebugEnabled()) { geGlDebugPoll("after gfx_run", rendered); }
         printf("[getv] frame %d: -> gfx_end_frame (%ums)\n", rendered, t2 - t1); fflush(stdout);
         gfx_end_frame();    t3 = SDL_GetTicks();
+        if (geGlDebugEnabled()) { geGlDebugPoll("after gfx_end_frame", rendered); }
         printf("[getv] frame %d: DONE start=%ums run=%ums end=%ums\n",
                rendered, t1 - t0, t2 - t1, t3 - t2);
         fflush(stdout);
     } else {
+        /* GETV_GPUTIME=1: bracket the frame's GL work and time the present separately.
+         *
+         * Only the steady-state branch is instrumented. The first five frames above are dominated
+         * by asset loading -- frame 0's run stage alone is 159 ms -- and folding those into an
+         * average would produce a figure that describes the loader rather than the game. That is
+         * the same trap as reading the stage timings above as if they were representative.
+         *
+         * The GPU query closes AFTER gfx_end_frame, deliberately: the swap is inside it, and
+         * whether the swap blocks is half of what this is trying to find out. */
+        geGpuTimerFrameBegin();
         gfx_start_frame();
-        gfx_run((Gfx *)firstGdl);
-        gfx_end_frame();
+
+        /* GETV_NODRAW=1 -- the bisection that separates "drawing costs 6 ms" from "a frame costs
+         * 6 ms whatever is in it".
+         *
+         * Every candidate for this port's unexplained ~6 ms of GPU-side time has been eliminated
+         * one at a time -- fill rate, geometry, vsync, the swap, buffer orphaning, the GL error
+         * state -- which is slow going and assumes the cause is on the list. Skipping gfx_run
+         * entirely asks the question directly: with ZERO draw calls, zero state changes and zero
+         * uploads, does the GPU timeline still show 6 ms?
+         *
+         * If it collapses, the cost is in drawing and the search continues there. If it does NOT,
+         * every draw-side hypothesis is dead at once and the cost is in the frame machinery --
+         * context, swapchain or compositor.
+         *
+         * DIAGNOSTIC ONLY: the screen shows nothing, which is the point. gfx_start_frame and
+         * gfx_end_frame still run, so the present still happens and the comparison stays honest --
+         * skipping those too would measure a different thing entirely. */
+        {
+            static int nodraw = -1;
+            if (nodraw < 0) {
+                const char *e = getenv("GETV_NODRAW");
+                nodraw = (e != NULL && *e == '1');
+                if (nodraw) {
+                    printf("[getv] GETV_NODRAW=1: gfx_run SKIPPED. Nothing will be drawn. "
+                           "This is a timing bisection, not a rendering mode.\n");
+                    fflush(stdout);
+                }
+            }
+            if (!nodraw) { gfx_run((Gfx *)firstGdl); }
+        }
+
+        if (geGpuTimerEnabled()) {
+            /* Wall time across the present, on the CPU side. Paired with the GPU figure this
+             * separates "the GPU is busy" from "we are blocked waiting on the driver", which are
+             * indistinguishable from outside the process because neither consumes CPU here. */
+            Uint64 s = SDL_GetPerformanceCounter();
+            gfx_end_frame();
+            geGpuTimerRecordSwap(1000.0 * (double)(SDL_GetPerformanceCounter() - s)
+                                 / (double) SDL_GetPerformanceFrequency());
+        } else {
+            gfx_end_frame();
+        }
+        geGpuTimerFrameEnd();
     }
     rendered++;
 
@@ -272,220 +334,12 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortBotRouteFrame(rendered);
     }
 
-    /* Navigate by doors and objectives rather than pads. Inert unless GETV_BOT_DOORS names a
-     * slot. See ge_bot_doors.c for why pads make a poor target. */
-    {
-        extern void gePortBotDoorsFrame(int frame);
-        gePortBotDoorsFrame(rendered);
-    }
-
-    /* Play from a terminal, through the API alone. If a person can, the API is complete.
-     * Inert unless GETV_CLI is set. */
-    {
-        extern void gePortCliFrame(int frame);
-        gePortCliFrame(rendered);
-    }
-
-    /* Replay the game's own recorded demos. Inert unless GETV_DEMO names a file. */
-    {
-        extern void gePortDemoFrame(int frame);
-        gePortDemoFrame(rendered);
-    }
-
     /* Derive events from what changed this frame and deliver them to subscribers. AFTER the
      * policies above, so an event describes the state they have already acted on rather than a
      * half-updated one. Costs nothing when nobody has subscribed. */
     {
         extern void gePortEventFrame(int frame);
         gePortEventFrame(rendered);
-    }
-
-    /* Measure which graph edges the engine says are walkable, then exit. Inert unless
-     * GETV_EDGEVALIDATE is set. See ge_edge_validate.c for why the offline test was not enough. */
-    {
-        extern void gePortEdgeValidateFrame(int frame);
-        gePortEdgeValidateFrame(rendered);
-    }
-
-    /* GETV_SENSEDUMP=1: what is around the player, once a second.
-     *
-     * The interaction half of the API. Waypoints say where things are; this says what is in the
-     * way and who is looking, which is what a bot needs every tick and could not ask before. */
-    {
-        static int sd = -1;
-        if (sd < 0) { const char *e = getenv("GETV_SENSEDUMP"); sd = (e && *e && *e != '0'); }
-        if (sd && (rendered % 60) == 0) {
-            GePlayerState ps;
-            if (gePlayerStateGet(0, &ps) && ps.present && (ps.fields & GE_ST_ANGLE)) {
-                GeSenseContact ahead;
-                float clear;
-                char what[64];
-
-                geSenseAhead(ps.x, ps.z, ps.angle, 300.0f, &ahead);
-                what[0] = '\0';
-                if (ahead.what == GE_SENSE_CLEAR) { strcpy(what, "clear"); }
-                else {
-                    if (ahead.what & GE_SENSE_WALL)   { strcat(what, "WALL "); }
-                    if (ahead.what & GE_SENSE_DOOR)   { strcat(what, "DOOR "); }
-                    if (ahead.what & GE_SENSE_OBJECT) { strcat(what, "OBJECT "); }
-                    if (ahead.what & GE_SENSE_BODY)   { strcat(what, "BODY "); }
-                }
-                clear = geSenseClearestHeading(ps.x, ps.z, ps.angle, 180.0f, 300.0f);
-                printf("[getv][sense] f=%d ahead=%-18s at %5.0fu   clearest=%+6.0f deg   "
-                       "watchers=%d\n",
-                       rendered, what, (double) ahead.distance,
-                       (double) (clear - ps.angle), geSenseWatchers(0));
-                fflush(stdout);
-            }
-        }
-    }
-
-    /* GETV_WORLDDUMP=1: what the level knowledge can answer, once, from where the player is.
-     *
-     * The extraction is the most valuable thing in this repo and until now almost none of it was
-     * reachable at runtime -- the world API served waypoints, guards and route steps and nothing
-     * else. This is the proof it now answers the questions a modder or an agent would actually
-     * ask, on a real level, rather than a claim that it could. */
-    {
-        static int done = -1;
-        if (done < 0) { const char *e = getenv("GETV_WORLDDUMP"); done = (e && *e && *e != '0') ? -1 : 0; }
-        if (done < 0 && rendered >= 600 && geWorldLoaded()) {
-            GePlayerState ps;
-            GeWorldProp pr;
-            int k, room = -1;
-
-            done = 1;
-            if (gePlayerStateGet(0, &ps) && ps.present) { room = ps.room; }
-
-            printf("[getv][world] %s: %d props\n", geWorldLevel(), geWorldPropCount());
-            for (k = 1; k < GE_PROP_KIND_COUNT; k++) {
-                int n = geWorldPropCountOfKind(k);
-                if (n > 0) { printf("[getv][world]   %-15s %d\n", geWorldPropKindName(k), n); }
-            }
-            if (ps.present) {
-                static const int ask[] = { GE_PROP_KEY, GE_PROP_DOOR, GE_PROP_COLLECTABLE,
-                                           GE_PROP_AMMOBOX, GE_PROP_ARMOUR };
-                unsigned int q;
-                for (q = 0; q < sizeof ask / sizeof ask[0]; q++) {
-                    if (geWorldNearestProp(ask[q], ps.x, ps.y, ps.z, &pr)) {
-                        float dx = pr.x - ps.x, dz = pr.z - ps.z;
-                        printf("[getv][world]   nearest %-12s %6.0f units away, room %d, node %d\n",
-                               geWorldPropKindName(ask[q]),
-                               (double) sqrtf((dx * dx) + (dz * dz)), pr.room, pr.nav_node);
-                    } else {
-                        printf("[getv][world]   nearest %-12s none on this level\n",
-                               geWorldPropKindName(ask[q]));
-                    }
-                }
-                printf("[getv][world]   props in the player's room (%d): %d\n",
-                       room, geWorldPropsInRoom(room, NULL, 0));
-            }
-            fflush(stdout);
-        }
-    }
-
-    /* GETV_FLOORMAP=<n>: print the walkable floor around player 0, once, as a grid.
-     *
-     * "The bot cannot leave x=-1361" is a claim about geometry, and reading it off a stream of
-     * per-frame traces is guesswork. This asks the engine directly, over a grid, and draws the
-     * answer -- so the shape of the room, the exit and the barrier are all visible at once.
-     *
-     * n is the half-width in cells; the cell size is GETV_FLOORMAP_STEP (default 60, about the
-     * radius the stan query snaps within). Printed once, at a fixed frame, so two runs compare.
-     *
-     * Legend: '@' the player, '#' no standable tile, 'x' floor the player cannot reach in a straight line,
-     * '.' reachable floor at the player's level, and
-     * '^'/'v' floor more than a step above or below -- height matters, since a tile a bot cannot
-     * climb to is not a route even though the query says it is standable.
-     */
-    {
-        static int done = -1;
-        if (done < 0) {
-            const char *e = getenv("GETV_FLOORMAP");
-            done = (e && *e && *e != '0') ? -atoi(e) : 0;   /* negative = pending, magnitude = n */
-        }
-        if (done < 0 && rendered >= 600) {
-            extern int gePortProbeStandable(float x, float y, float z, float radius,
-                                            float *out_y, int *out_room);
-            extern int gePortProbeWalkable(float from_x, float from_z, float to_x, float to_z);
-            int n = -done;
-            const char *se = getenv("GETV_FLOORMAP_STEP");
-            float cell = (se && *se) ? (float) atof(se) : 60.0f;
-            GePlayerState ps;
-
-            done = 1;
-            if (gePlayerStateGet(0, &ps) && ps.present) {
-                float base = ps.y;
-                /* The query SNAPS to the nearest standable tile within the radius rather than
-                 * testing the point, so the radius decides what the map means. Large and every
-                 * cell finds something; small and it answers the question actually being asked.
-                 * GETV_FLOORMAP_RADIUS makes that explicit instead of tying it to the cell. */
-                const char *re = getenv("GETV_FLOORMAP_RADIUS");
-                float probe_r = (re && *re) ? (float) atof(re) : 8.0f;
-                int gx, gz;
-
-                gePortProbeStandable(ps.x, ps.y, ps.z, 60.0f, &base, NULL);
-                printf("[getv][floormap] player (%.0f %.0f %.0f) floor y=%.0f  cell=%.0f  "
-                       "+x right, +z down\n",
-                       (double) ps.x, (double) ps.y, (double) ps.z, (double) base, (double) cell);
-                for (gz = -n; gz <= n; gz++) {
-                    char row[192];
-                    int c = 0;
-                    for (gx = -n; gx <= n && c < 190; gx++) {
-                        float fy;
-                        float px = ps.x + (float) gx * cell;
-                        float pz = ps.z + (float) gz * cell;
-                        char ch;
-                        if (gx == 0 && gz == 0) {
-                            ch = '@';
-                        } else if (!gePortProbeStandable(px, base, pz, probe_r, &fy, NULL)) {
-                            ch = '#';
-                        } else if (!gePortProbeWalkable(ps.x, ps.z, px, pz)) {
-                            /* Floor is there and the line to it is blocked. Drawn separately
-                             * because the two failures mean completely different things: '#' is
-                             * "no ground", 'x' is "ground you cannot reach from here". Conflating
-                             * them is what made a room with one doorway look like open floor. */
-                            ch = 'x';
-                        } else if (fy - base > 40.0f) {
-                            ch = '^';
-                        } else if (base - fy > 90.0f) {
-                            ch = 'v';
-                        } else {
-                            ch = '.';
-                        }
-                        row[c++] = ch;
-                    }
-                    row[c] = '\0';
-                    printf("[getv][floormap] %s\n", row);
-                }
-                fflush(stdout);
-            }
-        }
-    }
-
-    /* GETV_STATEAPI=1: the player API's state readout, once a second, per slot.
-     *
-     * The point is the `fields` word rather than the values. Each accessor refuses instead of
-     * writing a zero, so a field missing from the list means the game had no answer -- and a
-     * consumer that cannot see that difference will happily train on it. Printing the list is
-     * the cheapest way to catch an accessor that silently stopped answering. */
-    {
-        static int st = -1;
-        if (st < 0) { const char *e = getenv("GETV_STATEAPI"); st = (e && *e && *e != '0'); }
-        if (st && (rendered % 60) == 0) {
-            int slot;
-            for (slot = 0; slot < 4; slot++) {
-                GePlayerState ps;
-                if (!gePlayerStateGet(slot, &ps) || !ps.present) { continue; }
-                printf("[getv][state] p%d fields=0x%02x pos=(%.0f %.0f %.0f) ang=%.1f room=%d "
-                       "hp=%.1f arm=%.1f dead=%d wpn=%d ammo=%d/%d k=%d d=%d shots=%d\n",
-                       slot, ps.fields, (double) ps.x, (double) ps.y, (double) ps.z,
-                       (double) ps.angle, ps.room, (double) ps.health, (double) ps.armour,
-                       ps.dead, ps.weapon, ps.ammo_clip, ps.ammo_reserve,
-                       ps.kills, ps.deaths, ps.shots);
-            }
-            fflush(stdout);
-        }
     }
 
     {

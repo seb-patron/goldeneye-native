@@ -221,6 +221,13 @@ int gePlayerControlType(int slot);
  * into a wall for eleven hundred frames. */
 int gePlayerSlotIsDrivable(int slot);
 
+/* Non-zero if the input currently applied to this slot commands movement.
+ *
+ * Exists for the contact detector: "stuck" means told to move and did not, and without the first
+ * half an idle bot reports itself jammed. The port knows this and nothing else does -- a mod can
+ * see where a player IS but not what was asked of it. */
+int gePlayerCommandedMove(int slot);
+
 /* ---------------------------------------------------------------- lifecycle */
 
 /* Install the playback hook. Idempotent. Called once during port init; does nothing observable

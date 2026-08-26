@@ -787,7 +787,7 @@ def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
     The waypoint set comes from PADS and a door is a PROP, so doorways were missing from the
-    graph entirely -- and a doorway is the single most essential place in a level. The result
+    graph entirely -- and a doorway is the single most necessary place in a level. The result
     is routes that cut from a node in one room to a node in another along a line no body can
     walk, and a bot that presses into the wall beside the door forever.
 

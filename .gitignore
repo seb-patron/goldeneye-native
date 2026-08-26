@@ -221,16 +221,34 @@ core.*
 # kind that actually holds.
 docs/research/
 
-# Ingested walkthrough text. Third-party prose from other people's sites, kept locally for
-# analysis only -- the tool that produces it travels, the text does not.
-build/levels/*.walkthrough.json
-docs/research/TRAIN_WALKTHROUGH.txt
-docs/research/TRAIN_SPATIAL_MODEL.txt
-build/levels/*.brief.json
+# ENet, fetched by tools/fetch_enet.sh from a pinned commit and never vendored here.
+# Same arrangement as the fast3d sources above and deps/ (SDL2, Lua): the repository does not
+# carry third-party code it did not write. See docs/THIRD_PARTY.md.
+getv/port/thirdparty/
 
-# Run output. Logs and traces can carry absolute paths and machine names, and none of it is
-# reproducible from the tree, so none of it is worth committing.
-/*.log
-*.out
-*.tsv
-*.bundle
+# Measurement artifacts from tools/bench_windows.ps1, bench_ab.ps1 and the GETV_* diagnostic
+# runs. Thirty of these accumulated in the repo root during one performance investigation --
+# they are redirected stdout, not results, and the results live in docs/PERFORMANCE.md.
+/*.out
+/*.err
+/bench_bin/
+/ge-agent-current.bundle
+
+# Third-party walkthrough/reference material and ANYTHING DERIVED FROM IT.
+#
+# tools/ingest_walkthroughs.py says its output stays out of git and cites .gitignore. The DERIVED
+# output was in fact already covered, by the blanket `build/` rule above -- but only incidentally,
+# and nothing named the intent. THE SOURCE FOLDER WAS NOT COVERED AT ALL: dropped at the repo root
+# it would have shown up as untracked and been committable by anyone running `git add -A`.
+#
+# The source documents are community-written and not ours to redistribute. The rules below name
+# the intent explicitly so that a future change to `build/` cannot quietly remove the protection,
+# and so the reason is written down next to it rather than inferred.
+/GoldeneyeWalkthrough/
+# The rule above names the Mac's folder; the material was copied to a DIFFERENT path on
+# this box and landed outside it, showing as untracked and committable. A rule that
+# guesses one spelling protects only that spelling, so both are listed.
+/walkthroughs/
+/Walkthroughs/
+build/levels/_engine.*
+build/levels/*.walkthrough.json

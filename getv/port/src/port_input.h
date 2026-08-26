@@ -1,4 +1,4 @@
-/* GoldenEye native port - the SDL side of input, kept away from <PR/os.h>.
+/* GoldenEye tvOS port - the SDL side of input, kept away from <PR/os.h>.
  *
  * This split is required, not cosmetic. <PR/os.h> redeclares bcopy/bcmp/bzero with
  * `int` lengths, and <SDL.h> pulls in the system <string.h> which declares them with

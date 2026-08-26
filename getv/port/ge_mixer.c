@@ -1,4 +1,4 @@
-/* GoldenEye native port -- the RSP audio microcode (aspMain), in software.
+/* GoldenEye tvOS port -- the RSP audio microcode (aspMain), in software.
  *
  * This file is sm64ex's src/pc/mixer.c (Emill's implementation of the N64 audio
  * microcode) with four changes, all noted inline. It drops in unmodified in every

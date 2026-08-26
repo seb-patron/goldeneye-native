@@ -57,7 +57,7 @@
 #   defines  -DGE_PLATFORM_MAC + DESKTOP   -DGE_PLATFORM_DESKTOP only
 #   link     -framework OpenGL/Cocoa/...   -lGL -lm -ldl -lpthread + SDL2's own libs
 #
-# GE_PLATFORM_DESKTOP is the essential define, not GE_PLATFORM_MAC. It carries the
+# GE_PLATFORM_DESKTOP is the necessary define, not GE_PLATFORM_MAC. It carries the
 # keyboard-as-port-0 device (port_input.c) and the resizable 1280x960 window
 # (port_support.c, ge_tvos_main.c). Without it this build would come up at a fixed
 # 1920x1080 with no keyboard, which is the tvOS arrangement. GE_PLATFORM_MAC is now only

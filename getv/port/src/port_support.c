@@ -1,4 +1,4 @@
-/* GoldenEye native port - the host services Fast3D expects.
+/* GoldenEye tvOS port - the host services Fast3D expects.
  *
  * sm64ex supplies these from its own platform/config/filesystem layers.
  * GoldenEye's decomp has none of that, so the port provides the minimum Fast3D
@@ -311,13 +311,101 @@ void gePortBootMark(const char *what)
  * goes to the device console like everything else. Implemented for real rather than
  * stubbed because it is the decomp's OWN diagnostic channel -- a lot of the game's
  * error paths report through it, and a stub silently discards all of them. */
+/* Non-static so `nm` shows the buffering decision actually took, the same reasoning as
+ * ge_eeprom_flushes: a static would inline away and leave no evidence which mode a run used. */
+int ge_log_flush_each = 0;
+void ge_log_flush_now(void);
+
+/* THE fflush HERE WAS THE FRAME RATE, and gating the callers would have been the wrong fix.
+ *
+ * 516 decomp call sites funnel through this function and every one of them forced a flush.
+ * Measured on this box a flushed stdout line costs about 24 ms when stdout is redirected to a
+ * file, so the ~1,660 lines a Train run emits cost roughly 40 seconds of a 50-second run. With
+ * stdout discarded entirely the same run does 124 fps against 18.
+ *
+ * The obvious response -- put each chatty diagnostic behind its own env gate -- throws away
+ * information to buy speed, and the comment above says why that is a bad trade here: this is the
+ * decomp's OWN error channel and a lot of the game's failure paths report through it. The cost
+ * was never the MESSAGES, it was the flush. So: keep every line, stop syncing after each one.
+ *
+ * stdout is given a real buffer and flushed at exit instead. Output still arrives, still in
+ * order, and a normal run pays for a handful of writes rather than sixteen hundred.
+ *
+ * THE FLUSH EXISTED FOR A REASON, so it is still available. A hard crash can lose whatever sits
+ * in the buffer, which is exactly when a debug channel matters most -- GETV_LOGFLUSH=1 restores
+ * per-line flushing for chasing a hang or a fault. Defaulting it OFF is the right way round
+ * because an unreproducible crash is rare and a 7x slowdown is every single run, but the choice
+ * has to stay available or this becomes a fix that costs someone a day later.
+ */
+static void ge_log_setup(void)
+{
+    static int done = 0;
+    if (done) { return; }
+    done = 1;
+    {
+        const char *e = getenv("GETV_LOGFLUSH");
+        ge_log_flush_each = (e != NULL && *e == '1');
+    }
+    if (!ge_log_flush_each) {
+        /* 64 KB: about forty of this project's longer diagnostic lines per write. Allocated by
+         * the CRT rather than a static of ours, so nothing here has to outlive exit(). */
+        setvbuf(stdout, NULL, _IOFBF, 64 * 1024);
+        /* Buffered output that is never flushed is output that was thrown away, and a run that
+         * ends by exit() rather than by returning from main is the normal case here
+         * (GETV_EXIT_FRAME). Registering the flush is what makes "keep every line" true. */
+        atexit(ge_log_flush_now);
+    }
+}
+
+void ge_log_flush_now(void)
+{
+    fflush(stdout);
+}
+
+/* GETV_LOADTRACE -- the per-model asset chatter, off by default.
+ *
+ * Distinct from the buffering above, and worth keeping distinct. Buffering made the log CHEAP;
+ * this makes it SHORT. They solve different problems and neither replaces the other: a cheap log
+ * still buries the one line you care about under sixteen hundred you do not, and a short log that
+ * synced after every line would still cost the frame rate.
+ *
+ * What it covers is one category -- diagnostics emitted once per model or per asset as it loads:
+ * modelconv, vtxswap, texrow, modeltex, initrw, gdltex/gdltexscale/gdlops/gdlnoop, MEMP big,
+ * bgLoad and bggdl. Sixteen call sites.
+ *
+ * MEASURED, not estimated: a 900-frame Train run goes from 1,662 lines to 1,016 -- 646 lines,
+ * about 39%. An earlier draft of this comment guessed "about 1,500 of ~1,660" before anyone
+ * counted, which would have been a threefold overstatement sitting in the tree as documentation.
+ * The rest of the log is genuinely varied: portals, doors, boot steps, the intro records and the
+ * periodic runtime censuses, each a handful of lines from a different place, with no single
+ * category left worth gating.
+ *
+ * The frame-rate effect is NOT measurable on this box and no figure is claimed for it. With
+ * stdout already buffered these lines cost almost nothing, and the run-to-run spread here is
+ * larger than any gain -- two identical configurations measured 63 and 95 fps. This gate makes
+ * the log SHORT, which is a readability win; the SPEED came from the buffering above. Presenting
+ * a noisy delta as a speedup is how a placebo gets committed.
+ *
+ * IT DELIBERATELY DOES NOT COVER ERROR PATHS. osSyncPrintf has 516 call sites and most of them
+ * are the decomp reporting that something went wrong; gating those wholesale is how a failure
+ * becomes invisible. Only the sites that report SUCCESSFUL, ROUTINE work are wrapped, and each
+ * one was picked by reading it rather than by matching a prefix.
+ */
+int gePortLoadTrace(void)
+{
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("GETV_LOADTRACE"); on = (e != NULL && *e == '1'); }
+    return on;
+}
+
 void osSyncPrintf(const char *fmt, ...)
 {
     va_list ap;
+    ge_log_setup();
     va_start(ap, fmt);
     vprintf(fmt, ap);
     va_end(ap);
-    fflush(stdout);
+    if (ge_log_flush_each) { fflush(stdout); }
 }
 
 /* --- c_item_entries corruption canary ---------------------------------------

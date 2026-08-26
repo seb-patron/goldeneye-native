@@ -249,7 +249,7 @@ static void ge_cli_report(int frame)
      * carries all 4,871 of them; withholding the ones with no navigational purpose was the
      * mistake. */
     {
-        struct { float d, b, x, z; int kind; } near[10];
+        struct { float d, b, x, z, r; int kind; } near[10];
         int count = 0;
 
         n = geWorldPropCount();
@@ -278,13 +278,33 @@ static void ge_cli_report(int frame)
                 near[k].kind = p2.kind;
                 near[k].x = p2.x;
                 near[k].z = p2.z;
+                near[k].r = p2.radius;
                 if (count < 10) { count++; }
             }
         }
         for (i = 0; i < count; i++) {
-            printf("near   %-13s %4.0f away, turn %+.0f, at (%.0f %.0f)\n",
-                   geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b,
-                   (double) near[i].x, (double) near[i].z);
+            /* THE RADIUS TURNS A DISTANCE INTO A SURFACE. "crate 278 away" is 278 to its CENTRE,
+             * so a reader with room to spare has already walked into the corner of it; with
+             * "radius 120" the same line says the surface is at 158.
+             *
+             * Printed as "radius ?" when the pack has none rather than as "radius 0". Guards
+             * have no model box -- 664 props across the twenty levels -- and a reader shown 0
+             * would treat a person as point-sized and walk straight through them. Unknown and
+             * zero-sized are opposite claims and only one of them is true here.
+             *
+             * It is the CIRCUMRADIUS, so it is orientation-safe but generous: it over-reserves
+             * for a square footprint by about 41%. That is the correct direction to be wrong in
+             * for clearance, and the half-extents are in the pack for a caller that knows the
+             * prop's rotation and wants the tighter number. */
+            if (near[i].r > 0.0f) {
+                printf("near   %-13s %4.0f away, turn %+.0f, at (%.0f %.0f), radius %.0f\n",
+                       geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b,
+                       (double) near[i].x, (double) near[i].z, (double) near[i].r);
+            } else {
+                printf("near   %-13s %4.0f away, turn %+.0f, at (%.0f %.0f), radius ?\n",
+                       geWorldPropKindName(near[i].kind), (double) near[i].d, (double) near[i].b,
+                       (double) near[i].x, (double) near[i].z);
+            }
         }
     }
 

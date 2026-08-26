@@ -313,27 +313,6 @@ static s32 ge_playback(struct contsample *samples, s32 curlast)
         }
     }
 
-    /* A replaying demo owns the pads outright.
-     *
-     * It carries what the recording actually held -- both controllers, verbatim -- which is
-     * strictly more information than the slot-level input the routing above reconstructs. Letting
-     * the companion-pad logic run on top would overwrite pad 1's recorded movement with pad 0's
-     * inferred walk, and the replay would diverge for a reason that has nothing to do with the
-     * recording. */
-    {
-        extern int gePortDemoPads(int pad, signed char *sx, signed char *sy, unsigned int *btn);
-        int dp;
-        for (dp = 0; dp < GE_MAX_SLOTS; dp++) {
-            signed char sx, sy;
-            unsigned int btn;
-            if (!gePortDemoPads(dp, &sx, &sy, &btn)) { continue; }
-            samples[index].pads[dp].stick_x = sx;
-            samples[index].pads[dp].stick_y = sy;
-            samples[index].pads[dp].button  = (u16) btn;
-            samples[index].pads[dp].errno   = 0;
-        }
-    }
-
     /* After the pads are decided, not before: the tick a caller posts against is the tick that
      * is about to be consumed. */
     ge_tick++;
@@ -343,6 +322,7 @@ static s32 ge_playback(struct contsample *samples, s32 curlast)
          * detector there is, and it is already proven in this engine. */
         extern u64 g_randomSeed;
         ge_seed_fp = (unsigned int) (g_randomSeed & 0xffffffffu);
+
     }
 
     return index;
@@ -480,6 +460,22 @@ int gePlayerControlType(int slot)
 int gePlayerSlotIsDrivable(int slot)
 {
     return gePlayerControlType(slot) >= 0;
+}
+
+/* Does the input currently applied to this slot ask for movement?
+ *
+ * Reads the HELD input rather than the queue, because held is what the pad is actually showing the
+ * game this frame. A post scheduled for three ticks away is not a command the body has been given
+ * yet, and counting it would report a bot as commanded-and-motionless during the delay it is
+ * supposed to be standing still for.
+ *
+ * A hardware slot answers 0: the port did not command anything there, and reporting a human's own
+ * walking as a bot command would make every player look stuck the moment they touched a wall. */
+int gePlayerCommandedMove(int slot)
+{
+    if (slot < 0 || slot >= GE_MAX_SLOTS)   { return 0; }
+    if (ge_src[slot] != GE_SLOT_INJECTED)   { return 0; }
+    return (ge_held[slot].stick_x != 0 || ge_held[slot].stick_y != 0);
 }
 
 int gePlayerStateGet(int slot, GePlayerState *out)

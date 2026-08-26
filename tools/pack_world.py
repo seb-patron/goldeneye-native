@@ -44,14 +44,18 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MAGIC = b"GEWD"
-VERSION = 2
+VERSION = 3                           # v3: props carry hx, hz, radius
 
 HDR_FMT = "<4sI16s5I"                 # magic, version, level, counts (v2 adds props)
 WP_FMT  = "<HHfff"                    # id, room, x, y, z
 GD_FMT  = "<HHfff"                    # chrnum, room, x, y, z
 OB_FMT  = "<HHHHIfff"                 # index, difficulty, target_count, step_count,
                                       # step_first, tx, ty, tz
-PR_FMT  = "<HHhHfff"                  # type, room, tag, nav_node, x, y, z
+# v3 appends hx, hz, radius. APPENDED, never inserted: the loader reads this record
+# positionally, so adding a field in the middle would silently shift every later one and a prop's
+# room would start reading as its tag. Growing at the end is the only change a positional format
+# tolerates, and the version bump is what stops an old loader reading a new pack at all.
+PR_FMT  = "<HHhHffffff"               # type, room, tag, nav_node, x, y, z, hx, hz, radius
 
 # Prop kinds worth asking about at runtime, in a fixed order that must never be reordered --
 # the pack stores the INDEX, so inserting in the middle silently relabels every prop in every
@@ -186,7 +190,20 @@ def pack_level(level, levels_dir):
                       # tag is signed: -1 means untagged, and 0 is a REAL tag on several levels.
                       int(tag) if tag is not None else -1,
                       (nav if nav is not None else 0xFFFF) & 0xFFFF,
-                      p["pos"][0] * inv, p["pos"][1] * inv, p["pos"][2] * inv))
+                      p["pos"][0] * inv, p["pos"][1] * inv, p["pos"][2] * inv,
+                      # SCALED BY inv, exactly like the positions above. These are asset-space
+                      # LENGTHS in the knowledge file, so they take the same runtime = asset /
+                      # levelscale conversion -- a pack carrying runtime positions beside asset
+                      # extents would report a crate in the right place at 6.7x the wrong size,
+                      # which is the "half in one space" failure this function already warns about.
+                      #
+                      # 0 means NOT KNOWN, not "a point-sized prop". 40 of Train's 342 props are
+                      # Guards, which have no model box at all; a consumer must read 0 as "no
+                      # extent information" and fall back to the centre -- which is precisely the
+                      # behaviour every caller had before this field existed.
+                      float(p.get("hx") or 0.0) * inv,
+                      float(p.get("hz") or 0.0) * inv,
+                      float(p.get("radius") or 0.0) * inv))
 
     blob = struct.pack(HDR_FMT, MAGIC, VERSION, level.encode()[:16],
                        len(waypoints), len(guards), len(objectives), len(steps), len(props))

@@ -1,7 +1,7 @@
 /* The player API's queue discipline -- the seam everything else rides on.
  *
  * Bots, the Lua bridge and netplay all reach the game through gePlayerPost, so its contract is
- * essential in a way none of the consumers are individually. test_intent.c covers which BIT an
+ * necessary in a way none of the consumers are individually. test_intent.c covers which BIT an
  * intent becomes; this covers WHEN input is applied, for how long, and what happens when it is
  * not.
  *
@@ -38,7 +38,7 @@ signed char joyGetStickY(signed char p) { (void) p; return 0; }
 void joySetContDataIndex(int i) { (void) i; }
 int  gePortPlayerPos(int idx, float *out) { (void) idx; (void) out; return 0; }
 
-/* The port accessors. Absent here, which by their own contract means "unavailable" and is the
+/* the accessors. Absent here, which by their own contract means "unavailable" and is the
  * correct answer for a build with no game attached. */
 int gePortPlayerMovePad(int idx) { (void) idx; return -1; }
 int gePortPlayerAngle(int idx, float *d) { (void) idx; (void) d; return 0; }

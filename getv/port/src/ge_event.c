@@ -17,6 +17,7 @@
 #include "ge_event.h"
 #include "ge_player_api.h"
 #include "ge_world_api.h"
+#include "ge_sense_api.h"   /* geSenseContactUpdate: this loop is the detector's only source */
 #include "ge_world_levels.h"
 
 #define GE_EV_MAX_SUBS   16
@@ -123,6 +124,38 @@ void gePortEventFrame(int frame)
     /* Level change first: everything else is per-level state and must be reset before it is
      * compared, or the first frame of a new level reports a room change from the old level's
      * room to the new one. */
+    /* GETV_FPTRACE=1 -- the per-frame simulation fingerprint, for S5 (netplay determinism).
+     *
+     * Lockstep has one correctness property: identical inputs must produce identical simulations.
+     * ge_net.c CATCHES a divergence between two peers, but only after it has happened and only
+     * during a live session -- it reports that two machines disagree, never how long they agreed
+     * or where they parted.
+     *
+     * THE LONG-RUN TEST NEEDS NO SECOND MACHINE. Two peers fed identical inputs are, for the
+     * determinism question, the same thing as ONE binary run twice. Delivering identical inputs is
+     * the network's job and netsim.py already models it; whether the simulation is reproducible
+     * GIVEN them is a separate property, and nothing tested it.
+     *
+     * NECESSARY, NOT SUFFICIENT. A pass means the simulation reproduces itself from the same
+     * inputs; it says nothing about whether the transport delivers them. A FAILURE is decisive
+     * though: a machine that cannot reproduce itself will never agree with another.
+     *
+     * SAMPLED HERE, PER FRAME, AND NOT WHERE ge_seed_fp IS SET. The first version instrumented
+     * ge_playback in ge_player_api.c, which only runs when a caller POSTS input -- with no bot
+     * driving, a 3,000-frame run produced TWO samples. A determinism trace that goes quiet
+     * whenever the thing is idle is worse than none: it reports agreement it never checked.
+     * g_randomSeed is read directly for the same reason -- ge_seed_fp would be stale on any frame
+     * without input. */
+    {
+        static int on = -1;
+        if (on < 0) { const char *e = getenv("GETV_FPTRACE"); on = (e != NULL && *e == '1'); }
+        if (on) {
+            extern unsigned long long g_randomSeed;
+            printf("[getv][fp] %d %08x\n", frame,
+                   (unsigned int) (g_randomSeed & 0xffffffffu));
+        }
+    }
+
     stage = bossGetStageNum();
     if (stage != ge_ev_stage) {
         int old = ge_ev_stage;
@@ -149,6 +182,17 @@ void gePortEventFrame(int frame)
             }
         }
         if (!present) { continue; }
+
+        /* FEED THE CONTACT DETECTOR. It stores a short history of where each slot has been and
+         * whether movement was asked of it, and geSenseIsStuck answers from that rather than from
+         * geometry.
+         *
+         * Done here because this loop already walks every slot once a frame with a position in
+         * hand, and because nothing else was doing it: the detector shipped with storage, a query
+         * and no source, so is_stuck returned false forever and the atlas printed "moving freely"
+         * for a player standing still. A query with no data that answers anyway is worse than one
+         * that refuses -- it reads as a measurement. */
+        geSenseContactUpdate(slot, st.x, st.z, gePlayerCommandedMove(slot));
 
         /* Room and waypoint need world knowledge; without it these simply do not fire, which is
          * correct -- four levels have none. */

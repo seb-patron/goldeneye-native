@@ -76,12 +76,7 @@ import os
 import re
 import sys
 
-# Derived from this file's location, not hardcoded. The default was C:\ge\vendor\ge-decomp,
-# which is correct on exactly one machine and a FileNotFoundError on every other -- and a tool
-# that only runs where it was written cannot be part of a build both sides run. GE_DECOMP still
-# overrides for anyone whose checkout sits elsewhere.
-_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DECOMP = os.environ.get("GE_DECOMP", os.path.join(_HERE, "vendor", "ge-decomp"))
+DECOMP = os.environ.get("GE_DECOMP", r"C:\ge\vendor\ge-decomp")
 PROPDIR = os.path.join(DECOMP, "assets", "obseg", "prop")
 CONSTS = os.path.join(DECOMP, "src", "bondconstants.h")
 

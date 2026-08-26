@@ -1,4 +1,4 @@
-/* GoldenEye native port - ALBankFile: 32-bit big-endian ROM data -> native structs.
+/* GoldenEye tvOS port - ALBankFile: 32-bit big-endian ROM data -> native structs.
  *
  * This is alBnkfNew()'s job, and alBnkfNew() cannot do it here.
  *

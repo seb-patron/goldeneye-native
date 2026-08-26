@@ -37,7 +37,31 @@ param(
   [ValidateSet('all','lib','port','app','dist','clean')]
   [string]$Target = 'all',
   [string]$Mingw  = 'C:\msys64\mingw64',
-  [int]$Jobs      = 0
+  [int]$Jobs      = 0,
+
+  # Optimisation level, and it is a REAL DIAL rather than a constant, which is why it is here.
+  #
+  # This tree was built at -O1 with no comment explaining it, in a file where every other flag
+  # carries a paragraph of justification -- so it reads as inherited, not chosen. On a decomp that
+  # is not automatically wrong: higher levels are more aggressive about code whose behaviour the
+  # original compiler defined by accident, and this source is full of that. -fno-strict-aliasing
+  # stays on at every level for exactly that reason and is NOT negotiable.
+  #
+  # Verified rather than assumed: the port's synthetic clock makes gameplay frames deterministic
+  # (see osGetCount in port_os.c), so two builds fed the same input must emit byte-identical
+  # diagnostics. tools/verify_opt.ps1 compares them. Any level that changes the output is wrong
+  # for this project no matter how fast it is -- an archival build that renders different pixels
+  # is not an archival build.
+  # DEFAULTS TO -O1: THE BEHAVIOUR THIS TREE ALREADY HAD. Introducing the dial and changing the
+  # setting in one step would mean every later measurement compared against a baseline nobody had
+  # ever run. The default moves only when the determinism check has passed and the numbers are in.
+  [ValidateSet('-O0','-O1','-O2','-O3','-Os')]
+  [string]$Opt = '-O1',
+
+  # Link-time optimisation. Off by default: it gives the linker licence to act on cross-module
+  # assumptions that hold in standards C and not in decompiled MIPS output, and the failure mode
+  # is a miscompile rather than an error. Available so it can be measured on demand.
+  [switch]$Lto
 )
 
 # 'Continue', not 'Stop'. PowerShell turns a native program's stderr into an ErrorRecord, and
@@ -154,6 +178,12 @@ $permissive = @(
   '-Wno-error=return-mismatch'
 )
 
+# LTO, when asked for. -ffat-lto-objects keeps a normal object alongside the IR so the static
+# library stays usable by a non-LTO link and so `nm` still reports real symbols -- without it a
+# missing-symbol hunt turns up nothing but IR stubs, which is a miserable way to lose an hour.
+$ltoFlags = @()
+if ($Lto) { $ltoFlags = @('-flto','-ffat-lto-objects') }
+
 $gameFlags = @(
   '-fms-extensions','-include','src/ge_port_decls.h',
   '-I','.','-I','include','-I','include/PR','-I','src','-I','src/game','-I','src/inflate',
@@ -168,7 +198,11 @@ $gameFlags = @(
   # on `conflicting types for fflush`, because the decomp declares it taking void *.
   #
   # The port layer still gets it. The decomp's headers do not shadow anything there.
-) + $warn + $std + $abi + $permissive + @('-fno-strict-aliasing','-O1')
+  # -fno-strict-aliasing is NOT part of the dial and never varies. The decomp reads the same
+  # memory through incompatible types constantly -- that was well-defined on IDO/MIPS and is
+  # undefined in standard C, so letting the optimiser assume it cannot happen miscompiles this
+  # source in ways that surface as wrong pixels rather than as errors.
+) + $warn + $std + $abi + $permissive + @('-fno-strict-aliasing', $Opt) + $ltoFlags
 
 $portFlags = @(
   "-I$here\port", "-I$here\port\include", "-I$here\port\fast3d", "-I$here\port\src",
@@ -176,7 +210,7 @@ $portFlags = @(
 ) + $sdlCFlags + @(
   '-DTARGET_N64','-DGE_PORT_NATIVE','-D_LANGUAGE_C=1','-DRAPI_GL','-DWAPI_SDL2',
   '-DGE_PLATFORM_DESKTOP'
-) + $luaFlags + $imguiFlags + $warn + $std + $abi + $permissive + @('-O1')
+) + $luaFlags + $imguiFlags + $warn + $std + $abi + $permissive + @($Opt) + $ltoFlags
 
 # ---------------------------------------------------------------- batch runner
 function Invoke-Batch {
@@ -205,16 +239,16 @@ function Invoke-Batch {
       # a bad flag and a genuine source error -- which is exactly the ambiguity that cost an
       # afternoon when cc1.exe stopped being able to start and every compile failed silently.
       if ($fail -eq 1) {
-        Write-Output "  first failure in $Label ($f):"
-        $out | Select-Object -First 6 | ForEach-Object { Write-Output "    $_" }
-        Write-Output "    (gcc exit $LASTEXITCODE)"
+        Write-Host "  first failure in $Label ($f):"
+        $out | Select-Object -First 6 | ForEach-Object { Write-Host "    $_" }
+        Write-Host "    (gcc exit $LASTEXITCODE)"
       }
       if (Test-Path $o) { Remove-Item $o -Force -ErrorAction SilentlyContinue }
     }
-    if (($i % 100) -eq 0) { Write-Output ("  $Label ... $i/$n") }
+    if (($i % 100) -eq 0) { Write-Host ("  $Label ... $i/$n") }
   }
-  foreach ($f in $failed) { Write-Output "  windows FAILED: $f" }
-  Write-Output "windows $Label`: $ok built, $fail failed"
+  foreach ($f in $failed) { Write-Host "  windows FAILED: $f" }
+  Write-Host "windows $Label`: $ok built, $fail failed"
   return $fail
 }
 

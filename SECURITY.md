@@ -16,7 +16,7 @@ few days and a fix when there is one, not on a schedule.
 
 ## What is in scope
 
-The exposed surface is not the game itself but everything that runs on your machine to
+The interesting surface here is not the game, it is everything that runs on your machine to
 produce it:
 
 - `tools/fetch-thirdparty.sh`, which downloads the fifteen port-layer sources

@@ -17,7 +17,11 @@
 #define GE_WORLD_API_H
 
 #define GE_WORLD_MAGIC   0x44574547u      /* 'GEWD' little-endian */
-#define GE_WORLD_VERSION 2
+/* v3 added hx/hz/radius to the prop record. Bumped rather than tolerated: the record is read
+ * POSITIONALLY, so a v2 pack fed to a v3 loader would not fail, it would read the next prop's
+ * fields as this one's extents and report confident nonsense. A refusal to load is the only
+ * outcome that is obviously wrong to whoever runs it. */
+#define GE_WORLD_VERSION 3
 
 /* Sentinel for "this thing has no room recorded", which is different from room 0. */
 #define GE_WORLD_NO_ROOM 0xFFFF
@@ -124,6 +128,20 @@ typedef struct GeWorldProp {
     int   tag;                  /* setup tag, or -1 when untagged. 0 IS A REAL TAG. */
     int   nav_node;             /* nearest waypoint, or -1 */
     float x, y, z;
+
+    /* HOW BIG IT IS, not just where. A prop reported "278 away" is 278 to its CENTRE, and a bot
+     * that still sees room has already walked into the corner of it.
+     *
+     * hx/hz are half-extents in the model's own frame and are UNROTATED: a long crate at forty-five
+     * degrees occupies more width than hx suggests. `radius` is the XZ circumradius and is the only
+     * one of the three safe to use without knowing the prop's orientation. Both are carried so the
+     * caller chooses knowingly instead of the pack silently picking one.
+     *
+     * 0 MEANS NOT KNOWN, NOT POINT-SIZED. Guards have no model box -- 40 of Train's 342 props --
+     * and a caller reading 0 as "zero-sized" would walk straight into every one of them. Treat 0 as
+     * "no extent information" and fall back to the centre, which is what every caller did before
+     * these fields existed. */
+    float hx, hz, radius;       /* runtime units; 0 = unknown */
 } GeWorldProp;
 
 int  geWorldPropCount(void);

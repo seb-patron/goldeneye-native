@@ -439,7 +439,7 @@ def main():
                 # NOT kind.rstrip("s"): rstrip removes EVERY trailing s, so "personalities"
                 # became "personalitie". "skill_tiers" survives it, which is why the mistake
                 # passed a casual look at the output -- half the symbols were right. Caught by
-                # the port reviewing the branch rather than by me reading my own output.
+                # the Mac build reviewing the branch rather than by me reading my own output.
                 symbol = "bot_ai_%s_%s" % (GE_KIND_SYMBOL.get(kind, kind), arch["name"])
                 if lvl_name:
                     symbol += "_" + lvl_name

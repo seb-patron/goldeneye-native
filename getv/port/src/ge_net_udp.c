@@ -231,6 +231,10 @@ static void ge_udp_open_session(void)
     int i;
 
     if (geNetIsOpen()) { return; }
+    /* ZERO IT FIRST -- see the same guard in ge_net_enet.c. Anything added to GeNetTransport
+     * later is stack garbage here until someone assigns it, and ge_net.c calls function pointers
+     * it finds non-NULL. */
+    memset(&tp, 0, sizeof tp);
     tp.ctx   = &ge_udp;
     tp.send  = ge_udp_send_all;
     tp.recv  = ge_udp_recv_one;

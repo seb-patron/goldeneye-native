@@ -195,7 +195,7 @@ def main():
         # locale's, which is cp1252 on Windows, and the generated headers contain non-ASCII --
         # so a plain open() raises UnicodeDecodeError on every asset there while working fine
         # on the Mac. newline='' stops Python translating LF to CRLF on the way out, which
-        # would rewrite every line of every asset it touched (docs/DEVELOPMENT.md: nothing
+        # would rewrite every line of every asset it touched (docs/COLLABORATION.md: nothing
         # here sets core.autocrlf, and git must not be handed rewritten endings).
         s = open(f, encoding='utf-8').read()
         for sym in todo:

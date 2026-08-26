@@ -16,6 +16,11 @@
 #include <stdio.h>
 #include <string.h>
 
+/* The header early, before the stubs, because gePortCanStandAt's fake needs GE_BODY_RADIUS to
+ * model a BODY rather than a point. ge_sense_api.c is still included further down as the unit
+ * under test; the header is guarded, so having it twice costs nothing. */
+#include "ge_sense_api.h"
+
 /* ---------------------------------------------------------------- the fake world */
 
 /* Blocking segments, as vertical planes at a given x. A ray from x0 to x1 is blocked if it crosses
@@ -49,6 +54,36 @@ int gePortSenseLine(float fx, float fz, float tx, float tz)
     return fake_line_hits(fx, fz, tx, tz, &what) ? (int) what : 0;
 }
 
+/* The engine's volume test, which geSenseAheadForBody now consumes instead of sampling parallel
+ * lines. Driven from THE SAME blocker geometry as fake_line_hits, deliberately.
+ *
+ * A second, independent fake world would let the ray and the body disagree for reasons that are
+ * about the test rather than about the code -- and the whole point of this pair of functions is
+ * that they see the same obstacles and answer differently BECAUSE ONE HAS WIDTH. The line asks
+ * "does a segment cross this plane inside its z span"; this asks "does a BODY of GE_BODY_RADIUS,
+ * centred here, overlap it". That difference is the entire feature.
+ *
+ * fake_stand_unknown models the -1 "cannot say" return, which is a THIRD state and not a synonym
+ * for blocked. */
+static float fake_stand_unknown = 1e9f;
+int gePortCanStandAt(float x, float z)
+{
+    int i;
+    if (x <= -fake_stand_unknown || x >= fake_stand_unknown) { return -1; }
+    for (i = 0; i < n_blockers; i++) {
+        /* The body straddles the blocker's plane... */
+        if (x > blocker[i].at_x - GE_BODY_RADIUS && x < blocker[i].at_x + GE_BODY_RADIUS) {
+            /* ...and its own z extent overlaps the span that plane blocks. A point test would
+             * compare z alone and squeeze through a gap narrower than the player, which is the
+             * bug this whole path exists to stop. */
+            if (z + GE_BODY_RADIUS >= blocker[i].z_lo && z - GE_BODY_RADIUS <= blocker[i].z_hi) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 static int fake_visible = 1;
 int gePortSenseVisibleTo(int chr_index, int player_index)
 {
@@ -67,11 +102,9 @@ int gePortEnemyFacing(int chr_index, float *out_deg)
     return 1;
 }
 
-/* Suppress the weak fallbacks in the unit under test: this file supplies its own, so that the 1d
- * coverage can drive a fake population. Without this both definitions land in one translation
- * unit and the build fails on redefinition. */
-#define GE_SENSE_NO_WEAK_USABLE 1
-
+/* This file supplies its own gePortUsable* so the 1d coverage can drive a fake population. The
+ * real ones live in ge_usable.c, which this test does not include -- so there is nothing to
+ * collide with now that the weak fallbacks in ge_sense_api.c have been removed. */
 #define FAKE_USABLES 4
 static struct { float x, y, z, kind, prop; } usable[FAKE_USABLES];
 static int n_usables;

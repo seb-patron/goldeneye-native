@@ -39,7 +39,11 @@
 #define OB_SIZE 24          /* idx u16, diff u16, targets u16, steps u16, first u32, x y z f32 */
 #define ST_SIZE 24          /* from u16, to u16, dist f32, heading f32, turn f32, pad f32,
                                threats u16, 2 pad */
-#define PR_SIZE 20          /* kind u16, room u16, tag s16, nav u16, x f32, y f32, z f32 */
+/* v3. The comment is the record layout and must be edited WITH the number above it -- this is
+ * read positionally, so a stale comment beside a changed size is how the next reader computes an
+ * offset from the wrong field list. */
+#define PR_SIZE 32          /* kind u16, room u16, tag s16, nav u16, x f32, y f32, z f32,
+                               hx f32, hz f32, radius f32 */
 
 static struct {
     unsigned char *blob;
@@ -343,6 +347,15 @@ int geWorldProp(int i, GeWorldProp *out)
     out->x = rd_f32(p + 8);
     out->y = rd_f32(p + 12);
     out->z = rd_f32(p + 16);
+
+    /* v3 extents. 0 is written by the packer for anything with no model box -- Guards, and any
+     * prop whose per-placement scale could not be read -- and it means UNKNOWN. It is passed
+     * through as 0 rather than being turned into a default here: this layer's job is to report
+     * what the pack says, and inventing a radius would put a number in front of a bot that no
+     * measurement supports. GeWorldProp's own comment tells callers to fall back to the centre. */
+    out->hx     = rd_f32(p + 20);
+    out->hz     = rd_f32(p + 24);
+    out->radius = rd_f32(p + 28);
     return 1;
 }
 

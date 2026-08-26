@@ -217,12 +217,44 @@ static void geSaveFlush(void)
     }
  fflush(f);
  fclose(f);
+ /* THE SAVE HAS NEVER WORKED ON WINDOWS, AND IT FAILED SILENTLY.
+  *
+  * POSIX rename() atomically REPLACES the destination. Windows rename() REFUSES when the
+  * destination exists, with EEXIST -- so every flush after the file first appeared failed.
+  * Measured on a 900-frame Train run: 112 attempts, 112 failures, 0 successes, every one
+  * reporting "File exists". No save data has ever persisted on this platform.
+  *
+  * It stayed invisible because two things compounded. ge_eep_dirty is cleared only on SUCCESS,
+  * so a failed flush stays dirty and is retried on the next block write -- turning one broken
+  * save into a permanent retry loop that reissued a write and a rename every few frames. And the
+  * SUCCESS path prints only under ge_eep_debug while the FAILURE path always prints, so the log
+  * filled with failures and never carried a baseline to compare them against.
+  *
+  * It was a real performance cost too, not just noise: 112 doomed write+rename pairs each
+  * followed by an unconditional printf, on a box where a flushed stdout line costs about 24 ms.
+  *
+  * MoveFileExA with MOVEFILE_REPLACE_EXISTING is the Windows equivalent of POSIX rename -- it
+  * replaces atomically, which is the property the tmp+rename dance exists for. Declared here
+  * rather than including <windows.h>, because this file's errno is already a compat macro (see
+  * ge_errno above) and pulling that header in beside it invites the collision the shim exists to
+  * avoid. */
+#if defined(_WIN32)
+ {
+  __declspec(dllimport) int __stdcall MoveFileExA(const char *, const char *, unsigned long);
+  if (!MoveFileExA(tmp, ge_eeprom_path, 0x1u /* MOVEFILE_REPLACE_EXISTING */)) {
+   printf("[getv][save] replace %s -> %s failed\n", tmp, ge_eeprom_path);
+   remove(tmp);
+   return;
+  }
+ }
+#else
  if (rename(tmp, ge_eeprom_path) != 0) {
  printf("[getv][save] rename %s -> %s failed: %s\n",
  tmp, ge_eeprom_path, strerror(ge_errno));
  remove(tmp);
  return;
     }
+#endif
  ge_eep_dirty = 0;
  ge_eeprom_flushes++;
  if (ge_eep_debug) {

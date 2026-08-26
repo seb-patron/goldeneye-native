@@ -86,7 +86,7 @@ void gePortEdgeValidateFrame(int frame)
         return;
     }
 
-    /* The schema (tools/walkable_verdicts.py), not a second format of my own. It
+    /* The Surface's schema (tools/walkable_verdicts.py), not a second format of my own. It
      * normalises each edge to (lo, hi), so a pair must be recorded ONCE with a single verdict --
      * which means the direction disagreement has to be resolved here rather than left for the
      * reader to pick whichever row landed last.

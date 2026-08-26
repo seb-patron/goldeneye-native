@@ -1,0 +1,228 @@
+diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
+--- a/src
++++ b/src
+@@ -23,6 +23,13 @@
+ #include "explosion.h"
+ #include "bgroomtrans.h"
+ 
++/* GETV_LOADTRACE -- see gePortLoadTrace() in getv/port/src/port_support.c.
++ *
++ * Wraps the per-model/per-asset diagnostics that report ROUTINE SUCCESS. Error and warning paths
++ * in this file are deliberately NOT wrapped: they must still speak when something breaks. */
++extern int gePortLoadTrace(void);
++#define GE_LOADTRACE(...) do { if (gePortLoadTrace()) { osSyncPrintf(__VA_ARGS__); } } while (0)
++
+ 
+ #define BG_STACK_SIZE 20
+ #define STAGES_MAX 38
+@@ -3148,7 +3155,7 @@
+ 
+     bgConvertRoomGdl(dst, scratch, ncmds);
+ 
+-    osSyncPrintf("[getv] bggdl: %s %p -> %p (%u commands, 8->%u bytes each, %d -> %d bytes)\n",
++    GE_LOADTRACE("[getv] bggdl: %s %p -> %p (%u commands, 8->%u bytes each, %d -> %d bytes)\n",
+                  what, (void *)dst, (void *)scratch, ncmds, (u32)sizeof(Gfx),
+                  raw_size, native_size);
+ 
+diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
+--- a/src
++++ b/src
+@@ -19,6 +19,14 @@
+ #include "quaternion.h"
+ #include "random.h"
+ 
++/* GETV_LOADTRACE -- see gePortLoadTrace() in getv/port/src/port_support.c.
++ *
++ * Wraps the per-model/per-asset diagnostics that report ROUTINE SUCCESS, so a normal run does not
++ * emit ~1,500 lines describing work that went fine. Error and warning paths in this file are
++ * deliberately NOT wrapped: they must still speak when something breaks. */
++extern int gePortLoadTrace(void);
++#define GE_LOADTRACE(...) do { if (gePortLoadTrace()) { osSyncPrintf(__VA_ARGS__); } } while (0)
++
+ 
+ typedef struct ModelGroupMtxBuildArg {
+     u16 flags;
+@@ -7096,12 +7104,12 @@
+                          vtxsegmask, firstvtx_w0, firstvtx_w1);
+             if (nnoop) {
+                 u32 k;
+-                osSyncPrintf("[getv] gdlnoop: %s %u G_NOOP texture placeholders, first texnums:", what, nnoop);
++                GE_LOADTRACE("[getv] gdlnoop: %s %u G_NOOP texture placeholders, first texnums:", what, nnoop);
+                 for (k = 0; k < nnoop_shown; k++) { osSyncPrintf(" %u", noop_tex[k]); }
+                 osSyncPrintf("\n");
+             }
+             {   /* full opcode histogram -- "other" was hiding the answer twice already */
+-                u32 k; osSyncPrintf("[getv] gdlops: %s", what);
++                u32 k; GE_LOADTRACE("[getv] gdlops: %s", what);
+                 for (k = 0; k < 256; k++) { if (ophist[k]) { osSyncPrintf(" %02x:%u", k, ophist[k]); } }
+                 osSyncPrintf("\n");
+             }
+@@ -7147,7 +7155,7 @@
+                          * BEFORE expansion, so its settimg/noop counts are identical in
+                          * both arms and cannot show whether the pass ran. */
+                         if (ge_gdl_texexpand_lists <= 24) {
+-                            osSyncPrintf("[getv] gdltex: %s %u -> %u cmds for %u textures "
++                            GE_LOADTRACE("[getv] gdltex: %s %u -> %u cmds for %u textures "
+                                          "(ratio %u%%, list %lu)\n",
+                                          what, outcount, final_cmds, nnoop, ratio,
+                                          ge_gdl_texexpand_lists);
+@@ -7188,7 +7196,7 @@
+                     }
+                     ge_gdl_nocombine += (ncomb == 0) ? 1 : 0;
+                     if (nnoop && ge_gdl_texexpand_lists <= 24) {
+-                        osSyncPrintf("[getv] gdltexscale: %s settimg=%u gSPTexture=%u "
++                        GE_LOADTRACE("[getv] gdltexscale: %s settimg=%u gSPTexture=%u "
+                                      "zeroscale=%u setcombine=%u first_w1=0x%08x\n",
+                                      what, outtimg, ntex, texscale_zero, ncomb, first_tex_w1);
+                     }
+@@ -8047,7 +8055,7 @@
+         }
+     }
+ 
+-    osSyncPrintf("[getv] modelconv %s: %d nodes converted (file %u bytes/node -> %u)\n",
++    GE_LOADTRACE("[getv] modelconv %s: %d nodes converted (file %u bytes/node -> %u)\n",
+                  what, ge_conv_count, (u32)sizeof(ModelNode_file), (u32)sizeof(ModelNode));
+     /* Cumulative texture-expansion tally, printed once per model file so DAM
+      * and stage 90 are directly comparable with one grep. */
+@@ -8075,14 +8083,14 @@
+      * rather than assumed impossible. skipped>0 is the dedupe doing its job; conflicts>0
+      * would mean an array is claimed as both render and collision and the layout choice
+      * is wrong somewhere. */
+-    osSyncPrintf("[getv] vtxswap %s: base=%p arrays=%d swapped=%d skipped_dupe=%d "
++    GE_LOADTRACE("[getv] vtxswap %s: base=%p arrays=%d swapped=%d skipped_dupe=%d "
+                  "conflicts=%d untracked=%d\n",
+                  what, (void *)base, ge_vtx_ranges, ge_vtx_swapped, ge_vtx_skipped,
+                  ge_vtx_conflicts, ge_vtx_overflow);
+     /* gvtx_seen proves the bounds probe actually ran; gvtx_outside == 0 is what says
+      * numVertices really is the bound the display list works within. maxabs is the
+      * plausibility check: after << before is the signature of a correct swap. */
+-    osSyncPrintf("[getv] vtxswap %s: gvtx_seen=%d gvtx_outside=%d | max|coord| "
++    GE_LOADTRACE("[getv] vtxswap %s: gvtx_seen=%d gvtx_outside=%d | max|coord| "
+                  "big-endian(now)=%d vs byte-reversed(before)=%d\n",
+                  what, ge_vtx_gvtx_seen, ge_vtx_gvtx_outside,
+                  ge_vtx_maxabs_after, ge_vtx_maxabs_before);
+@@ -8091,7 +8099,7 @@
+      * real unresolved address. over = a slice running past numVertices; split = a
+      * single G_VTX load whose own coords are two disjoint clusters, which is the
+      * signature a mis-resolved vertex pointer would actually leave. */
+-    osSyncPrintf("[getv] vtxswap %s: gvtx seg4=%d seg5=%d segother=%d | "
++    GE_LOADTRACE("[getv] vtxswap %s: gvtx seg4=%d seg5=%d segother=%d | "
+                  "slice_overrun=%d slice_split=%d\n",
+                  what, ge_vtx_gvtx_seg4, ge_vtx_gvtx_seg5, ge_vtx_gvtx_segoth,
+                  ge_vtx_gvtx_over, ge_vtx_slice_split);
+@@ -8104,7 +8112,7 @@
+         extern long ge_texout_nonzlib, ge_texout_nonzlib_odd;
+         extern long ge_texalign_calls, ge_texalign_nonci;
+         extern long ge_texpool_realigned;
+-        osSyncPrintf("[getv] texrow: decoded_rows=%ld dst_not_8aligned=%ld | "
++        GE_LOADTRACE("[getv] texrow: decoded_rows=%ld dst_not_8aligned=%ld | "
+                      "zlib=%ld(odd %ld) nonzlib=%ld(odd %ld) | align_calls=%ld nonCI=%ld "
+                      "poolrealigned=%ld\n",
+                      ge_texrow_total, ge_texrow_misaligned,
+@@ -8564,14 +8572,14 @@
+ #ifdef GE_PORT_NATIVE
+     { static int n = 0;
+       if (n < 4) { n++;
+-        osSyncPrintf("[getv] initrw: model=%p datas=%p rwdatalen=%d obj=%p node=%p "
++        GE_LOADTRACE("[getv] initrw: model=%p datas=%p rwdatalen=%d obj=%p node=%p "
+                      "numRecords=%d\n",
+                      (void *)model, model ? (void *)model->datas : 0,
+                      model ? (int)model->rwdatalen : -1,
+                      model ? (void *)model->obj : 0, (void *)startnode,
+                      (model && model->obj) ? (int)model->obj->numRecords : -1); } }
+     if (model == NULL || model->datas == NULL) {
+-        osSyncPrintf("[getv] initrw: no rwdata pool -- skipping\n");
++        GE_LOADTRACE("[getv] initrw: no rwdata pool -- skipping\n");
+         return;
+     }
+ #endif
+diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
+--- a/src
++++ b/src
+@@ -22,6 +22,14 @@
+ 
+ 
+ #include <assets/obseg/file_resource_table.inc.c>
++
++/* GETV_LOADTRACE -- see gePortLoadTrace() in getv/port/src/port_support.c.
++ *
++ * Wraps the per-model/per-asset diagnostics that report ROUTINE SUCCESS, so a normal run does not
++ * emit ~1,500 lines describing work that went fine. Error and warning paths in this file are
++ * deliberately NOT wrapped: they must still speak when something breaks. */
++extern int gePortLoadTrace(void);
++#define GE_LOADTRACE(...) do { if (gePortLoadTrace()) { osSyncPrintf(__VA_ARGS__); } } while (0)
+ /* struct fileentry file_resource_table[] =
+    {
+        blah;
+@@ -220,7 +228,7 @@
+     {
+       while (1){};
+     }
+-    osSyncPrintf("[getv] bgLoad '%s' idx=%d hw=%p off=0x%x len=0x%x rom_size=0x%x -> src=%p dst=%p\n",
++    GE_LOADTRACE("[getv] bgLoad '%s' idx=%d hw=%p off=0x%x len=0x%x rom_size=0x%x -> src=%p dst=%p\n",
+                  bgname ? (const char *)bgname : "(null)", index,
+                  (void *)fileentry->hw_address, (unsigned)offset, (unsigned)len,
+                  (unsigned)resource_lookup_data_array[index].rom_size,
+diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
+--- a/src
++++ b/src
+@@ -11,6 +11,14 @@
+ #include "quaternion.h"
+ #include "tex.h"
+ 
++/* GETV_LOADTRACE -- see gePortLoadTrace() in getv/port/src/port_support.c.
++ *
++ * Wraps the per-model/per-asset diagnostics that report ROUTINE SUCCESS, so a normal run does not
++ * emit ~1,500 lines describing work that went fine. Error and warning paths in this file are
++ * deliberately NOT wrapped: they must still speak when something breaks. */
++extern int gePortLoadTrace(void);
++#define GE_LOADTRACE(...) do { if (gePortLoadTrace()) { osSyncPrintf(__VA_ARGS__); } } while (0)
++
+ 
+ #ifdef GE_PORT_NATIVE
+ /* Model textures: the table lives in big-endian file bytes.
+@@ -81,7 +89,7 @@
+         if (dumps < 24)
+         {
+             dumps++;
+-            osSyncPrintf("[getv] modeltex: entry %d native=0x%08x be=0x%08x -> %s "
++            GE_LOADTRACE("[getv] modeltex: entry %d native=0x%08x be=0x%08x -> %s "
+                          "(w=%u h=%u type=%u)\n",
+                          i, native, be,
+                          ((s32)be < (s32)MAX_TEXTURES) ? "texture number, LOAD"
+@@ -127,7 +135,7 @@
+         }
+     }
+ 
+-    osSyncPrintf("[getv] modeltex: %d entries = %d numbered + %d embedded; "
++    GE_LOADTRACE("[getv] modeltex: %d entries = %d numbered + %d embedded; "
+                  "of the numbered, %d resident in pool, %d MISSING\n",
+                  (s32)objheader->numtextures, numbered, embedded, resident, missing);
+ }
+diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
+--- a/src
++++ b/src
+@@ -168,6 +168,14 @@
+  * signal and no last line, which is the single most expensive failure mode to
+  * diagnose. Report before hanging. */
+ #include <stdio.h>
++
++/* GETV_LOADTRACE -- see gePortLoadTrace() in getv/port/src/port_support.c.
++ *
++ * Wraps the per-model/per-asset diagnostics that report ROUTINE SUCCESS, so a normal run does not
++ * emit ~1,500 lines describing work that went fine. Error and warning paths in this file are
++ * deliberately NOT wrapped: they must still speak when something breaks. */
++extern int gePortLoadTrace(void);
++#define GE_LOADTRACE(...) do { if (gePortLoadTrace()) { osSyncPrintf(__VA_ARGS__); } } while (0)
+ extern void gePortBootMark(const char *);
+ static void ge_memp_die(const char *why, u32 bytes, u8 poolnum, MemoryPool *pool)
+ {
+@@ -240,7 +248,7 @@
+             ge_total[poolnum] += bytes;
+             ge_count[poolnum]++;
+             if (bytes >= 0x100000) {
+-                osSyncPrintf("[getv] MEMP big: pool=%d bytes=%u total=%u count=%u\n",
++                GE_LOADTRACE("[getv] MEMP big: pool=%d bytes=%u total=%u count=%u\n",
+                              (int)poolnum, bytes, ge_total[poolnum], ge_count[poolnum]);
+             } else if ((ge_count[poolnum] % 2000) == 0) {
+                 osSyncPrintf("[getv] MEMP tick: pool=%d count=%u total=%u (avg %u)\n",

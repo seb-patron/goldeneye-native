@@ -133,7 +133,7 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
             # here while the comment claimed it kept the last estimate, so a stationary bot was
             # handed ground truth -- and that is exactly the state the real one cannot escape.
             # The model therefore passed dead reckoning 61/61 while the shipped bot deadlocked
-            # on Bunker 1 for 1100 frames with the stick hard over, which the port measured.
+            # on Bunker 1 for 1100 frames with the stick hard over, which the Mac build measured.
             #
             # A stale estimate persists here now, as it does in C: wrong, and staying wrong
             # until the bot actually moves.

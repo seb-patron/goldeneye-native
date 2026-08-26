@@ -218,6 +218,79 @@ One invariant is worth knowing before reading any of it: this engine stores a CI
 palette immediately after its pixel block, so `GETV_CIPROBE`'s `d` normally equals `blksz`. It
 holds for every decode on Dam and all but two on Depot, and those two are the known Depot
 ground-colour defect. A decode where `d != blksz` is using some other texture's palette.
+## The scripting API
+
+Everything a mod can reach lives in one global table, `ge`. Nothing below reaches into the game:
+mods read knowledge, read state, and post input -- the same shape the C bots and a network peer
+have, which is why a bot can be written entirely in Lua (`mods/route_bot`).
+
+### Hooks you define
+
+| hook | when |
+| --- | --- |
+| `onFrame(frame)` | every rendered frame |
+| `onEvent(name, a, b, c)` | a derived event fired -- see below |
+
+Events are **derived**, not posted by the game: the port compares each frame to the last and emits
+the differences. The names and payloads are `level_change(stage, old)`, `player_spawn(slot)`,
+`player_gone(slot)`, `room_change(slot, new, old)`, `waypoint(slot, id)`,
+`guard_near(slot, chrnum, distance)`, `guard_clear(slot, chrnum)`.
+
+**Do not post input from `onEvent`.** It fires inside the frame hook, so the tick it would post
+for is still being assembled.
+
+### Players
+
+| call | returns |
+| --- | --- |
+| `ge.player_count()` | occupied slots |
+| `ge.player_pos(slot)` | `x, y, z` or nil |
+| `ge.player_state(slot)` | table, or nil for an empty slot |
+| `ge.control_type(slot)` | style number, drivable flag |
+| `ge.post_input(slot, stick_x, stick_y, buttons)` | true if accepted |
+| `ge.clear_queue(slot)` | drops everything queued for that slot |
+
+### The world, as extracted (static)
+
+`ge.world()`, `ge.objectives()`, `ge.objective(i)`, `ge.route_step(objective, n)`,
+`ge.waypoint(id)`, `ge.waypoint_at(index)`, `ge.waypoint_count()`, `ge.waypoint_near(x, y, z)`,
+`ge.guard_at(index)`, `ge.guard_count()`, `ge.guards_near(x, y, z [, radius])`.
+
+### Enemies, as they are right now (live)
+
+`ge.enemies_near(x, y, z [, radius] [, max])`, `ge.enemy(chrnum)`, `ge.enemy_count()`,
+`ge.threat_at(x, y, z [, radius])`.
+
+### Diagnostics
+
+`ge.log(text)`, `ge.stage()`, `ge.postfx(...)`.
+
+### Six things that will bite you
+
+**A missing field is absent, not zero.** `ge.player_state` and `ge.enemy` omit fields the build
+cannot report. `st.health == nil` means "this build cannot read health"; `st.health == 0` means the
+player is dead. Treating the first as the second walks you into a full-health guard.
+
+**Index is not id.** `ge.waypoint_at(i)` takes a position in the table; `ge.waypoint(id)` takes the
+game's own number. Ids are sparse, and synthetic spawn and portal nodes are numbered above every
+natural one. Iterate by index, follow a route by id -- a route step names an id.
+
+**`guards_near` and `enemies_near` answer different questions.** The first is where guards *start*,
+from the extraction. The second is who is *actually there*, alive, now. Reasoning about a level
+from the first is reasoning from a roster that stopped being true the moment anyone fired.
+
+**`ge.threat_at` is not `ge.enemies_near`.** It counts enemies whose *last known target position*
+is near a point -- who is converging on it, not who is standing on it. A spot can be crowded and
+safe, or empty and lethal because three guards are walking to it. It scores a destination, which is
+what to ask before committing to a waypoint.
+
+**`ge.post_input` posts for the NEXT tick and returns false if you were late.** A false return is a
+refusal, not a warning: the tick already ran. Worth reporting rather than swallowing -- in netplay
+the same condition is a desync.
+
+**`ge.enemy_count()` returns two values.** The second says whether a live-enemy source is installed
+at all, so a mod can tell "no enemies here" from "this build cannot see enemies" and say which.
+
 ## Where the game data lives
 
 Everything here is generated from your ROM and is untracked.

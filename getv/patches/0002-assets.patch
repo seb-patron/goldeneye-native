@@ -451,7 +451,7 @@ index e1c904f..692adb3 100644
 +    dlFastPipelineSetup,
 +};
 diff --git a/assets/obseg/setup/e/UsetuplenZ.c b/assets/obseg/setup/e/UsetuplenZ.c
-index ba7616c..3ad5cb5 100644
+index ba7616c..b4c908a 100644
 --- a/assets/obseg/setup/e/UsetuplenZ.c
 +++ b/assets/obseg/setup/e/UsetuplenZ.c
 @@ -1,3 +1,9 @@
@@ -486,7 +486,7 @@ index ba7616c..3ad5cb5 100644
 +PathRecord e_UsetuplenZ_patrolpaths[];
 +AIListRecord e_UsetuplenZ_ailists[];
 +
-+/* native port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
++/* 🔴 tvOS port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
 + * u/, e/ and j/ each define the SAME bare `stagesetup UsetuplenZ` symbol (the arrays are
 + * prefixed u_/e_/j_, but this one is not). All three are ordinary `D` data in one static
 + * archive, so no duplicate-symbol error is raised -- the linker simply pulls whichever
@@ -562,7 +562,7 @@ index ba7616c..3ad5cb5 100644
      _mkword(0, _mkshort(0, 1)), 0, -1, 0,
      /* Type = Credits; index = 3 */
 -    _mkword(0, _mkshort(0, 8)), &credits_data_0,
-+    /* native port -- RECORD DISABLED, and it cannot simply be put back.
++    /* 🔴 tvOS port -- RECORD DISABLED, and it cannot simply be put back.
 +     *
 +     * The line was:
 +     *     _mkword(0, _mkshort(0, 8)), &e_UsetuplenZ_credits_data_0,
@@ -697,7 +697,7 @@ index ba7616c..3ad5cb5 100644
      { NULL, 0x00000000 }
  };
 diff --git a/assets/obseg/setup/j/UsetuplenZ.c b/assets/obseg/setup/j/UsetuplenZ.c
-index fe33622..4d93604 100644
+index fe33622..3321c9f 100644
 --- a/assets/obseg/setup/j/UsetuplenZ.c
 +++ b/assets/obseg/setup/j/UsetuplenZ.c
 @@ -1,3 +1,9 @@
@@ -732,7 +732,7 @@ index fe33622..4d93604 100644
 +PathRecord j_UsetuplenZ_patrolpaths[];
 +AIListRecord j_UsetuplenZ_ailists[];
 +
-+/* native port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
++/* 🔴 tvOS port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
 + * u/, e/ and j/ each define the SAME bare `stagesetup UsetuplenZ` symbol (the arrays are
 + * prefixed u_/e_/j_, but this one is not). All three are ordinary `D` data in one static
 + * archive, so no duplicate-symbol error is raised -- the linker simply pulls whichever
@@ -811,7 +811,7 @@ index fe33622..4d93604 100644
      _mkword(0, _mkshort(0, 1)), 0, -1, 0,
      /* Type = Credits; index = 3 */
 -    _mkword(0, _mkshort(0, 8)), &credits_data_0,
-+    /* native port -- RECORD DISABLED, and it cannot simply be put back.
++    /* 🔴 tvOS port -- RECORD DISABLED, and it cannot simply be put back.
 +     *
 +     * The line was:
 +     *     _mkword(0, _mkshort(0, 8)), &j_UsetuplenZ_credits_data_0,
@@ -946,7 +946,7 @@ index fe33622..4d93604 100644
      { NULL, 0x00000000 }
  };
 diff --git a/assets/obseg/setup/u/UsetuplenZ.c b/assets/obseg/setup/u/UsetuplenZ.c
-index cf548a2..47ad951 100644
+index cf548a2..4462e06 100644
 --- a/assets/obseg/setup/u/UsetuplenZ.c
 +++ b/assets/obseg/setup/u/UsetuplenZ.c
 @@ -1,3 +1,9 @@
@@ -1047,7 +1047,7 @@ index cf548a2..47ad951 100644
      _mkword(0, _mkshort(0, 1)), 0, -1, 0,
      /* Type = Credits; index = 3 */
 -    _mkword(0, _mkshort(0, 8)), &credits_data_0,
-+    /* native port -- RECORD DISABLED, and it cannot simply be put back.
++    /* 🔴 tvOS port -- RECORD DISABLED, and it cannot simply be put back.
 +     *
 +     * The line was:
 +     *     _mkword(0, _mkshort(0, 8)), &u_UsetuplenZ_credits_data_0,

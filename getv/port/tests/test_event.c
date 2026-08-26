@@ -35,6 +35,27 @@ static int fake_nguards;
 
 int bossGetStageNum(void) { return fake_stage; }
 
+/* The derive now feeds the contact detector, which is the fix for it having shipped with storage,
+ * a query and no source -- geSenseIsStuck returned false forever and the atlas printed "moving
+ * freely" for a stationary player. Recorded rather than ignored so the wiring is asserted: a stub
+ * that swallows the call would let the same gap reappear silently. */
+static int   contact_calls;
+static int   contact_slot;
+static float contact_x, contact_z;
+static int   contact_commanded;
+static int   fake_commanded = 1;
+
+int gePlayerCommandedMove(int slot) { (void) slot; return fake_commanded; }
+
+void geSenseContactUpdate(int player_slot, float x, float z, int commanded_move)
+{
+    contact_calls++;
+    contact_slot = player_slot;
+    contact_x = x;
+    contact_z = z;
+    contact_commanded = commanded_move;
+}
+
 int gePlayerStateGet(int slot, GePlayerState *out)
 {
     if (slot != 0 || out == NULL) { return 0; }
@@ -129,6 +150,26 @@ int main(void)
      * indistinguishable from one that works until a mod tries to count anything. */
     tick();
     check("steady state is silent",      cap_n, 0);
+
+    /* THE CONTACT DETECTOR IS FED. It shipped with storage, a query and no source, so is_stuck
+     * answered false forever and read as a measurement. This asserts the source exists, carries
+     * the right slot and position, and passes the commanded flag through -- all four, because a
+     * call with the wrong slot or a dropped flag would still make the linker happy. */
+    contact_calls = 0;
+    fake_px = 11.0f; fake_pz = 22.0f;
+    fake_commanded = 1;
+    tick();
+    check("contact fed once per present slot", contact_calls, 1);
+    check("  with the right slot",             contact_slot, 0);
+    check("  and the position",                (int) contact_x, 11);
+    check("  and the commanded flag",          contact_commanded, 1);
+
+    fake_commanded = 0;
+    tick();
+    check("commanded flag passes through 0",   contact_commanded, 0);
+    fake_commanded = 1;
+    fake_px = 0.0f; fake_pz = 0.0f;
+    tick();
 
     /* ---------------- guard enters the NEAR radius ---------------- */
     fake_nguards = 1;

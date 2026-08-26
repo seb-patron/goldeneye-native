@@ -1,4 +1,4 @@
-/* GoldenEye native port - Fast3D's SDL backend registers keyboard callbacks.
+/* GoldenEye tvOS port - Fast3D's SDL backend registers keyboard callbacks.
  *
  * The Apple TV has no keyboard: input comes from an MFi/PS5/Xbox gamepad through
  * the GameController framework, which SDL surfaces as a joystick. These exist only
