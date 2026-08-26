@@ -63,6 +63,7 @@ static int   ge_cli_hold;          /* ticks left on the current command */
 static int   ge_cli_sx, ge_cli_sy;
 static unsigned int ge_cli_buttons;
 static int   ge_cli_report_now;
+static int   ge_cli_map_now;
 
 static float ge_cli_norm180(float a)
 {
@@ -110,7 +111,7 @@ static void ge_cli_setup(void)
                           == GE_CLI_FILE_TYPE_PIPE);
 #endif
     gePlayerClaim(ge_cli_slot, GE_SLOT_INJECTED);
-    printf("[cli] playing slot %d. commands: w/s/a/d <ticks>, use, fire, look, stop, quit\n",
+    printf("[cli] playing slot %d. commands: w/s/a/d <ticks>, use, fire, look, map, stop, quit\n",
            ge_cli_slot);
     fflush(stdout);
 }
@@ -134,6 +135,8 @@ static void ge_cli_command(const char *line)
     else if (strcmp(verb, "use") == 0)  { ge_cli_buttons = GE_IN_USE; ge_cli_sy = GE_CLI_WALK; }
     else if (strcmp(verb, "fire") == 0) { ge_cli_buttons = GE_IN_FIRE; ge_cli_hold = 6; }
     else if (strcmp(verb, "look") == 0) { ge_cli_hold = 0; ge_cli_report_now = 1; }
+    else if (strcmp(verb, "map") == 0)  { ge_cli_hold = 0; ge_cli_map_now = 1;
+                                          ge_cli_report_now = 1; }
     else if (strcmp(verb, "stop") == 0) { ge_cli_hold = 0; }
     else if (strcmp(verb, "quit") == 0) { printf("[cli] bye\n"); fflush(stdout); exit(0); }
     else {
@@ -144,6 +147,44 @@ static void ge_cli_command(const char *line)
     }
     fflush(stdout);
 }
+
+/* The floor around you, as a picture.
+ *
+ * Every other line in this report is a bearing and a range, which tells you about one thing at a
+ * time. None of them answers "which way can I actually go", and that is the question a player
+ * stuck against a wall is really asking. A body either fits somewhere or it does not, and the
+ * engine will answer that for any point, so ask it for a few hundred points and draw the answer.
+ *
+ * North is up, matching the compass line: -z is up, +x is right. The cells are 60 units, about a
+ * third of a metre, which is fine enough to show a doorway and coarse enough to fit on a screen.
+ */
+static void ge_cli_print_map(const GePlayerState *st)
+{
+    extern int gePortCanStandAt(float x, float z);
+    extern int gePortTileAt(float x, float z, int *out_id, int *out_room);
+    const float cell = 60.0f;
+    const int half = 10;
+    int gz, gx;
+
+    printf("map    %d cells of %.0f units, north up, @ is you\n", half * 2 + 1, (double) cell);
+    for (gz = -half; gz <= half; gz++) {
+        printf("       ");
+        for (gx = -half; gx <= half; gx++) {
+            float x = st->x + (float) gx * cell;
+            float z = st->z + (float) gz * cell;
+            char c;
+
+            if (gx == 0 && gz == 0)            { c = '@'; }
+            else if (gePortCanStandAt(x, z))   { c = '.'; }
+            else if (gePortTileAt(x, z, NULL, NULL)) { c = ':'; }   /* floor, but no room to stand */
+            else                               { c = '#'; }
+            putchar(c);
+        }
+        putchar('\n');
+    }
+    printf("       . you fit   : floor but too tight   # no floor\n");
+}
+
 
 static void ge_cli_poll_stdin(void)
 {
@@ -499,6 +540,11 @@ static void ge_cli_report(int frame)
                    (double) ge_cli_rel(st.x, st.z, ob.tx, ob.tz, st.angle),
                    ob.steps ? "" : "  (no route solved)");
         }
+    }
+
+    if (ge_cli_map_now) {
+        ge_cli_map_now = 0;
+        ge_cli_print_map(&st);
     }
 
     printf("> ");

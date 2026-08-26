@@ -41,7 +41,8 @@ RE_DOOR = re.compile(r"^Door\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 # were being sent every report and silently dropped. Same regex shape as RE_DOOR, generalised
 # rather than copy-pasted twice, since the format is identical by construction (one format string
 # for all three kinds server-side).
-RE_LANDMARK = re.compile(r"^(Key|Collectable)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
+RE_LANDMARK = re.compile(r"^(Key|Collectable)\s+(?:tag\s+(-?\d+)\s+)?(\d+)\s+away,"
+                         r"\s+turn\s+([+-]?\d+)(?:,\s+room\s+(\d+))?")
 RE_NEAR = re.compile(r"^near\s+(\S+)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 # hp and alert are optional so an older binary's shorter line still matches rather than being
 # dropped in silence. DYING is the game's death animation already running: the character is still
@@ -146,9 +147,39 @@ class Player:
         threats = [(d, b) for (d, b) in seen_by if d < reach]
         if threats:
             d, b = threats[0]
+
+            # AN EMPTY CLIP IS A GAP, NOT A DECISION. The game reloads on its own -- measured on
+            # Train, the clip went 1/93 to 7/87 with no command -- but the reload takes time, and
+            # spending it standing in front of the guard that emptied us is how the health goes.
+            # Turn away and put ground between us while it happens; the reserve is what says
+            # whether there is any point waiting at all.
+            clip = s.get("ammo_clip")
+            reserve = s.get("ammo_reserve", 0)
+            if clip == 0 and reserve > 0:
+                self.queue.append("w 60")
+                return self.turn_cmd(150 if b >= 0 else -150)
+
             if abs(b) > 12:
                 return self.turn_cmd(max(-45, min(45, b)))
             return "fire"
+
+        # WHAT THE DEAD WERE CARRYING. Guards drop what they hold, and on Train that includes the
+        # key a locked door wants. Collecting it is only sensible once nothing is shooting, which
+        # is exactly where this sits: every threat rule above has already declined to fire.
+        #
+        # Same room only. A key four rooms away is a fact about the level, not an errand, and
+        # walking at one through three closed doors is how a run ends up back where it started.
+        for kind in ("Key", "Collectable"):
+            item = s.get(kind)
+            if not item:
+                continue
+            d, bear, room = item
+            if d > 1200 or room != s.get("room"):
+                continue
+            if abs(bear) > 20:
+                return self.turn_cmd(max(-60, min(60, bear)))
+            self.queue.append("w %d" % max(30, min(90, int(d / 12))))
+            return None
 
         # A door directly in the way is the way through. Doors are how these levels connect.
         what = s.get("ahead_what", "")
@@ -185,6 +216,21 @@ class Player:
                     return self.turn_cmd(max(-45, min(45, bear)))
                 return "fire"
             return "use 40"
+
+        # BLOCKED IN FRONT IS NOT THE SAME AS BLOCKED ON THE WAY.
+        #
+        # "ahead" is a ray along the body's facing, not along the route. Standing at (-263, -37)
+        # on tile 226305 facing north into the carriage wall, with the objective 80 degrees to
+        # the left, the report says "wall 96 away" and the avoidance rule below takes the
+        # clearest turn -- which was +20, further from the objective, so the next report said the
+        # same thing and it did it again. Measured: five distinct floor tiles in a two-minute
+        # run, health falling the whole time.
+        #
+        # A wall you are facing but not walking towards is not an obstacle. Turn to the route
+        # first; then, pointed the right way, the sensor is answering the question that matters
+        # and the avoidance below can be believed.
+        if abs(obj_turn) > 30:
+            return self.turn_cmd(max(-60, min(60, obj_turn)))
 
         # Something solid close enough to walk into: take the turn the report worked out, and
         # then WALK IT. A turn on its own leaves the player pointing at open ground and standing
@@ -300,14 +346,12 @@ class Player:
             return
         m = RE_LANDMARK.match(line)
         if m:
-            # Stored, not acted on. Adding a decide() rule ("go get the key when blocked by a
-            # locked door") needs a measured case where the run actually needed one -- this
-            # project's standing practice is grounding a policy in a failure that was observed,
-            # not one that seems plausible. What was a clear, unjustified gap is that the report
-            # already sends this and it was being thrown away; that half is fixed here. The
-            # decision half is left to whoever has a run that shows it is needed.
-            kind = m.group(1).lower()
-            self.state[kind] = (int(m.group(2)), int(m.group(3)))
+            # Now acted on: guards drop what they carry, and on Train that includes the key a
+            # locked door wants. The room is kept alongside the bearing because a key in another
+            # room is a fact about the level rather than an errand -- see decide().
+            kind = m.group(1)
+            self.state[kind] = (int(m.group(3)), int(m.group(4)),
+                                int(m.group(5)) if m.group(5) is not None else -1)
 
 
 
