@@ -288,32 +288,42 @@ per tick:  divider 1 = 2.99131   divider 4 = 0.72926
 **The tank turret and the autogun beam timer** already multiply by `g_GlobalTimerDelta`, so they
 were never frame-quantised.
 
-## The game clock does not run at real time, and that is not fixed
+## The game clock: what was wrong and what fixes it
 
-`g_GlobalTimer` accumulates `g_ClockTimer`, so it is game time counted in video fields. Real time
-is 60 fields a second. Measured on Train with the walker:
+Two defects, found by instrumenting `waitForNextFrame` and reporting frames and fields against a
+host timebase once a real second.
 
-| Configuration | Game clock |
-|---|---|
-| default, 60fps cap | 189 fields/s |
-| uncapped, ~940 fps render | 469 fields/s |
-| uncapped with `GETV_REALCLOCK=1`, ~250 fps render | 126 fields/s |
+**The rounding term was acting as a threshold.** The retail expression is
+`(elapsed + 387937) / 775875`, where 387937 is half a video field. On hardware `osGetCount()` was
+read once per frame after the machine had already waited for vblank, so adding half a field before
+dividing rounded a number that was going to be 1 regardless. Here the same expression is the loop
+condition, and `(elapsed + half) / field >= 1` is satisfied after HALF a field. Measured with the
+real clock before the fix: 121 frames, 121 fields, 1002ms, so a game that believed it was running
+at 60 was running at 120. The bias is dropped where the counter tells the truth and left alone for
+the synthetic counter, where it is harmless.
 
-All three are fast, and in every case the game clock is close to half the render rate. The real
-host timebase reduces the error by about four times and does not remove it.
+**The remainder was being discarded.** Rendering faster than a field means most frames advance the
+clock by nothing. `updateFrameCounters` moved the reference point to "now" on every frame, so the
+leftover fraction went in the bin each time and the clock stopped entirely: 121 frames, 0 fields,
+one second. The reference now advances by exactly the whole fields consumed, so the fraction
+carries.
 
-The comment above the clock selection in `frametiming.c` carried an explicit
-"unverified ON this hardware" warning, written on a 60Hz machine that could not test it. It has
-now been tested on a machine that can, and the warning was right to be there: `GETV_REALCLOCK=1`
-does not decouple game speed from the render rate on its own.
+With both fixed, uncapped and with `GETV_REALCLOCK=1`:
 
-What the divider does deliver is measured and holds: fire rate is invariant, the field integrator
-is exact, and interpolation runs on every frame between ticks. What is not delivered is a game
-clock that ticks at sixty fields a real second, and that is now the top of the list.
+```
+[getv][clock]  955 frames 60 fields delay=1 simdiv=4 in 1000ms ->  955 fps, 60 fields/s
+[getv][clock]  904 frames 61 fields delay=1 simdiv=4 in 1003ms ->  901 fps, 60 fields/s
+[getv][clock] 1083 frames 60 fields delay=1 simdiv=4 in 1000ms -> 1083 fps, 60 fields/s
+```
 
-One caveat on the above, stated because two measurements in this document have already had to be
-corrected: `g_GlobalTimer` is being read as fields since level start, and if that reading is wrong
-then so are the three numbers.
+A thousand frames a second of rendering, sixty fields a second of game time. That is the thing
+this port set out to do.
+
+**One instrument still disagrees and it has not been reconciled.** Sampling `g_GlobalTimer` from
+outside, through the bot harness, reports 60 to 65 fields a second in some runs and 290 to 357 in
+others under what should be the same configuration. The in-engine trace above is measured at the
+source and is the one to trust, but until the two agree this fix should be read as proven for the
+wait loop rather than proven end to end. `GETV_CLOCKTRACE=1` prints the trace.
 
 ## Still open
 

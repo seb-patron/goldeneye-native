@@ -439,3 +439,18 @@ void gePortCheckItemEntries(const char *where)
         }
     }
 }
+
+/* Milliseconds of real time since the first call. Used by the clock diagnostic in
+ * frametiming.c, which needs a timebase that is definitely not the game's own. */
+unsigned int gePortHostMillis(void)
+{
+    static Uint64 origin = 0;
+    static double freq = 0.0;
+
+    if (freq == 0.0) {
+        freq = (double) SDL_GetPerformanceFrequency();
+        origin = SDL_GetPerformanceCounter();
+        if (freq <= 0.0) { freq = 1.0; }
+    }
+    return (unsigned int) (((double) (SDL_GetPerformanceCounter() - origin) / freq) * 1000.0);
+}

@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
@@ -486,7 +487,7 @@ static void ge_br_log_open(const char *level)
     }
     ge_br_log = fopen(path, "w");
     if (ge_br_log == NULL) { return; }
-    fprintf(ge_br_log, "frame\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
+    fprintf(ge_br_log, "frame\tms\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
     fflush(ge_br_log);
     printf("[getv][botroute] logging every decision to %s\n", path);
     fflush(stdout);
@@ -497,8 +498,12 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
                        int sx, int sy, const char *note)
 {
     if (ge_br_log == NULL) { return; }
-    fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
-            frame, event, node, pad, (double) x, (double) z,
+    /* Wall-clock milliseconds, because a frame number is not a time: a run at 500 fps and one at
+     * 60 reach frame 600 ten seconds apart, and any rate computed from frames compares the two
+     * against different amounts of reality. */
+    fprintf(ge_br_log, "%d\t%lu\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
+            frame, (unsigned long) (clock() * 1000ul / CLOCKS_PER_SEC),
+            event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
     /* Not flushed per row. Measured on Windows, a flushed line at ~24 ms there -- 516
      * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
@@ -983,6 +988,23 @@ have_target:
     }
 
     memset(&in, 0, sizeof in);
+    /* GETV_BOT_WALK=1: hold full forward and nothing else. Instrumentation for the frame-timing
+     * work: the follower's decisions vary run to run, so comparing distance across clock settings
+     * with routing enabled measures the routing as much as the clock. g_GlobalTimer goes in the
+     * note because it is game time counted in video fields. */
+    if (getenv("GETV_BOT_WALK") != NULL) {
+        extern int g_GlobalTimer;
+        char note[32];
+
+        memset(&in, 0, sizeof in);
+        in.stick_y = (signed char) GE_BR_WALK;
+        snprintf(note, sizeof note, "gt=%d", (int) g_GlobalTimer);
+        ge_br_logf((int) frame, "post", -1, -1, st.x, st.z, ge_br_heading, 0.0f, 0.0f,
+                   0, (int) in.stick_y, note);
+        gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
+        return;
+    }
+
     if (!ge_br_have_heading) {
         /* No heading yet: walk forward to make one. Steering on an unknown heading turns the
          * bot in a random direction and then estimates from that, which converges eventually

@@ -209,6 +209,23 @@ u64 osClockRate = 46875000;
  * With GETV_REALCLOCK=1 and GETV_FPS=0, waitForNextFrame() becomes a genuine
  * busy-spin on a core until the next video frame boundary. That is what the N64 did;
  * it is not free on a laptop. */
+/* Is the real host timebase in use? waitForNextFrame needs to know, because the rounding term
+ * retail carries becomes a half-field threshold once the counter tells the truth. */
+int gePortRealClockOn(void)
+{
+    const char *e = getenv("GETV_REALCLOCK");
+    return (e != NULL && *e == '1') ? 1 : 0;
+}
+
+/* Is the frame cap off? GETV_FPS=0 or "off" means run as fast as the machine allows. */
+int gePortFrameCapOff(void)
+{
+    const char *e = getenv("GETV_FPS");
+    if (e == NULL || *e == '\0') { return 0; }
+    if (*e == 'o' || *e == 'O') { return 1; }      /* off */
+    return atoi(e) == 0;
+}
+
 u32 osGetCount(void)
 {
     static int real = -1;
