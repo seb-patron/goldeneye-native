@@ -1,15 +1,36 @@
-# Co-op: three fixes, and a baseline that was wrong
+# Co-op: resolved, and two wrong baselines on the way
 
-READ THIS FIRST. Most of this document was written against a control that does not hold.
+**Co-op movement works.** Measured with a control on Train: player 1 travels 1,779 units with
+input and 0 units without it, while player 0 is unaffected at 330 units in both runs. Splitscreen
+co-op in the single-player campaign is playable.
 
-**GETV_SCRIPT has never moved a player, in any mode.** Solo on Dam travels from
-(16872, 9502) to (17795, 18011) over 570 frames **with the script and without it, identically**.
-That travel is the intro swirl camera animating, not input driving the player.
+It took two false conclusions to get here, and both are worth keeping because both were confident.
 
-So every "solo moves 900 units, co-op moves nothing" comparison in this file compared a camera
-animation against a stationary player. The conclusion that co-op movement is broken was never
-demonstrated. It may be broken; it may work for a person at a keyboard. This harness cannot
-tell the difference and should not have been used to claim one.
+## The first wrong baseline: a camera, not a player
+
+`GETV_SCRIPT` never moved a player in any mode. Solo on Dam travels from (16872, 9502) to
+(17795, 18011) over 570 frames **with the script and without it, identically** — that travel is
+the intro swirl camera animating, not input driving anyone.
+
+So every "solo moves 900 units, co-op moves nothing" comparison in the original version of this
+document compared a camera animation against a stationary player. The conclusion that co-op
+movement was broken was never demonstrated by it.
+
+## The second wrong baseline: the accessor was reading the wrong field
+
+The position readout used to report `player->pos`, which is zeroed at spawn (`player.c:160`,
+`bondview.c:1423`) and never updated. The engine maintains the position on the object it owns:
+`prop->pos`. On Bunker 1 the collision position moved 530 units while the accessor returned the
+same coordinate 900 times.
+
+That is why co-op looked frozen. The players were moving; the instrument was not.
+
+**The value lives on the object the engine maintains, not on the record that appears to own it.**
+The same shape has now caught us three times — `prop->pos` over `player->pos`,
+`getsubroty(chr->model)` over `chr->aimsideback`. When a readout is suspiciously constant,
+suspect the field before the feature.
+
+## What was genuinely fixed along the way
 
 What survives, because it was measured directly rather than through that comparison:
 

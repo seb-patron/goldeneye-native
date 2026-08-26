@@ -1,6 +1,6 @@
 # Windows: the world did not render
 
-Resolved 2026-08-24. This is the record for the bug `docs/WINDOWS_HANDOFF.md` was written to
+Resolved 2026-08-24. This is the record for the bug `docs/WINDOWS_BRINGUP.md` was written to
 hand over: on Windows the game ran, characters and props rendered and animated, and the level
 geometry did not.
 
@@ -134,7 +134,7 @@ Downstream symptoms that were the same bug and are now gone without being touche
 
 - **`[getv][nostan]` unplaced objects: 4 → 0.** Objects whose pad lookup returned a null stan
   were failing because the tile walk could not reach their tiles.
-- **The weapon and right hand render.** `WINDOWS_HANDOFF.md` recorded `hinv=1/0` as "the right
+- **The weapon and right hand render.** `WINDOWS_BRINGUP.md` recorded `hinv=1/0` as "the right
   hand is invisible, so no weapon is drawn" and listed it as a known harness gap. `hinv=1/0`
   is `hand_invisible[0]=1, [1]=0` — the **left** hand hidden, which is correct for a
   one-handed PP7. The frame capture shows the PP7 drawn with the ammo HUD reading `7 | 93`.

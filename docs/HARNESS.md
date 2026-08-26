@@ -12,7 +12,7 @@ it. Measured on Bunker 1 with the route follower on slot 0: the player turns fro
 degrees, walks 155 units, and its distance to the target closes 2387 -> 2250. With the bot off,
 `MoveBond`'s walk block does not execute at all.
 
-⚠️ **It needs the companion pad.** Under the 2.x control styles -- and this port defaults to 2.2
+**It needs the companion pad.** Under the 2.x control styles -- and this port defaults to 2.2
 Galore -- the engine reads movement from a second controller at `playernum + getPlayerCount()`.
 `ge_playback` routes the walk axis there in a second pass. In solo that pad is index 1, so bot
 runs need `GETV_PADS=2` or `joyGetStickY(1)` returns 0 whatever was written.
@@ -33,7 +33,7 @@ Byte-identical to the control, including the angle. And at the input layer, `SY=
 `SY=-70` and **no script at all** all produce the same `analogTurn=75 analogStrafe=0
 analogWalk=0`. A sign flip that changes nothing is not an input reaching the game.
 
-🔑 **Two traps in the measurements that were done against it before this was known.**
+**Two traps in the measurements that were done against it before this was known.**
 
 **Always run the control.** On Dam a scripted run travels 36 units and looks like proof --
 until the no-script control travels the same 36 units, because Dam's opening walks the player

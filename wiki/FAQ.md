@@ -58,7 +58,7 @@ help you find any.
 ### Is this legal?
 
 The code here is a port of a public decompilation plus an original platform layer. The game
-data is yours and stays yours. See [Provenance](Provenance).
+data is yours and stays yours. See [Licensing](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md).
 
 ### How is this different from a recompilation?
 

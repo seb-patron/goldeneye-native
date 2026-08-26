@@ -30,7 +30,7 @@ So "use Fast3D", "borrow the SM64 audio mixer" and "use SDL for the platform lay
 **complete**. The renderer abstraction people suggest building - `GfxRenderingAPI` - is a
 struct of ~20 function pointers that has been in place since the port booted.
 
-⚠️ **minimp3 does not apply here.** The Perfect Dark port needs it because PD ships MP3
+**minimp3 does not apply here.** The Perfect Dark port needs it because PD ships MP3
 music. GoldenEye's audio is N64 sequenced audio through Rare's modified libultra AL, with no
 MP3 anywhere. This is the clearest example of a recommendation that transfers between two
 Rare N64 games and still happens to be wrong.
@@ -81,7 +81,7 @@ it ahead of bgfx, not alongside it.
 | `DeeStiz/007` | unlicensed | No licence means no permission. Read to understand, never adapt. |
 | Star Fox 64, Banjo-Kazooie, DK64, Jet Force Gemini decomps | varies, mostly unlicensed | **Comparative reverse engineering only.** The Rare titles are the valuable ones: same studio, same lineage, same asset and animation conventions, so "how did Rare structure this" is answerable. That is a reading exercise, and decomp repositories rarely carry a licence that permits anything else. |
 
-🔑 **The asymmetry that makes the GPL quarantine cheap.** Every one of those projects
+**The asymmetry that makes the GPL quarantine cheap.** Every one of those projects
 patches a game it does not have the source to - an emulator hooked from outside, or a
 recompiled binary. This project has the decompiled source. Every fix they inject by memory
 patching can be made correctly at its origin here. Their real contribution is a list of

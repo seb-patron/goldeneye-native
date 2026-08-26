@@ -1,14 +1,14 @@
-# Surface queue
+# Task queue: Windows tree
 
 Ordered. Each item says what "done" means, because a task without a finish condition gets
 reported as finished by whoever is tired.
 
-Lane rules: `docs/COLLABORATION.md`. Work flows Surface → Mac → `main`; the Mac integrates file
+Lane rules: `docs/DEVELOPMENT.md`. Work flows Surface → Mac → `main`; the Mac integrates file
 by file. Fetch `C:\mac-work.bundle` before touching a shared file.
 
 ---
 
-## 0. Apply `0004-player-accessors.patch` 🔴 your link has been failing on this for a day
+## 0. Apply `0004-player-accessors.patch` your link has been failing on this for a day
 
 `vendor/` is gitignored, so decomp symbols never travel in a bundle. Everything you have tested
 is stub-verified only.
@@ -24,7 +24,7 @@ Now carries the player accessors, the control-style helpers, both navigation pro
 
 ---
 
-## 1. THE SENSING API IS THE PRIORITY: build out what a bot can perceive 🔴
+## 1. THE SENSING API IS THE PRIORITY: build out what a bot can perceive
 
 This is the half of the platform that was missing, and it matters more than routing. Waypoints
 say where things are. **Interaction** is knowing you are against a wall rather than a crate,
@@ -51,7 +51,7 @@ attenuation and `hearingscale` for sound. Add `geSenseNoticedBy(enemy, player)` 
 line, cone and alertness, and keep the two separate rather than replacing one with the other,
 because "could see me if it turned" is a different and useful question.
 
-⚠️ Train currently reports 17–19 watchers of 40 guards. That is what an unobstructed line down a
+Train currently reports 17–19 watchers of 40 guards. That is what an unobstructed line down a
 row of carriages looks like, **not** seventeen guards watching. Do not tune the line test to make
 that number smaller; add the cone.
 
@@ -59,7 +59,7 @@ that number smaller; add the cone.
 know it is *touching* something right now: the difference between "there is a wall ahead" and
 "I am pressed against it and my last four moves did nothing".
 
-**1c. Reachability with a body, not a line. 🔴 THIS IS THE CURRENT BLOCKER, and do not build it
+**1c. Reachability with a body, not a line. THIS IS THE CURRENT BLOCKER, and do not build it
 the way this item originally said.** A line test passes through a gap narrower than the player.
 Evan has a capture of exactly that: the bot trying to fit between a crate and a wall.
 
@@ -80,7 +80,7 @@ of what is in the way. The width is `chrwidth`, `20.0f` at `chr.c:1936`, and `ch
 shows the engine's own margin at `chrwidth * 1.2f`. Use the mask `chraction.c:3448` uses:
 `CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER`.
 
-⚠️ The tile argument is an **input**, same trap as `bondviewTestLineUnobstructed` in the standing
+The tile argument is an **input**, same trap as `bondviewTestLineUnobstructed` in the standing
 corrections. Seed it from the querying body's current tile or everything reads obstructed.
 
 **Do:** `gePortCanStandAt(x, z)` and `gePortPathClear(x0, z0, x1, z1)` over those two. Parallel
@@ -107,7 +107,7 @@ portals are at y=93, so the bot beelines at a doorway 247 units below it, throug
 `audit_route_heights.py` is the right start; what is missing is the descent being *in* the graph,
 so a stairway is a chain of nodes rather than one impossible edge.
 
-⚠️ The body position and the floor differ by ~157 units. Compare a pad height to a player
+The body position and the floor differ by ~157 units. Compare a pad height to a player
 position and you get a phantom cliff in every direction at once.
 
 ## 3. Eight levels have no node in their spawn room

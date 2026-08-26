@@ -30,7 +30,7 @@ Being in sync has **two independent parts and only one travels in a bundle**:
    `objective_status.c`, because a name check proves one symbol arrived and a hash proves the
    whole file did.
 
-⚠️ **`git apply` reports "Skipped patch" on the Surface's vendor tree**: its ignore rules exclude
+**`git apply` reports "Skipped patch" on the Surface's vendor tree**: its ignore rules exclude
 that path, so a patch that verifies clean can still land nothing while every signal says it
 worked. **Deliver the file by scp and verify the hash.** Patches are for the record, not the
 transport.
@@ -50,7 +50,7 @@ Work flows Surface → Mac → `main`; the Mac integrates file by file. Sync wit
 `tools/sync_surface.sh`. Read the diffstat before taking anything: four reverts were caught that
 way today and none reached `main`.
 
-🔑 **Whoever owns the CONSUMER keeps the code** when both sides write the same thing. We each
+**Whoever owns the CONSUMER keeps the code** when both sides write the same thing. We each
 deleted our own walkability reader in the same hour in favour of the other's; for a few minutes
 neither existed.
 
@@ -58,7 +58,7 @@ neither existed.
 
 # SURFACE: offline work, in order
 
-## S1. Prop extents 🔴 the current blocker, and nothing else unblocks it
+## S1. Prop extents the current blocker, and nothing else unblocks it
 
 **Every position in the pack is a POINT and the world is made of solids.** A crate reported "278
 away" is 278 units to its *centre*. A bot that still sees room has already walked into the corner
@@ -78,19 +78,19 @@ extractor's lane.
 4. The CLI's `near` lines become `crate 278 away, radius 120` so a reader knows the surface is at
    158, not 278.
 
-⚠️ **Scale them.** Extents are asset-space lengths and the pack is runtime space now. An unscaled
+**Scale them.** Extents are asset-space lengths and the pack is runtime space now. An unscaled
 radius is wrong by `1/levelscale`: 6.7× on Train, 4.3× on Dam.
 
-⚠️ **The model box is unrotated.** A long crate at forty-five degrees occupies more width than its
+**The model box is unrotated.** A long crate at forty-five degrees occupies more width than its
 half-extent suggests. Emit the radius as well and label which is which; do not silently pick one.
 
-⚠️ **Round-trip tolerance is RELATIVE now.** f32 keeps seven significant digits, not seven decimal
+**Round-trip tolerance is RELATIVE now.** f32 keeps seven significant digits, not seven decimal
 places, and runtime coordinates reach 86,000. A flat `1e-3` fails seven levels.
 
 **Done when:** the CLI's `near` lines carry a radius, and the Train player walks past the crate it
 currently traps itself on.
 
-## S2. Navmesh nodes: ✅ DONE, and the acceptance test passed
+## S2. Navmesh nodes: DONE, and the acceptance test passed
 
 Pads are prop markers, not places to walk. Measured with the teleport probe: **139 of Train's 180
 nodes cannot be stood on**, and across the twenty solo levels it runs 33 to 240 each. A follower
@@ -101,10 +101,10 @@ You already emit tile adjacency, floor tiles and 1,100 stairways. **The tiles ar
 node per floor tile, or per cluster, is standable by construction, has a real height, and needs no
 snapping to place. Pads go back to being what they are: markers for props and spawns.
 
-⚠️ **Declare which coordinate space the extractor emits.** The pack scales at the boundary today
+**Declare which coordinate space the extractor emits.** The pack scales at the boundary today
 and that is fine, but it must be stated rather than assumed. `runtime = asset / levelscale`.
 
-**✅ Passed.** `tools/route_doors.py` routes the TILE graph from the measured spawn:
+** Passed.** `tools/route_doors.py` routes the TILE graph from the measured spawn:
 
 ```
 level      reachable   ratio    monotonic
@@ -117,18 +117,18 @@ bunker1          84%    0.8:1         69%
 carriages **and does so distinctively**: Train is an outlier against every other level, which is
 what makes it a test rather than a coincidence.
 
-🔑 They flagged their own "linear chain: yes" check as WEAK because every level passes it,
+They flagged their own "linear chain: yes" check as WEAK because every level passes it,
 including open ones. A check that cannot fail is not a check, and saying so is worth more than
 the check was.
 
-⚠️ Two spaces reconciled explicitly on the way: the JSONs are asset space and the measured spawn
+Two spaces reconciled explicitly on the way: the JSONs are asset space and the measured spawn
 is runtime, so Train's spawn reads x=779 where the tile map ends at x=213. `asset = runtime *
 levelscale`.
 
 **Now the bot must ROUTE ON THIS GRAPH** rather than the pad graph. That is M1's real content and
 it is unblocked.
 
-## S3. Enemy facing: ✅ DONE
+## S3. Enemy facing: DONE
 
 `gePortEnemyFacing` refuses and `geSenseNoticedBy` falls back to line of sight, so a bot hides
 from a guard facing the other way and strolls past one staring at it. Train reports 17–19 watchers
@@ -138,15 +138,15 @@ seventeen guards watching.
 `ChrRecord` has no facing field I could find. `chr.c:2319` reads `chr->aimsideback` into a `yrot`
 when building the model matrix; that is where the answer probably starts.
 
-⚠️ **Do not tune the line test to shrink the watcher count.** Add the cone. And keep both
+**Do not tune the line test to shrink the watcher count.** Add the cone. And keep both
 questions: "could see me if it turned" is different from "is looking at me", and both are useful.
 
-**✅ Done.** The heading is `getsubroty(chr->model)` (model.c:698), **not** `chr->aimsideback`,
+** Done.** The heading is `getsubroty(chr->model)` (model.c:698), **not** `chr->aimsideback`,
 which was my hint and was wrong. aimsideback is an AIM OFFSET applied to a body part while the
 model is drawn, so a cone built on it swings with where a guard POINTS ITS GUN rather than which
 way it faces, and would have read as roughly right most of the time.
 
-🔑 Same shape as `prop->pos` versus `player->pos`, which has now caught us three times: **the
+Same shape as `prop->pos` versus `player->pos`, which has now caught us three times: **the
 value lives on the object the engine maintains, not the record that looks like it owns it.**
 
 They proved the convention from `chraction.c:9629` rather than assuming it: the game subtracts
@@ -194,7 +194,7 @@ normally on Agent, which points at approach distance or the use action not reach
 - **It is not only distance.** The player reached 96 units from a door and `use` still did
   nothing, so "walk closer" is not the whole answer.
 
-**✅ ANSWERED: `doorTestForInteract`, propobj.c:14411.** Three conditions, and we were breaking
+** ANSWERED: `doorTestForInteract`, propobj.c:14411.** Three conditions, and we were breaking
 two of them:
 
 ```c
@@ -206,12 +206,12 @@ xdiff*xdiff + zdiff*zdiff < 40000.0f        // 200 units, not 278
 && ydiff < 200.0f && ydiff > -200.0f        // and within 200 vertically
 ```
 
-🔑 **The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
+**The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
 the bot has to square up to it. That is why 96 units still failed. The bot now turns onto a door
 before pressing, and only marks it used once it has actually faced it, since otherwise it
 marks doors used that it never opened and walks away from every one.
 
-⚠️ There is a second path when you are further out: same-room plus
+There is a second path when you are further out: same-room plus
 `chrpropTestPointInPaddedBoundPad(pos, 150, boundpads)`. So a door has a bound pad you can stand
 in, which is a better target than its centre and is already in the setup data.
 
@@ -245,14 +245,14 @@ The engine has an absolute frame already; we are throwing it away at the report 
 3. A compass line in the CLI: the player's absolute facing as a cardinal plus the level's bounds,
    so a reader knows where in the MAP they are rather than only what is in front of them.
 
-⚠️ Cardinals are a convenience over the axes, not a new coordinate system. Do not introduce a
+Cardinals are a convenience over the axes, not a new coordinate system. Do not introduce a
 second frame that can disagree with the first. Name the axes and derive the compass from them.
 
 **Done when:** the CLI report says where the player is in the level ("west third, facing north")
 and every listed object carries an absolute position, and a bot can answer "have I been here
 before" without re-deriving it from bearings.
 
-## M4. Co-op: ✅ MOVEMENT VERIFIED, with a control
+## M4. Co-op: MOVEMENT VERIFIED, with a control
 
 Player 2 driven through the player API, Train, 6001 frames, against a no-input control:
 
@@ -265,12 +265,12 @@ Player 2 moves **only** with input, and player 1 is unaffected: 330 in both runs
 not bleed into each other. Both spawn apart and both cameras render, which the split-screen
 capture already showed.
 
-🔑 This closes the question that opened the week. Co-op movement was never broken: `gePortPlayerPos`
+This closes the question that opened the week. Co-op movement was never broken: `gePortPlayerPos`
 read `player->pos`, which is zeroed at spawn and rarely written, so both players *were* walking
 while the accessor returned the same coordinate. The bug was in the measurement, and the measuring
 tool was mine.
 
-⚠️ The control is what makes this worth stating. A scripted run on Dam travels 36 units and looks
+The control is what makes this worth stating. A scripted run on Dam travels 36 units and looks
 like proof until the no-script control travels the same 36: the level's own opening walks the
 player. Every earlier "co-op moved" claim on this project was that intro, and I withdrew one.
 
@@ -284,7 +284,7 @@ appearing in front of geometry it should be behind. Classic depth-precision fail
 surfaces close enough together that the depth buffer cannot order them, so which one wins varies
 with view angle and distance.
 
-⚠️ **Do not "fix" this by nudging geometry.** The assets are the game's own and are correct on
+**Do not "fix" this by nudging geometry.** The assets are the game's own and are correct on
 hardware; if a surface has to move, the port is wrong somewhere else. The N64 uses a 15.3
 fixed-point depth encoding with a specific near/far arrangement, and `N64_RCP_GRAPHICS.md` §O–§P
 carries the current far-plane truth, and a depth range mapped differently in the port would produce
@@ -313,7 +313,7 @@ Ordered by dependency, not appetite. Nothing in a later phase should start while
 is blocking, because every one of them is easier once a bot can be pointed at a level and left
 to run.
 
-## 🔑 M0. THE ATTRACT-MODE DEMOS: recorded human play, already in the ROM
+## M0. THE ATTRACT-MODE DEMOS: recorded human play, already in the ROM
 
 Evan asked whether the title-screen gameplay is a bot or a video. **Neither: it is fourteen
 recorded input streams**, in `assets/ramrom/`, decoded by `tools/decode_ramrom.py`:
@@ -325,7 +325,7 @@ bunker1 x2   dam x2   facility x3   frigate x2   runway x2   silo x2   train
 
 `ramrom_Train.bin` is **3,957 records of a person playing the level we cannot finish**.
 
-🔑 **The input record is `{s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}`, the same
+**The input record is `{s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}`, the same
 shape as `GePlayerInput`.** A decoded demo feeds straight through `gePlayerPost`.
 
 **Two things this gives us that we were building by hand:**
@@ -345,7 +345,7 @@ Train through the player API; compare our seed fingerprint against the recorded 
 **Done when:** `ramrom_Train.bin` replays and the player follows the recorded path, at which
 point we have a working reference route AND a determinism check in one artefact.
 
-⚠️ ROM-derived. Decoded output stays out of git like every other asset.
+ROM-derived. Decoded output stays out of git like every other asset.
 
 ## Phase 2: the API becomes a platform
 
@@ -368,11 +368,11 @@ is unproven and `gePlayerSeedFingerprint` exists for exactly that.
 **The Metal backend, ported from akratch/mgb64.** MIT, archived, and the one capability they have
 that we lack; see the prior-art note below.
 
-🔑 **This is the tvOS unlock, and tvOS was this project's original goal.** GL ES is deprecated on
+**This is the tvOS unlock, and tvOS was this project's original goal.** GL ES is deprecated on
 Apple platforms and Metal is the supported path; the OpenGL renderer we run today is a dead end
 there however well it works on desktop.
 
-⚠️ **Port it, do not copy it.** Theirs is written against their platform layer. The
+**Port it, do not copy it.** Theirs is written against their platform layer. The
 sm64ex-versus-libultraship lesson has already cost this project five separate bugs: a reference
 implementation written for a different tree is actively misleading even when it descends from the
 same code. Budget it as a rewrite with a working reference, not a transplant.
@@ -404,14 +404,14 @@ one".
 GoldenRecomp (Windows-only binaries) or GoldenPad (not reproducible from its own repo), both of
 which looked more useful than they were.
 
-🔑 **The one thing it has that we do not: a METAL rendering backend**, in `src/platform/`. That
+**The one thing it has that we do not: a METAL rendering backend**, in `src/platform/`. That
 matters more than it sounds, because tvOS was this project's original goal and Metal is the
 supported path there: GL ES is deprecated. We are OpenGL-only today.
 
 Its shape is otherwise close to ours: SDL2, an in-process ImGui launcher, a libultra shim,
 assets read from the user's own ROM at runtime, and a faithful-versus-remaster split.
 
-⚠️ **It has no co-op, no bots, no player or world API, no netplay, and no mod surface.** That is
+**It has no co-op, no bots, no player or world API, no netplay, and no mod surface.** That is
 worth stating because it tells us what this project is actually for: the port itself is no longer
 the differentiator, and the API layer is.
 
@@ -439,5 +439,5 @@ decomp team.
 - `vendor/` is gitignored: decomp symbols travel by patch, `git apply` says "Skipped patch" on the
   Surface's tree, so deliver the file and **verify by name**.
 - Run the control. Never sample a trace with `tail -1`.
-- ⚠️ **A third writer edits this repo** under the same git identity. Check `git log` before
+- **A third writer edits this repo** under the same git identity. Check `git log` before
   assuming your tree is yours.

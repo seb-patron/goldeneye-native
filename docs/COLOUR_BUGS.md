@@ -44,7 +44,7 @@ frames, which reads like proof of safety and is not: `GETV_LIGHTTRACE` reports *
 uploads** in those idle frames. The only RGBA16 consumer observed anywhere is the explosion
 flare, where the count moves 8 → 9 as the explosion appears.
 
-### 🔑 Update: a second RGBA16 consumer exists, and it is trivially reachable
+### Update: a second RGBA16 consumer exists, and it is trivially reachable
 
 The paragraph above asks for "frames that actually exercise RGBA16 elsewhere". There are two,
 in the intro, before any level loads:

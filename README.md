@@ -143,15 +143,15 @@ Three things work well enough to be worth talking about and not well enough to c
 Their limits are written down here instead of left for you to discover.
 
 **Co-op.** Two to four players in the single-player campaign, which the original never had. The
-mission loads with its own geometry, props and objectives, every player spawns in, and the
-viewports render. Dam draws 5139 triangles at two players and 8412 at four, against 2042 solo.
+mission loads with its own geometry, props and objectives, every player spawns in, the viewports
+render, and they move: measured with a control, player 1 travels 1,779 units with input and 0
+without, while player 0 is unaffected. Dam draws 5139 triangles at two players and 8412 at four,
+against 2042 solo.
 
-Then they stand there. Under `GETV_STATE` the players spawn correctly and separated, and not one
-of them moves under scripted input that carries the solo player 16,930 units on the same level.
-Player 0 is affected too, which kills the obvious explanations. Four have been eliminated with
-measurements; what's left is a narrow window between the stick being read and movement being
-applied. Objectives, AI and cutscenes are all authored around one Bond, and none of that has been
-adapted either. [`docs/COOP.md`](docs/COOP.md).
+What is not adapted is everything authored around a single Bond — objectives, AI and cutscenes.
+It took two wrong baselines to establish that the movement itself was fine, both recorded in
+[`docs/COOP.md`](docs/COOP.md), the second being a position readout that reported a field the
+engine never updates.
 
 **The player API.** Tick-accurate input injection and a state readout, attached through the
 game's own demo-playback hook instead of bolted onto the device layer, so it runs on the game
@@ -175,6 +175,18 @@ What isn't done: they spawn, and whether they then engage is unverified. A scrip
 bot spawned leaves the player on full health, same as without one. They also spawn as characters
 rather than into a player slot, so scoreboard, respawn and character select come with the slot
 work. [`docs/BOTS.md`](docs/BOTS.md).
+
+**Route-following bots.** A separate thing from the bytecode archetypes above: a bot that drives a
+real player slot along a real route, reading the world through the same APIs an external agent
+would use. On Train it walks 11 waypoints across three carriages, opens doors, and stops at a
+locked one it has no key for — which is the correct behaviour, since a guard is carrying it.
+
+Two findings from that work are worth more than the bot is. The game already ships a pathfinder:
+`padhalllv.c` holds a two-level waypoint graph the guards have always routed over — 104 waypoints,
+206 links and 6 groups on Train — and the whole tile-graph reconstruction beside it was
+unnecessary. And doors are opened by asking them (`doorsChooseSwingDirection`, `doorActivate`,
+exactly as the guards do), not by simulating the player's action button, which additionally
+requires the door to be on screen and so never worked for a bot in the dark.
 
 **LAN and online.** A lockstep session exists over the same input seam: only inputs travel,
 twelve bytes a tick, with a state fingerprint exchanged once a second so divergence gets caught
