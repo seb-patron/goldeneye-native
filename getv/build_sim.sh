@@ -182,7 +182,7 @@ cmd_lib() {
            # default-error diagnostics, so all seven started compiling and the count
            # moved 165/10 -> 172/3 -- a weaker guard, not progress. Excluding them by
            # name restores the intent explicitly.
-           find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' | sort)
+           find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c)$' | sort)
   echo "sim game: $ok built, $fail failed"
 
   # assets/ holds the extracted ROM data as C source (obseg blobs, images, stan, setup).

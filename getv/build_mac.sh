@@ -302,9 +302,13 @@ cmd_lib() {
            # defeats -Werror=return-type) also suppresses clang's default-error
            # diagnostics, so all seven started compiling and the count moved 165/10 ->
            # 172/3 -- a weaker guard, not progress. Excluding them by name is explicit.
+           # tlb_manage.c manages the N64's TLB, which a native build does not have. It has never
+           # compiled here -- three type conflicts against the native headers -- so it was already
+           # absent from the binary, and excluding it by name only stops the build reporting a
+           # failure on every run. A build that always fails once teaches people to ignore failures.
            # This list must stay in step with the two tvOS scripts or the Mac build stops
            # being a valid proxy for them, which is the whole point of this target.
-           find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' | sort) \
+           find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c)$' | sort) \
     | run_batch "mac game" "${CFLAGS[@]}"
 
   # setup/e and setup/j are the PAL and Japanese setup tables. They hold the same eight

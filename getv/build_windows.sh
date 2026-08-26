@@ -444,7 +444,7 @@ cmd_lib() {
            # diagnostics, so all seven started compiling -- a weaker guard, not progress.
            # Excluding them by name is explicit. This list must stay in step with the
            # other three scripts or this build stops being a valid proxy for them.
-           find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' | sort) \
+           find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c)$' | sort) \
     | run_batch "windows game" "${CFLAGS[@]}"
 
   # setup/e and setup/j are the PAL and Japanese setup tables. They hold the same eight

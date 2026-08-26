@@ -66,7 +66,7 @@ CFLAGS=(
 #
 # audi.c is not in this list because it does not compile at all: it is the N64 audio
 # thread, and port_audio.c replaces it wholesale.
-GE_HELD_BACK_RE='ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c'  # see build_sim.sh: -Wno-everything let the N64 hardware files compile; exclude by name
+GE_HELD_BACK_RE='ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c'  # see build_sim.sh: -Wno-everything let the N64 hardware files compile; exclude by name
 
 sources() {
   (cd "$DECOMP" && { find src -name '*.c' \
