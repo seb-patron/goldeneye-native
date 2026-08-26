@@ -486,7 +486,7 @@ index ba7616c..b4c908a 100644
 +PathRecord e_UsetuplenZ_patrolpaths[];
 +AIListRecord e_UsetuplenZ_ailists[];
 +
-+/* 🔴 tvOS port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
++/* tvOS port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
 + * u/, e/ and j/ each define the SAME bare `stagesetup UsetuplenZ` symbol (the arrays are
 + * prefixed u_/e_/j_, but this one is not). All three are ordinary `D` data in one static
 + * archive, so no duplicate-symbol error is raised -- the linker simply pulls whichever
@@ -562,7 +562,7 @@ index ba7616c..b4c908a 100644
      _mkword(0, _mkshort(0, 1)), 0, -1, 0,
      /* Type = Credits; index = 3 */
 -    _mkword(0, _mkshort(0, 8)), &credits_data_0,
-+    /* 🔴 tvOS port -- RECORD DISABLED, and it cannot simply be put back.
++    /* tvOS port -- RECORD DISABLED, and it cannot simply be put back.
 +     *
 +     * The line was:
 +     *     _mkword(0, _mkshort(0, 8)), &e_UsetuplenZ_credits_data_0,
@@ -732,7 +732,7 @@ index fe33622..3321c9f 100644
 +PathRecord j_UsetuplenZ_patrolpaths[];
 +AIListRecord j_UsetuplenZ_ailists[];
 +
-+/* 🔴 tvOS port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
++/* tvOS port, GETV-CINE 2026-08-21 -- LANGUAGE-VARIANT SYMBOL COLLISION.
 + * u/, e/ and j/ each define the SAME bare `stagesetup UsetuplenZ` symbol (the arrays are
 + * prefixed u_/e_/j_, but this one is not). All three are ordinary `D` data in one static
 + * archive, so no duplicate-symbol error is raised -- the linker simply pulls whichever
@@ -811,7 +811,7 @@ index fe33622..3321c9f 100644
      _mkword(0, _mkshort(0, 1)), 0, -1, 0,
      /* Type = Credits; index = 3 */
 -    _mkword(0, _mkshort(0, 8)), &credits_data_0,
-+    /* 🔴 tvOS port -- RECORD DISABLED, and it cannot simply be put back.
++    /* tvOS port -- RECORD DISABLED, and it cannot simply be put back.
 +     *
 +     * The line was:
 +     *     _mkword(0, _mkshort(0, 8)), &j_UsetuplenZ_credits_data_0,
@@ -1047,7 +1047,7 @@ index cf548a2..4462e06 100644
      _mkword(0, _mkshort(0, 1)), 0, -1, 0,
      /* Type = Credits; index = 3 */
 -    _mkword(0, _mkshort(0, 8)), &credits_data_0,
-+    /* 🔴 tvOS port -- RECORD DISABLED, and it cannot simply be put back.
++    /* tvOS port -- RECORD DISABLED, and it cannot simply be put back.
 +     *
 +     * The line was:
 +     *     _mkword(0, _mkshort(0, 8)), &u_UsetuplenZ_credits_data_0,

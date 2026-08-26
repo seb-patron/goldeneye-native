@@ -1,6 +1,6 @@
-diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
---- a/src
-+++ b/src
+diff --git a/src/game/bg.c b/src/game/bg.c
+--- a/src/game/bg.c
++++ b/src/game/bg.c
 @@ -23,6 +23,13 @@
  #include "explosion.h"
  #include "bgroomtrans.h"
@@ -24,9 +24,9 @@ diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
                   what, (void *)dst, (void *)scratch, ncmds, (u32)sizeof(Gfx),
                   raw_size, native_size);
  
-diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
---- a/src
-+++ b/src
+diff --git a/src/game/model.c b/src/game/model.c
+--- a/src/game/model.c
++++ b/src/game/model.c
 @@ -19,6 +19,14 @@
  #include "quaternion.h"
  #include "random.h"
@@ -136,9 +136,9 @@ diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
          return;
      }
  #endif
-diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
---- a/src
-+++ b/src
+diff --git a/src/game/ob.c b/src/game/ob.c
+--- a/src/game/ob.c
++++ b/src/game/ob.c
 @@ -22,6 +22,14 @@
  
  
@@ -163,9 +163,9 @@ diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
                   bgname ? (const char *)bgname : "(null)", index,
                   (void *)fileentry->hw_address, (unsigned)offset, (unsigned)len,
                   (unsigned)resource_lookup_data_array[index].rom_size,
-diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
---- a/src
-+++ b/src
+diff --git a/src/game/objecthandler_2.c b/src/game/objecthandler_2.c
+--- a/src/game/objecthandler_2.c
++++ b/src/game/objecthandler_2.c
 @@ -11,6 +11,14 @@
  #include "quaternion.h"
  #include "tex.h"
@@ -199,9 +199,9 @@ diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
                   "of the numbered, %d resident in pool, %d MISSING\n",
                   (s32)objheader->numtextures, numbered, embedded, resident, missing);
  }
-diff -ruN -U3 --strip-trailing-cr --label a/src --label b/src a/src b/src
---- a/src
-+++ b/src
+diff --git a/src/memp.c b/src/memp.c
+--- a/src/memp.c
++++ b/src/memp.c
 @@ -168,6 +168,14 @@
   * signal and no last line, which is the single most expensive failure mode to
   * diagnose. Report before hanging. */

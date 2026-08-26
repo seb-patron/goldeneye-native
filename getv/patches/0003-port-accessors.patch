@@ -106,7 +106,7 @@
 + * appeared in the flags word. That list is maintained for props the room system tracks; the
 + * player is placed by the stan query instead and carries its result on the collision record.
 + *
-+ * ⚠️ The tile pointer is null before the first placement and while a player is mid-respawn, and
++ * The tile pointer is null before the first placement and while a player is mid-respawn, and
 + * a tile's room is 0xff when it belongs to no room. Both refuse rather than guessing -- an
 + * agent that reads room 0 for "unknown" will confidently route through the wrong part of the
 + * map, which is the same class of failure as the assumed spawns in tools/dump_spawns.py. */
@@ -240,7 +240,7 @@
 + * The y it writes back is the useful half. A caller probing ahead gets both "is there floor" and
 + * "at what height", which is what turns a planar walk into one that can find a stairway.
 + *
-+ * ⚠️ Standable is not the same as reachable. The tile on the far side of a wall is standable and
++ * Standable is not the same as reachable. The tile on the far side of a wall is standable and
 + * a body still cannot walk to it, so this answers "is there floor there", not "can I get there".
 + * Used as a reachability test it will confidently walk into walls -- which is the mistake the
 + * distance-based spawn links made in a different form.
@@ -261,7 +261,7 @@
 +
 +/* Can a body actually WALK from here to there? The engine's own line test.
 + *
-+ * 🔴 gePortProbeStandable is not this, and mistaking the two wasted a long pass. That query SNAPS
++ * gePortProbeStandable is not this, and mistaking the two wasted a long pass. That query SNAPS
 + * to the nearest standable tile within its radius rather than testing the point, so it answers
 + * yes almost everywhere -- a floor map of the Bunker 1 spawn came back as 840x840 units of open
 + * floor with no wall anywhere, at a probe radius of 8. Stan is the navigation and height mesh.
@@ -272,7 +272,7 @@
 + * and CDTYPE_BG is the term that brings the walls in. Doors and path blockers are included too,
 + * because a bot that routes through a closed door has not found a path either.
 + *
-+ * ⚠️ Chrs and players are deliberately NOT included. Another body standing in the way is a
++ * Chrs and players are deliberately NOT included. Another body standing in the way is a
 + * transient, and a route planner that treats it as a wall will re-plan every time a guard walks
 + * past.
 + */
@@ -289,7 +289,7 @@
 +    struct coord3d a, b;
 +    f32 y = 0.0f;
 +
-+    /* 🔑 THE TILE IS AN INPUT, NOT JUST AN OUTPUT, and passing NULL makes every call fail.
++    /* THE TILE IS AN INPUT, NOT JUST AN OUTPUT, and passing NULL makes every call fail.
 +     *
 +     * The game's own caller seeds it (bondview2.c:2262 passes a tile it already holds): the walk
 +     * starts from a known tile and the test steps outwards from there. With NULL it has nowhere
@@ -314,7 +314,7 @@
 +
 +        tile = sub_GAME_7F0AFB78(&qx, &y, &qz, 60.0f);
 +
-+        /* ⚠️ THE LOOKUP SNAPS, AND A LONG SNAP IS A WRONG ANSWER.
++        /* THE LOOKUP SNAPS, AND A LONG SNAP IS A WRONG ANSWER.
 +         *
 +         * sub_GAME_7F0AFB78 moves the point it is given to the nearest standable tile, and
 +         * "nearest" can be on the FAR SIDE OF A WALL. Seeded from that tile the line test then
@@ -340,7 +340,7 @@
 +             *                                      frequently not on the stan mesh at all
 +             *   60 units (default)              -- the same radius the lookup itself uses
 +             *
-+             * ⚠️ None of these is ground truth. The only seed known to be correct is the tile a
++             * None of these is ground truth. The only seed known to be correct is the tile a
 +             * body is actually standing on, which is why a reachability map drawn from the
 +             * player disagrees with all of them. Treat this as a filter that removes obvious
 +             * nonsense, not as proof an edge is walkable. */
@@ -379,7 +379,7 @@
 +    a.f[0] = from_x; a.f[1] = 0.0f; a.f[2] = from_z;
 +    b.f[0] = to_x;   b.f[1] = 0.0f; b.f[2] = to_z;
 +
-+    /* 🔑 DOORS ARE NOT WALLS, and including them made a room with two doorways look sealed.
++    /* DOORS ARE NOT WALLS, and including them made a room with two doorways look sealed.
 +     *
 +     * A reachability map of the Bunker 1 spawn with CDTYPE_DOORS in the mask came back as a
 +     * closed corridor 120 units wide and 480 long -- which matched the bot being pinned at
@@ -406,7 +406,7 @@
 + * tile explicitly rather than snapping -- so the caller controls which surface the player lands
 + * on instead of the query guessing.
 + *
-+ * ⚠️ RETURNS WHERE IT ACTUALLY LANDED, and callers must check. A placement that is clamped or
++ * RETURNS WHERE IT ACTUALLY LANDED, and callers must check. A placement that is clamped or
 + * refused leaves the player at the old position, and a validator that assumes it moved then
 + * seeds every subsequent edge from the wrong place and reports confident, plausible, wrong
 + * verdicts -- while the run completes and prints a percentage. That failure has already happened
@@ -460,7 +460,7 @@
 + *
 + * Returns GE_SENSE_CLEAR (0) when nothing blocks.
 + *
-+ * ⚠️ Seeded from the tile under `from`, so it inherits the seeding rule the edge validator
++ * Seeded from the tile under `from`, so it inherits the seeding rule the edge validator
 + * learned the hard way: this is honest when asked from where a body is standing and guesswork
 + * when asked about a point nobody is at.
 + */
@@ -506,7 +506,7 @@
 + * ultimately reduce to. Characters and players are excluded from the mask deliberately -- another
 + * guard standing between them does not make the player unseen, it makes the shot awkward.
 + *
-+ * ⚠️ This is line of sight, NOT whether the guard is currently looking. Alertness and
++ * This is line of sight, NOT whether the guard is currently looking. Alertness and
 + * lastseetarget60 from the enemy API answer that, and conflating the two produces a bot that
 + * hides from a guard facing the other way and strolls past one that is staring at it.
 + */
@@ -547,7 +547,7 @@
 +    chr = &g_ChrSlots[chr_index];
 +    if (chr->model == NULL || chr->prop == NULL) { return 0; }
 +
-+    /* 🔑 THE FACING IS ON THE MODEL, NOT THE ChrRecord. This used to refuse, and the note said the
++    /* THE FACING IS ON THE MODEL, NOT THE ChrRecord. This used to refuse, and the note said the
 +     * answer probably started at chr.c:2319's `yrot = chr->aimsideback`. It does not.
 +     *
 +     * aimsideback is an AIM OFFSET applied to a body part while the model is drawn -- a rotation
@@ -559,7 +559,7 @@
 +     * player->pos: the value lives on the object the engine actually maintains, not on the record
 +     * that looks like it should own it.
 +     *
-+     * ⚠️ THE CONVENTION IS NOT ASSUMED -- THE GAME'S OWN CODE PROVES IT. chraction.c:9629 does
++     * THE CONVENTION IS NOT ASSUMED -- THE GAME'S OWN CODE PROVES IT. chraction.c:9629 does
 +     *
 +     *     radMyHeading = getsubroty(self->model);
 +     *     anglebetween = atan2f(pos->x - myprop->pos.x, pos->z - myprop->pos.z);
@@ -595,7 +595,7 @@
 + * accessors the AI uses to reason about it. This returns the horizontal half-extents and a radius,
 + * so a caller can subtract the thing's own size before deciding it has room to pass.
 + *
-+ * ⚠️ Returns the MODEL box, unrotated. A long crate turned forty-five degrees occupies more
++ * Returns the MODEL box, unrotated. A long crate turned forty-five degrees occupies more
 + * width than its half-extent suggests, and the radius is the honest figure to steer by until
 + * someone needs the oriented box. Reporting both lets the caller choose which lie to accept.
 + */
@@ -616,7 +616,7 @@
 +     * on that axis. Using the min alone assumes a centred model, which every crate in this game
 +     * is; an off-centre one would report a radius that is too small on one side, and that is a
 +     * reason to prefer the radius over the half-extents rather than to guess a correction. */
-+    /* 🔑 THROUGH THE OBJECT'S MATRIX, not the raw model box.
++    /* THROUGH THE OBJECT'S MATRIX, not the raw model box.
 +     *
 +     * The model box is in MODEL space and the engine never uses it directly: loadobjectmodel.c:607
 +     * runs it through chrpropSumMatrixPosX/NegX with obj->mtx, which carries the model's SCALE and
@@ -662,7 +662,7 @@
 + * for an index the level does not have, so a caller cannot mistake "no such objective" for
 + * "not done yet" -- they mean opposite things to anything deciding whether to keep playing.
 + *
-+ * ⚠️ get_status_of_objective RECOMPUTES rather than reading a cached flag, so this is a real
++ * get_status_of_objective RECOMPUTES rather than reading a cached flag, so this is a real
 + * evaluation each call and not free. Once a second is plenty; per frame is waste.
 + */
 +int gePortObjectiveStatus(s32 index, s32 *out_status)
@@ -772,7 +772,7 @@
 +    /* A MASK of what was filled, not a bool. A build that could reach position but not alertness
 +     * should say so, rather than letting a bot read every guard as oblivious.
 +     *
-+     * 🔑 BELIEF IS CONDITIONAL, AND THAT IS THE POINT OF THE MASK.
++     * BELIEF IS CONDITIONAL, AND THAT IS THE POINT OF THE MASK.
 +     *
 +     * lastknowntargetpos is (0,0,0) on a guard that has never seen or heard anyone, and zero is a
 +     * REAL COORDINATE -- it is a corner of the level. Reporting it as a belief makes every
@@ -818,7 +818,7 @@
 + * engine already ships the exact test and the guard AI runs it before every step it takes
 + * (chr.c:1468) -- a line test to the destination, then a volume test at it.
 + *
-+ * ⚠️ THE MASK IN THE GUARD AI DOES NOT INCLUDE WALLS, and that surprised me.
++ * THE MASK IN THE GUARD AI DOES NOT INCLUDE WALLS, and that surprised me.
 + *
 + *   CDTYPE_OBJS 0x01  DOORS 0x02  PLAYERS 0x04  CHRS 0x08  PATHBLOCKER 0x10  BG 0x20
 + *
@@ -842,7 +842,7 @@
 + * chain of constants this translation unit does not otherwise need, and trading a build break for
 + * a coupling is not a trade.
 + *
-+ * ⚠️ The last two arguments of stanTestVolume are NOT ymin/ymax. chrGetChrWidthHeight (chr.c)
++ * The last two arguments of stanTestVolume are NOT ymin/ymax. chrGetChrWidthHeight (chr.c)
 + * fills them as height = chrheight - 20 and a third out-param that is literally always 20.0f, and
 + * chr.c:1468 passes them in that order. Naming them ymin/ymax invites someone to pass a floor and
 + * a ceiling, which is a different and wrong question. */
@@ -868,7 +868,7 @@
 +
 +/* Seed a StandTile for a query at (x,z).
 + *
-+ * 🔑 THE TILE IS AN INPUT. Passing NULL makes every call report obstructed -- the same trap
++ * THE TILE IS AN INPUT. Passing NULL makes every call report obstructed -- the same trap
 + * gePortProbeWalkable documents, and the reason a Bunker 1 reachability map once came back solid
 + * even 60 units from the player.
 + *
@@ -891,7 +891,7 @@
 + *   0  no, something is in the way
 + *  -1  CANNOT SAY -- no stan tile could be established here
 + *
-+ * ⚠️ THREE STATES, DELIBERATELY. A bot that reads "cannot say" as "blocked" walls itself into
++ * THREE STATES, DELIBERATELY. A bot that reads "cannot say" as "blocked" walls itself into
 + * the small region it has already measured; one that reads it as "clear" walks into the thing it
 + * failed to see. The caller has to choose, so the distinction is preserved rather than folded
 + * into a bool -- the same reason the sensing API returns masks instead of yes/no.
@@ -944,7 +944,7 @@
 +/* ---------------------------------------------------------------------------------------------
 + * THE GAME'S OWN NAVIGATION GRAPH.
 + *
-+ * 🔑 GoldenEye SHIPS A PATHFINDER AND WE BUILT A SECOND ONE BESIDE IT. padhalllv.c holds a full
++ * GoldenEye SHIPS A PATHFINDER AND WE BUILT A SECOND ONE BESIDE IT. padhalllv.c holds a full
 + * two-level nav system -- waypoints grouped into waygroups, BFS within a group and across groups,
 + * waypointFindRoute, waypointFindNextStepToward, even Rare's own waypointDebugTestRandomRoute --
 + * and the guards have been using it the whole time.
@@ -1062,7 +1062,7 @@
 +/* ---------------------------------------------------------------------------------------------
 + * OPEN A DOOR THE WAY THE GUARDS DO.
 + *
-+ * 🔑 THE BOT HAS BEEN PRESSING THE PLAYER'S USE BUTTON AND THE GUARDS NEVER DO. Measured on Train:
++ * THE BOT HAS BEEN PRESSING THE PLAYER'S USE BUTTON AND THE GUARDS NEVER DO. Measured on Train:
 + * 1,305 USE presses against one door, 343 door contacts, and it never got through -- because the
 + * player path (doorTestForInteract, propobj.c:14411) additionally demands PROPFLAG_ONSCREEN and a
 + * maxFrac above zero, which is a statement about the CAMERA, and a bot walking at a door in the
@@ -1104,7 +1104,7 @@
 +    dz = hit->pos.f[2] - self->pos.f[2];
 +    if (((dx * dx) + (dy * dy) + (dz * dz)) >= 40000.0f) { return 0; }   /* 200 units, as the guards */
 +
-+    /* 🔴 THE KEY IS NOT OPTIONAL, AND doorActivate DOES NOT CHECK IT.
++    /* THE KEY IS NOT OPTIONAL, AND doorActivate DOES NOT CHECK IT.
 +     *
 +     * doorActivate swings whatever it is handed. The check lives one level up, in the player's
 +     * interact path (propobj.c:14591): a door with keyflags of zero is unlocked, otherwise the
@@ -1131,7 +1131,7 @@
 +/* ---------------------------------------------------------------------------------------------
 + * WHERE THE OBSTACLE'S EDGES ARE -- PORTED FROM PERFECT DARK, ONTO GOLDENEYE'S OWN DATA.
 + *
-+ * 🔑 THIS IS THE "IT TURNED RIGHT WHEN IT SHOULD HAVE TURNED LEFT" BUG, AND RARE FIXED IT IN 2000.
++ * THIS IS THE "IT TURNED RIGHT WHEN IT SHOULD HAVE TURNED LEFT" BUG, AND RARE FIXED IT IN 2000.
 + *
 + * Our follower asks "which heading is clearest" and sweeps for an answer, which is a guess dressed
 + * as a measurement: the clearest heading from where the bot happens to face can be the opposite
@@ -1160,7 +1160,7 @@
 +
 +    if (tile == NULL) { return 0; }
 +
-+    /* ⚠️ THE STAN MESH IS THE FLOOR, NOT THE FURNITURE. First version asked
++    /* THE STAN MESH IS THE FLOOR, NOT THE FURNITURE. First version asked
 +     * stanTestLineUnobstructed alone and got "clear" 114 times out of 114 while the bot was
 +     * pressed against a crate: crates and walls live in OBJECT and BG collision, and stan carries
 +     * the standable surface. Asking the floor where the crate is will always answer nothing.

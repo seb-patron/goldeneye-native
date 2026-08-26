@@ -6623,7 +6623,7 @@ index 677ea82..1e47fd7 100644
 + * every frame, so a skipped tick redraws the previous camera unchanged and the view moves in
 + * steps. This smooths the VIEW ONLY.
 + *
-+ * 🔴 It writes nothing back into game state, and that restriction is the whole design.
++ * It writes nothing back into game state, and that restriction is the whole design.
 + * GoldenEye's AI reads state as discrete fact -- chraction.c branches on positions and on
 + * render visibility -- so a blended value entering the simulation produces erratic behaviour
 + * that is far harder to diagnose than judder. The camera basis is a render input and nothing
@@ -12130,7 +12130,7 @@ index cb8e24a..dd17227 100644
 + *
 + * Default 1, which ticks every frame and is exactly the behaviour that existed before.
 + *
-+ * ⚠️ EXPERIMENTAL. Without interpolation a skipped tick redraws the previous simulation state
++ * EXPERIMENTAL. Without interpolation a skipped tick redraws the previous simulation state
 + * unchanged, so motion judders in proportion to the divider. Whether game time stays correct
 + * across a divider is a measurement, not an assumption: updateFrameCounters() still runs every
 + * frame here, so the simulation sees one field of delta per tick while n fields of real time
@@ -31674,7 +31674,7 @@ index 0000000..42d6583
 +     c. FATAL for an index/ID segment, REPORTED for plain data -- whatever is clipped
 +        off the end.  Three types legitimately clip trailing runtime-only fields.
 +
-+   🔴 BE HONEST ABOUT WHAT THESE CANNOT DO.  Check (a) does NOT catch the padding
++   BE HONEST ABOUT WHAT THESE CANNOT DO.  Check (a) does NOT catch the padding
 +   shear described below: inflating a member by its own trailing padding leaves the
 +   NATIVE total unchanged, because the alignment rounding that follows would have
 +   added those bytes anyway.  Only the file side moves.  What actually catches this
@@ -31683,7 +31683,7 @@ index 0000000..42d6583
 +   non-zero file word that no segment covers.  MEASURED: pre-fix binary, 66 such
 +   words across 20 of the 40 stages; post-fix, 0 across all 40.
 +
-+🔴🔴 THE BUG THIS FILE WAS REWRITTEN TO KILL (2026-08-21)
++THE BUG THIS FILE WAS REWRITTEN TO KILL (2026-08-21)
 +--------------------------------------------------------
 +The previous version took each member's size to be `next_member_offset - offset`.
 +In a native struct that is the member size PLUS the alignment padding in front of
@@ -31705,7 +31705,7 @@ index 0000000..42d6583
 +It ALSO made the GETV_PDEFGAP census under-report, because file word 0x4 counted
 +as "covered".  Same one-word shear in 20 of the 34 record types.
 +
-+🔑 SECOND DEFECT, INDEPENDENT: pointer-typed members were dropped WHOLESALE, on the
++SECOND DEFECT, INDEPENDENT: pointer-typed members were dropped WHOLESALE, on the
 +assumption that a pointer slot is always runtime state and always zero in the file.
 +That is false for `union { T *ptr; s32 Index; }` -- LinkRecord.Index1/2,
 +LockDoorRecord.Index1/2, SafeObjectRecord.Index1/2/3 -- where the file carries a
@@ -31714,7 +31714,7 @@ index 0000000..42d6583
 +AI-list ID.  Those are emitted now, as separate segment ranges so the runtime can
 +still A/B them (GETV_PDEFIDS / GETV_VEHAI).
 +
-+⚠️ A pointer slot the file populates cannot always be recognised from its type
++A pointer slot the file populates cannot always be recognised from its type
 +(`ailist` is the proof).  PTR_HOLDS_ID below is the escape hatch, and the runtime
 +census in gePropdefsConvertToNative() -- which now runs UNCONDITIONALLY and shouts
 +about any non-zero file word that no segment covers -- is the backstop that makes
@@ -31724,7 +31724,7 @@ index 0000000..42d6583
 +-----
 +    python3 tools/gen_propdef_layout.py            # from the ge-decomp root
 +
-+⚠️ Re-run this after ANY change to a propDef struct in src/bondtypes.h.
++Re-run this after ANY change to a propDef struct in src/bondtypes.h.
 +"""
 +
 +import os, re, sys, subprocess
@@ -31751,7 +31751,7 @@ index 0000000..42d6583
 +          "-DLEFTOVERSPECTRUM -DBUGFIX_R0 -DTARGET_N64 -DGE_PORT_NATIVE -DNON_MATCHING=1 "
 +          "-DAVOID_UB=1 -D_LANGUAGE_C=1 -w -ferror-limit=0").split()
 +
-+# 🔑 Plain (non-union) pointer members whose FILE slot holds an ID, not a pointer.
++# Plain (non-union) pointer members whose FILE slot holds an ID, not a pointer.
 +# See the GETV-VEHAI note in loadobjectmodel.c: prop.c does
 +#     pdef_veh->ailist = ailistFindById((s32)(uintptr_t)pdef_veh->ailist);
 +# so the converter has to carry the 4 file bytes across.  There is no way to see
@@ -31808,7 +31808,7 @@ index 0000000..42d6583
 +        TYPEDEF'd union member is printed as plain `Mtxf mtx` with no keyword.
 +        The reliable structural tell is that every branch starts at the same
 +        offset -- which no struct with two or more real members can do.
-+        ⚠️ Measured: without the second test, `Mtxf mtx` (union{f32 m[4][4]; s32
++        Measured: without the second test, `Mtxf mtx` (union{f32 m[4][4]; s32
 +        unused}) was laid out as a 68-byte STRUCT, shifting everything after it
 +        in DoorRecord and every other record that embeds a matrix."""
 +        if self.text.startswith('union '):
@@ -31867,7 +31867,7 @@ index 0000000..42d6583
 +            if ms:
 +                size = int(ms.group(1))
 +                continue
-+            # ⚠️ clang prints a BITFIELD with a `byte:bitlo-bithi |` offset column, which
++            # clang prints a BITFIELD with a `byte:bitlo-bithi |` offset column, which
 +            # the member regex below does not match -- it would be skipped in SILENCE and
 +            # the record would size short.  Flag the record instead; build() refuses to
 +            # emit a layout for any record that reaches one, because N64 bitfields
@@ -31945,7 +31945,7 @@ index 0000000..42d6583
 +
 +
 +def record_leaf(node):
-+    """🔑 clang expands a nested struct MEMBER inline, but NOT an ARRAY of structs --
++    """clang expands a nested struct MEMBER inline, but NOT an ARRAY of structs --
 +    `MonitorRecord Monitor[4]` prints as one opaque leaf.  If that element type
 +    contains pointers its N64 stride is SMALLER than its native one, so it cannot be
 +    copied as a blob.  MEASURED: MultiMonitorObjRecord holds four MonitorRecords, each
@@ -32142,7 +32142,7 @@ index 0000000..42d6583
 +]
 +
 +# ---------------------------------------------------------------------------
-+# 🔑 A propDef record type can be READ through one struct and WRITTEN through a
++# A propDef record type can be READ through one struct and WRITTEN through a
 +# DIFFERENT one.  prop.c's walk casts the objective records to the `criteria_*` /
 +# `setup_objective_text` / `objective_entry` shapes in objective.c, and those carry a
 +# runtime `next`/parent POINTER that the *Record struct above does not.  `natwords` has
@@ -32277,12 +32277,12 @@ index 0000000..42d6583
 +clipped_types = sorted(k for k, v in CLIPPED.items() if v)
 +if clipped_types:
 +    sys.stderr.write(
-+        "\n⚠️  %d type(s) compute LARGER than the measured file record and were clipped:\n"
++        "\n%d type(s) compute LARGER than the measured file record and were clipped:\n"
 +        "    %s\n"
 +        "    That is legitimate ONLY when the excess is trailing RUNTIME state the ROM\n"
 +        "    never stored (CCTVRecord's timer/convert_to_f32/unkF0.., GlassRecord and\n"
 +        "    SafeRecord's runtime `normal`).  It is ALSO what a one-word layout SHEAR\n"
-+        "    looks like -- the defect this generator was rewritten to kill.  🔑 The\n"
++        "    looks like -- the defect this generator was rewritten to kill.  The\n"
 +        "    static checks CANNOT tell those two apart: inflating a member by its own\n"
 +        "    trailing padding leaves the native total unchanged, so the round-trip check\n"
 +        "    stays green.  The thing that CAN tell them apart is the runtime census in\n"
