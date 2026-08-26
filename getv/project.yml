@@ -63,6 +63,12 @@ targets:
           - GE_PORT_NATIVE=1
           # PR/gbi.h gates every type behind this; without it Gfx does not exist.
           - _LANGUAGE_C=1
+          # Selects which of &gfx_opengl_api / &gfx_metal_api ge_tvos_main.c hands to
+          # gfx_init() -- must match whatever GETV_RAPI_DEFINE the libge.a this links
+          # against was built with (build.sh/build_sim.sh export it before `xcodegen
+          # generate` runs). WAPI_SDL2 is renderer-agnostic and always on.
+          - WAPI_SDL2=1
+          - ${GETV_RAPI_DEFINE}=1
         OTHER_LDFLAGS:
           # No -force_load yet: unlike PD, nothing in libge.a registers itself from
           # a constructor, and the harness deliberately pulls in only what it calls.

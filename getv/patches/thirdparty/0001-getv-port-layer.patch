@@ -1,6 +1,6 @@
 diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
---- a/getv/port/audio/ge_mixer.c	2026-08-26 15:49:28
-+++ b/getv/port/audio/ge_mixer.c	2026-08-26 15:49:29
+--- a/getv/port/audio/ge_mixer.c	2026-08-26 16:18:31
++++ b/getv/port/audio/ge_mixer.c	2026-08-26 16:18:32
 @@ -0,0 +1,22 @@
 +/* GoldenEye native port -- the RSP audio microcode (aspMain), in software.
 + *
@@ -443,8 +443,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
 +    }
 +    return 0;
 diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
---- a/getv/port/audio/ge_mixer.h	2026-08-26 15:49:28
-+++ b/getv/port/audio/ge_mixer.h	2026-08-26 15:49:29
+--- a/getv/port/audio/ge_mixer.h	2026-08-26 16:18:31
++++ b/getv/port/audio/ge_mixer.h	2026-08-26 16:18:32
 @@ -1,2 +1,21 @@
 -#ifndef MIXER_H
 -#define MIXER_H
@@ -541,8 +541,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 +
 +#endif /* GE_MIXER_H */
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
---- a/getv/port/fast3d/gfx_cc.c	2026-08-26 15:49:27
-+++ b/getv/port/fast3d/gfx_cc.c	2026-08-26 15:49:28
+--- a/getv/port/fast3d/gfx_cc.c	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_cc.c	2026-08-26 16:18:31
 @@ -3 +3 @@
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features) {
@@ -554,8 +554,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
 +    }
 +    cc_features->two_cycle = (shader_id & SHADER_OPT_2CYC) != 0;
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
---- a/getv/port/fast3d/gfx_cc.h	2026-08-26 15:49:27
-+++ b/getv/port/fast3d/gfx_cc.h	2026-08-26 15:49:28
+--- a/getv/port/fast3d/gfx_cc.h	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_cc.h	2026-08-26 16:18:31
 @@ -6,0 +7,14 @@
 +/* Two-cycle combiners. GoldenEye is two-cycle nearly everywhere.
 + *
@@ -616,8 +616,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features);
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features);
 diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
---- a/getv/port/fast3d/gfx_opengl.c	2026-08-26 15:49:27
-+++ b/getv/port/fast3d/gfx_opengl.c	2026-08-26 15:49:28
+--- a/getv/port/fast3d/gfx_opengl.c	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_opengl.c	2026-08-26 16:18:31
 @@ -4,0 +5 @@
 +#include <stdio.h>
 @@ -27 +28,6 @@
@@ -834,7 +834,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 @@ -496 +589 @@
 -static struct ShaderProgram *gfx_opengl_lookup_shader(uint32_t shader_id) {
 +static struct ShaderProgram *gfx_opengl_lookup_shader(uint64_t shader_id) {
-@@ -544,0 +638,30 @@
+@@ -544,0 +638,39 @@
 +/* GETV_ANISO=<n> -- anisotropic filtering, off by default.
 + *
 + * Resolved once. The clamp is against the driver's own GL_MAX_TEXTURE_MAX_ANISOTROPY
@@ -848,6 +848,14 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +static GLfloat ge_aniso_max(void) {
 +    static GLfloat resolved = -1.0f;
 +    if (resolved < 0.0f) {
++#ifdef USE_GLES
++        /* GL_MAX_TEXTURE_MAX_ANISOTROPY is the desktop GL 4.6 core name; ES has no core
++         * equivalent (it would be GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, behind
++         * GL_EXT_texture_filter_anisotropic, queried differently). Not implemented here --
++         * GETV_ANISO is off by default on every platform, so this is a compile-time gap
++         * only, not a feature this port has ever shipped on tvOS. */
++        resolved = 0.0f;
++#else
 +        const char *e = getenv("GETV_ANISO");
 +        long want = (e && *e) ? strtol(e, NULL, 10) : 0;
 +        if (want <= 1) {
@@ -861,18 +869,21 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +                   (double) resolved, (double) cap);
 +            fflush(stdout);
 +        }
++#endif
 +    }
 +    return resolved;
 +}
 +
-@@ -549,0 +673,6 @@
+@@ -549,0 +682,8 @@
++#ifndef USE_GLES
 +    {
 +        const GLfloat aniso = ge_aniso_max();
 +        if (aniso > 0.0f && linear_filter) {
 +            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, aniso);
 +        }
 +    }
-@@ -617,0 +747,425 @@
++#endif
+@@ -617,0 +758,425 @@
 +#ifdef TVOS_SUPERSAMPLE
 +// The Fast3D this port inherited has no framebuffer support at all; this is the
 +// entire offscreen path, added so the scene can be rendered above the output
@@ -1298,7 +1309,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +}
 +#endif /* GE_POSTFX */
 +
-@@ -618,0 +1173,22 @@
+@@ -618,0 +1184,22 @@
 +#ifdef TVOS_SUPERSAMPLE
 +    {
 +        GLint fb = 0, rb = 0;
@@ -1321,7 +1332,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        printf("supersample: SDL screen framebuffer = %d, factor = %u\n", fb, gfx_supersample);
 +    }
 +#endif
-@@ -628,0 +1205,13 @@
+@@ -628,0 +1216,13 @@
 +    /* Identify the rasteriser. In the simulator the per-frame cost is almost purely
 +     * per-fragment (4x fewer pixels gives ~4.7x less time at identical geometry), at a
 +     * rate consistent with a software rasteriser. Printing the renderer string is what
@@ -1335,7 +1346,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        fflush(stdout);
 +    }
 +
-@@ -641,0 +1231,15 @@
+@@ -641,0 +1242,15 @@
 +
 +#ifdef GE_POSTFX
 +    /* After glewInit above -- every entry point this touches resolves through GLEW on
@@ -1351,7 +1362,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +    ge_postfx_config();
 +#endif
-@@ -649,0 +1254,20 @@
+@@ -649,0 +1265,20 @@
 +#ifdef TVOS_SUPERSAMPLE
 +    if (gfx_supersample > 1) {
 +        gfx_ss_ensure(gfx_current_dimensions.width, gfx_current_dimensions.height);
@@ -1372,7 +1383,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +#endif
 +
-@@ -656,0 +1281,67 @@
+@@ -656,0 +1292,67 @@
 +/* GETV_SHOTFRAME: deterministic frame capture.
 + *
 + * A/B'ing a rendering change needs the same frame on both arms. `screencapture` cannot
@@ -1440,7 +1451,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    fflush(stderr);
 +}
 +
-@@ -657,0 +1349,27 @@
+@@ -657,0 +1360,27 @@
 +#ifdef GE_POSTFX
 +    /* Before the capture, deliberately: with post-processing on, the offscreen target is
 +     * still bound at this point, so a capture taken first would photograph the raw scene and
@@ -1469,8 +1480,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +#endif
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
---- a/getv/port/fast3d/gfx_pc.c	2026-08-26 15:49:27
-+++ b/getv/port/fast3d/gfx_pc.c	2026-08-26 15:49:28
+--- a/getv/port/fast3d/gfx_pc.c	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_pc.c	2026-08-26 16:18:32
 @@ -22,0 +23 @@
 +#include "ge_sky_rdp.h"
 @@ -31 +32,39 @@
@@ -5980,8 +5991,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +        ge_tri_count = 0;
 +    }
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
---- a/getv/port/fast3d/gfx_pc.h	2026-08-26 15:49:28
-+++ b/getv/port/fast3d/gfx_pc.h	2026-08-26 15:49:28
+--- a/getv/port/fast3d/gfx_pc.h	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_pc.h	2026-08-26 16:18:32
 @@ -12,0 +13,5 @@
 +// gfx_current_dimensions is the INTERNAL render size. With supersampling it is
 +// larger than the window; gfx_output_dimensions is the real drawable that the
@@ -5989,16 +6000,16 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
 +extern struct GfxDimensions gfx_output_dimensions;
 +extern unsigned int gfx_supersample;
 diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rendering_api.h
---- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 15:49:28
-+++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 15:49:28
+--- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 16:18:32
 @@ -14,2 +14,2 @@
 -    struct ShaderProgram *(*create_and_load_new_shader)(uint32_t shader_id);
 -    struct ShaderProgram *(*lookup_shader)(uint32_t shader_id);
 +    struct ShaderProgram *(*create_and_load_new_shader)(uint64_t shader_id);
 +    struct ShaderProgram *(*lookup_shader)(uint64_t shader_id);
 diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
---- a/getv/port/fast3d/gfx_sdl2.c	2026-08-26 15:49:28
-+++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-26 15:49:29
+--- a/getv/port/fast3d/gfx_sdl2.c	2026-08-26 16:18:31
++++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-26 16:18:32
 @@ -19 +19,8 @@
 -#ifdef OSX_BUILD
 +/* Desktop GL when we are NOT on a GLES target. USE_GLES is defined only by the tvOS
