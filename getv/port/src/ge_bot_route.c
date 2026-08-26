@@ -45,6 +45,9 @@ extern int gePortNavAt(int index, int *out_pad, float *out_pos, int *out_group);
 extern int gePortNavNearest(float x, float z);
 extern int gePortNavRoute(int from, int to, int *out, int max);
 extern int gePortPlayerPos(int idx, float *out);
+extern int gePortOpenDoorAhead(int idx, float to_x, float to_z);
+extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
+                              float *out_left, float *out_right);
 
 #include "ge_enemy_api.h"
 #include "ge_sense_api.h"
@@ -261,6 +264,61 @@ static void ge_br_nav_build(void)
     fflush(stdout);
 }
 
+
+/* AIM AT AN EDGE OF THE OBSTACLE, NOT AT "SOMEWHERE OPEN".
+ *
+ * Ported from Perfect Dark's chrNavTryObstacle. PD does not sweep for a clear heading: it takes
+ * the two ends of the thing that blocked it and goes round one of them, pushed outward by a
+ * clearance of the body radius times 1.26 so the shoulder clears too. Choosing between the two
+ * ends is then a real comparison -- which side is actually nearer the way I need to go -- instead
+ * of the sign of an error, which is what kept sending our bot right when left was correct.
+ *
+ * GE reports the blocking edge through gePortObstacleEdge, built on the same stanSavedColl_tile /
+ * stanSavedColl_pointI pair the engine keeps for its own collision.
+ *
+ * Returns 1 and writes a heading when it found a side worth trying.
+ */
+#define GE_BR_RADIUS     35.0f
+#define GE_BR_CLEARANCE  1.26f   /* PD's own figure, chraction.c: chr->radius * 1.26f */
+
+static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_deg)
+{
+    float left[2], right[2];
+    float best = 0.0f, bestscore = -1.0f;
+    int i, found = 0;
+
+    if (!gePortObstacleEdge(x, z, tx, tz, left, right)) { return 0; }
+
+    for (i = 0; i < 2; i++) {
+        float ex = (i == 0) ? left[0] : right[0];
+        float ez = (i == 0) ? left[1] : right[1];
+        float dx = ex - x, dz = ez - z;
+        float len = sqrtf(dx * dx + dz * dz);
+        float ax, az, deg, score;
+
+        if (len < 1.0f) { continue; }
+
+        /* Push PAST the corner, not at it: aiming exactly at an edge point walks the body into
+         * the corner it is trying to round. */
+        ax = ex + (dx / len) * (GE_BR_RADIUS * GE_BR_CLEARANCE);
+        az = ez + (dz / len) * (GE_BR_RADIUS * GE_BR_CLEARANCE);
+
+        deg = (float) (atan2((double) (ax - x), (double) (az - z)) * 180.0 / 3.14159265358979);
+
+        /* Prefer the side that keeps the bot pointed most nearly at its target. */
+        {
+            float want = (float) (atan2((double) (tx - x), (double) (tz - z))
+                                  * 180.0 / 3.14159265358979);
+            float off = (float) fabs((double) ge_br_norm180(deg - want));
+            score = 180.0f - off;
+        }
+        if (score > bestscore) { bestscore = score; best = deg; found = 1; }
+    }
+
+    if (found && out_deg != NULL) { *out_deg = best; }
+    return found;
+}
+
 /* THE FLIGHT RECORDER.
  *
  * The trace prints every sixtieth frame, which is fine for watching and useless for answering
@@ -276,6 +334,9 @@ static void ge_br_nav_build(void)
  */
 
 static FILE *ge_br_log = NULL;
+static unsigned ge_br_log_rows = 0;
+static int ge_br_locked_seen = 0;
+static int ge_br_use_edges = 0;
 static int   ge_br_last_target = -1;
 /* Centring the avoidance sweep on the target bearing rather than the current heading is a real
  * fix for a real bug -- caught at Train frame 12769, steering asking -66 while the posted stick
@@ -308,7 +369,13 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
     fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
             frame, event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
-    fflush(ge_br_log);   /* a crash mid-run is exactly when the last rows matter most */
+    /* ⚠️ NOT FLUSHED PER ROW. The Surface measured a flushed line at ~24 ms on its box -- 516
+     * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
+     * a row on EVERY tick. Flushing each one does not just run slow, it changes the thing being
+     * measured: two runs of the same build logged 1,539 and 9,521 frames in the same wall clock,
+     * which made an A/B of two steering policies compare their log volume rather than their
+     * steering. Flushed every 512 rows instead, so a crash still leaves nearly everything. */
+    if ((++ge_br_log_rows & 511) == 0) { fflush(ge_br_log); }
 }
 
 /* THE HEADING THE GAME ITSELF PERMITS.
@@ -433,6 +500,18 @@ void gePortBotRouteInit(void)
     }
     ge_br_recentre = (getenv("GETV_BOT_NEWSWEEP") != NULL);
     ge_br_use_nav  = (getenv("GETV_BOT_NAV") != NULL);
+    /* OFF UNTIL IT WINS. The edge model is the right idea and it now genuinely fires -- 173
+     * blocking props reported against 4 misses, where the first version using the stan mesh
+     * reported 114 misses out of 114 because stan is the FLOOR and crates are not in it. But
+     * measured on Train it reaches step 7 where the sweep it replaces reaches 11.
+     *
+     * The likely reason is the lesson this file has already learned twice: PD holds its chosen
+     * side in waydata->mode until it ARRIVES there, and this re-derives the side whenever the
+     * avoidance latch lapses, so the bot can swap ends of the same crate. Committing properly is
+     * the next piece of work, not a reason to ship the half of it that loses ground.
+     *
+     * GETV_BOT_EDGES=1 to try it. */
+    ge_br_use_edges = (getenv("GETV_BOT_EDGES") != NULL);
     ge_br_log_open(e);
     ge_br_load_brief(e);
 
@@ -934,10 +1013,25 @@ steer:
                  * keeps wedging itself into passes it and gets reported as the clearest heading
                  * available -- the router then commits to the one direction it cannot fit
                  * through, and the trace says it chose correctly every time. */
+                float edge_h = 0.0f;
+                int   edge_ok = ge_br_use_edges
+                              ? ge_br_edge_heading(st.x, st.z, wp.x, wp.z, &edge_h)
+                              : 0;
                 int   engine_said = 0;
                 float open_h = ge_br_use_clear
                              ? ge_br_clear_heading(st.x, st.z, bearing, &engine_said)
                              : 0.0f;
+                ge_br_logf((int) frame, "edgetry", ge_br_last_target,
+                           gePortNavNearestPad(st.x, st.z), st.x, st.z,
+                           ge_br_heading, bearing, 0.0f, 0, 0,
+                           edge_ok ? "hit" : "no-block-reported");
+                if (edge_ok) {
+                    open_h = edge_h;
+                    engine_said = 1;
+                    ge_br_logf((int) frame, "edge", ge_br_last_target,
+                               gePortNavNearestPad(st.x, st.z), st.x, st.z,
+                               ge_br_heading, bearing, edge_h, 0, 0, "round-the-edge");
+                }
                 if (!engine_said) {
                     /* 🔑 CENTRED ON THE BEARING, NOT ON THE CURRENT HEADING.
                      *
@@ -1184,6 +1278,38 @@ steer:
             }
         } else {
             ge_br_stuck = 0;
+        }
+    }
+
+    /* ASK THE DOOR, THE WAY THE GUARDS DO -- ON A TIMER, NOT ON A SENSOR VERDICT.
+     *
+     * First attempt put this inside the branch that fires when the sensor says DOOR, and it never
+     * ran once in a whole Train run: at the place the bot actually stops, the sensor says OBJECT.
+     * The guards do not wait to be told there is a door either. chraction.c:9202 sweeps for one
+     * every tenth tick no matter what it thinks is ahead, and lets the sweep answer.
+     *
+     * The sweep is aimed at where the bot is TRYING to go rather than where it faces, because a
+     * bot wedged against a crate is facing the crate and the door is the thing past it.
+     *
+     * ⚠️ Reports LOCKED, and does not open it. A locked door is not an obstacle to be steered
+     * around -- it is an errand: a guard is carrying the key and has to be dealt with first.
+     */
+    if ((frame % 10) == 0) {
+        float rad = bearing * 3.14159265f / 180.0f;
+        float ax = st.x + sinf(rad) * 150.0f;
+        float az = st.z + cosf(rad) * 150.0f;
+        int r = gePortOpenDoorAhead(ge_br_slot, ax, az);
+
+        if (r == -2 && ge_br_locked_seen == 0) {
+            ge_br_locked_seen = 1;
+            printf("[getv][botroute] LOCKED DOOR at (%.0f %.0f) -- the bot is not carrying its "
+                   "key. A guard is holding it.\n", (double) st.x, (double) st.z);
+            fflush(stdout);
+        }
+        if (r == 1 || r == -2) {
+            ge_br_logf((int) frame, "door", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
+                       st.x, st.z, ge_br_heading, bearing, 0.0f, 0, 0,
+                       r == 1 ? "opened" : "LOCKED");
         }
     }
 
