@@ -114,7 +114,7 @@ static void ge_cli_setup(void)
                           == GE_CLI_FILE_TYPE_PIPE);
 #endif
     gePlayerClaim(ge_cli_slot, GE_SLOT_INJECTED);
-    printf("[cli] playing slot %d. commands: w/s/a/d <ticks>, use, fire, look, map, stop, quit\n",
+    printf("[cli] playing slot %d. commands: w/s/a/d/up/down <ticks>, use, fire, crouch, stand, look, map, path, stop, quit\n",
            ge_cli_slot);
     fflush(stdout);
 }
@@ -144,6 +144,14 @@ static void ge_cli_command(const char *line)
     else if (strcmp(verb, "d") == 0)    { ge_cli_sx =  80; }
     else if (strcmp(verb, "use") == 0)  { ge_cli_buttons = GE_IN_USE; ge_cli_sy = GE_CLI_WALK; }
     else if (strcmp(verb, "fire") == 0) { ge_cli_buttons = GE_IN_FIRE; ge_cli_hold = 6; }
+    /* Vertical aim. Everything in this interface until now pointed along the floor, which is
+     * fine for walking into rooms and useless for shooting anything that is not at eye height --
+     * Train's brake units are mounted low on the wall beside each door, and a player firing
+     * straight ahead at one puts every round in the panel above it. */
+    else if (strcmp(verb, "down") == 0) { ge_cli_buttons = GE_IN_LOOK_DOWN; }
+    else if (strcmp(verb, "up") == 0)   { ge_cli_buttons = GE_IN_LOOK_UP; }
+    else if (strcmp(verb, "crouch") == 0) { ge_cli_buttons = GE_IN_CROUCH_DOWN; }
+    else if (strcmp(verb, "stand") == 0)  { ge_cli_buttons = GE_IN_CROUCH_UP; }
     else if (strcmp(verb, "look") == 0) { ge_cli_hold = 0; ge_cli_report_now = 1; }
     else if (strcmp(verb, "map") == 0)  { ge_cli_hold = 0; ge_cli_map_now = 1;
                                           ge_cli_report_now = 1;
@@ -364,6 +372,15 @@ static void ge_cli_report(int frame)
             printf("\n");
         }
     }
+    {
+        /* What is being carried, because a locked door is a question about inventory and the
+         * report never answered it. Keys are picked up by walking over them, so this line is
+         * also the confirmation that a walk-over worked. */
+        extern unsigned int gePortHeldKeys(void);
+        unsigned int keys = gePortHeldKeys();
+        if (keys != 0u) { printf("carry  keys 0x%02x\n", keys); }
+        else            { printf("carry  no keys\n"); }
+    }
     printf("you    (%.0f %.0f %.0f) facing %.0f  room %d  hp %.0f%%  weapon %d  ammo %d/%d\n",
            (double) st.x, (double) st.y, (double) st.z, (double) st.angle, st.room,
            (double) (st.health * 100.0f), st.weapon, st.ammo_clip, st.ammo_reserve);
@@ -465,6 +482,42 @@ static void ge_cli_report(int frame)
                    (double) sqrt((double) (((pr.x - st.x) * (pr.x - st.x))
                                          + ((pr.z - st.z) * (pr.z - st.z)))),
                    (double) ge_cli_rel(st.x, st.z, pr.x, pr.z, st.angle), pr.room);
+        }
+    }
+
+    /* WHAT THE MISSION IS ACTUALLY POINTING AT.
+     *
+     * Objectives name their targets by setup tag, so a tagged prop is a thing the mission cares
+     * about -- Train's six brake units are tags 8 through 13. The objective line reports the
+     * LAST of them, which on Train is 13,868 units away at the far end of the train, so a player
+     * standing eighty units from the first one is told the objective is a quarter of a mile off
+     * and walks past the thing it was sent to destroy. Measured: the run stalls at (-1388, -235)
+     * and brake unit tag 8 is at (-1372, -313).
+     *
+     * Doors, keys and collectables are tagged too and have their own lines above; this is for
+     * the rest, which is what "go and do something to that" means.
+     */
+    {
+        GeWorldProp tp;
+        float best_d = 0.0f;
+        int   best = -1;
+
+        n = geWorldPropCount();
+        for (i = 0; i < n; i++) {
+            float dx, dz, d;
+            if (!geWorldProp(i, &tp)) { continue; }
+            if (tp.tag < 0) { continue; }
+            if (tp.kind == GE_PROP_DOOR || tp.kind == GE_PROP_KEY
+                || tp.kind == GE_PROP_COLLECTABLE) { continue; }
+            dx = tp.x - st.x;
+            dz = tp.z - st.z;
+            d = (float) sqrt((double) (dx * dx + dz * dz));
+            if (best < 0 || d < best_d) { best_d = d; best = i; }
+        }
+        if (best >= 0 && geWorldProp(best, &tp)) {
+            printf("target tag %-4d #%-4d %5.0f away, turn %+.0f, room %d\n",
+                   tp.tag, best, (double) best_d,
+                   (double) ge_cli_rel(st.x, st.z, tp.x, tp.z, st.angle), tp.room);
         }
     }
 

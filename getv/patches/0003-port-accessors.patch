@@ -255,10 +255,10 @@
 +    }
 +    if (out_y != NULL)    { *out_y = py; }
 +    if (out_room != NULL) { *out_room = (tile->room == 0xff) ? -1 : (s32) tile->room; }
-     return 1;
- }
- 
- 
++    return 1;
++}
++
++
 +/* Can a body actually WALK from here to there? The engine's own line test.
 + *
 + * gePortProbeStandable is not this, and mistaking the two wasted a long pass. That query SNAPS
@@ -701,10 +701,10 @@
 +        for (j = 0; j < 4; j++) { deaths += g_playerPlayerData[j].kill_counts[idx]; }
 +        *out_deaths = deaths;
 +    }
-+    return 1;
-+}
-+
-+
+     return 1;
+ }
+ 
+ 
 +/* Live enemy state, for getv/port/src/ge_enemy_api.c. See docs/ENEMY_API.md.
 + *
 + * Here for the same reason gePortPlayerPos is: ChrRecord is a game type, the port layer is
@@ -799,7 +799,7 @@
  void gePortStateDump(int frame)
  {
      s32 i;
-@@ -781,4 +1555,539 @@
+@@ -781,4 +1555,564 @@
      printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
      fflush(stdout);
  }
@@ -1010,6 +1010,31 @@
 + * Returns 1 and fills the outputs, or 0 where there is no floor -- which is itself the answer to
 + * "can I stand there", asked a different way.
 + */
++/* What the player is carrying, as the keys the doors actually test against.
++ *
++ * Doors on Train are locked with keyflags, and the interact path checks them with
++ * bondinvCheckHasKeyFlags (propobj.c:14591). Nothing in the port ever reported the other side of
++ * that test, so a player could kill the guard holding a card, walk past the card on the floor,
++ * arrive at the door it opens and have no way to tell why it would not open -- which is exactly
++ * the position the CLI bot was in.
++ *
++ * Returns the held key flags. Zero means no keys, which is the common and correct answer for
++ * most of a level.
++ */
++u32 gePortHeldKeys(void)
++{
++    u32 flags = 0;
++    s32 bit;
++
++    /* Asked one bit at a time because the inventory exposes a test, not the set. Eight covers
++     * every key GoldenEye defines and costs nothing to ask. */
++    for (bit = 0; bit < 8; bit++) {
++        if (bondinvCheckHasKeyFlags((u32) (1 << bit)) != 0) { flags |= (u32) (1 << bit); }
++    }
++    return flags;
++}
++
++
 +s32 gePortTileAt(f32 x, f32 z, s32 *out_id, s32 *out_room)
 +{
 +    StandTile *tile = ge_stand_seed(x, z, NULL);

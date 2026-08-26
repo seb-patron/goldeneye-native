@@ -38,6 +38,8 @@ RE_AHEAD = re.compile(r"^ahead\s+(\S.*?)\s{2,}(\d+)\s+away\s+clearest turn\s+([+
 RE_OBJ = re.compile(r"^obj\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_PATH = re.compile(r"^path\s+(\d+):\s+\((-?\d+)\s+(-?\d+)\)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 RE_NOPATH = re.compile(r"^path\s+nothing reachable")
+RE_TARGET = re.compile(r"^target\s+tag\s+(-?\d+)\s+#(\d+)\s+(\d+)\s+away,"
+                       r"\s+turn\s+([+-]?\d+),\s+room\s+(-?\d+)")
 RE_DOOR = re.compile(r"^Door\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 # ge_cli.c reports the nearest Door, Key AND Collectable this way (ge_cli.c:230-237, all three
 # kinds through the same printf), but only Door was ever parsed here -- the other two landmarks
@@ -76,13 +78,25 @@ class Player:
         self.path_age = 0
         self.stalled = 0
         self.mapped = False
+        self.shots = {}
+        self.aimed = {}
+        self.grabs = {}
         self.path_fine = False
 
     transcript = None
 
+    rule = "-"
+
+    def why(self, name, cmd):
+        """Tag a decision with the rule that made it. A transcript of commands says what the
+        player did; it never says why, and every wrong-rule bug so far has looked identical from
+        the outside -- the player walking when it should have been shooting."""
+        self.rule = name
+        return cmd
+
     def send(self, cmd):
         if self.transcript is not None:
-            self.transcript.write("> %s\n" % cmd)
+            self.transcript.write("> %s   [%s]\n" % (cmd, self.rule))
             self.transcript.flush()
         self.log.write("> %s\n" % cmd)
         self.p.stdin.write(cmd + "\n")
@@ -156,7 +170,7 @@ class Player:
         if seen_by and under_fire and hp <= 40 and len(seen_by) > 1:
             _, b = seen_by[0]
             self.queue.append("w 80")
-            return self.turn_cmd(180 if b >= 0 else -180)
+            return self.why("break-contact", self.turn_cmd(180 if b >= 0 else -180))
 
         # FIGHT BACK BEFORE ANYTHING ELSE. Distant guards are a fact of a carriage rather than an
         # emergency, so the plain case is bounded at 900 -- at 2000 something can always see you
@@ -183,8 +197,56 @@ class Player:
             # in forty-five degree steps spends four reports with your back to the thing that is
             # shooting -- which is precisely the case where the seconds count.
             if abs(b) > 12:
-                return self.turn_cmd(max(-90, min(90, b)))
-            return "fire"
+                return self.why("fight", self.turn_cmd(max(-90, min(90, b))))
+            return self.why("fight", "fire")
+
+        # ANYTHING UNDERFOOT GETS PICKED UP FIRST. A collectable fifty units away costs a turn
+        # and a step, and on Train it is the keycard a dead guard dropped -- which the door at
+        # the end of the carriage wants. Deferring that behind the shooting meant a run spent
+        # twenty-four rounds on a brake unit while standing next to the key it needed.
+        # BOUNDED. Guards drop a hat as well as whatever they were carrying, and the report's
+        # nearest Collectable is sometimes that hat -- reported at the same coordinates, and not
+        # something a body can pick up. Left unbounded this rule owned an entire run: 237
+        # decisions spent turning towards a hat while the health went to 2%.
+        #
+        # So try, and then stop trying. If walking over it were going to work it would have
+        # worked in a handful of attempts, because that is all picking something up takes.
+        for kind in ("Key", "Collectable"):
+            item = s.get(kind)
+            if item and item[0] < 160 and item[2] == s.get("room"):
+                tries = self.grabs.get(kind, 0)
+                if tries < 14:
+                    self.grabs[kind] = tries + 1
+                    if abs(item[1]) > 20:
+                        return self.why("pickup-close", self.turn_cmd(max(-60, min(60, item[1]))))
+                    return self.why("pickup-close", "w 20")
+
+        # SHOOT WHAT THE MISSION POINTS AT.
+        #
+        # Objectives on Train are things to destroy, not places to stand: six brake units, tagged
+        # 8 through 13. The objective line reports the LAST of them, so a player eighty units
+        # from the first one is told its business is a quarter of a mile away and walks past it.
+        # The target line names the nearest instead.
+        #
+        # Budgeted, because nothing in the report says a destroyed prop is destroyed -- the world
+        # pack is static and the objective only flips once ALL six are gone. Spend a fixed number
+        # of rounds on a target and then leave it alone; if it needed more than that, the run has
+        # a bigger problem than this rule.
+        tgt = s.get("target")
+        if tgt:
+            tag, _idx, tdist, tturn, _troom = tgt
+            if tdist < 500 and self.shots.get(tag, 0) < 24:
+                if abs(tturn) > 12:
+                    return self.why("shoot-target", self.turn_cmd(max(-60, min(60, tturn))))
+                # AIM DOWN FIRST. The brake unit is mounted low on the wall beside the door --
+                # the walkthrough is explicit and a screenshot of the crosshair confirms it:
+                # firing level puts the rounds in the panel above the box. The pitch is spent
+                # once per target rather than every shot, since it holds between rounds.
+                if not self.aimed.get(tag):
+                    self.aimed[tag] = True
+                    return self.why("aim-down", "down 14")
+                self.shots[tag] = self.shots.get(tag, 0) + 1
+                return self.why("shoot-target", "fire")
 
         # WHAT THE DEAD WERE CARRYING. Guards drop what they hold, and on Train that includes the
         # key a locked door wants. Collecting it is only sensible once nothing is shooting, which
@@ -197,12 +259,20 @@ class Player:
             if not item:
                 continue
             d, bear, room = item
-            if d > 1200 or room != s.get("room"):
+            # 400, not 1200. Something four hundred units off is worth a detour; something twelve
+            # hundred away is a separate errand, and treating it as one is how a run ends up
+            # walking away from its objective to fetch an item it cannot reach.
+            if d > 400 or room != s.get("room"):
                 continue
+            # Counted here too. Checking a budget that only the other branch increments is not
+            # a budget: this rule ran 206 times in a run that was supposed to allow 14.
+            if self.grabs.get(kind, 0) >= 14:
+                continue
+            self.grabs[kind] = self.grabs.get(kind, 0) + 1
             if abs(bear) > 20:
-                return self.turn_cmd(max(-60, min(60, bear)))
+                return self.why("pickup", self.turn_cmd(max(-60, min(60, bear))))
             self.queue.append("w %d" % max(30, min(90, int(d / 12))))
-            return None
+            return self.why("pickup", None)
 
         # A door directly in the way is the way through. Doors are how these levels connect.
         what = s.get("ahead_what", "")
@@ -283,8 +353,8 @@ class Player:
                 self.path_age = 0
                 return "path"
             if abs(wturn) > 25:
-                return self.turn_cmd(max(-60, min(60, wturn)))
-            return "w %d" % max(30, min(90, int(wd // 12)))
+                return self.why("follow-path", self.turn_cmd(max(-60, min(60, wturn))))
+            return self.why("follow-path", "w %d" % max(30, min(90, int(wd // 12))))
 
         # BLOCKED IN FRONT IS NOT THE SAME AS BLOCKED ON THE WAY.
         #
@@ -307,7 +377,7 @@ class Player:
         # spent a whole run rotating beside one crate. Turn and go, as one plan.
         if ("wall" in what or "object" in what) and ahead_d < 250:
             clear = s.get("clearest", 0)
-            room = s.get("room", 0)
+            room = s.get("clear_room", 0)
             if clear:
                 self.queue.append("w %d" % max(40, min(120, room // 4)))
                 return self.turn_cmd(clear)
@@ -346,8 +416,9 @@ class Player:
         # nothing since had contradicted it. Clearing on the frame marker means an absent line
         # reads as absent rather than as unchanged.
         if line.startswith("--- f"):
-            for k in ("ahead_what", "ahead_dist", "clearest", "near", "enemies",
-                      "door", "Key", "Collectable"):   # "path" survives: it is a plan, not an observation
+            for k in ("ahead_what", "ahead_dist", "clearest", "clear_room", "near", "enemies",
+                      "door", "Key", "Collectable", "target"):
+                # "path" survives on purpose: it is a plan, not an observation
                 self.state.pop(k, None)
             self.near_fresh = True
             self.enemy_fresh = True
@@ -372,7 +443,16 @@ class Player:
             self.state["ahead_what"] = m.group(1).strip()
             self.state["ahead_dist"] = int(m.group(2))
             self.state["clearest"] = int(m.group(3))
-            self.state["room"] = int(m.group(4))
+            # NOT "room". The ahead line's last figure is how much CLEARANCE the turn buys, in
+            # units; the player's actual room number comes from the you line. Storing both under
+            # "room" meant every same-room test compared 5 against 400 and failed, so the player
+            # never once picked up a key or a collectable -- including the keycard lying fifty
+            # units away that the door at the end of the carriage wants.
+            self.state["clear_room"] = int(m.group(4))
+            return
+        m = RE_TARGET.match(line)
+        if m:
+            self.state["target"] = tuple(int(g) for g in m.groups())
             return
         m = RE_PATH.match(line)
         if m:
