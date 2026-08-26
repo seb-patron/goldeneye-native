@@ -34,7 +34,7 @@ whether the thing ahead can be opened or must be shot, and whether anyone can se
 
 | | |
 |---|---|
-| `geSenseLine` | what blocks a line, as a bitmask: WALL / DOOR / OBJECT / BODY |
+| `geSenseLine` | what blocks a line, as a bitmask: wall / door / object / body |
 | `geSenseAhead` | walks a ray in samples: what, how far, and the last clear point |
 | `geSenseClearestHeading` | the smallest turn that opens up |
 | `geSenseVisibleTo` | does this character have a clear line to this player |

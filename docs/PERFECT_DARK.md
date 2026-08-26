@@ -121,7 +121,7 @@ Attribute to `perfect_dark @ 514bf7a`, `port/include/preprocess/common.h`.
 
 **Effort: small. Value: high.**
 
-`vendor/pd-port/src/include/platform.h` is 100 lines defining `PLATFORM_{WIN32,posix,Linux,osx,
+`vendor/pd-port/src/include/platform.h` is 100 lines defining `PLATFORM_{WIN32,POSIX,LINUX,OSX,
 Nswitch}`, `PLATFORM_{X86_64,X86,arm,64bit}`, `PLATFORM_{big,little}_ENDIAN`, `PD_BSWAP{16,32,64}`,
 `PD_BE{16,32,64}`, `PD_LE{16,32,64}`, `PD_BEPTR`, `PD_LEPTR` and `PD_CONSTRUCTOR`. The
 `PLATFORM_TVOS` block at `:17-24` is this project's own local modification, not Perfect Dark's.

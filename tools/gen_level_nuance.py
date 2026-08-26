@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate and resolve the human play-nuance layer.
 
-What this layer IS for
+WHAT THIS LAYER IS FOR
 
 The extracted data says where everything is. It does not say that a guard who spots you runs
 for the alarm, that the modem has to be applied from arm's length, or that shooting the server
@@ -13,7 +13,7 @@ So: facts read from community walkthroughs, rewritten as actions a bot can execu
 prose is stored. Prose would not help a bot anyway; "wait by the door until the patrol passes"
 is only useful once it is a verb, a target and a condition.
 
-Why the validation matters more than the content
+WHY THE VALIDATION MATTERS MORE THAN THE CONTENT
 
 Authored data rots. A nuance entry naming tag 3 stays readable forever after tag 3 stops being
 an alarm, and a JSON file full of confident sentences about the wrong props is worse than no

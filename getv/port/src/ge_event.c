@@ -183,7 +183,7 @@ void gePortEventFrame(int frame)
         }
         if (!present) { continue; }
 
-        /* Feed the contact detector. It stores a short history of where each slot has been and
+        /* feed the contact detector. It stores a short history of where each slot has been and
          * whether movement was asked of it, and geSenseIsStuck answers from that rather than from
          * geometry.
          *

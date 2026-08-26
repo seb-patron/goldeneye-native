@@ -9,7 +9,7 @@ memory is a divergence waiting to happen. The fingerprint exchange in ge_net.c w
 divergence, but it cannot locate one -- it reports that two machines disagree, not which line
 made them disagree. This finds candidates before they cost a debugging session.
 
-What matters and what does not
+WHAT MATTERS AND WHAT DOES NOT
 
 The distinction this tool exists to draw is SIMULATION versus PRESENTATION. A wall-clock read in
 the audio mixer or the renderer is harmless: those do not feed the simulation, and two machines

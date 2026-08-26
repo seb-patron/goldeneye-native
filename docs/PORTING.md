@@ -232,7 +232,7 @@ Estimate: **1 hour**, plus whatever it takes to agree on
 
 This is the item most likely to be mistaken for a compiler problem.
 
-`getv/build_mac.sh:239-252` documents that `-dead_strip` matters rather than an
+`getv/build_mac.sh:239-252` documents that `-dead_strip` is necessary rather than an
 optimisation: ld64 dead-strips **before** it checks for undefined symbols, so a
 reference from an unreachable function is not an error. Neither `lld-link /OPT:REF` nor
 GNU `ld --gc-sections` is guaranteed to behave that way - unresolved externals are
@@ -303,7 +303,7 @@ the port layer, and the macOS build is unchanged at 167/1, 746/0, 40/0, 24/0.
 `getv/port/fs/fs.h` was described here as likewise dead. It is not: `gfx_pc.c:30` and
 `port_support.c:17` both include it, so removing it breaks the build. It is one of the
 fifteen fetched third-party files and stays. Whether its declarations are ever implemented
-is a separate question; the header itself matters today.
+is a separate question; the header itself is necessary today.
 
 Estimate: **1 hour.**
 
@@ -344,7 +344,7 @@ setup and stan.
 9. Debugging the first run. **Unbounded and deliberately not estimated.**
 
 Steps 1-4 are worth doing regardless of whether anyone builds for Windows: they are all
-verifiable on macOS today, and every one of them makes the macOS build harder to break.
+verifiable on macOS today and every one of them makes the macOS build more robust.
 
 **Honest overall assessment.** Getting to a first *link* on Windows is on the order of
 **one to two weeks** for someone with the machine, assuming they follow the MinGW route.

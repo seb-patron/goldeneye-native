@@ -57,7 +57,7 @@ static struct {
     unsigned long last_sync_tick;
     unsigned int  last_local_fp;
 
-    /* Session-RELATIVE tick numbering.
+    /* session-RELATIVE tick numbering.
      *
      * Everything on the wire is numbered from zero at session open, not by gePlayerTick().
      * The game tick is per-machine: two players who joined a minute apart are thousands of
@@ -124,7 +124,7 @@ int geNetOpen(GeNetTransport *transport, int local_slot, int delay_ticks)
 
     gePlayerApiInit();
 
-    /* Prime the pipeline, or the session deadlocks before it starts.
+    /* prime the pipeline, or the session deadlocks before it starts.
      *
      * Input is only ever published for tick+delay, so the first `delay` ticks would never
      * receive input from anybody -- including from this machine itself -- and every slot would

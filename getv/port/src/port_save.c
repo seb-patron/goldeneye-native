@@ -217,7 +217,7 @@ static void geSaveFlush(void)
     }
  fflush(f);
  fclose(f);
- /* The save has never worked ON windows, and IT failed silently.
+ /* the save has never worked ON Windows, and IT failed silently.
   *
   * Posix rename() atomically replaces the destination. Windows rename() refuses when the
   * destination exists, with EEXIST -- so every flush after the file first appeared failed.

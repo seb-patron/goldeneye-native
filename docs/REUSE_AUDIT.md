@@ -76,7 +76,7 @@ it ahead of bgfx, not alongside it.
 
 | Project | Licence | Why it is here |
 |---|---|---|
-| `Graslu/1964GEPD`, Mouse Injector | **GPL-2.0 (verified 2026-08-24)** | Carries real GoldenEye timing, input and camera knowledge. **Permission from the fork maintainer would not be enough**: upstream 1964 is Joel Middendorf's GPL work, so a maintainer can relicense only their own additions. Take the *bug list*, never the code - behaviour is not copyrightable. |
+| `Graslu/1964gepd`, Mouse Injector | **gpl-2.0 (verified 2026-08-24)** | Carries real GoldenEye timing, input and camera knowledge. **Permission from the fork maintainer would not be enough**: upstream 1964 is Joel Middendorf's gpl work, so a maintainer can relicense only their own additions. Take the *bug list*, never the code - behaviour is not copyrightable. |
 | GoldenRecomp, `cblock85/GoldenEye64Recomp`, `chrissotraidis/goldenpad` | GPL | Standing quarantine. |
 | `DeeStiz/007` | unlicensed | No licence means no permission. Read to understand, never adapt. |
 | Star Fox 64, Banjo-Kazooie, DK64, Jet Force Gemini decomps | varies, mostly unlicensed | **Comparative reverse engineering only.** The Rare titles are the valuable ones: same studio, same lineage, same asset and animation conventions, so "how did Rare structure this" is answerable. That is a reading exercise, and decomp repositories rarely carry a licence that permits anything else. |

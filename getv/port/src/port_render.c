@@ -334,6 +334,14 @@ void gePortRenderDisplayList(void *firstGdl)
         gePortBotRouteFrame(rendered);
     }
 
+    /* Recorded human play from the ROM's attract-mode demos, fed through the same seam as the
+     * bots above: it is a slot policy whose decisions were made by a person in 1997 rather than
+     * by code now. Inert unless GETV_RAMROM names a demo file. */
+    {
+        extern void gePortRamromFrame(int frame);
+        gePortRamromFrame(rendered);
+    }
+
     /* Derive events from what changed this frame and deliver them to subscribers. AFTER the
      * policies above, so an event describes the state they have already acted on rather than a
      * half-updated one. Costs nothing when nobody has subscribed. */

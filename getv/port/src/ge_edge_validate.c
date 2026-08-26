@@ -109,7 +109,7 @@ void gePortEdgeValidateFrame(int frame)
 
         if (!geWorldWaypoint(i, &a)) { continue; }
 
-        /* Stand AT this node before measuring its edges.
+        /* stand AT this node before measuring its edges.
          *
          * The line test is seeded from a stan tile and the seed decides the answer -- the same
          * 2926 Bunker 1 pairs came back 98%, 73% or 0% walkable depending only on where the test

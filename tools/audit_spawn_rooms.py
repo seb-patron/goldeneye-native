@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Do the measured spawns land on the floor data, and in the room the game says?
 
-the docs/captures/spawns.json records where the game ACTUALLY puts the player, measured by
+the Mac build's docs/captures/spawns.json records where the game ACTUALLY puts the player, measured by
 booting each level rather than read from assets. That settles three things that have been argued
 from inference all day:
 
@@ -31,9 +31,9 @@ SPAWNS = os.path.join(ROOT, "docs", "captures", "spawns.json")
 
 
 def level_scales():
-    """Per-level scale from bg.c's levelinfotable, via the parser in pack_world.py.
+    """Per-level scale from bg.c's levelinfotable, via the Mac build's parser in pack_world.py.
 
-    This IS why the first version OF this file was wrong. The extraction is in asset space and
+    THIS IS WHY THE FIRST VERSION OF THIS FILE WAS WRONG. The extraction is in ASSET space and
     the game runs in a scaled one: runtime = asset / levelscale, applied at load by setLevelScale.
     Dam's scale is 0.23364, its floor tiles reach x=4735, and the measured spawn is x=20198 -- the
     same place, expressed twice.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Executable specification for the route follower.
 
-Why this exists
+WHY THIS EXISTS
 
 The extraction produces routes -- ordered waypoints with distance, heading and turn angle. Nothing
 consumes them. The consumer has to be a steering law: given where the bot is, where it is facing,
@@ -85,7 +85,7 @@ class Follower:
         # Forward speed falls off with heading error and reaches zero past the alignment limit,
         # so the bot pivots rather than arcing away when it is badly off.
         #
-        # This is the part that matters. Turning radius is speed divided by turn
+        # this IS the load-BEARING part OF the law. Turning radius is speed divided by turn
         # rate: at full speed that is about 114 units here, far outside a tight arrival radius,
         # so a bot that walks flat out while turning cannot reach its own waypoint and orbits it
         # instead. Scaling speed by alignment shrinks the radius exactly when it needs to be
@@ -129,7 +129,7 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
         while True:
             # What the follower BELIEVES it is facing. The real bot only has this.
             #
-            # The fallback must not BE the true heading. An earlier version assigned `heading`
+            # the fallback must not BE the true heading. An earlier version assigned `heading`
             # here while the comment claimed it kept the last estimate, so a stationary bot was
             # handed ground truth -- and that is exactly the state the real one cannot escape.
             # The model therefore passed dead reckoning 61/61 while the shipped bot deadlocked

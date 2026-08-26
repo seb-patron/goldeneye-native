@@ -25,7 +25,7 @@ twice over:
      0x1_05xxxxxx, so a truncated pointer is visually indistinguishable from an N64
      segment-0x05 address, which makes this failure mode especially hard to read.
 
-Why native pointers and not offsets
+WHY NATIVE POINTERS AND NOT OFFSETS
 -----------------------------------
 The other candidate fixes were 32-bit offsets resolved against a segment base, or a
 gePropdefsConvertToNative()-style load-time conversion pass. Neither applies here:

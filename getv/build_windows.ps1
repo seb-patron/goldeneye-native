@@ -52,7 +52,7 @@ param(
   # diagnostics. tools/verify_opt.ps1 compares them. Any level that changes the output is wrong
   # for this project no matter how fast it is -- an archival build that renders different pixels
   # is not an archival build.
-  # DEFAULTS TO -O1: THE BEHAVIOUR THIS TREE ALREADY HAD. Introducing the dial and changing the
+  # defaults TO -O1: the behaviour this tree already had. Introducing the dial and changing the
   # setting in one step would mean every later measurement compared against a baseline nobody had
   # ever run. The default moves only when the determinism check has passed and the numbers are in.
   [ValidateSet('-O0','-O1','-O2','-O3','-Os')]
@@ -262,7 +262,7 @@ function Build-Lib {
 
   Push-Location $decomp
   try {
-    # Game. The exclusions mirror build_linux.sh exactly and matter: usb, rmon,
+    # Game. The exclusions mirror build_linux.sh exactly and are necessary: usb, rmon,
     # sched, ramrom, init and the indy_* files are N64 hardware and SGI dev-host code, and
     # compiling them turns logging stubs into code that writes real RCP/PI registers.
     # crash.c, spectrum.c and tlb_manage.c are N64 hardware and dev-host stubs, and the port
@@ -415,7 +415,7 @@ function Build-App {
   }
 
   # The launcher's bundled font, next to the binary where ge_launcher.cpp looks for it first.
-  # Roboto Condensed, SIL OFL 1.1; OFL.txt travels with it because the licence requires the
+  # Roboto Condensed, sil ofl 1.1; OFL.txt travels with it because the licence requires the
   # copyright notice to be distributed alongside the font.
   $fsrc = Join-Path $here ('port' + [char]92 + 'assets' + [char]92 + 'fonts')
   if (Test-Path $fsrc) {

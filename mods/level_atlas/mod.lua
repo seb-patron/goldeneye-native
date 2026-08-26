@@ -115,7 +115,7 @@ function onFrame(frame)
  -- THE DOOR BIT DOES NOT MEAN "A DOOR IS IN FRONT OF YOU".
  --
  -- geSenseLine reports WALL, DOOR and OBJECT together whenever the ray merely GRAZES a doorway
- -- edge, so the mask says what the line TOUCHED, not what is ahead. the bot acted on
+ -- edge, so the mask says what the line TOUCHED, not what is ahead. the Mac build's bot acted on
  -- this bit and drove into a wall with the action button held for an entire run while its real
  -- target sat at bearing -60.
  --

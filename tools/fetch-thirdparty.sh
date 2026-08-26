@@ -175,7 +175,7 @@ cmd_regen() {
   # needed to place the hunks, and omitting it keeps unmodified upstream lines out of a
   # file this repository does distribute.
   #
-  # Write TO A temporary and move only ON success. This used to redirect straight into
+  # write TO A temporary and move only ON success. This used to redirect straight into
   # $patchfile, and `>` truncates before the subshell runs -- so any failure inside destroyed the
   # single file carrying every change this project has made to the fifteen third-party sources.
   #
@@ -194,7 +194,7 @@ cmd_regen() {
     [ $? -gt 1 ] && die "diff failed; $PATCHFILE left untouched"
   fi
 
-  # Refuse AN empty OR implausibly small result. Fifteen heavily modified files cannot diff to
+  # refuse AN empty OR implausibly small result. Fifteen heavily modified files cannot diff to
   # nothing, so an empty patch means the comparison did not happen -- not that the changes went
   # away. Overwriting a good patch with that is the failure this whole block exists to prevent.
   local newsz oldsz

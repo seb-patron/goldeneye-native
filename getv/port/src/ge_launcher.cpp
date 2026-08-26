@@ -730,7 +730,7 @@ void relaunch()
  * only option available -- see the font note below.
  */
 
-/* Roboto Condensed, SIL OFL 1.1, bundled at port/assets/fonts with its OFL.txt. Condensed
+/* Roboto Condensed, sil ofl 1.1, bundled at port/assets/fonts with its OFL.txt. Condensed
  * because the labels here are long ("Enemy reaction", "Multiplayer only") and a condensed
  * face fits them at a readable size without truncation.
  *

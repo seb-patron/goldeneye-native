@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """S2's acceptance test: route a level over the TILE graph and report the doors crossed, in order.
 
-Why this and not A bot. Train's walkthrough describes a linear chain of carriages joined by doors,
+WHY THIS AND NOT A BOT. Train's walkthrough describes a linear chain of carriages joined by doors,
 with seven brake units along it. If our navmesh reproduces that shape, the graph is right; if it
 does not, the graph is wrong in a way no coverage percentage would show -- 88% coverage and a
 route that teleports between carriages both look fine in a summary. This runs with no bot, no
 running game and no frame budget, which matters on a box that renders at about one frame a second.
 
-Pads are not places TO stand. 139 of Train's 180 pad nodes cannot be stood on, so a route
+PADS ARE NOT PLACES TO STAND. 139 of Train's 180 pad nodes cannot be stood on, so a route
 graph built from pads hands a follower targets a body cannot occupy. The TILES are standable by
 construction -- they are the floor -- which is why the graph here is tiles and their shared-edge
 adjacency, not waypoints.
 
-Two spaces, and they must BE reconciled explicitly. The extracted JSONs are asset space; the
+TWO SPACES, AND THEY MUST BE RECONCILED EXPLICITLY. The extracted JSONs are ASSET space; the
 measured spawn was read out of the running game and is RUNTIME space. For Train they differ by
 1/0.15019713, about 6.66x -- the spawn reads x=779 where the entire tile map ends at x=213, so
 using it unconverted does not merely shift the answer, it starts the route outside the level.
 asset = runtime * levelscale. Stated here rather than assumed, because this exact pairing is what
 levelscale was hiding behind.
 
-The route starts from the measured spawn, not routes.json's. That file carries
+THE ROUTE STARTS FROM THE MEASURED SPAWN, NOT routes.json's. That file carries
 spawn_is_assumed=true, and a route from an assumed start measures the assumption.
 """
 import argparse
@@ -153,7 +153,7 @@ def main():
     for name, i, dp in on:
         print("   %-10s at tile %3d/%d   x=%7.0f" % (name, i, len(path), dp[0]))
 
-    # The room chain -- the acceptance test that has NO tuning parameter.
+    # the room chain -- the acceptance test that has NO tuning parameter.
     #
     # Counting "doors crossed" turned out to be the wrong measure, and the way it failed is worth
     # keeping. Door PROPS are leaves, not openings: a double door is two props at the same spot, so
@@ -164,7 +164,7 @@ def main():
     # Rooms are discrete and already assigned, so the chain they form needs no threshold. "A linear
     # chain of carriages" means exactly: every room entered once, none revisited.
     #
-    # And IT turns out TO prove almost nothing -- reported anyway, with this warning attached,
+    # and IT turns out TO prove almost nothing -- reported anyway, with this warning attached,
     # because deleting a check that failed is how the same idea gets tried again in a fortnight.
     #
     # Measured across levels: Train, Bunker 1, Dam, Facility and Archives ALL come back

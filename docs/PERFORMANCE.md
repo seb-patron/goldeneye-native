@@ -109,7 +109,7 @@ buffer orphaning, or the swapchain - not draw calls.
 state validations; it is not. `gfx_flush` returns immediately when the vertex buffer is empty and
 issues no GL call at all. Checked before optimising, and recorded so it is not "found" again.
 
-**There is a real, unfixed `GL_INVALID_OPERATION` -- but it is NOT the per-frame cost.**
+**There is a real, unfixed `GL_INVALID_OPERATION` --  but it is NOT the per-frame cost.**
 Hunted with `GETV_GLDEBUG=1` (`getv/port/src/ge_gl_debug.c`), which installs a synchronous
 `KHR_debug` callback. Result:
 
@@ -119,7 +119,7 @@ poll hits: 1  ->  frame 0, after gfx_run
 ```
 
 **Six errors, all during frame 0, all inside `gfx_run`.** The poll after `gfx_start_frame` comes
-back clean, so they are bounded to that one call on that one frame -- where shaders are first
+back clean, so they are bounded to that one call on that one frame --  where shaders are first
 compiled and textures first uploaded.
 
 **The obvious hypothesis was wrong and is recorded as wrong.** The reason to chase this was that
@@ -127,7 +127,7 @@ a driver can drop off a fast path once a context is in an error state, which wou
 for a fixed per-frame cost. It is not: a one-time startup error cannot explain a cost paid every
 frame, and the error does not recur after frame 0. **The ~6 ms per frame remains unexplained.**
 
-Still worth fixing as correctness -- nothing else in the tree calls `glGetError`, so six real GL
+Still worth fixing as correctness --  nothing else in the tree calls `glGetError`, so six real GL
 errors have been raised and ignored for the life of the project. Intel's driver reports the
 function as `(null)`, so pinning the exact call means instrumenting inside `gfx_run`
 (third-party), which has not been done.

@@ -126,7 +126,7 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
     u16 aim   = swapped ? Z_TRIG   : (u16)(L_TRIG | R_TRIG);
     u16 inv   = swapped ? (u16)(L_TRIG | R_TRIG) : A_BUTTON;
 
-    /* The two-CONTROLLER styles split fire and aim across two pads, and this function fills one.
+    /* the two-CONTROLLER styles split fire and aim across two pads, and this function fills one.
      *
      * This is the BUTTON half of the two-pad problem and is separate from the stick half. The
      * playback loop routes the walk axis to whichever pad the engine reads for movement; this

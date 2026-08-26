@@ -46,7 +46,7 @@ git apply ../../getv/patches/0002-assets.patch
 
 ## Refresh (before any commit that touches the decomp)
 
-> **check that `vendor/ge-decomp` IS A git repository first.**
+> **CHECK THAT `vendor/ge-decomp` IS A GIT REPOSITORY FIRST.**
 >
 > `git diff` in a directory that is not a repo prints **nothing and exits 0**. Redirecting that
 > into `0001-source.patch` replaces 1.4 MB across 140 files with an empty file, and since

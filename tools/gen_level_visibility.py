@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure SIGHTLINES and COVER per level by casting rays against the derived wall set.
 
-Why this exists. audit_bot_archetypes.py needs to know whether a level offers long sightlines (a
+WHY THIS EXISTS. audit_bot_archetypes.py needs to know whether a level offers long sightlines (a
 sniper archetype wants them) and whether it offers cover (most archetypes want some). Its first
 attempt used proxies -- mean tile adjacency for cover, aspect ratio for sightlines -- and both were
 measuring the wrong quantity: adjacency is mesh CONNECTIVITY, so a room full of crates scores like
@@ -21,7 +21,7 @@ HEIGHT IS RESPECTED. Wall segments carry the floor height of the tile that produ
 wall on another deck must not block a ray on this one. Ignoring that made an earlier audit report
 multi-storey levels as almost entirely walled.
 
-Sampled, and the sample size IS reported. Full pairwise visibility on 2,294 tiles against 7,532
+SAMPLED, AND THE SAMPLE SIZE IS REPORTED. Full pairwise visibility on 2,294 tiles against 7,532
 walls is tens of millions of tests. Points and directions are sampled with a FIXED stride rather
 than randomly, so the figures are reproducible run to run -- a metric that moves when nothing
 changed is one nobody trusts.

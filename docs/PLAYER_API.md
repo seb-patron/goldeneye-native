@@ -43,7 +43,7 @@ layer's fixed-shape tensor assumptions.
 
 ## 2. Instancing: one instance per process, and that is the reference design
 
-The decomp is full of file-scope state -- `port_os.c` alone owns a **32 MB static `ge_heap[]`**,
+The decomp is full of file-scope state --  `port_os.c` alone owns a **32 MB static `ge_heap[]`**,
 and the game has hundreds of `g_*` globals. Running N simulations inside one process would need
 a context-struct refactor of the whole tree.
 
@@ -90,7 +90,7 @@ it is shared with the Mac's frame-timing work.
 `joyConsumeSamples()` (`joy.c:371`) derives `buttonspressed` from *consecutive* samples in a
 20-deep ring: `buttonspressed |= cur & ~prev`. **A one-frame press is only registered by luck.**
 
-This is not a quirk to document and move on from -- it decides the action API:
+This is not a quirk to document and move on from --  it decides the action API:
 
 - An RL agent emitting single-tick actions would have inputs silently vanish, and the resulting
   policy would look like a learning failure rather than an API defect.
@@ -103,7 +103,7 @@ Also: a button left held forever produces exactly **one** press and then blocks 
 other screens rely on. Release is part of an action, not an afterthought.
 
 Injecting through `joySetPlaybackFunc` with exactly one sample per call makes this a non-issue
-for the API -- `curlast == curstart + 1` gives a clean two-frame edge. It remains a real
+for the API --  `curlast == curstart + 1` gives a clean two-frame edge. It remains a real
 constraint for anything driving the `GePadState` path.
 
 ### One step is not one world update
@@ -116,7 +116,7 @@ constraint for anything driving the `GePadState` path.
 guard is ticked four times per frame.**
 
 The engine's answer is a *sim owner*: work that must happen once is guarded on
-`get_player_position_in_shuffled(get_cur_playernum()) == 0` -- alarm and gas timers
+`get_player_position_in_shuffled(get_cur_playernum()) == 0` --  alarm and gas timers
 (`chrprop.c:2553`), projectile integration (`propobj.c:4538-4559`), and about eight other sites.
 The order is **shuffled every frame** by `shuffle_player_ids()` (`player.c:661-676`) so no player
 gets a systematic advantage.
@@ -130,7 +130,7 @@ Three consequences the API must not paper over:
    state and player tick order are therefore welded together: any RNG divergence immediately
    reorders the whole simulation, which is about the worst possible failure mode for lockstep.
    It also means the RNG stream advances at a rate that depends on frame count, not on events.
-3. **`mission_timer` is bound to slot 0, not to the shuffle** (`bondview2.c:8524`) -- the one
+3. **`mission_timer` is bound to slot 0, not to the shuffle** (`bondview2.c:8524`) --  the one
    simulation value hard-wired to a specific player. Correct only because slot 0 always exists.
 
 ---
@@ -147,7 +147,7 @@ directly. It is GoldenEye's own demo-playback hook, and every property we need f
   `src/joy.c:412`, immediately before `joyConsumeSamples` on the same buffer, from the single
   main-loop tick at `src/boss.c:594`.
 - **All four pads in one call.** The callback receives `struct contsample *` and fills
-  `pads[0..3]`, so every slot is injected simultaneously and consistently -- which is precisely
+  `pads[0..3]`, so every slot is injected simultaneously and consistently --  which is precisely
   the "one tick authority" multiplayer needs.
 - **It bypasses the connected-controller check entirely.** Every accessor guards on
   `(playbackcontcount < 0) && !(g_ConnectedControllers >> n & 1)` (`src/joy.c:540,551,562,573,584,595`);
@@ -158,7 +158,7 @@ directly. It is GoldenEye's own demo-playback hook, and every property we need f
   count. Rumble is a no-op while a playback func is installed (`src/joy.c:819-833`), so injection
   cannot trip hardware side effects.
 - **Writing exactly one sample per call** gives `curlast == curstart + 1`, so `buttonspressed` is
-  the clean edge between exactly two frames -- frame-exact press semantics, which sidesteps the
+  the clean edge between exactly two frames --  frame-exact press semantics, which sidesteps the
   ≥2-frame problem below rather than working around it.
 - Menus, pause, character select, the debug menu and gameplay are all driven identically, because
   everything routes through `g_ContDataPtr`. There is no path that reads the pad another way.
@@ -171,7 +171,7 @@ removes the ownership problem this design otherwise had.
 
 The earlier plan was to inject into `struct GePadState` between `gePortInputPollPort()` and
 `gePortDecodePad()` in `port_os.c`, which is where `GETV_SCRIPT` acts. That works and is
-indistinguishable from a human -- but `osContGetReadData` runs on the **retrace thread at field
+indistinguishable from a human --  but `osContGetReadData` runs on the **retrace thread at field
 rate**, not on the game thread at frame rate. An agent wanting exactly one action per simulation
 step should not be writing into a buffer that is filled on a different clock by a different
 thread. Keep the `GePadState` path for the human-facing scripted-input harness; use
@@ -183,14 +183,14 @@ menu input, and the debug menu.
 ### The reference implementation is already in the tree
 
 `src/game/ramromreplay.c` is the record/replay system and it is the exact contract this API
-should copy -- `ramrom_replay_handler` (`:273`) installed at `:469-470`, and the recording
+should copy --  `ramrom_replay_handler` (`:273`) installed at `:469-470`, and the recording
 counterpart `record_player_input_as_packet` (`:201`) at `:450`.
 
 What it stores per block is the important part:
 
 - the pad samples,
-- **`speedframes` -- the frame delta** (`:256`),
-- **`randseed` -- an RNG fingerprint** (`:257`), plus a checksum (`:259-260`).
+- **`speedframes` --  the frame delta** (`:256`),
+- **`randseed` --  an RNG fingerprint** (`:257`), plus a checksum (`:259-260`).
 
 And on playback it **aborts on mismatch**: `if (blk->randseed != (u8)g_randomSeed) ramromFadeToTitle();`
 (`:312-315`). **This is a shipped desync detector.** It also snapshots and restores control
@@ -205,7 +205,7 @@ Sticks are N64 counts, **−80..80**. SDL full deflection delivers ~±127 agains
 practical ±84 (mgb64 FID-0015/0060). Deadzones are **subtracted, not clamped**: walk/turn ±5,
 aim mode ±60, two-controller crouch ±30.
 
-Actions are **continuous natively** -- aim delta, move/strafe as floats, plus a binary button
+Actions are **continuous natively** --  aim delta, move/strafe as floats, plus a binary button
 vector. Discretisation is a wrapper concern and the wrapper should offer both a `Box` and a
 binned discrete space; VPT binned mouse movement into 1800 bins so one softmax head could drive
 camera control, and which form a researcher wants depends on their algorithm.
@@ -215,7 +215,7 @@ camera control, and which form a researcher wants depends on their algorithm.
 `struct MoveData` (`src/bondtypes.h:4186-4248`) is the game's own abstract intent struct --
 `analogWalk/Strafe/Pitch/Turn`, `triggerOn`, `aiming`, `digitalStep*`, `crouchUp/Down`, `btap`.
 `bondviewProcessInput` (`bondview2.c:5143`) is where raw pad becomes that. Injecting `MoveData`
-would skip control-style translation entirely -- attractive for a bot, wrong for netplay and for
+would skip control-style translation entirely --  attractive for a bot, wrong for netplay and for
 anything that must be indistinguishable from a human. Pad level is the correct default.
 
 Ranges and units are fixed by the existing harness and must not be re-invented:
@@ -226,7 +226,7 @@ Ranges and units are fixed by the existing harness and must not be re-invented:
 - Deadzones are **subtracted, not clamped**: walk/turn ±5 raw units, aim mode ±60, two-controller
   crouch ±30.
 
-Actions are **continuous natively** -- aim delta, move/strafe as floats, plus a binary button
+Actions are **continuous natively** --  aim delta, move/strafe as floats, plus a binary button
 vector. Discretisation is a wrapper concern and the wrapper should offer both: a `Box` and a
 binned discrete space. VPT binned mouse movement into 1800 bins precisely so one softmax head
 could drive camera control; which a researcher wants depends on their algorithm and we do not
@@ -260,14 +260,14 @@ the other machine.
 
 ### The thing we can do that ViZDoom's users cannot
 
-ViZDoom's `labels_buffer` -- per-pixel segmentation plus per-object bounding boxes for *visible*
-actors -- was singled out as the highest-value non-obvious feature, and auxiliary supervision on
+ViZDoom's `labels_buffer` --  per-pixel segmentation plus per-object bounding boxes for *visible*
+actors --  was singled out as the highest-value non-obvious feature, and auxiliary supervision on
 "is an enemy visible" was the decisive ingredient in Arnold, which took the highest K/D in both
 tracks of the Visual Doom AI Competition.
 
 **We have a decompilation.** We know every actor's identity, type and render extent exactly,
-without inference. Emitting labels and bounding boxes is cheap for us, and it is the most useful thing we can
-offer.
+without inference. Emitting labels + bounding boxes is cheap for us and is the single highest
+-leverage observation we can offer.
 
 Keep `objects` (all actors, including unseen) separate from `labels` (visible only), so partial
 observability is the default and oracle policies are opt-in.
@@ -296,7 +296,7 @@ discovered later. Every entry is from the project's own measurements.
 | # | Hazard | Consequence |
 |---|---|---|
 | 1 | **PAL and NTSC are compile-time constant sets**, not a scale factor (`CHRLV_FRAMERATE_F` 60/50, `CHRLV_DEFAULT_TIMER` 180/150) | **A US and a EU client can never share a lockstep session.** |
-| 2 | **Render-only frames mutate simulation state** -- SFX voice teardown writes into `ChrRecord` (mgb64 FID-0089, P0) | "Render frames are side-effect free" is false here. Breaks the usual tick/draw split. |
+| 2 | **Render-only frames mutate simulation state** --  SFX voice teardown writes into `ChrRecord` (mgb64 FID-0089, P0) | "Render frames are side-effect free" is false here. Breaks the usual tick/draw split. |
 | 3 | **Streets (level 29) is nondeterministic across processes** (FID-0046, verified) | At least one level cannot be lockstepped as-is. |
 | 4 | **State hash is FP-optimisation and link-layout sensitive** (FID-0061/0131); we compile with neither `-ffp-contract=off` nor `-fno-fast-math` | Two differently-built clients disagree. Build flags become part of the protocol. |
 | 5 | Seed is `randomSetSeed(osGetCount())`, and `osGetCount()` in the port is a **non-atomic static also incremented by the audio thread** | Measured deterministic today, but it is a race by construction. `GETV_SEED` forces it. |
@@ -304,11 +304,11 @@ discovered later. Every entry is from the project's own measurements.
 | 7 | Full-auto fire rate is gated on a **per-rendered-frame** counter, unscaled (FID-0056/0066) | Automatics fire 2-4× too fast at locked 60 Hz. |
 | 8 | **`shuffle_player_ids()` draws 3 RNG values every frame** (`player.c:661-676`) to reorder the per-player tick | RNG state and tick order are welded together. Any divergence instantly reorders the whole simulation. |
 | 9 | The frame delta is wall-clock derived (`frametiming.c:84`) and multiplied into **~310 simulation sites** via `g_ClockTimer` → `g_GlobalTimerDelta` (`lv.c:1112,1117`) | Deterministic in the port only *by accident*: `osGetCount()` returns `count += 1000`, so the quotient is exactly 1 every frame. `GETV_REALCLOCK=1` destroys it. |
-| 10 | `chrObjRandom` is **stubbed to 0** in the port (`ge_link_stubs.c:60-61`) | Deterministic but not faithful -- `propobj.c` vertex jitter collapses to a constant. |
-| 11 | Uninitialised locals read into logic: `stan.c:1425,1471`; `chr.c:3957-3968`; `chrprop.c:1377-1390` indexes `((u8*)g_Textures)[-8]` **on every shot** | Retail depended on deterministic RDRAM garbage. Do not "fix" blindly -- some matter. |
+| 10 | `chrObjRandom` is **stubbed to 0** in the port (`ge_link_stubs.c:60-61`) | Deterministic but not faithful --  `propobj.c` vertex jitter collapses to a constant. |
+| 11 | Uninitialised locals read into logic: `stan.c:1425,1471`; `chr.c:3957-3968`; `chrprop.c:1377-1390` indexes `((u8*)g_Textures)[-8]` **on every shot** | Retail depended on deterministic RDRAM garbage. Do not "fix" blindly --  some are necessary. |
 
 Precedent worth knowing: **the game already contains an input-replay format.** Attract-mode
-demos are recorded controller inputs -- `ramromreplay.c`,
+demos are recorded controller inputs --  `ramromreplay.c`,
 `struct ramromfilestructure { stagenum, difficulty, size_cmds, slotnum, totaltime_ms, savefile, ramrom_seed }`.
 That is the netplay serialisation shape, seed included, already designed by Rare. The docs also
 name its desync triple: any change to frame pacing, input sampling or `randomSetSeed` desyncs
@@ -316,7 +316,7 @@ attract mode.
 
 There is also a ready-made desync harness design on file: FNV-1a 64 frame hashing of framebuffer
 and display list, run 7× and diff. It gives the first diverging frame *and* a two-way classifier
- -- DL hash matches but framebuffer differs → renderer bug; DL hash differs → game logic.
+ --  DL hash matches but framebuffer differs → renderer bug; DL hash differs → game logic.
 
 ---
 
@@ -326,7 +326,7 @@ and display list, run 7× and diff. It gives the first diverging frame *and* a t
 File-based savestates are orders of magnitude too slow for the uses that justify them.
 
 The blob must include RNG state, tick counter and accumulated reward, or it is not a restore.
-Restoring into a *different* instance must work -- that is how tree search parallelises.
+Restoring into a *different* instance must work --  that is how tree search parallelises.
 
 Our state is largely the 32 MB `ge_heap[]`. That is fine for Go-Explore-style RL, where restore
 replaces re-simulating from the start and cuts steps by "at least one order of magnitude". It is
@@ -345,7 +345,7 @@ The engine is already N-player generic, which is the foundation this rests on: o
 driving `init_player_data_ptrs_construct_viewports(playercount)`. There is no solo-versus-MP
 branch. Split-screen is player-count-driven.
 
-**One session owning the world, four agent views -- not four environments.** PettingZoo's
+**One session owning the world, four agent views --  not four environments.** PettingZoo's
 **Parallel** API is the correct native fit, because GoldenEye multiplayer is genuinely
 simultaneous; expose `parallel_to_aec` for AEC-only algorithms.
 
@@ -364,7 +364,7 @@ Known traps in the MP path, all already measured:
 - **NULL-stan spawn pads crash MP** (COMPLEX, 3 of 7 pads). Guarded by `GETV_MP_SPAWNGUARD`,
   default on; the retail `assert` is compiled out of release. Do not bypass it when respawning.
 - **`CAMERAMODE_MP` is a swirl camera until ~frame 301.** Frame 61 is not gameplay.
-- **Multiplayer never pauses** -- one player opening the menu does not stop the others. Good for
+- **Multiplayer never pauses** --  one player opening the menu does not stop the others. Good for
   netplay; means there is no natural stall point.
 
 ---
@@ -378,8 +378,8 @@ the three consumers, not the most expensive, and the reason is worth stating pla
 > damage, scoring, the kill matrix, respawn and the end-of-match awards all ship and all work.
 > A bot needs **no AI whatsoever**. It needs pad input for slots 1-3.
 
-Everything in the rest of this section -- the missing `CHR_BOND` target, the stubbed path tables,
-the empty MP AI scaffolding -- applies **only** to reusing the *guard* AI, which we therefore have
+Everything in the rest of this section --  the missing `CHR_BOND` target, the stubbed path tables,
+the empty MP AI scaffolding --  applies **only** to reusing the *guard* AI, which we therefore have
 no reason to do. It is recorded so nobody re-derives it.
 
 ### The hook supports mixing a human with bots
@@ -396,21 +396,21 @@ them mid-playback to poll the real pad for a human abort.
 
 So one playback handler can fill all four slots from mixed sources:
 
-- **human slots** -- copy the newest sample out of `g_ContData[0]`
-- **bot slots** -- write the policy's output
-- **network slots** -- write the peer's deserialised input for this tick
+- **human slots** --  copy the newest sample out of `g_ContData[0]`
+- **bot slots** --  write the policy's output
+- **network slots** --  write the peer's deserialised input for this tick
 
 Which is the whole API in one sentence: *a bot, a network peer and an RL agent are the same
 thing, differing only in where the four pad structs come from.*
 
 ### Players and guards are the same structure
 
-A player is not structurally distinct from a guard. When a body model is needed -- always in
-multiplayer -- the player is handed a slot by **the ordinary guard allocator**,
+A player is not structurally distinct from a guard. When a body model is needed --  always in
+multiplayer --  the player is handed a slot by **the ordinary guard allocator**,
 `init_GUARDdata_with_set_values` (`chr.c:1814`), which assigns `chrnum`, `ailist`, `aioffset`
 and `aireturnlist` exactly as it does for any guard (`chr.c:1902-1904`). The caller then re-tags
 **only the prop**: `prop->type = PROP_TYPE_VIEWER` (`bondview2.c:819`). `playerTick()` calls
-`chrTick(prop)` (`:10877`) -- the identical entry point guards use.
+`chrTick(prop)` (`:10877`) --  the identical entry point guards use.
 
 So driving a player with an AI list is possible, and it **already ships as a feature**: the
 opcode `SetBondsAiList` (`aicommands.def:501-504`) resolves `CHR_BOND_CINEMA = -8` to the
@@ -418,7 +418,7 @@ player's own `chrnum` (`chraction.c:9855-9861`). It is how cinematics move Bond.
 
 ### Why we should not use it for bots anyway
 
-- In multiplayer the input path stomps the chr around every tick -- `actiontype = ACT_BONDMULTI`
+- In multiplayer the input path stomps the chr around every tick --  `actiontype = ACT_BONDMULTI`
   (`bondview2.c:11266`), `CHRHIDDEN_FREEZE` (`:11287`), `prop->pos`/`prop->stan` rewritten
   (`:11288-11291`). **`ACT_BONDMULTI` is not a case in `chrlvActionTick`** (`chraction.c:9485-9552`),
   so no locomotion tick runs. An AI list would execute and its movement opcodes would fight the
@@ -426,10 +426,10 @@ player's own `chrnum` (`chraction.c:9855-9861`). It is how cinematics move Bond.
 - **`init_path_table_links` is stubbed in the port.** Retail assigns waypoint `groupNum` and
   `dist` at load, which live pathfinding consumes. Its absence presents as AI misbehaviour, not
   as a crash.
-- The AI has **no player-targeting vocabulary** -- the whole special-character set is
+- The AI has **no player-targeting vocabulary** --  the whole special-character set is
   `CHR_BOND_CINEMA, CHR_CLONE, CHR_SEE_SHOT, CHR_SEE_DIE, CHR_PRESET, CHR_SELF, CHR_OBJECTIVE,
   CHR_FREE`. There is not even a generic `CHR_BOND`; the AI addresses the player implicitly.
-- MP arenas ship with `padnames` and `boundpadnames` both NULL -- no authored AI-list
+- MP arenas ship with `padnames` and `boundpadnames` both NULL --  no authored AI-list
   scaffolding to inherit.
 
 **Conclusion: drive bots by pad injection, the same seam an RL agent and a network peer use.**
@@ -445,12 +445,12 @@ per-room byte set by the portal visibility pass.
 
 So guard behaviour is a function of camera position, portal state and viewport size. **A
 headless build, a resized viewport, or an unrendered split-screen pane changes AI decisions.**
-For an RL environment that runs headless by design, this is not a footnote -- it means the
+For an RL environment that runs headless by design, this is not a footnote --  it means the
 training environment and the played game can differ behaviourally unless visibility is computed
 even when nothing is drawn. Measure it early; it will present as a bot bug and it is a culling
 question.
 
-Also: AI lists are **cooperatively yielded** -- each chr runs part of its list per frame and must
+Also: AI lists are **cooperatively yielded** --  each chr runs part of its list per frame and must
 issue `Yield`. A loop with no yield soft-locks the game.
 
 ---
@@ -463,7 +463,7 @@ Training needs the game to run as fast as it can and never wait on a display.
 - ViZDoom deliberately uses a *software* renderer because at the resolutions RL actually uses
   (84×84, 160×120) GPU setup and readback dominate. **Our OpenGL path may be the wrong renderer
   for training**, and that is worth measuring before optimising it.
-- Render features must be individually disableable -- HUD, crosshair, particles -- because each is
+- Render features must be individually disableable --  HUD, crosshair, particles --  because each is
   pure cost during training.
 - Requiring a display server is what makes an environment undeployable on a training box.
 
@@ -478,7 +478,7 @@ Each phase is useful on its own and none of them requires the next.
 
 1. **Settle the tick.** *Largely resolved by the seam.* The playback handler is called exactly
    once per `joyConsumeSamplesWrapper()`, i.e. once per main-loop iteration (`boss.c:594`), on the
-   game thread -- so "the input tick" is unambiguous and is not affected by whatever `SIMDIV`
+   game thread --  so "the input tick" is unambiguous and is not affected by whatever `SIMDIV`
    does inside `lvlRender`. Injecting `(pads, frame_delta)` as a pair, as `ramromreplay` does,
    makes the step self-describing rather than dependent on the wall clock.
    What remains is the *documentation* conflict between `GETV_TICKFIELDS` and `GETV_SIMDIV`,
@@ -488,7 +488,7 @@ Each phase is useful on its own and none of them requires the next.
    and exposing the `g_randomSeed` fingerprint. **No decomp change required.** First consumer:
    re-point `GETV_SCRIPT` at this API instead of at `GePadState`, which proves the seam against
    something that already works rather than a demo invented to flatter it.
-3. **State readout, what is reachable.** Position, counts, stage, objectives, MP scoring -- as
+3. **State readout, what is reachable.** Position, counts, stage, objectives, MP scoring --  as
    data. No decomp changes needed.
 4. **One bot that walks to a pad and fires**, per the queue's instruction to design against a
    real consumer. This is what tells us the API's shape is wrong before three consumers depend
@@ -505,7 +505,7 @@ Each phase is useful on its own and none of them requires the next.
 
 The Perfect Dark port is MIT © 2022 Ryan Dwyer and may be adapted, but this project requires
 every adaptation site to name the upstream repo, commit and file in a comment **and** be listed
-in `docs/LICENSING.md`. Cite commit `514bf7a`, not the working tree -- several things in those
+in `docs/LICENSING.md`. Cite commit `514bf7a`, not the working tree --  several things in those
 directories are this project's own tvOS additions and attributing them to Perfect Dark would be
 wrong in both directions.
 
@@ -523,17 +523,17 @@ this design follows; no code needs to be taken from any of them.
 
 1. **Cross-platform bit-exactness is not realistically achievable.** x87 vs SSE vs ARM, and
    transcendentals differ between AMD and Intel, let alone between libc versions. And the
-   Perfect Dark port -- the flagship N64 decomp port -- **ships at `-Og` because `-O2` breaks the
-   game**, with `-fno-strict-aliasing` and `-fwrapv`. That matters undefined behaviour;
+   Perfect Dark port --  the flagship N64 decomp port --  **ships at `-Og` because `-O2` breaks the
+   game**, with `-fno-strict-aliasing` and `-fwrapv`. That is necessary undefined behaviour;
    the same source produces different behaviour under different flags. Ours has the same
    ancestry and §7 already records that our state hash is FP- and link-layout-sensitive.
 2. **Lockstep adds RTT to your own aim.** GGPO's own guidance is that fighting games notice more
    than one frame of delay; FPS research puts degradation at ~100 ms. Age of Empires' 250 ms
-   turn latency was unnoticed *in an RTS* -- aim is a continuous control loop and does not have
+   turn latency was unnoticed *in an RTS* --  aim is a continuous control loop and does not have
    that tolerance. Fine for LAN co-op, fatal for competitive deathmatch.
 
 **Default: client-server with prediction and lag compensation**, which is also the cheap
-retrofit -- it demands *nothing* of the simulation's determinism, which is the open-ended
+retrofit --  it demands *nothing* of the simulation's determinism, which is the open-ended
 expensive part of a decomp. Perfect Dark's `port-net` branch is the working reference: ENet,
 Quake-style `SVC_`/`CLC_` split, client-authoritative movement with a forced-teleport escape
 hatch, ~57-byte derived-state struct per 60 Hz tick, send-on-change via `memcmp`, remote players
@@ -550,7 +550,7 @@ Worth recording, because the usual objection does not apply:
 - **Pointers are not a problem for rollback specifically.** GGPO's rebasing warning applies to
   games that re-`malloc`; rollback save/restore is same-process, same address space, so raw
   pointers inside a snapshot restore correctly.
-- **The RNG is two `u64` integer seeds** with pure shift/xor and no time seeding -- 16 bytes,
+- **The RNG is two `u64` integer seeds** with pure shift/xor and no time seeding --  16 bytes,
   bit-exact on every platform.
 - **4 players is exactly `GGPO_MAX_PLAYERS`**, and at 30 Hz the 8-frame prediction window is
   ~266 ms rather than ~133 ms.
@@ -577,7 +577,7 @@ remote players through one branch. This design is the same idea reached independ
 `GeSlotSource` is `isremote`, `GePlayerInput` is `ucmd`, and `gePlayerPost()` is the single
 boundary.
 
-The difference is that **PD's bots do not use it** -- their simulants act directly on `chrdata`
+The difference is that **PD's bots do not use it** --  their simulants act directly on `chrdata`
 as NPCs, so there is no `SVC_CHR_MOVE` in their protocol and *"simulants don't work in
 netgames."* GoldenEye has no bot system to be constrained by, so bots here emit input into a
 player slot like everything else, and bots, netplay and the RL agent share one path for free.
@@ -586,8 +586,8 @@ player slot like everything else, and bots, netplay and the RL agent share one p
 
 ## 15. Synthetic input fires but does not move the player
 
-Found while proving the input seam. **This is not a defect in the API** -- it affects the
-existing `GETV_SCRIPT` harness identically -- but it blocks any bot, agent or replay that needs
+Found while proving the input seam. **This is not a defect in the API** --  it affects the
+existing `GETV_SCRIPT` harness identically --  but it blocks any bot, agent or replay that needs
 to *walk*, so it is recorded here in full.
 
 ### What works
@@ -595,8 +595,8 @@ to *walk*, so it is recorded here in full.
 Stage 9, `GETV_BOT=0`, measured:
 
 - the playback hook installs and the tick advances one per frame (59, 119, 179, …)
-- **readback through joy.c's own accessors** -- `joyGetStickX/Y`, the same calls `lv.c:1732`
-  makes to drive movement -- returns exactly what was posted: `stick=(25,60)`
+- **readback through joy.c's own accessors** --  `joyGetStickX/Y`, the same calls `lv.c:1732`
+  makes to drive movement --  returns exactly what was posted: `stick=(25,60)`
 - **injected FIRE reaches the gun: `shots=23`**
 - state reads back; the seed fingerprint is live and changes every frame
 
@@ -614,7 +614,7 @@ The player does not walk. Position is frozen at `(-1356.0, 378.5, 2205.5)` from 
 |---|---|
 | The API is not delivering input | readback returns the posted values, and fire produces 23 shots |
 | Two-controller control style putting move on the second pad | reproduces under Honey (style 0) and Galore (style 5) alike |
-| The intro camera freezing input (`bondviewFrozenMoveBond` zeroes buttons) | `cammode=0` -- gameplay -- throughout |
+| The intro camera freezing input (`bondviewFrozenMoveBond` zeroes buttons) | `cammode=0` --  gameplay --  throughout |
 | Controls locked | `lv.c:596` calls `lvlSetControlsLockedFlag(0)` at boot and the mark prints |
 | Something specific to the new seam | `GETV_SCRIPT` reproduces it exactly: `[getv][script] f=600 FIRE keys=0x0 stick=(0,60) hold=500` and the player does not move |
 
@@ -639,7 +639,7 @@ That is a much smaller search than "co-op movement", and it is in the Mac's lane
 
 ## ⏳ Open
 
-- The movement gate above -- §15. Blocks the bot demo; does not block the API.
+- The movement gate above --  §15. Blocks the bot demo; does not block the API.
 - Whether the AI's render-visibility branching (§10) meaningfully changes behaviour headless.
   Needs measuring, not reasoning about.
 - The `-O2` question: does our build have the same latent UB Perfect Dark works around at `-Og`?

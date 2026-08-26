@@ -371,7 +371,7 @@ art). Do not defeat those rules. A `git add -A` without them would commit derive
 
 ```bash
 ls -l roms/ge007.u.z64
-# -rw-r--r-- 1 you  staff  12582912  ... roms/ge007.u.z64
+# -rw-r--r--  1 you  staff  12582912  ... roms/ge007.u.z64
 
 shasum -a 1 roms/ge007.u.z64
 # abe01e4aeb033b6c0836819f549c791b26cfde83  roms/ge007.u.z64
@@ -736,7 +736,7 @@ Two details worth knowing, because both look like mistakes and are not:
   objects for `init.c`, `sched.c` and `rmon.c` are never dragged in. Linking `build-mac/obj/*.o`
   directly has no such filter and fails with around 30 undefined N64 linker-script and hardware
   symbols.
-- **`-dead_strip` matters, not an optimisation.** Without it the link fails on six
+- **`-dead_strip` is necessary, not an optimisation.** Without it the link fails on six
   undefined symbols - `osEepromRead`, `osEepromWrite`, `osViSetMode`, `osPiReadIo` and the two
   `_{e,j}fontchardataSegmentRomStart` linker-script symbols - every one referenced only from a
   function this port never calls. `ld64` dead-strips before it checks for undefined symbols, so a
@@ -1451,7 +1451,7 @@ Do not chase these:
 |---|---|
 | `mac FAILED: src/tlb_manage.c` | Expected. See 4.3. |
 | `ld: warning: reducing alignment of section __DATA,__common ...` | Expected on every link. |
-| `[getv] STUB: crashInit`, `STUB: romCreateMesgQueue`, `STUB: indycommInit`, `STUB: rmonGetToken` | N64 hardware and dev-host entry points with nothing to do here. |
+| `[getv] stub: crashInit`, `stub: romCreateMesgQueue`, `stub: indycommInit`, `stub: rmonGetToken` | N64 hardware and dev-host entry points with nothing to do here. |
 | `[getv] TLB: not present on tvOS; heap = 0x... (32 MB)` | The 32 MB game arena is a `static u8[]` in `__bss`, zero-filled by the kernel at every launch. |
 | `[getv] GoldenEye tvOS harness starting` | The harness is shared verbatim with the tvOS target. |
 | `GL_VERSION=2.1 Metal - ...` | The legacy compatibility profile is requested deliberately. |

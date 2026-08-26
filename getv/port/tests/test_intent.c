@@ -16,7 +16,7 @@ static unsigned int g_test_style;
  * the translation unit links. */
 unsigned int get_player_control_style(int playernum) { (void) playernum; return g_test_style; }
 
-/* The port accessor the gePlayerControlType calls. It returns -1 for a slot with no style,
+/* The port accessor the Mac build's gePlayerControlType calls. It returns -1 for a slot with no style,
  * which is what makes gePlayerSlotIsDrivable's `>= 0` meaningful; the fake population here always
  * has a style, so slot 0 answers and everything else does not. */
 int gePortPlayerControlStyle(int idx) { return (idx == 0) ? (int) g_test_style : -1; }
@@ -66,7 +66,7 @@ int main(void)
         { GE_STYLE_SOLITARE,  "1.2 Solitare",  Z_TRIG,          L_TRIG | R_TRIG, 1 },
         { GE_STYLE_KISSY,     "1.3 Kissy",     A_BUTTON,        Z_TRIG,          1 },
         { GE_STYLE_GOODNIGHT, "1.4 Goodnight", A_BUTTON,        Z_TRIG,          1 },
-        /* Every style IS drivable, including the two-PAD ones.
+        /* every style IS drivable, including the two-PAD ones.
          *
          * This column said 0 for 2.x when the file was written, on the theory that a slot whose
          * movement axis lives on a second pad cannot be driven. That was wrong and it was the
@@ -101,7 +101,7 @@ int main(void)
         check(buf, gePlayerSlotIsDrivable(0), cases[i].drivable);
     }
 
-    /* The regression this file exists for. On Domino, fire must not become Z_TRIG: the game reads
+    /* the regression this file exists for. On Domino, fire must not become Z_TRIG: the game reads
      * pad 1's Z_TRIG as AIM there (5365), insightaimmode goes true, and canNaturalTurn goes false
      * at 5385 -- which switches off yaw at 6394 while strafe at 6069 keeps running. The old code
      * returned Z_TRIG here and that is precisely how a firing bot lost its steering. */

@@ -8,13 +8,13 @@ measurement of the levels, and a fix nobody needs is worse than no fix.
 
 TWO QUESTIONS, and the first has to be answered before the second means anything.
 
-1. IS A waypoint'S y the floor IT stands ON? Waypoints come from pads -- where the designers put
+1. IS A WAYPOINT'S y THE FLOOR IT STANDS ON? Waypoints come from PADS -- where the designers put
    props -- and a pad height is not obviously a floor height. If pads sit at a consistent offset
    above the floor, then every comparison below has to account for it, and anyone comparing a pad
    height to a probed floor gets a phantom cliff. the Mac build already lost a test cycle to exactly
    that between BODY position and floor (157 units apart on Bunker 1).
 
-2. how many edges are unwalkable ON height alone? An edge whose endpoints differ by more than a
+2. HOW MANY EDGES ARE UNWALKABLE ON HEIGHT ALONE? An edge whose endpoints differ by more than a
    body can climb is a straight line through geometry. Counting them says whether the planar graph
    is a real obstacle or a theoretical one.
 
@@ -31,7 +31,7 @@ LEVELS = os.path.join(ROOT, "build", "levels")
 
 # What a walking body can climb between two adjacent nodes. GoldenEye's own step handling is
 # generous -- stairs are climbed without a jump -- but a whole storey is not. 90 units is roughly
-# the drop the follower uses as its limit, kept the same here so the two agree.
+# the drop the Mac build's follower uses as its limit, kept the same here so the two agree.
 MAX_STEP = 90.0
 
 
@@ -52,7 +52,7 @@ def floor_under(floors, x, y, z):
     tile through rounding), the lowest tile above is the least-wrong answer and the offset comes
     out negative, which is visible rather than silently plausible.
 
-    Returns (tile, contained). contained matters and must not BE collapsed: when no tile covers
+    Returns (tile, contained). CONTAINED MATTERS AND MUST NOT BE COLLAPSED: when no tile covers
     the point, the nearest centroid can be most of a level away and at any height, and its offset
     is a measurement of the fallback rather than of the pad. The first run of this file reported a
     median pad-above-floor of 2078 units on cradle, which is not a pad height -- it is what

@@ -316,7 +316,7 @@ void gePortBootMark(const char *what)
 int ge_log_flush_each = 0;
 void ge_log_flush_now(void);
 
-/* The fflush here was the frame rate, and gating the callers would have been the wrong fix.
+/* the fflush here was the frame rate, and gating the callers would have been the wrong fix.
  *
  * 516 decomp call sites funnel through this function and every one of them forced a flush.
  * Measured on this box a flushed stdout line costs about 24 ms when stdout is redirected to a

@@ -30,7 +30,7 @@ $out  = Join-Path $here '_bin'
 
 if (-not (Test-Path $gcc)) { throw "gcc not found at $gcc -- pass -Mingw <prefix>" }
 
-# THE MINGW BIN DIRECTORY MUST BE ON PATH, even though gcc is invoked by full path. gcc.exe is a
+# the mingw bin directory must BE ON path, even though gcc is invoked by full path. gcc.exe is a
 # driver: it spawns cc1.exe, and it finds cc1 via PATH. Without this, `gcc --version` works, every
 # real compile exits 1, and NOTHING is printed -- a valid file fails exactly like a broken one.
 #
@@ -41,7 +41,7 @@ if ($env:PATH -notlike "*$Mingw\bin*") { $env:PATH = "$Mingw\bin;$env:PATH" }
 
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 
-# Mirrors $portFlags in build_windows.ps1. The forced-include of ge_win_compat.h matters:
+# Mirrors $portFlags in build_windows.ps1. The forced-include of ge_win_compat.h is necessary:
 # without it the decomp's PR headers do not supply s32/u16/OSContPad and every file fails on the
 # base types, which reads as a broken toolchain rather than a missing flag.
 $flags = @(

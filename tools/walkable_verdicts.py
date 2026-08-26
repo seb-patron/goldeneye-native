@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Consume the engine's verdict on which graph edges are actually walkable.
 
-Why this exists
+WHY THIS EXISTS
 
 The route graph's edges were assumed. Two offline attempts to check them disagreed with the game:
 a triangle-intersection test against the exported wall polygons passes lines that
@@ -9,15 +9,15 @@ a triangle-intersection test against the exported wall polygons passes lines tha
 the nearest standable tile, so it answers yes almost everywhere. The engine is the authority and
 neither approximation is close enough.
 
-So the check moves to runtime. the harness boots each level, walks every edge through
+So the check moves to runtime. the Mac build's harness boots each level, walks every edge through
 `gePortProbeWalkable` and writes the verdicts; this reads them back and drops what the engine
 refused. That turns the graph from assumed to measured, and the division is by CAPABILITY rather
 than by lane: producing the verdicts needs a machine that can run the game at speed, consuming
 them is the extractor's job.
 
-The one rule that matters
+THE ONE RULE THAT MATTERS
 
-AN edge not listed IS unknown, not unwalkable. Only `ok: false` drops an edge.
+AN EDGE NOT LISTED IS UNKNOWN, NOT UNWALKABLE. Only `ok: false` drops an edge.
 
 If a capture dies halfway through a level -- a crash, a level that never reaches gameplay, a run
 cut short -- the file is simply shorter. Treating absence as refusal would silently prune the
@@ -25,7 +25,7 @@ graph, and a router that quietly got stricter looks like a routing change rather
 capture. Every load reports how many edges went unmeasured so a short capture is visible instead
 of inferred.
 
-The mask IS recorded and checked
+THE MASK IS RECORDED AND CHECKED
 
 `gePortProbeWalkable` takes a collision-type mask and it changes the answer. the Mac build measured
 that including CDTYPE_DOORS turns Bunker 1's spawn into a sealed corridor 120 units wide -- a

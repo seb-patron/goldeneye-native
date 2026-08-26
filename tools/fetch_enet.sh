@@ -5,7 +5,7 @@
 # getv/port/thirdparty/ is gitignored and upstream source is fetched on demand, so the tree
 # never carries code it did not write. See docs/THIRD_PARTY.md for the wider arrangement.
 #
-# Why enet rather than the hand-ROLLED UDP IN ge_net_udp.c
+# why enet rather than the hand-ROLLED UDP IN ge_net_udp.c
 #
 # ge_net_udp.c works, but it reimplements things ENet has done since 2002 and does better:
 # connection establishment and teardown, timeouts and disconnection detection, sequencing,

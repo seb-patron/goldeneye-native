@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Prop extents, offline, from model data.
 
-Why this exists: every position in the pack is a point and the world is made of solids. A crate
+WHY THIS EXISTS: every position in the pack is a POINT and the world is made of solids. A crate
 reported "278 away" is 278 units to its CENTRE, so a bot that still sees room has already walked
 into the corner of it.
 
-This IS the reporting half, not the decision half. Knowing a crate's surface is at 158 does not
+THIS IS THE REPORTING HALF, NOT THE DECISION HALF. Knowing a crate's surface is at 158 does not
 tell you whether the gap between it and the wall admits a body -- that is gePortCanStandAt over
 stanTestVolume, which already exists. Extents make the REPORT honest. They are not a clearance
 test and must not be used as one.
 
-Where the numbers come from. Two sources, and they answer subtly different questions:
+WHERE THE NUMBERS COME FROM. Two sources, and they answer subtly different questions:
 
   MODEL BOX      assets/obseg/prop/<name>/Model.c, a ModelRoData_BoundingBoxRecord holding
                  {flag, {xmin, xmax, ymin, ymax, zmin, zmax}}. This is the model's own box in
@@ -27,18 +27,18 @@ guessed: where we have neither, the prop is emitted WITHOUT extents rather than 
 because a made-up radius is worse than a missing one -- a reader can handle "unknown" and cannot
 detect "plausible but invented".
 
-Field order IS xmin, xmax, ymin, ymax, zmin, zmax -- not min-then-max.
+FIELD ORDER IS xmin, xmax, ymin, ymax, zmin, zmax -- NOT min-then-max.
 bondtypes.h's `bbox` union also aliases `coord3d min; coord3d max;` over the same storage, which
 would make min = (xmin, xmax, ymin). That alias is wrong and reading it would silently produce
 nonsense boxes. The order used here is confirmed twice: against the named fields, and against
 ak47mag's own vertex data, whose x reaches -104 and z reaches 37 exactly as its box says.
 
-The model box IS unrotated. A long crate at forty-five degrees occupies more width than its
+THE MODEL BOX IS UNROTATED. A long crate at forty-five degrees occupies more width than its
 half-extent suggests. That is why `radius` is emitted alongside `hx`/`hz` and labelled: hx/hz are
 axis-aligned half-extents in the model's own frame, radius is the XZ circumradius and is the only
 one of the three that is safe to use without knowing the prop's orientation.
 
-These numbers are not yet usable AS world lengths. read this before wiring them into anything.
+THESE NUMBERS ARE NOT YET USABLE AS WORLD LENGTHS. READ THIS BEFORE WIRING THEM INTO ANYTHING.
 
 The join is sound -- all 340 enum members resolve, and 342 of Train's 342 props find a model box.
 The MAGNITUDES are not. These boxes are in MODEL space, and the engine multiplies them by
@@ -60,7 +60,7 @@ are and a bot would refuse gaps it fits through easily.
 Emitting them anyway with a guessed scale would be worse than emitting nothing. A missing radius
 is visibly missing; a plausible wrong one is indistinguishable from a measurement.
 
-What would close IT, cheapest first:
+WHAT WOULD CLOSE IT, cheapest first:
   1. Read model->scale live for a handful of known props on Train and compare against these boxes.
      One run gives the constant, or proves it is per-prop.
   2. For the 26% of props on bound pads, the pad's own bbox is the FITTED volume and needs no
@@ -123,7 +123,7 @@ def model_boxes():
 def extents_from_box(b):
     """(xmin,xmax,ymin,ymax,zmin,zmax) -> hx, hz, radius, plus the centre offset.
 
-    The centre offset matters and IS easy TO drop. These boxes are not symmetric about the origin
+    THE CENTRE OFFSET MATTERS AND IS EASY TO DROP. These boxes are not symmetric about the origin
  -- ak47mag runs x[-104,104] but plenty do not -- so the prop's PAD POSITION is not the centre
     of its box. Emitting only half-extents would silently assume it is, and put the box in the
     wrong place by exactly the asymmetry.
@@ -150,7 +150,7 @@ def main():
 
     # Join the enum to the directories. Reported rather than assumed: a silent miss here shows up
     # much later as a prop with no extents and no reason given.
-    # Matched case-INSENSITIVELY. The enumerators are all upper case and most directories are all
+    # matched case-INSENSITIVELY. The enumerators are all upper case and most directories are all
     # lower, so a plain .lower() looks right and silently drops the four that are not: ICBM,
     # ICBM_nose, console_sev_GEa, console_sev_GEb. Four props out of 340 is small enough to never
     # notice and large enough to matter to whoever walks into an ICBM.

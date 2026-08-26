@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deep mine: the entities, relations, counts and conditions stated in the level documents.
+"""Deep mine: the ENTITIES, RELATIONS, COUNTS and CONDITIONS stated in the level documents.
 
 The earlier passes took the documents' skeleton -- JSON blocks, then sections, labels, attributes
 and bullets. That made 805,474 characters addressable but left the substance in prose. This takes
@@ -18,12 +18,12 @@ WHAT IT PULLS, and why each is worth having:
   CONDITIONS "if the alarm sounds", "once the hatch opens", "until the guard turns" -- the
              triggers a level's logic actually turns on.
 
-Every record keeps its source line, and every record is a claim. The documents' distances are
+EVERY RECORD KEEPS ITS SOURCE LINE, and every record is a CLAIM. The documents' distances are
 already known wrong by 1.46x (gen_level_facts.py), so a count or a relation from them is a lead to
 verify, not a fact to act on. The counts in particular can be checked against the setup data, and
 that is the point of extracting them separately.
 
-And IT extracts data, not prose. A record is a noun, a kind, a relation type and a line number.
+AND IT EXTRACTS DATA, NOT PROSE. A record is a noun, a kind, a relation type and a line number.
 Sentences stay in the source document; this makes them findable.
 """
 import argparse
@@ -37,7 +37,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Kind vocabulary, drawn from the terms the documents themselves use most (see the label census in
-# Gen_level_knowledge_deep.py: corridor 67, bunker 22, tunnel 21, warehouse 20, chamber 19...).
+# gen_level_knowledge_deep.py: corridor 67, bunker 22, tunnel 21, warehouse 20, chamber 19...).
 KINDS = {
     "area":   r"room|corridor|hallway|chamber|tunnel|warehouse|bunker|vault|silo|hangar|bridge|"
               r"catwalk|stairwell|staircase|balcony|platform|courtyard|cavern|dock|lab|office|"
@@ -103,7 +103,7 @@ def mine_text(text):
                 ent_kind[t] = kind
                 ent_line.setdefault(t, i)
 
-        # Relations must not require MY vocabulary. The first version demanded a direction word
+        # relations must not require MY vocabulary. The first version demanded a direction word
         # AND two nouns from the KINDS list, and kept 20 relations out of 43,731 lines. Measured:
         # 724 lines carry a direction word, but only 102 contain even ONE noun I had listed. The
         # documents describe these levels in their own words; a miner that only sees terms it
@@ -154,7 +154,7 @@ def mine_text(text):
     entities = [{"name": t, "kind": ent_kind[t], "count": c, "line": ent_line[t]}
                 for t, c in ent.most_common()]
 
-    # And what the documents name that I did not think TO list. The kinds vocabulary was written
+    # and what the documents name that I did not think TO list. The kinds vocabulary was written
     # by guessing which nouns a GoldenEye level guide would use, and a miner limited to it reports
     # its author's imagination rather than the source. Same failure the relations had.
     #

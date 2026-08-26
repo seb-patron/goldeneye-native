@@ -151,7 +151,7 @@ int main(void)
     tick();
     check("steady state is silent",      cap_n, 0);
 
-    /* The contact detector IS fed. It shipped with storage, a query and no source, so is_stuck
+    /* the contact detector IS fed. It shipped with storage, a query and no source, so is_stuck
      * answered false forever and read as a measurement. This asserts the source exists, carries
      * the right slot and position, and passes the commanded flag through -- all four, because a
      * call with the wrong slot or a dropped flag would still make the linker happy. */

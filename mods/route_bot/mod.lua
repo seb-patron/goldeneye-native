@@ -167,7 +167,7 @@ function onFrame(frame)
     if sx > STICK_MAX then sx = STICK_MAX end
     if sx < -STICK_MAX then sx = -STICK_MAX end
 
- -- Forward speed scaled DOWN by heading error. This matters, not decoration: turning
+ -- Forward speed scaled DOWN by heading error. This is necessary, not decoration: turning
  -- radius is speed over turn rate, about 114 units at full speed, so a bot that walks flat out
  -- while turning cannot get inside a 120-unit arrival radius and orbits its own waypoint.
  -- tools/routesim.py measures that as 29 of 61 routes failed with this removed.

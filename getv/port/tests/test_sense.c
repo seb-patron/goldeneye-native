@@ -260,7 +260,7 @@ int main(void)
     check("alertness 0: not seen",             (m & GE_NOTICE_SEEN) == GE_NOTICE_SEEN, 0);
     fake_alertness = 100;
 
-    /* The one that matters most. With no facing accessor, absent must not read as facing-away:
+    /* the one that matters most. With no facing accessor, absent must not read as facing-away:
      * they lead to opposite behaviour, and a build that reports "nobody is looking" because it
      * cannot tell is the dangerous failure. */
     fake_facing_ok = 0;

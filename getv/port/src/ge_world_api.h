@@ -129,7 +129,7 @@ typedef struct GeWorldProp {
     int   nav_node;             /* nearest waypoint, or -1 */
     float x, y, z;
 
-    /* How big IT IS, not just where. A prop reported "278 away" is 278 to its centre, and a bot
+    /* how big IT IS, not just where. A prop reported "278 away" is 278 to its centre, and a bot
      * that still sees room has already walked into the corner of it.
      *
      * hx/hz are half-extents in the model's own frame and are UNROTATED: a long crate at forty-five

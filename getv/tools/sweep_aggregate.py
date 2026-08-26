@@ -208,7 +208,7 @@ def read_sample(d, loadpts=()):
             # If the app exits during the ~1-2 s the capture takes, the image is the tvOS
             # home screen, which scores 99.90-99.91% non-black on every level and would
             # award the best coverage in the table to a level that drew nothing (DEFAULT,
-            # Control, sho and Cradle all reported exactly 99.91). Any coverage in that
+            # control, sho and Cradle all reported exactly 99.91). Any coverage in that
             # narrow band is discarded as unmeasurable rather than trusted.
             try:
                 cov = float(r["coverage"])

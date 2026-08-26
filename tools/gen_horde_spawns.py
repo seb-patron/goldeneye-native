@@ -19,12 +19,12 @@ FOUR REQUIREMENTS, and every one is measurable from data we already extract:
               level's own measured sightline, not as a constant: 800 units is across the room on
               Bunker and barely down the carriage on Train.
 
-Out OF sight IS the one that needs real geometry, and the reason this waited for the wall
+OUT OF SIGHT IS THE ONE THAT NEEDS REAL GEOMETRY, and the reason this waited for the wall
 ray-caster. The obvious proxy -- "far away" or "different room" -- fails in both directions on the
 levels we measured: Train's median sightline is 4,000 units, so a distant spawn is still watched;
 Bunker's is 262, so an adjacent room is already hidden.
 
-And the player reference IS the measured spawn, in asset space. docs/captures/spawns.json is
+AND THE PLAYER REFERENCE IS THE MEASURED SPAWN, in asset space. docs/captures/spawns.json is
 runtime; asset = runtime * levelscale. Train's spawn reads x=779 where the tile map ends at 213,
 so using it unconverted puts the reference outside the level and every candidate "out of sight".
 """
@@ -82,7 +82,7 @@ def main():
     adj = {f["t"]: [n for n in f.get("l", []) if n in pos] for f in floors}
     room = {f["t"]: f.get("r") for f in floors}
 
-    # Snap the player into the level'S playable body, not merely TO the nearest tile.
+    # snap the player into the level'S playable body, not merely TO the nearest tile.
     #
     # These tile graphs are fragmented -- frigate has 178 connected components, facility 156 -- and
     # a nearest-in-XZ snap lands on whatever scrap of floor happens to be closest. On frigate that
@@ -117,7 +117,7 @@ def main():
     main = max(comps, key=len)
     start = min(main, key=lambda t: (pos[t][0] - px) ** 2 + (pos[t][2] - pz) ** 2)
 
-    # Cast AT floor height, not body height. The wall set carries the floor y of the tile that
+    # cast AT floor height, not body height. The wall set carries the floor y of the tile that
     # produced each wall; the captured spawn is a BODY position, standing a body-to-floor offset
     # above its floor. Comparing one against the other with a deck-separation band silently rejects
     # every wall on the player's OWN deck as soon as that offset exceeds the band.
@@ -163,14 +163,14 @@ def main():
         cand.append({"tile": t, "pos": [round(v, 1) for v in c], "room": room.get(t),
                      "dist": round(d, 1), "blocked_at": round(hit, 1)})
 
-    # How many points A level gets must come from the level, OR IT IS not grounded IN anything.
+    # how many points A level gets must come from the level, OR IT IS not grounded IN anything.
     #
     # A fixed --want 12 made every one of the 20 playable levels return exactly 12 points and
     # therefore exactly 140 enemies over 20 waves -- bunker1, whose median sightline measures 262
     # units, got the identical horde to statue. That is the archetype-audit failure again: a measure
     # returning the same verdict for levels that are visibly different is not measuring them.
     #
-    # Rooms that can host AN arrival is the discriminator, and it genuinely discriminates: runway
+    # rooms that can host AN arrival is the discriminator, and it genuinely discriminates: runway
     # has 7, control has 73, a tenfold spread. Tile count does not work as well -- it counts floor
     # area, and a large open hall is one place to come from, not fifty.
     #
@@ -182,7 +182,7 @@ def main():
         n_rooms = len({c["room"] for c in cand})
         want = max(MIN_SPAWNS, min(16, int(round(n_rooms * 0.3))))
 
-    # Spread across the band, not nearest-FIRST. Sorting by distance and taking the first N
+    # spread across the band, not nearest-FIRST. Sorting by distance and taking the first N
     # picks every arrival from the near edge: on Train that gave twelve spawns between 807 and 962
     # units of an 806-4031 band, all in one stretch of carriages. Two per room did not fix it,
     # because Train's rooms ARE the carriages and consecutive ones are adjacent -- a per-room cap

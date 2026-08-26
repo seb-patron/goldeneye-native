@@ -96,7 +96,7 @@ printf 'id\tname\tstage_load\tframe_loop\tgfx_tasks\ttris_sub\ttris_drawn\tframe
 
 # Identical to level_sweep.sh's, deliberately: both sweeps must go through the same
 # pixel counter or a coverage comparison between them is meaningless.
-# `arch -arm64` matters. This Mac's shell is x86_64 under Rosetta,
+# `arch -arm64` is necessary. This Mac's shell is x86_64 under Rosetta,
 # /usr/bin/python3 inherits the parent's architecture, and the installed PIL is
 # arm64-only, so without it every level silently reports "-" instead of a number.
 COVERAGE_PY='

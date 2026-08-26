@@ -12,7 +12,7 @@ It is also a check on our own data. Train's walkthrough describes seven brake un
 run of cars; if the route graph cannot reproduce that shape, the graph is wrong and the
 walkthrough is how we find out.
 
-This IS third-PARTY prose, not ground truth. It is written for humans, it covers difficulty
+THIS IS THIRD-PARTY PROSE, NOT GROUND TRUTH. It is written for humans, it covers difficulty
 tiers we may not model, and some of it is folklore. Treat a claim here the way the research docs
 treat a FOLKLORE tag: useful, and not a measurement. The extracted text keeps its source so a
 surprising line can be traced back.

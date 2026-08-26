@@ -6,19 +6,19 @@
 -- It is here, in mods/, rather than built into the game on purpose. Everything
 -- about how mods work is visible from this one folder:
 --
--- WHERE THEY GO    a folder under mods/ with a mod.lua in it. That is the
--- whole rule. A folder without a mod.lua is not a mod and
--- is skipped silently.
+--   WHERE THEY GO    a folder under mods/ with a mod.lua in it. That is the
+--                    whole rule. A folder without a mod.lua is not a mod and
+--                    is skipped silently.
 --
--- HOW THEY LOAD    every mod found is loaded at startup. No rebuild, no
--- registration list, nothing to edit anywhere else.
+--   HOW THEY LOAD    every mod found is loaded at startup. No rebuild, no
+--                    registration list, nothing to edit anywhere else.
 --
--- TURNING THEM OFF the launcher's Mods page lists what it found and gives
--- each one a checkbox. Untick this one and the scanlines
--- go away -- which is the point of shipping a visible mod
--- as the example rather than one that only prints a line.
--- From a shell it is  mods_off = crt_screen  in
--- goldeneye.cfg, or GETV_MODS_OFF=crt_screen.
+--   TURNING THEM OFF the launcher's Mods page lists what it found and gives
+--                    each one a checkbox. Untick this one and the scanlines
+--                    go away -- which is the point of shipping a visible mod
+--                    as the example rather than one that only prints a line.
+--                    From a shell it is  mods_off = crt_screen  in
+--                    goldeneye.cfg, or GETV_MODS_OFF=crt_screen.
 --
 -- Copy this folder, rename it, and you have a working mod.
 -- =========================================================================
@@ -76,5 +76,5 @@ ge.log(string.format(
 -- the game runs. The parameters are read every frame, not latched at startup.
 --
 -- The rest of the API is in wiki/Lua-mods.md:
--- ge.log(text)          ge.stage()
--- ge.player_count()     ge.player_pos(i)
+--   ge.log(text)          ge.stage()
+--   ge.player_count()     ge.player_pos(i)

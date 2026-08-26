@@ -2,7 +2,7 @@
 """Find systems that still count ticks instead of time.
 
 Runs one scripted scenario at several GETV_SIMDIV values and compares every numeric field of
-The per-frame gun/state trace AT matched frames, which is matched real time. A system with a
+the per-frame gun/state trace AT MATCHED FRAMES, which is matched REAL TIME. A system with a
 correct time base reads the same at frame N whatever the divider; one that counts iterations
 drifts in proportion to the divider, and the drift is the signature.
 

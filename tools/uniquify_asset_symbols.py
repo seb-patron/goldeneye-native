@@ -107,14 +107,14 @@ def globals_of(rel):
 # tentative definition, so the object lands where the "declaration" is rather than where its
 # initialiser is.
 #
-# In the stan assets that matters and wrong. Every generated stan file opens with
+# In the stan assets that is necessary and wrong. Every generated stan file opens with
 #
 #     StandTile Tbg_sev_all_p_stanZ_tile_0;      <- under a "// forward declarations" comment
 #     StandFileHeader Tbg_sev_all_p_stanZ = { NULL, &..._tile_0, ... };
 #     StandTile Tbg_sev_all_p_stanZ_tile_0 = { ... };
 #     StandTile Tbg_sev_all_p_stanZ_tile_1 = { ... };
 #
-# And the stan format requires the tiles to be one contiguous run in declaration order -- the
+# and the stan format requires the tiles to be one contiguous run in declaration order -- the
 # engine walks it by adding each tile's byte size and resolves links as base + (link << 3).
 # The tentative definition put tile_0 first and left the 24-byte StandFileHeader sitting
 # between tile_0 and tile_1, breaking the run at the first step.

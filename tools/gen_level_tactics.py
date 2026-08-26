@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extract mission briefings, objectives and status text from the game's own string banks.
 
-Why this beats A walkthrough
+WHY THIS BEATS A WALKTHROUGH
 ----------------------------
 The obvious source of "human nuance" -- objective order, what to do first, what the traps are --
 is a FAQ. But Rare wrote all of that down and it shipped inside the ROM:
@@ -23,14 +23,14 @@ first-party text rather than someone's copyrighted walkthrough.
 This is a companion to gen_level_knowledge.py, which extracts the geometry -- pads, the waypoint
 graph, adjacency. Together they are what a bot needs: where things are, and what it is for.
 
-How the ids resolve
+HOW THE IDS RESOLVE
 -------------------
 `langGet(slotID)` (src/game/language.c:379) splits the id:
 
     bank  = slotID >> 10
     index = slotID & 0x3FF
 
-`bank` indexes the L* enum in src/bondconstants.h (lnull, lame, larch, lark, ...), and each
+`bank` indexes the L* enum in src/bondconstants.h (LNULL, LAME, LARCH, LARK, ...), and each
 bank is an ordinary C array of string literals in assets/obseg/text/L<name>E.c. So a slot id of
 9242 is bank 9 (LCRAD, Cradle) index 26 -- verified against the Cradle setup, whose first
 objective text really does carry 9242.
@@ -189,7 +189,7 @@ def parse_objectives(setup_text):
             for (p, o, t, d) in _records(setup_text, OBJ_START_TYPE)]
 
 
-# The completion flags are off BY eight bits, and IT IS not yet known whose fault that IS.
+# the completion flags are off BY eight bits, and IT IS not yet known whose fault that IS.
 #
 # 48 of the game's 80 objectives have no tagged target, so they cannot be routed to. Their
 # completion is a flag instead, and the chain that would resolve them is:

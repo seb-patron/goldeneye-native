@@ -36,6 +36,6 @@ Runs on **macOS**, **Linux** and **Windows** from one source tree.
 All 27 loadable stages boot, render and exit cleanly. Multiplayer works with split screen,
 radar and all 64 characters. Keyboard and mouse are on by default. Lua mods, a launcher,
 rulesets and horde mode all work. Co-op into single-player missions is alpha: players spawn
-and move.
+and do not yet move.
 
 Nothing here contains game data. You supply your own ROM.

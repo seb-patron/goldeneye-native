@@ -38,7 +38,7 @@ signed char joyGetStickY(signed char p) { (void) p; return 0; }
 void joySetContDataIndex(int i) { (void) i; }
 int  gePortPlayerPos(int idx, float *out) { (void) idx; (void) out; return 0; }
 
-/* the accessors. Absent here, which by their own contract means "unavailable" and is the
+/* the Mac build's accessors. Absent here, which by their own contract means "unavailable" and is the
  * correct answer for a build with no game attached. */
 int gePortPlayerMovePad(int idx) { (void) idx; return -1; }
 int gePortPlayerAngle(int idx, float *d) { (void) idx; (void) d; return 0; }
@@ -134,7 +134,7 @@ int main(void)
     check("hold tick 1",                  run_frame(0), 55);
     check("hold tick 2",                  run_frame(0), 55);
     check("hold tick 3",                  run_frame(0), 55);
-    /* The one that matters: not "the last thing forever". */
+    /* the one that matters: not "the last thing forever". */
     check("expired hold goes NEUTRAL",    run_frame(0), 0);
     check("  and stays neutral",          run_frame(0), 0);
 
