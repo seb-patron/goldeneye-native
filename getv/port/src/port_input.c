@@ -1335,7 +1335,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
  * did, and the keys are simply another way in. Off unless GETV_CROUCH_KEY is 1, which it is
  * by default; set it to 0 for faithful-only behaviour.
  *
- * Deliberately NOT routed through port_os.c's action table. That table is the Surface's
+ * Deliberately NOT routed through port_os.c's action table. That table is the Windows build's
  * lane and is being edited there for the per-player bindings; a second author adding rows
  * to it mid-flight is how the last collision happened. When the binding work lands these
  * should move onto it as GE_ACT_CROUCH / GE_ACT_STAND.

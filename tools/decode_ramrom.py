@@ -20,10 +20,10 @@ WHY THIS MATTERS MORE THAN IT SOUNDS, twice over:
    disagrees. That is exactly the check netplay needs, already written, with fourteen recorded
    cases to run it against -- and `gePlayerSeedFingerprint` already exposes our side of it.
 
-🔑 The input record is {s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}, which is the
+The input record is {s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}, which is the
 SAME SHAPE as GePlayerInput. A decoded demo can be fed straight through gePlayerPost.
 
-⚠️ These are ROM-derived data. The decoded output stays out of git, like every other asset.
+These are ROM-derived data. The decoded output stays out of git, like every other asset.
 """
 import argparse
 import glob

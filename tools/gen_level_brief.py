@@ -11,11 +11,11 @@ they are facts no amount of asset reading recovers:
     player_goal     front_command_area      -- what you are meant to reach
     branching       0                       -- whether route choice exists at all
 
-⚠️ THIRD-PARTY PROSE, AND THE BRIEF SAYS SO. These are human reconstructions, not measurements.
+THIRD-PARTY PROSE, AND THE BRIEF SAYS SO. These are human reconstructions, not measurements.
 Where a brief and our own extraction disagree, the extraction wins and the disagreement is worth
 investigating -- that is how Train's 39.5:1 corridor got confirmed rather than assumed.
 
-🔑 The brief is a HINT LAYER, never a source of coordinates. Nothing here is in game units and
+The brief is a HINT LAYER, never a source of coordinates. Nothing here is in game units and
 nothing should be treated as one: "car_length_m: 29" is a designer's metre, not a world unit, and
 the two differ by a scale nobody has pinned down.
 """

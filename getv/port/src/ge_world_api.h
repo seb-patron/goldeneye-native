@@ -108,7 +108,7 @@ int  geWorldGuardsNear(float x, float y, float z, float radius,
  * agent should be able to ask where the keys are, which door leads out of a room, or what is
  * worth picking up, without a ROM or a rebuild.
  *
- * ⚠️ The kind values are INDICES into a fixed list in tools/pack_world.py. Append only -- the pack
+ * The kind values are INDICES into a fixed list in tools/pack_world.py. Append only -- the pack
  * stores the index, so inserting in the middle silently relabels every prop in every level. */
 typedef enum GeWorldPropKind {
     GE_PROP_OTHER = 0, GE_PROP_DOOR, GE_PROP_KEY, GE_PROP_COLLECTABLE, GE_PROP_GUARD,

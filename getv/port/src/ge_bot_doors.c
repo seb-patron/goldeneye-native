@@ -52,7 +52,7 @@
  * of it. */
 #define GE_BD_DOOR_REACH 180.0f
 
-/* 🔑 AND THE DOOR MUST BE ON SCREEN. The same function requires PROPFLAG_ONSCREEN before it will
+/* AND THE DOOR MUST BE ON SCREEN. The same function requires PROPFLAG_ONSCREEN before it will
  * consider the press at all, so walking past a door with USE held does nothing however close it
  * is -- the bot has to be LOOKING at it. Within this many degrees counts as looking; wider than
  * the frustum would let a bot claim it is facing something the renderer has culled. */

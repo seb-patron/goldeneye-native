@@ -16,7 +16,7 @@
  *   ramrom_seed     { u8 speedframes, count, randseed, check }
  *   ramrom_blockbuf { s8 stick_x, s8 stick_y, u8 button_low, u8 button_high }
  *
- * 🔑 Pads are INTERLEAVED per frame -- [f0p0][f0p1][f1p0][f1p1] -- not stored one pad after the
+ * Pads are INTERLEAVED per frame -- [f0p0][f0p1][f1p0][f1p1] -- not stored one pad after the
  * other. Determined by measuring smoothness rather than by reading: human input changes by about
  * 1 unit per frame, and the wrong interleave shuffles two streams together and reports 15.
  *
@@ -63,7 +63,7 @@ static int ge_dm_live;
 
 /* Advance one recorded frame. Called from ge_playback, which is where pads are CONSUMED.
  *
- * 🔑 THIS IS THE WHOLE FIX. It used to advance from the render loop, and the two run at different
+ * THIS IS THE WHOLE FIX. It used to advance from the render loop, and the two run at different
  * rates against a 20-deep sample ring, so the pads published were read a tick or more out of
  * step: feeding pad 0 alone walked the player somewhere wrong, and feeding both barely moved it.
  * A replay is a promise that frame N of the recording is frame N of the run, and only the code

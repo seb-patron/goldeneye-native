@@ -311,7 +311,7 @@ extern int gePortUsableAt(int index, float *out);
  * state and which every caller must handle anyway. The failure mode is a bot that never notices a
  * door, not a bot that acts on a door that is not there.
  *
- * Weak, so mac-getv's real implementations override them at link with no edit here. When they
+ * Weak, so the real implementations override them at link with no edit here. When they
  * land these become dead and should be deleted -- a fallback that outlives its reason is how a
  * subsystem quietly stays switched off.
  */

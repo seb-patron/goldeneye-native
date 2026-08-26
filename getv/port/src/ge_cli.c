@@ -21,7 +21,7 @@
  *            fire   shoot               look     report now
  *            stop   neutral             quit     end the run
  *
- * ⚠️ stdin is read NON-BLOCKING. Blocking would stall the game loop, and a frozen game with a
+ * stdin is read NON-BLOCKING. Blocking would stall the game loop, and a frozen game with a
  * prompt looks exactly like a crash -- which is how the first version presented.
  */
 #include <stdio.h>

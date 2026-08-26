@@ -16,7 +16,7 @@ static unsigned int g_test_style;
  * the translation unit links. */
 unsigned int get_player_control_style(int playernum) { (void) playernum; return g_test_style; }
 
-/* The port accessor mac-getv's gePlayerControlType calls. It returns -1 for a slot with no style,
+/* The port accessor gePlayerControlType calls. It returns -1 for a slot with no style,
  * which is what makes gePlayerSlotIsDrivable's `>= 0` meaningful; the fake population here always
  * has a style, so slot 0 answers and everything else does not. */
 int gePortPlayerControlStyle(int idx) { return (idx == 0) ? (int) g_test_style : -1; }

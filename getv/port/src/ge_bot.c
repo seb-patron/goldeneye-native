@@ -1,6 +1,6 @@
 /* A bot, as the first real consumer of the player API.
  *
- * docs/SURFACE_QUEUE.md is explicit that the API must be designed against a real consumer:
+ * docs/TASK_QUEUE.md is explicit that the API must be designed against a real consumer:
  * "Take one bot that walks to a pad and fires, and let its needs decide the shape. An API
  * designed in the abstract will be wrong in ways nobody notices until the third consumer."
  * This is that bot.

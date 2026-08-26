@@ -26,7 +26,7 @@
  *   GETV_EDGEVALIDATE_MAX=<units>    cutoff, default 1600
  *   GETV_EDGEVALIDATE_FRAME=<n>      which frame to run on, default 601
  *
- * ⚠️ It must run LATE ENOUGH that the level is fully placed. The stan tiles the test seeds from
+ * It must run LATE ENOUGH that the level is fully placed. The stan tiles the test seeds from
  * are not ready at frame 1, and a run against a half-built level reports a wall everywhere --
  * which looks exactly like a correct measurement of a sealed map.
  */
@@ -86,7 +86,7 @@ void gePortEdgeValidateFrame(int frame)
         return;
     }
 
-    /* The Surface's schema (tools/walkable_verdicts.py), not a second format of my own. It
+    /* The schema (tools/walkable_verdicts.py), not a second format of my own. It
      * normalises each edge to (lo, hi), so a pair must be recorded ONCE with a single verdict --
      * which means the direction disagreement has to be resolved here rather than left for the
      * reader to pick whichever row landed last.
@@ -116,7 +116,7 @@ void gePortEdgeValidateFrame(int frame)
          * started. The only seed known to be correct is the tile a body is standing on, so the
          * honest way to measure an edge is to stand at one end of it.
          *
-         * ⚠️ VERIFY THE MOVE LANDED. A refused or clamped placement leaves the player where it
+         * VERIFY THE MOVE LANDED. A refused or clamped placement leaves the player where it
          * was, and every edge measured afterwards is seeded from the wrong place -- while the run
          * completes and prints a percentage that looks like a result. Nodes that cannot be
          * stood on are counted and reported rather than measured from wherever the player

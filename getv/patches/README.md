@@ -94,7 +94,7 @@ the Surface's build failed to link for a full day on `gePortPlayerMovePad`, `geP
 `gePortProbeStandable` — every one of them written, tested and committed on the Mac, and none of
 them present on the other machine. Everything compiled; only the link knew.
 
-🔑 **If you add a symbol the port layer calls, it belongs in a patch the same day.** A commit that
+**If you add a symbol the port layer calls, it belongs in a patch the same day.** A commit that
 builds on one machine and cannot link on the other is indistinguishable from a broken commit, and
 the other side has no way to tell which.
 

@@ -35,7 +35,6 @@
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
-#include "ge_walls.h"
 
 /* The engine's own navigation graph and player position, exposed from objective_status.c where
  * the setup and player structures are visible. */
@@ -66,7 +65,7 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
  * and could get no nearer, not because it failed to navigate but because the last 53 units are
  * inside a bench.
  *
- * ⚠️ This is a statement about the WAYPOINT DATA, not a tolerance to tune when a bot misses. If
+ * This is a statement about the WAYPOINT DATA, not a tolerance to tune when a bot misses. If
  * pads are ever replaced by points sampled on the navmesh, put it back to 120. */
 #define GE_BR_ARRIVE       200.0f
 #define GE_BR_TURN_GAIN      3.0f
@@ -82,13 +81,13 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
  * turn 90 degrees at full deflection, since the yaw is 3.5 degrees a tick. */
 /* How close an enemy's BELIEF has to be to the next waypoint for it to count as contested.
  * Deliberately wider than the arrival radius: the question is not "is a guard standing on it"
- * but "is anyone heading there", and a belief is a destination. (From the Surface.) */
+ * but "is anyone heading there", and a belief is a destination. */
 #define GE_BR_THREAT_RADIUS 300.0f
 
 /* Cap on how long the bot waits for a contested waypoint to clear, in frames. There must be a
  * cap: holding until a route clears sounds prudent and produces a bot that stands still forever,
  * because nothing about waiting makes a guard change its mind -- and a frozen bot is
- * indistinguishable from a crashed one. Three seconds, then commit. (From the Surface.) */
+ * indistinguishable from a crashed one. Three seconds, then commit. */
 #define GE_BR_MAX_HOLD 180
 
 /* What a walking body can climb and drop between two samples 55 units apart. Generous enough
@@ -180,7 +179,7 @@ static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
     off_heading = ge_br_norm180(bearing - st->angle);
     if ((float) fabs((double) off_heading) > 45.0f) { return 0; }
 
-    /* 🔑 AND IT HAS TO BE ON THE WAY.
+    /* AND IT HAS TO BE ON THE WAY.
      *
      * A door within 200 units and in front of the bot is not automatically the route: Train's
      * carriages have doors down both sides, so the bot stood pressing USE on a side door while
@@ -195,28 +194,20 @@ static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
     return ((float) fabs((double) off_route) <= 50.0f);
 }
 
-
-
 #define GE_BR_CLEARSTEP 260.0f   /* how far ahead a candidate heading is tested, runtime units */
 
-
-
-/* ROUTING ON THE ENGINE'S OWN GRAPH.
+/* Routing on the engine's own waypoint graph (padhalllv.c).
  *
- * padhalllv.c has been in the tree the whole time: a two-level waypoint graph in the level setup,
- * with the guards routing over it every time they walk anywhere. Our 682-node tile graph is a
- * reconstruction of it. Train's real graph is 104 waypoints, 206 links and 6 groups, its waypoint
- * 1 is pad 186 at (779 300 -60) which is Bond's spawn to the unit, and the engine's own
- * waypointFindRoute returns 63 hops from there to the far end of the level.
+ * The level setup ships a two-level graph that the guards route over; our tile graph is a
+ * reconstruction of it. Train's is 104 waypoints, 206 links, 6 groups, and waypointFindRoute
+ * returns 63 hops from the spawn to the far end.
  *
- * It is better than ours in the way that matters: every edge was authored by people who could
- * playtest it, so an edge existing means a body can walk it, doors and all. Our graph infers that
- * and is wrong at exactly the places that are hard.
+ * Its advantage is authorship: every edge was placed by someone who could playtest it, so an edge
+ * existing means a body can walk it, doors included. Ours infers that, and is wrong exactly where
+ * the level is hard.
  *
- * Held as indices into the engine's waypoint list, which is also the id space worth reporting --
- * "waypoint 41 in group 3" means something in the level's own data, where our node numbers mean
- * something only to us.
- */
+ * Held as indices into the engine's list, which is also the id space worth reporting -- "waypoint
+ * 41, group 3" means something in the level's own data. */
 #define GE_BR_NAV_MAX 128
 
 static int   ge_br_nav[GE_BR_NAV_MAX];
@@ -263,7 +254,6 @@ static void ge_br_nav_build(void)
            ge_br_nav_len, from, to);
     fflush(stdout);
 }
-
 
 /* AIM AT AN EDGE OF THE OBSTACLE, NOT AT "SOMEWHERE OPEN".
  *
@@ -369,7 +359,7 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
     fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
             frame, event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
-    /* ⚠️ NOT FLUSHED PER ROW. The Surface measured a flushed line at ~24 ms on its box -- 516
+    /* NOT FLUSHED PER ROW. Measured on Windows, a flushed line at ~24 ms there -- 516
      * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
      * a row on EVERY tick. Flushing each one does not just run slow, it changes the thing being
      * measured: two runs of the same build logged 1,539 and 9,521 frames in the same wall clock,
@@ -425,25 +415,19 @@ static float ge_br_clear_heading(float x, float z, float want, int *found)
     return want;
 }
 
-/* The level's own facts, loaded beside the route.
+/* Level facts from build/levels/<level>.brief.json: what the walkthroughs record about the
+ * place, such as Train's traversal axis and its lack of lateral escape.
  *
- * build/levels/<level>.brief.json carries what the walkthroughs say about the place -- Train's
- * lateral_escape=false, its traversal axis, its carriage dimensions -- and <level>.walls.json
- * carries the walls derived from the floor mesh. Both are loaded and reported; NEITHER steers
- * yet, and that is a measured decision rather than an unfinished one:
+ * Reported, not steered on. Feeding lateral_escape into the detour sweep was tried and measured
+ * worse -- Train reaches waypoint 10 of 46 with a 180-degree sweep, 3 at 110 and 2 at 55 -- because
+ * the sweep both dodges obstacles and re-acquires the target, so narrowing it fixes the first by
+ * breaking the second. The fact is true; that lever is the wrong one for it.
  *
- *     Train, best waypoint of 46 reached
- *     sense sweep alone ............................ step 10
- *     wall data as a hard veto on heading .......... step  1
- *     detour sweep narrowed to the carriage width .. step  2
- *
- * The data is right and the lever is wrong. A veto tells the bot where it may not go, which it
- * mostly already avoids, while making it refuse ground it can walk. What the wall set is actually
- * for is ROUTING -- choosing the path before the first step -- and that is where it goes next.
- *
- * GETV_BOT_WALLS=1 turns the veto on for an A/B.
+ * Walls derived from the floor mesh (tools/gen_level_walls.py) were tried the same way and fell
+ * the same way: as a hard veto on heading they take Train from waypoint 10 to 1, because a veto
+ * mostly forbids ground the bot can walk. The tool and its output remain -- that data belongs in
+ * routing, which happens before the first step -- but no runtime consumer does.
  */
-static int ge_br_use_walls = 0;
 
 static void ge_br_load_brief(const char *level)
 {
@@ -575,10 +559,7 @@ void gePortBotRouteInit(void)
         }
         fflush(stdout);
     }
-    ge_br_use_walls = (getenv("GETV_BOT_WALLS") != NULL);
     ge_br_use_clear = (getenv("GETV_BOT_CLEAR") != NULL);
-    geWallsLoad(e);
-    (void) ge_br_use_walls;
 
     if (!geWorldLoad(e)) {
         printf("[getv][botroute] no world data for '%s' -- run tools/pack_world.py\n", e);
@@ -762,21 +743,15 @@ void gePortBotRouteFrame(int frame)
 
     if (!geWorldRouteStep(ge_br_obj, ge_br_step, &step)) { return; }
 
-    /* JOIN THE ROUTE BEFORE WALKING IT.
+    /* Join the route before walking it.
      *
-     * A route is a chain of waypoints joined by edges the graph says are walkable. The bot does
-     * not spawn on one. Even with the measured spawn it lands some hundreds of units off the
-     * nearest node -- Silo 40, Bunker 1 583, Caverns 3,390 -- and heading straight for step 0's
-     * DESTINATION means crossing whatever lies between, on no edge at all. That is a straight
-     * line through walls, and it is what the bot was doing: on Bunker 1 it closed 1332 to 1176
-     * and then pushed into geometry for the rest of the run.
+     * The bot does not spawn on the graph -- it lands hundreds of units off the nearest node
+     * (Silo 40, Bunker 1 583, Caverns 3,390). Heading straight for step 0's destination crosses
+     * whatever lies between on no edge at all, which is a straight line through walls.
      *
-     * So the first target is step 0's ORIGIN, not its destination. Reaching it puts the bot on
-     * the graph, and from there every subsequent target is one edge away along a path the
-     * extractor already decided was walkable.
-     *
-     * Only for the first step. Once joined, aiming at each step's origin again would be a
-     * wasted round trip, because the previous step's destination IS this step's origin. */
+     * So the first target is step 0's ORIGIN. Reaching it puts the bot on the graph, and every
+     * target after that is one walkable edge away. First step only: afterwards a step's origin
+     * is the previous step's destination, so aiming at it again is a wasted round trip. */
     if (ge_br_step == 0 && !ge_br_joined) {
         int i, found = 0;
         for (i = 0; i < geWorldWaypointCount(); i++) {
@@ -813,7 +788,7 @@ have_target:
 
     /* Is anyone else heading for this waypoint? With no enemy source installed geEnemyThreatAt
      * returns 0 and the bot behaves exactly as before, so the policy is inert rather than wrong
-     * on a build whose game-side shim has not landed. (From the Surface.) */
+     * on a build whose game-side shim has not landed. */
     {
         int threat = geEnemyThreatAt(wp.x, wp.y, wp.z, GE_BR_THREAT_RADIUS);
         if (!ge_br_should_advance(threat, ge_br_held)) {
@@ -879,20 +854,15 @@ steer:
     err = ge_br_norm180(bearing - ge_br_heading);
 
     {
-        /* NEGATED, and that is the fix rather than a convention wobble.
+        /* Negated: the stick and the heading run in opposite senses.
          *
-         * The stick and the heading run in opposite senses: bondview2.c:7312 integrates
-         * vv_theta += speedtheta * delta * 3.5, and speedtheta is built from analogTurn with the
-         * sign the pad gives it, so a positive stick DECREASES the heading that atan2(x, z)
-         * reports. Steering with err * gain therefore drives the bot away from its waypoint
-         * instead of towards it.
+         * bondview2.c:7312 integrates vv_theta += speedtheta * delta * 3.5 with the sign the pad
+         * gives it, so a positive stick DECREASES the heading atan2(x, z) reports. Steering with
+         * err * gain drives the bot away from its target.
          *
-         * The failure is worse than "turns the wrong way", which is why it read as a freeze.
-         * The bot rotates away until the error reaches 180 degrees, and at the antipode the
-         * normalised error flips sign on the smallest heading change -- so the stick alternates
-         * hard left and hard right every frame and the net rotation is nothing. Measured on
-         * Bunker 1: heading went 360 to 325 away from a bearing of 146, then sat between
-         * err=-178 and err=+177 while distance grew from 2384 to 2503.
+         * It presents as a freeze rather than a wrong turn: the bot rotates to the antipode,
+         * where normalised error flips sign on the smallest change, and the stick then alternates
+         * hard left and right with no net rotation.
          *
          * GETV_BOT_ROUTE_SIGN=1 restores the old sense for an A/B. */
         static int sign = 0;
@@ -904,21 +874,17 @@ steer:
             sign = (e && *e && *e != '0') ? 1 : -1;
         }
 
-        /* 🔑 LATCH THE TURN DIRECTION UNTIL THE ERROR IS MATERIALLY REDUCED.
+        /* Latch the turn direction until the error is materially reduced.
          *
          * Near +/-180 the normalised error flips sign on the smallest heading change, so a policy
-         * that re-derives its turn each tick argues with itself: measured on Train with the
-         * target at bearing -97, the stick alternated -80 and +80 between reports while the
-         * distance GREW from 446 to 828.
+         * that re-derives its turn each tick argues with itself and the stick alternates hard
+         * left and right while the distance grows.
          *
-         * This has now been fixed five times in five separate branches -- the steering sign, the
-         * detour side, door-versus-object, turn-then-walk, threat-versus-progress -- each time by
-         * committing to a manoeuvre inside that one branch. The recurrence is the message: it
-         * belongs HERE, once, where the turn is actually decided.
+         * The same instability was patched five times in five separate branches before landing
+         * here, once, where the turn is decided.
          *
-         * Released when the error has dropped by a third or fallen inside the alignment cone, so
-         * a committed turn ends on PROGRESS rather than on a timer -- a timer would release it
-         * mid-swing and hand the oscillation straight back. */
+         * Released on progress rather than on a timer -- when the error drops by a third or falls
+         * inside the alignment cone. A timer releases mid-swing and hands the oscillation back. */
         if (ge_br_turn_sign != 0.0f) {
             if (mag < GE_BR_ALIGN_DEG || mag < ge_br_turn_from * 0.66f) {
                 ge_br_turn_sign = 0.0f;
@@ -1033,19 +999,16 @@ steer:
                                ge_br_heading, bearing, edge_h, 0, 0, "round-the-edge");
                 }
                 if (!engine_said) {
-                    /* 🔑 CENTRED ON THE BEARING, NOT ON THE CURRENT HEADING.
+                    /* Centred on the bearing, not on the current heading.
                      *
-                     * Sweeping from where the bot FACES answers "which way is open from here",
-                     * which is the right question for an atlas and the wrong one for a follower:
-                     * the nearest opening to the bot's nose can be the opposite side from its
-                     * waypoint, and the avoidance branch then overwrites the steering with the
-                     * opposite sign. Caught in the flight recorder at Train frame 12769 -- the
-                     * steering block asked for -66 every frame while the posted input flipped to
-                     * +80, the two cancelled, and the heading sat frozen at 257 degrees for the
-                     * rest of the run while the bot pressed into a crate.
+                     * Sweeping from where the bot faces answers "which way is open from here" --
+                     * the right question for an atlas, the wrong one for a follower. The nearest
+                     * opening to its nose can be the opposite side from its waypoint, and the
+                     * avoidance branch then overwrites the steering with the opposite sign: the
+                     * recorder caught the steering asking -66 while the posted stick was +80,
+                     * cancelling, with the heading frozen for the rest of the run.
                      *
-                     * Centred on the bearing, the sweep returns the open heading NEAREST the way
-                     * the bot needs to go, so avoiding an obstacle and pursuing the waypoint can
+                     * Centred on the bearing, avoiding an obstacle and pursuing the waypoint can
                      * no longer disagree about which way is left. */
                     open_h = geSenseClearestHeadingForBody(st.x, st.z,
                                                            ge_br_recentre ? bearing : ge_br_heading,
@@ -1083,26 +1046,18 @@ steer:
         }
     }
 
-    /* WALLS.
+    /* Detour when scraping geometry.
      *
-     * A route is a chain of waypoints; it is not a promise that the straight line to the next
-     * one is clear, and between the spawn and the graph there is no edge at all. The bot walked
-     * into geometry and stayed there: on Bunker 1 it closed 583 to 430 and then held position
-     * for the rest of the run with speedforwards at 0.818 and the collision update refusing its
-     * offset every single frame.
+     * A route promises its waypoints are connected, not that the straight line between them is
+     * clear -- and the spawn is not on the graph at all. Nothing in the state readout says
+     * "blocked", so it is inferred: commanded forward, aligned, and not moving is a combination
+     * that cannot happen on open floor.
      *
-     * Nothing in the state readout says "blocked", so it is inferred: commanded forward, aligned
-     * with the target, and not actually moving. That combination cannot happen in open floor.
+     * The response is the cheap half of a bug-following walk: turn a fixed amount and keep
+     * walking so the bot slides along rather than pressing in. The side is chosen once and held
+     * for the whole detour, because re-deciding each tick oscillates against the wall.
      *
-     * The response is the cheap half of a bug-following walk -- turn a fixed amount and keep
-     * walking, so the bot slides along the obstacle rather than pressing into it. The direction
-     * is CHOSEN ONCE and held for the whole detour: re-deciding each tick makes it oscillate
-     * against the wall, which is the same antipode instability that made the inverted steering
-     * sign look like a freeze.
-     *
-     * This is deliberately not a pathfinder. It gets a bot off a wall it is scraping; it will
-     * not solve a concave dead end, and it should not pretend to.
-     */
+     * Not a pathfinder. It clears a scraped wall; it will not solve a concave dead end. */
     {
         float moved = (st.x - ge_br_px) * (st.x - ge_br_px)
                     + (st.z - ge_br_pz) * (st.z - ge_br_pz);
@@ -1132,21 +1087,17 @@ steer:
                 }
             }
             if (ge_br_stuck >= GE_BR_STUCK_TICKS) {
-                /* ASK THE FLOOR WHICH WAY IS OPEN, rather than guessing.
+                /* Ask the floor which way is open rather than guessing.
                  *
-                 * The old behaviour picked a side from the sign of the heading error and hoped.
-                 * That is a coin toss against real geometry, and on Bunker 1 it lost 109 times in
-                 * a row. gePortProbeStandable is the engine's own stan query -- the one spawn
-                 * placement uses -- so the bot can sweep candidate directions and find out where
-                 * there is actually floor before committing.
+                 * Picking a side from the sign of the heading error is a coin toss against real
+                 * geometry. gePortProbeStandable is the engine's own stan query -- the one spawn
+                 * placement uses -- so candidate directions can be tested for floor first.
                  *
-                 * The sweep is widest-first from straight ahead, so a bot in a doorway prefers a
-                 * small correction to a large one and does not spin when both sides are open.
+                 * Swept narrowest-first from straight ahead, so a bot in a doorway prefers a
+                 * small correction and does not spin when both sides are open.
                  *
-                 * ⚠️ Standable is not reachable. A tile through a wall answers yes, so this can
-                 * still choose a blocked direction -- it is a better guess, not a path. The
-                 * detour timer still bounds how long the bot commits to it.
-                 */
+                 * Standable is not reachable: a tile through a wall still answers yes. A better
+                 * guess, not a path, and the detour timer bounds the commitment. */
                 extern int gePortProbeStandable(float x, float y, float z, float radius,
                                                 float *out_y, int *out_room);
                 extern int gePortProbeWalkable(float from_x, float from_z,
@@ -1192,22 +1143,17 @@ steer:
                     float fy = base_y, prev_y = base_y;
                     int step, walkable = 1;
 
-                    /* WALK THE RAY, do not just probe its end.
+                    /* Walk the ray; do not just probe its end.
                      *
-                     * A single probe at the far end answers "is there floor there", and the tile
-                     * on the other side of a wall answers yes -- so the first sweep direction was
-                     * chosen every time, at y=172 with the player at y=327, and the bot walked
-                     * into the same wall 108 times.
+                     * A probe at the far end asks "is there floor there", and the tile beyond a
+                     * wall answers yes -- which chose the first sweep direction every time.
                      *
-                     * Sampling along the ray turns that into something much closer to
-                     * reachability: a wall shows up as a gap with no standable tile, and a drop
-                     * shows up as a height jump between neighbouring samples. Requiring every
-                     * sample to be standable AND within one step-up of the last is what a body
-                     * can actually walk.
+                     * Sampling along the ray approximates reachability instead: a wall appears as
+                     * a gap with no standable tile, a drop as a height jump between neighbours.
+                     * Every sample must be standable and within one step-up of the last.
                      *
-                     * ⚠️ Still not a proof. Samples are 55 units apart and a thin wall between two
-                     * of them is invisible. It is a much better guess, bounded by the detour
-                     * timer, and it is not a pathfinder. */
+                     * Not a proof -- samples are 55 units apart and a thin wall between two of
+                     * them is invisible. A better guess, bounded by the detour timer. */
                     /* Walls first, and this is the term that was missing.
                      *
                      * The sampled version below asks stan, and stan does not know about walls --
@@ -1291,7 +1237,7 @@ steer:
      * The sweep is aimed at where the bot is TRYING to go rather than where it faces, because a
      * bot wedged against a crate is facing the crate and the door is the thing past it.
      *
-     * ⚠️ Reports LOCKED, and does not open it. A locked door is not an obstacle to be steered
+     * Reports LOCKED, and does not open it. A locked door is not an obstacle to be steered
      * around -- it is an errand: a guard is carrying the key and has to be dealt with first.
      */
     if ((frame % 10) == 0) {

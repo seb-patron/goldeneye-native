@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How much does the planar route graph actually cost?
 
-The graph carries a y on every node and routes on none of it. mac-getv hit that as a bot beelining
+The graph carries a y on every node and routes on none of it. the port hit that as a bot beelining
 horizontally at a doorway it could not reach. Before either of us models a descent, this measures
 how widespread the problem is -- because "the graph is planar" is a description of the code, not a
 measurement of the levels, and a fix nobody needs is worse than no fix.
@@ -11,7 +11,7 @@ TWO QUESTIONS, and the first has to be answered before the second means anything
 1. IS A WAYPOINT'S y THE FLOOR IT STANDS ON? Waypoints come from PADS -- where the designers put
    props -- and a pad height is not obviously a floor height. If pads sit at a consistent offset
    above the floor, then every comparison below has to account for it, and anyone comparing a pad
-   height to a probed floor gets a phantom cliff. mac-getv already lost a test cycle to exactly
+   height to a probed floor gets a phantom cliff. the port already lost a test cycle to exactly
    that between BODY position and floor (157 units apart on Bunker 1).
 
 2. HOW MANY EDGES ARE UNWALKABLE ON HEIGHT ALONE? An edge whose endpoints differ by more than a
@@ -31,7 +31,7 @@ LEVELS = os.path.join(ROOT, "build", "levels")
 
 # What a walking body can climb between two adjacent nodes. GoldenEye's own step handling is
 # generous -- stairs are climbed without a jump -- but a whole storey is not. 90 units is roughly
-# the drop mac-getv's follower uses as its limit, kept the same here so the two agree.
+# the drop the port's follower uses as its limit, kept the same here so the two agree.
 MAX_STEP = 90.0
 
 

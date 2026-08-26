@@ -461,7 +461,7 @@ int gePlayerSlotCount(void) { return (int) getPlayerCount(); }
  * Both read the SLOT. cur_player_get_control_type() reads g_CurrentPlayer, a per-viewport
  * cursor, so asking it about slot 2 while slot 0 is being drawn returns slot 0's answer.
  *
- * ⚠️ gePlayerSlotIsDrivable returns 1 for the two-controller styles, and that is a deliberate
+ * gePlayerSlotIsDrivable returns 1 for the two-controller styles, and that is a deliberate
  * disagreement with the earlier reading that a 2.x slot cannot be steered. It could not be, once:
  * those styles read MOVEMENT from a second controller at playernum + getPlayerCount(), so a
  * caller writing only the slot's own pad drove the turn and never the walk. ge_playback now
