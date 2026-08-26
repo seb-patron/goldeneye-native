@@ -148,7 +148,7 @@ render, and they move: measured with a control, player 1 travels 1,779 units wit
 without, while player 0 is unaffected. Dam draws 5139 triangles at two players and 8412 at four,
 against 2042 solo.
 
-What is not adapted is everything authored around a single Bond — objectives, AI and cutscenes.
+What is not adapted is everything authored around a single Bond -- objectives, AI and cutscenes.
 It took two wrong baselines to establish that the movement itself was fine, both recorded in
 [`docs/COOP.md`](docs/COOP.md), the second being a position readout that reported a field the
 engine never updates.
@@ -179,11 +179,11 @@ work. [`docs/BOTS.md`](docs/BOTS.md).
 **Route-following bots.** A separate thing from the bytecode archetypes above: a bot that drives a
 real player slot along a real route, reading the world through the same APIs an external agent
 would use. On Train it walks 11 waypoints across three carriages, opens doors, and stops at a
-locked one it has no key for — which is the correct behaviour, since a guard is carrying it.
+locked one it has no key for -- which is the correct behaviour, since a guard is carrying it.
 
 Two findings from that work are worth more than the bot is. The game already ships a pathfinder:
-`padhalllv.c` holds a two-level waypoint graph the guards have always routed over — 104 waypoints,
-206 links and 6 groups on Train — and the whole tile-graph reconstruction beside it was
+`padhalllv.c` holds a two-level waypoint graph the guards have always routed over -- 104 waypoints,
+206 links and 6 groups on Train -- and the whole tile-graph reconstruction beside it was
 unnecessary. And doors are opened by asking them (`doorsChooseSwingDirection`, `doorActivate`,
 exactly as the guards do), not by simulating the player's action button, which additionally
 requires the door to be on screen and so never worked for a bot in the dark.

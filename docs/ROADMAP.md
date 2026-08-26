@@ -131,7 +131,7 @@ it is unblocked.
 ## S3. Enemy facing: DONE
 
 `gePortEnemyFacing` refuses and `geSenseNoticedBy` falls back to line of sight, so a bot hides
-from a guard facing the other way and strolls past one staring at it. Train reports 17–19 watchers
+from a guard facing the other way and strolls past one staring at it. Train reports 17-19 watchers
 of 40 guards, which is what an unobstructed line down a row of carriages looks like, **not**
 seventeen guards watching.
 
@@ -286,7 +286,7 @@ with view angle and distance.
 
 **Do not "fix" this by nudging geometry.** The assets are the game's own and are correct on
 hardware; if a surface has to move, the port is wrong somewhere else. The N64 uses a 15.3
-fixed-point depth encoding with a specific near/far arrangement, and `N64_RCP_GRAPHICS.md` §O–§P
+fixed-point depth encoding with a specific near/far arrangement, and `N64_RCP_GRAPHICS.md` §O-§P
 carries the current far-plane truth, and a depth range mapped differently in the port would produce
 exactly this, and would produce it on flat walls elsewhere too.
 

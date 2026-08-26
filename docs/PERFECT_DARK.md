@@ -225,7 +225,7 @@ Perfect Dark declares bitfield groups in both orders under `#ifdef PLATFORM_BIG_
 `src/include/types.h:329-339` (`struct packedpad`), `:3451-3476` (`union soundnumhack`), and in
 `include/PR/gbi.h` for `Tri` (`:1037-1045`), `Gdma` (`:1322-1336`), `Gtri` (`:1341-1350`),
 `Gtri4` (`:1352-1390`), `GunkC0` (`:1568-1594`) and `Gvtx` (`:1596-1612`). `Gtri4` additionally
-inserts `pad2[4]`/`pad3[4]` under `PLATFORM_64BIT`. A load-bearing warning sits at `gbi.h:1329`:
+inserts `pad2[4]`/`pad3[4]` under `PLATFORM_64BIT`. A essential warning sits at `gbi.h:1329`:
 changing signedness mid-int breaks the bitfield even on big-endian platforms.
 
 The `GE_SUBWORD2/3/4` macros at `vendor/ge-decomp/src/bondtypes.h:25-52` are the same idea,

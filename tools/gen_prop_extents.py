@@ -129,7 +129,7 @@ def extents_from_box(b):
     """(xmin,xmax,ymin,ymax,zmin,zmax) -> hx, hz, radius, plus the centre offset.
 
     THE CENTRE OFFSET MATTERS AND IS EASY TO DROP. These boxes are not symmetric about the origin
-    -- ak47mag runs x[-104,104] but plenty do not -- so the prop's PAD POSITION is not the centre
+ -- ak47mag runs x[-104,104] but plenty do not -- so the prop's PAD POSITION is not the centre
     of its box. Emitting only half-extents would silently assume it is, and put the box in the
     wrong place by exactly the asymmetry.
     """

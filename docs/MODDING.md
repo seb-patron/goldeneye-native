@@ -274,7 +274,7 @@ runtime-only and may grow. Anything that sizes a buffer in bytes for a struct th
 a latent bug - that exact mistake halved every stage's display-list capacity for months, silently,
 with no terminator and no error when it overflowed.
 
-**Link order is load-bearing.** The build produces a static archive rather than linking objects
+**Link order matters.** The build produces a static archive rather than linking objects
 directly, and that is not a packaging preference. A direct object link pulls in files the port
 compiles but never calls, and fails on around thirty N64 linker-script and hardware symbols. For
 the same reason `-dead_strip` is required at the link step: `ld64` strips before it checks for

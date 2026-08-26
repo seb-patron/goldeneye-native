@@ -3,8 +3,8 @@
  * docs/NETPLAY.md draws the line this file sits on, and it is worth restating because it is easy
  * to erode one convenience at a time:
  *
- *     server  -- who is playing, which slot, and each other's addresses
- *     peers   -- every tick of input, directly, over the transport
+ *     server -- who is playing, which slot, and each other's addresses
+ *     peers -- every tick of input, directly, over the transport
  *
  * Routing sixty-hertz input through a server adds a hop to the one thing that must arrive inside
  * the input delay, and turns every player's latency into the sum of two links instead of one. So

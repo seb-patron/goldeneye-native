@@ -371,7 +371,7 @@ art). Do not defeat those rules. A `git add -A` without them would commit derive
 
 ```bash
 ls -l roms/ge007.u.z64
-# -rw-r--r--  1 you  staff  12582912  ... roms/ge007.u.z64
+# -rw-r--r-- 1 you  staff  12582912  ... roms/ge007.u.z64
 
 shasum -a 1 roms/ge007.u.z64
 # abe01e4aeb033b6c0836819f549c791b26cfde83  roms/ge007.u.z64
@@ -473,9 +473,9 @@ on some other level's data.
 from inside `vendor/ge-decomp`, once per directory:
 
 ```bash
-python3 ../../tools/uniquify_asset_symbols.py assets/obseg/chr   --recurse
-python3 ../../tools/uniquify_asset_symbols.py assets/obseg/gun   --recurse
-python3 ../../tools/uniquify_asset_symbols.py assets/obseg/prop  --recurse
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/chr --recurse
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/gun --recurse
+python3 ../../tools/uniquify_asset_symbols.py assets/obseg/prop --recurse
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup/u
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/stan
@@ -736,7 +736,7 @@ Two details worth knowing, because both look like mistakes and are not:
   objects for `init.c`, `sched.c` and `rmon.c` are never dragged in. Linking `build-mac/obj/*.o`
   directly has no such filter and fails with around 30 undefined N64 linker-script and hardware
   symbols.
-- **`-dead_strip` is load-bearing, not an optimisation.** Without it the link fails on six
+- **`-dead_strip` matters, not an optimisation.** Without it the link fails on six
   undefined symbols - `osEepromRead`, `osEepromWrite`, `osViSetMode`, `osPiReadIo` and the two
   `_{e,j}fontchardataSegmentRomStart` linker-script symbols - every one referenced only from a
   function this port never calls. `ld64` dead-strips before it checks for undefined symbols, so a

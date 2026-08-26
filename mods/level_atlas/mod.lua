@@ -9,12 +9,12 @@
 local printed = false
 
 function onFrame(frame)
-    -- Once, and late enough that the level is placed. Asking at frame 1 gets a half-built world
-    -- and prints a confident, wrong atlas.
+ -- Once, and late enough that the level is placed. Asking at frame 1 gets a half-built world
+ -- and prints a confident, wrong atlas.
     if printed or frame < 600 then return end
     printed = true
 
-    -- ge.world() returns the level NAME as a string, not a table.
+ -- ge.world() returns the level NAME as a string, not a table.
     local lvl = ge.world()
     if not lvl then
         ge.log("level_atlas: no world loaded -- set GETV_WORLD_DIR and GETV_BOT_ROUTE_LEVEL")
@@ -35,7 +35,7 @@ function onFrame(frame)
         return
     end
 
-    -- "Where is the nearest key?"
+ -- "Where is the nearest key?"
     local key = ge.prop_near("Key", st.x, st.y, st.z)
     if key then
         ge.log(string.format("  nearest key: %.0f,%.0f,%.0f  room %d  node %d",
@@ -44,7 +44,7 @@ function onFrame(frame)
         ge.log("  nearest key: this level has none")
     end
 
-    -- "Which door leads out of here?"
+ -- "Which door leads out of here?"
     local door = ge.prop_near("Door", st.x, st.y, st.z)
     if door then
         local dx, dz = door.x - st.x, door.z - st.z
@@ -52,7 +52,7 @@ function onFrame(frame)
                              math.sqrt(dx * dx + dz * dz), door.room, door.node))
     end
 
-    -- "What is in this room?"
+ -- "What is in this room?"
     if st.room and st.room >= 0 then
         local here = ge.props_in_room(st.room)
         local tally = {}
@@ -63,13 +63,13 @@ function onFrame(frame)
                              #parts > 0 and table.concat(parts, ", ") or "nothing placed"))
     end
 
-    -- "What does the first objective want, and where is it?"
-    -- Objectives are 0-indexed here, matching the game's own numbering rather than Lua's.
+ -- "What does the first objective want, and where is it?"
+ -- Objectives are 0-indexed here, matching the game's own numbering rather than Lua's.
     for i = 0, ge.objectives() - 1 do
         local obj = ge.objective(i)
         if obj then
-            -- steps == 0 means the objective exists and cannot be routed to, which is worth
-            -- saying out loud: it is the difference between "done" and "unreachable".
+ -- steps == 0 means the objective exists and cannot be routed to, which is worth
+ -- saying out loud: it is the difference between "done" and "unreachable".
             ge.log(string.format("  objective %d: difficulty %d, %d target(s), %s",
                                  obj.index, obj.difficulty, obj.targets,
                                  obj.steps > 0

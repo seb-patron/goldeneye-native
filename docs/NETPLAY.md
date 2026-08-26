@@ -61,14 +61,14 @@ frame-rate-dependent decisions.
 
 ## What is built
 
-- `ge_net.h` / `ge_net.c` — the session: input ring per slot, publish-with-delay, stall until
+- `ge_net.h` / `ge_net.c` -- the session: input ring per slot, publish-with-delay, stall until
   every acting slot has input for the tick, fingerprint exchange, and counters for stalls, late
   inputs and desyncs.
 - The transport is deliberately **not** in there. Knowing when a tick is ready, when to stall and
   when the machines have diverged is not a socket concern, and keeping it out means the hard part
   is testable with no I/O at all: `geNetDeliver()` takes a datagram directly.
 
-- `ge_net_udp.c` — the socket half, plus the handshake that has to happen first: a host binds a
+- `ge_net_udp.c` -- the socket half, plus the handshake that has to happen first: a host binds a
   port and assigns slots, joiners send JOIN until an ASSIGN lands (a single join packet is exactly
   the thing UDP loses). Handshake traffic is consumed in the transport so the session layer never
   learns a session had to be negotiated.
@@ -98,7 +98,7 @@ Nothing else in either file needs to know.
 2. **Full-screen per machine.** GoldenEye multiplayer is split-screen: one machine, N viewports,
    all players local. Rendering a single viewport is the easy half, since the renderer already does
    per-player viewports. The real work is that game logic assumes every player is local.
-3. **Cross-architecture float agreement** — see the audit below. This is the one real
+3. **Cross-architecture float agreement** -- see the audit below. This is the one real
    determinism risk left, and it is not something static analysis can settle.
 
 Item 1 is the immediate blocker; item 2 is the largest, and decides whether this is playable
@@ -111,7 +111,7 @@ should and should not be used for.
 
 | project | licence | what it does | verdict |
 | --- | --- | --- | --- |
-| [ENet](https://github.com/lsalzman/enet) | MIT | reliable UDP in pure C | **adopt** — replaces our transport |
+| [ENet](https://github.com/lsalzman/enet) | MIT | reliable UDP in pure C | **adopt** -- replaces our transport |
 | [GGPO](https://github.com/pond3r/ggpo) | MIT | rollback netcode | later, only if input delay proves insufficient |
 | [Nakama](https://github.com/heroiclabs/nakama) | Apache 2.0 | lobbies, matchmaking, accounts, chat | **adopt for discovery** |
 | [Colyseus](https://docs.colyseus.io/) | MIT | authoritative room server (Node) | lighter alternative to Nakama |
@@ -137,8 +137,8 @@ Routing sixty-hertz input through a server adds a hop to the one thing that must
 the input delay, and turns every player's latency into the sum of two links instead of one. The
 division is:
 
-- **server** — who is playing, which stage, which slot, and each other's addresses
-- **peers** — every tick of input, directly, over ENet
+- **server** -- who is playing, which stage, which slot, and each other's addresses
+- **peers** -- every tick of input, directly, over ENet
 
 That also keeps the server off the critical path entirely: if it goes down mid-match, the match
 carries on, because nothing in a running session depends on it.

@@ -10,12 +10,12 @@
 -- because a second implementation that quietly disagreed would be worse than none.
 
 local SLOT        = tonumber(os.getenv("GE_ROUTE_BOT_SLOT") or "0")
-local WALK        = 60      -- N64 counts; the walk deadzone subtracts about 5
-local ARRIVE      = 120     -- world units; must stay outside the turning circle
+local WALK        = 60 -- N64 counts; the walk deadzone subtracts about 5
+local ARRIVE      = 120 -- world units; must stay outside the turning circle
 local TURN_GAIN   = 3.0
 local ALIGN_DEG   = 60.0
 local STICK_MAX   = 80
-local MOVE_EPS    = 1.5     -- below this, movement is noise rather than direction
+local MOVE_EPS    = 1.5 -- below this, movement is noise rather than direction
 
 -- Threat-hold, mirroring ge_bot_route.c exactly. Wider than ARRIVE on purpose: the question is
 -- not "is a guard standing on the waypoint" but "is anyone walking to it", and a belief is a
@@ -23,10 +23,10 @@ local MOVE_EPS    = 1.5     -- below this, movement is noise rather than directi
 local THREAT_RADIUS = 300
 -- There MUST be a cap. Waiting for a route to clear sounds prudent and deadlocks, because nothing
 -- about waiting makes a guard change its mind, and a frozen bot looks exactly like a crashed one.
-local MAX_HOLD      = 180   -- frames; three seconds at 60Hz, then commit to the plan
+local MAX_HOLD      = 180 -- frames; three seconds at 60Hz, then commit to the plan
 
 local objective, step, steps = nil, 0, 0
-local held                   = 0    -- frames spent waiting on the current waypoint
+local held                   = 0 -- frames spent waiting on the current waypoint
 local heading, haveHeading   = 0.0, false
 local px, pz, havePrev       = 0.0, 0.0, false
 local announced              = false
@@ -58,7 +58,7 @@ end
 -- the frame hook, so the tick it would post for is still being assembled.
 function onEvent(name, a, b, c)
     if name == "level_change" then
-        -- A new level invalidates the route entirely, so forget it and re-pick.
+ -- A new level invalidates the route entirely, so forget it and re-pick.
         objective, step, steps = nil, 0, 0
         haveHeading, havePrev, announced = false, false, false
         ge.log(string.format("route_bot: level changed (stage %d), route reset", a))
@@ -72,7 +72,7 @@ end
 
 function onFrame(frame)
     local level = ge.world()
-    if not level then return end        -- no extracted knowledge for this stage
+    if not level then return end -- no extracted knowledge for this stage
 
     if not objective then
         local i, ob = pickObjective()
@@ -91,9 +91,9 @@ function onFrame(frame)
     local st = ge.player_state(SLOT)
     if not st or not st.x then return end
 
-    -- Heading has to be dead-reckoned: the game cannot yet report facing, so the direction the
-    -- bot moved is the direction it is pointing, near enough, while it is moving. When the angle
-    -- accessor lands, st.angle appears in the table and this block should use it instead.
+ -- Heading has to be dead-reckoned: the game cannot yet report facing, so the direction the
+ -- bot moved is the direction it is pointing, near enough, while it is moving. When the angle
+ -- accessor lands, st.angle appears in the table and this block should use it instead.
     if st.angle then
         heading, haveHeading = st.angle, true
     elseif havePrev then
@@ -107,11 +107,11 @@ function onFrame(frame)
 
     if step >= steps then return end
 
-    -- FOLLOW THE ROUTE, waypoint by waypoint. The first version of this fetched the step and
-    -- then walked at the objective's final position instead, which ignored the route entirely
-    -- and would have walked into whatever wall lay between. It did that because the API had no
-    -- way to ask where a waypoint is -- ge.waypoint(id) exists now because writing this found
-    -- that gap.
+ -- FOLLOW THE ROUTE, waypoint by waypoint. The first version of this fetched the step and
+ -- then walked at the objective's final position instead, which ignored the route entirely
+ -- and would have walked into whatever wall lay between. It did that because the API had no
+ -- way to ask where a waypoint is -- ge.waypoint(id) exists now because writing this found
+ -- that gap.
     local s = ge.route_step(objective, step)
     if not s then return end
     local wp = ge.waypoint(s.to)
@@ -121,20 +121,20 @@ function onFrame(frame)
     local dist = math.sqrt(dx * dx + dz * dz)
     if dist <= ARRIVE then
         step = step + 1
-        held = 0    -- the next waypoint gets its own patience, not this one's leftovers
+        held = 0 -- the next waypoint gets its own patience, not this one's leftovers
         if step >= steps then
             ge.log(string.format("route_bot: arrived at objective %d", objective))
         end
         return
     end
 
-    -- IS ANYONE CONVERGING ON WHERE WE ARE ABOUT TO STAND?
-    --
-    -- ge.threat_at counts living enemies whose last-known-target position is near the waypoint,
-    -- which is a different question from how many are near it now -- a waypoint can be empty and
-    -- lethal because three guards are walking to it. With no enemy source installed this is always
-    -- 0 and the bot behaves exactly as it did before, so the policy is inert rather than wrong on
-    -- a build whose game-side shim has not landed.
+ -- IS ANYONE CONVERGING ON WHERE WE ARE ABOUT TO STAND?
+ --
+ -- ge.threat_at counts living enemies whose last-known-target position is near the waypoint,
+ -- which is a different question from how many are near it now -- a waypoint can be empty and
+ -- lethal because three guards are walking to it. With no enemy source installed this is always
+ -- 0 and the bot behaves exactly as it did before, so the policy is inert rather than wrong on
+ -- a build whose game-side shim has not landed.
     local threat = ge.threat_at(wp.x, wp.y, wp.z, THREAT_RADIUS)
     if threat > 0 and held < MAX_HOLD then
         held = held + 1
@@ -142,8 +142,8 @@ function onFrame(frame)
             ge.log(string.format("route_bot: holding, waypoint %d contested by %d (%d/%d)",
                                  s.to, threat, held, MAX_HOLD))
         end
-        -- Post neutral rather than posting nothing. A slot that goes quiet falls back to whatever
-        -- was held, so the bot would keep walking while believing it had stopped.
+ -- Post neutral rather than posting nothing. A slot that goes quiet falls back to whatever
+ -- was held, so the bot would keep walking while believing it had stopped.
         ge.post_input(SLOT, 0, 0, 0)
         return
     end
@@ -154,8 +154,8 @@ function onFrame(frame)
     end
 
     if not haveHeading then
-        -- No heading yet: walk forward to make one. Steering on an unknown heading sends the bot
-        -- somewhere random and then estimates from that.
+ -- No heading yet: walk forward to make one. Steering on an unknown heading sends the bot
+ -- somewhere random and then estimates from that.
         ge.post_input(SLOT, 0, WALK, 0)
         return
     end
@@ -167,17 +167,17 @@ function onFrame(frame)
     if sx > STICK_MAX then sx = STICK_MAX end
     if sx < -STICK_MAX then sx = -STICK_MAX end
 
-    -- Forward speed scaled DOWN by heading error. This is load-bearing, not decoration: turning
-    -- radius is speed over turn rate, about 114 units at full speed, so a bot that walks flat out
-    -- while turning cannot get inside a 120-unit arrival radius and orbits its own waypoint.
-    -- tools/routesim.py measures that as 29 of 61 routes failed with this removed.
+ -- Forward speed scaled DOWN by heading error. This matters, not decoration: turning
+ -- radius is speed over turn rate, about 114 units at full speed, so a bot that walks flat out
+ -- while turning cannot get inside a 120-unit arrival radius and orbits its own waypoint.
+ -- tools/routesim.py measures that as 29 of 61 routes failed with this removed.
     local align = 1.0 - math.abs(err) / ALIGN_DEG
     if align < 0 then align = 0 end
 
     if not ge.post_input(SLOT, math.floor(sx), math.floor(WALK * align), 0) then
-        -- Refused means the post was for a tick that had already run. Worth saying once: in
-        -- netplay the same condition is a desync, and a bot that silently stops acting looks
-        -- like a policy bug rather than a timing one.
+ -- Refused means the post was for a tick that had already run. Worth saying once: in
+ -- netplay the same condition is a desync, and a bot that silently stops acting looks
+ -- like a policy bug rather than a timing one.
         if not announced then
             ge.log("route_bot: post refused -- posting into the past")
             announced = true

@@ -96,10 +96,10 @@ RE_ROOMS  = re.compile(r"maxrooms=(\d+)")
 #   geTexSelCiNoLut -- a CI texture whose lutmode hit no case, so NO combiner was
 #                      emitted and the PREVIOUS draw call's combiner stayed in force.
 #                      GoldenEye is CI-heavy; if this prints it is a real render bug.
-#   [getv][hitidx]  -- propobjFindHit() is the only writer of mtxindex/dlnode and runs
+#   [getv][hitidx] -- propobjFindHit() is the only writer of mtxindex/dlnode and runs
 #                      only for HIT_GUN/HIT_HAT, so any other body part passed on an
 #                      uninitialised ModelNode* on the shooting path.
-#   [getv][texidx]  -- besttexture == -1 indexed g_Textures BEFORE the array.
+#   [getv][texidx] -- besttexture == -1 indexed g_Textures BEFORE the array.
 RE_COUNTERS = {
     "geTexSelCiNoLut": re.compile(r"geTexSelCiNoLut"),
     "hitidx":          re.compile(r"\[getv\]\[hitidx\]"),

@@ -5,11 +5,11 @@ The ingested documents run to hundreds of thousands of characters and carry eigh
 JSON blocks between them. Almost none of that belongs at runtime -- but a handful of facts do, and
 they are facts no amount of asset reading recovers:
 
-    topology        linear, hub, open       -- decides whether "which way" is even a question
-    traversal_axis  +X, -Z                  -- on a corridor this IS the route
-    player_start    rear_of_car_1           -- where the designer put you
-    player_goal     front_command_area      -- what you are meant to reach
-    branching       0                       -- whether route choice exists at all
+    topology        linear, hub, open -- decides whether "which way" is even a question
+    traversal_axis  +X, -Z -- on a corridor this IS the route
+    player_start    rear_of_car_1 -- where the designer put you
+    player_goal     front_command_area -- what you are meant to reach
+    branching       0 -- whether route choice exists at all
 
 THIRD-PARTY PROSE, AND THE BRIEF SAYS SO. These are human reconstructions, not measurements.
 Where a brief and our own extraction disagree, the extraction wins and the disagreement is worth

@@ -1,8 +1,6 @@
-diff --git a/src/game/objective_status.c b/src/game/objective_status.c
-index 4ebf14b..0c5814a 100644
 --- a/src/game/objective_status.c
 +++ b/src/game/objective_status.c
-@@ -1,7 +1,11 @@
+@@ -1,7 +1,13 @@
 +#include <math.h>
 +#include <stdlib.h>
  #include <ultra64.h>
@@ -11,264 +9,18 @@ index 4ebf14b..0c5814a 100644
  #include "objective_status.h"
 +#include "player.h"
 +#include "stan.h"
++#include "padhalllv.h"
++#include "propobj.h"   /* doorActivate, doorsChooseSwingDirection -- the guards' door path */   /* waypointFindRoute -- the engine's own pathfinder */
  #include "assets/obseg/text/LmiscE.h"
  #include "language.h"
  #include "PR/os.h"
-@@ -29,6 +33,127 @@ struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
- s32 objective_count = 0xFFFFFFFF;
- s32 objective_status_display_disabled = FALSE;
- 
-+#ifdef GE_PORT_NATIVE
-+/* ================= GETV_OBJ_DEBUG (tvOS/mac port diagnostic) =================
-+ * "objectives failed on mission start" -- state vs display. Every value below is
-+ * read from the objects the evaluator itself uses, so a zero is a real zero.
-+ * GLOBAL on purpose: `nm` on the binary is the rebuild check (statics get stripped).
-+ * ============================================================================ */
-+extern char *getenv(const char *);
-+extern s32 objectiveregisters1;
-+
-+s32 g_geObjDbgEvals;
-+
-+s32 ge_obj_dbg(void)
-+{
-+    static s32 cached = -1;
-+    if (cached < 0) { const char *e = getenv("GETV_OBJ_DEBUG"); cached = (e && *e == '1'); }
-+    return cached;
-+}
-+
-+/* GETV-OBJENDIAN -- `text` and `difficulty` read the wrong half-word / wrong byte on
-+ * little-endian.
-+ *
-+ * The data: a setup file's propDefs are emitted as a native `s32 words[]` array
-+ * (assets/obseg/setup/UsetupdamZ.c), and gePropdefsConvertToNative() copies an
-+ * ObjectiveStart record's four words VERBATIM into the native record
-+ * (ge_propdef_layout.inc.c: PROPDEF_OBJECTIVE_START = {4 filewords, 6 natwords,
-+ * ge_pdefsegs_MissionObjectiveRecord_4 = {0,0,16}}). So the four words arrive as
-+ * little-endian u32 values with their correct numeric content:
-+ *     word0 @0 = header/id      word1 @4 = menu
-+ *     word2 @8 = TextID         word3 @12 = MinDifficulty
-+ *
-+ * The read: `struct objective_entry` (bondtypes.h:4034) is the N64 layout, where the
-+ * sub-word fields sit at the big-endian positions inside those words:
-+ *     u16 text       @0xa  = the low half of the word at 0x8   -> LE it is at 0x8
-+ *     s8  difficulty @0xf  = the low byte of the word at 0xc   -> LE it is at 0xc
-+ * Reading them at 0xa / 0xf on arm64 therefore yields the high half / high byte, which
-+ * for every real record is zero. On DAM (stage 33) all four objectives read
-+ * `text=0 difficulty=0` where the records hold TextID 11286,11287,11288,11289 and
-+ * MinDifficulty 1,2,2,0.
-+ *
-+ * Consequences, both user-visible: the watch objectives screen renders no text
-+ * (langGet(0)), and get_difficulty_for_objective() returns 0 for everything, so every
-+ * `objdiff <= curdiff` filter passes and the Agent / 00 Agent objective sets are wrong.
-+ *
-+ * Read the word and narrow, which is endian-independent and is exactly the N64
-+ * semantics. `struct watchMenuObjectiveText` (the watch briefing text) is the same
-+ * 16-byte record with the same `u16 reserved; u16 text;` pair and the same bug, so it
-+ * gets the same accessor.
-+ *
-+ * GETV_OBJENDIAN=0 restores the raw struct read for A/B on one binary.
-+ * These are globals, not statics: a static inlines at -O1 and leaves no symbol for
-+ * `nm -gU`. */
-+s32 geObjEndianFlag = -1;
-+
-+s32 geObjEndianOn(void)
-+{
-+    if (geObjEndianFlag < 0) {
-+        const char *e = getenv("GETV_OBJENDIAN");
-+        geObjEndianFlag = (e && e[0] == '0') ? 0 : 1;
-+    }
-+    return geObjEndianFlag;
-+}
-+
-+/* TextID: the low u16 of the record's third word. */
-+u16 geObjText(const void *rec)
-+{
-+    if (!geObjEndianOn()) {
-+        return ((const struct objective_entry *) rec)->text;
-+    }
-+    return (u16) ((const u32 *) rec)[2];
-+}
-+
-+/* MinDifficulty: the low s8 of the record's fourth word. */
-+s8 geObjDifficulty(const void *rec)
-+{
-+    if (!geObjEndianOn()) {
-+        return ((const struct objective_entry *) rec)->difficulty;
-+    }
-+    return (s8) (((const u32 *) rec)[3] & 0xff);
-+}
-+
-+/* GETV-OBJENDIAN, third field -- `unkD`.
-+ *
-+ * `text` and `difficulty` are fixed above; `unkD` has the same shape. It is 0 on DAM
-+ * under either reading, but a scan of all 38 U setup files finds four ObjectiveStart
-+ * records whose fourth word is 256 (0x00000100) rather than 0/1/2 --
-+ *     UsetuparkZ.c:550   objective 4, text 3124
-+ *     UsetupcaveZ.c:587  objective 4, text 7192
-+ *     UsetuppeteZ.c:424  objective 2, text 25626
-+ *     u/UsetupsiloZ.c:420 objective 4, text 34838
-+ * (the other 76 ObjectiveStart records hold 0, 1 or 2, and all 105
-+ * WatchMenuObjectiveText records hold 0.)
-+ *
-+ * The field's offset: `struct objective_entry` is
-+ *     u32 id@0; enum menu@4; u16 reserved@8; u16 text@0xa; u16 unkC@0xc;
-+ *     u8 unkD@0xe; s8 difficulty@0xf
-+ * -- unkD's `// d` comment is wrong, natural alignment puts it at 0xe, and the
-+ * _Static_assert below is armed to keep it honest. On the big-endian N64, byte 0xe is
-+ * (word3 >> 8) & 0xff, so word3 == 0x100 gives unkD == 1. Reading the struct field on
-+ * arm64 yields (word3 >> 16) & 0xff == 0 instead.
-+ *
-+ * This is a live path, not a dead field: cleanupObjectives()
-+ * (cleanup_objectives.c:12) tests `unkD & 1` and force-completes those objectives; it
-+ * is called from lvlUnloadStageTextData() (lv.c:1753) at the end of every stage. All
-+ * four affected records are the last objective of their level -- the "escape"
-+ * objective that completes when the mission ends. Under the raw read the flag is 0 on
-+ * arm64, so those four objectives are never force-completed at unload.
-+ *
-+ * Read the word and narrow, exactly as above. GETV_OBJENDIAN=0 restores the raw read. */
-+u8 geObjUnkD(const void *rec)
-+{
-+    if (!geObjEndianOn()) {
-+        return ((const struct objective_entry *) rec)->unkD;
-+    }
-+    return (u8) ((((const u32 *) rec)[3] >> 8) & 0xff);
-+}
-+_Static_assert(__builtin_offsetof(struct objective_entry, unkD) == 0xe,
-+               "objective_entry layout changed: unkD is no longer at 0xe");
-+_Static_assert(__builtin_offsetof(struct objective_entry, difficulty) == 0xf,
-+               "objective_entry layout changed: difficulty is no longer at 0xf");
-+#endif
-+
- 
- 
- /*
-@@ -89,7 +214,11 @@ u8 * get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
-     {
-         if (page == curentry->menu)
-         {
-+#ifdef GE_PORT_NATIVE
-+            textptr = langGet(geObjText(curentry));                   /* GETV-OBJENDIAN */
-+#else
-             textptr = langGet(curentry->text);
-+#endif
-             break;
-         }
+@@ -721,13 +727,781 @@
+     if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) {
+         return 0;
      }
-@@ -128,7 +257,11 @@ u8 * get_text_for_objective(int objectiveIndex)
-     u8 *textptr;
-     
-     if ((objectiveIndex < 10) && (objective_ptrs[objectiveIndex] != 0)) {
-+#ifdef GE_PORT_NATIVE
-+        return langGet(geObjText(objective_ptrs[objectiveIndex]));   /* GETV-OBJENDIAN */
-+#else
-         return langGet(objective_ptrs[objectiveIndex]->text);
-+#endif
-     }
-     return 0;
- }
-@@ -144,7 +277,11 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
-         entry = objective_ptrs[objectiveIndex];
-         if (entry != NULL)
-         {
-+#ifdef GE_PORT_NATIVE
-+            return geObjDifficulty(entry);                            /* GETV-OBJENDIAN */
-+#else
-             return entry->difficulty;
-+#endif
-         }
-     }
-     return 0;
-@@ -153,7 +290,12 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
- 
- 
- //horrible hack to get ai matching, but it does correctly refrence this func with 2 params
-+/* ELF weak alias, ignored on Mach-O. Gated for the same reason as the libultra ones: on
-+ * Linux it is honoured, and an alias emitted from a header-less hack is not something to
-+ * leave to the linker. Nothing in the port calls objectiveGetStatus_WEAK. */
-+#ifndef GE_PORT_NATIVE
- #pragma weak    objectiveGetStatus_WEAK = get_status_of_objective
-+#endif
- 
- /*
-  * Return Status of objective.
-@@ -283,6 +425,19 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
-                             break;
-                         }
-                     }
-+#ifdef GE_PORT_NATIVE
-+                    if (ge_obj_dbg() && g_geObjDbgEvals < 200)
-+                    {
-+                        g_geObjDbgEvals++;
-+                        osSyncPrintf("[obj] n=%d rec=%p type=%d ObjRefID=%d TextID=%d "
-+                                     "MinDiff=%d cur=%d running=%d regs1=0x%08x sz=%d\n",
-+                                     objectiveNum, (void *) objective, (s32) objective->type,
-+                                     (s32) objective->ObjRefID, (s32) objective->TextID,
-+                                     (s32) objective->MinDificulty, (s32) currentstatus,
-+                                     (s32) status, (unsigned) objectiveregisters1,
-+                                     (s32) sizepropdef((PropDefHeaderRecord *) objective));
-+                    }
-+#endif
-                     if (status == OBJECTIVESTATUS_COMPLETE)
-                     {
-                         if (currentstatus != OBJECTIVESTATUS_COMPLETE)
-@@ -351,6 +506,23 @@ void display_objective_status_text_on_status_change(void)
- 
-     for (i = 0; i <= objective_count; i++) {
-         status = get_status_of_objective(i);
-+#ifdef GE_PORT_NATIVE
-+        if (ge_obj_dbg() && g_geObjDbgEvals < 200) {
-+            g_geObjDbgEvals++;
-+            osSyncPrintf("[obj] SUMMARY i=%d/%d ptr=%p text=%d diff=%d seldiff=%d "
-+                         "status=%d prev=%d regs1=0x%08x unkD_raw=%d unkD_fixed=%d "
-+                         "word3=0x%08x\n",
-+                         i, objective_count, (void *) objective_ptrs[i],
-+                         objective_ptrs[i] ? (s32) geObjText(objective_ptrs[i]) : -1,
-+                         (s32) get_difficulty_for_objective(i),
-+                         (s32) lvlGetSelectedDifficulty(),
-+                         (s32) status, (s32) objectiveStatuses[i],
-+                         (unsigned) objectiveregisters1,
-+                         objective_ptrs[i] ? (s32) objective_ptrs[i]->unkD : -1,
-+                         objective_ptrs[i] ? (s32) geObjUnkD(objective_ptrs[i]) : -1,
-+                         objective_ptrs[i] ? (unsigned) ((const u32 *) objective_ptrs[i])[3] : 0u);
-+        }
-+#endif
-         if (objectiveStatuses[i] != status) {
-             objectiveStatuses[i] = status;
-             if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
-@@ -523,3 +695,862 @@ void objectiveTakePictureHandler(void)
- 
- 
- //filebreak
-+
-+#ifdef GE_PORT_NATIVE
-+#include <stdio.h>
-+/* GETV_STATE -- one machine-readable line of progress, called by the port each nth frame.
-+ *
-+ * It lives here rather than in the port layer because the port cannot see struct player or
-+ * OBJECTIVESTATUS, and adding game headers to it would tangle the two together for a
-+ * diagnostic. The port calls gePortStateDump(frame) through a plain prototype.
-+ *
-+ * The point is to make a level attempt assertable. Frame counts and triangle counts say the
-+ * renderer is busy; they cannot say Bond reached the objective. This prints where each
-+ * player is, how many objectives the mission has, each status, and whether the mission is
-+ * complete -- which is what a script needs to decide whether a run passed. */
-+/* Position of one player, for the script host in getv/port/src/ge_lua.c.
-+ *
-+ * It lives here rather than in the port layer for the same reason gePortStateDump() does:
-+ * struct player is a game type, and the offset of pos within it is not the N64 offset
-+ * (the 32-bit pointers ahead of it are 64-bit here), so any port-side copy of that number
-+ * would be wrong now or wrong later. Returns 0 when the slot is empty, which a script
-+ * sees as nil.
-+ *
-+ * g_playerPointers, not g_CurrentPlayer: that pointer is swapped as each viewport is
-+ * drawn, so in split screen it names whichever player was rendered last. */
-+int gePortPlayerPos(int idx, f32 *out)
-+{
-+    extern struct player *g_playerPointers[4];
-+
-+    if (idx < 0 || idx > 3 || g_playerPointers[idx] == NULL) {
-+        return 0;
-+    }
+-    out[0] = g_playerPointers[idx]->pos.x;
+-    out[1] = g_playerPointers[idx]->pos.y;
+-    out[2] = g_playerPointers[idx]->pos.z;
 +    /* prop->pos, NOT player->pos.
 +     *
 +     * player->pos is zeroed at spawn (player.c:160, bondview.c:1423) and only a couple of paths
@@ -896,10 +648,10 @@ index 4ebf14b..0c5814a 100644
 +    if (out_hx != NULL)     { *out_hx = hx; }
 +    if (out_hz != NULL)     { *out_hz = hz; }
 +    if (out_radius != NULL) { *out_radius = (f32) sqrt((double) ((hx * hx) + (hz * hz))); }
-+    return 1;
-+}
-+
-+
+     return 1;
+ }
+ 
+ 
 +/* Has an objective been DONE? The question nothing could answer until now.
 + *
 + * Every measurement on this project has been about getting somewhere. None of it could tell
@@ -1044,57 +796,447 @@ index 4ebf14b..0c5814a 100644
 +}
 +
 +
-+void gePortStateDump(int frame)
+ void gePortStateDump(int frame)
+ {
+     s32 i;
+@@ -781,4 +1555,440 @@
+     printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
+     fflush(stdout);
+ }
++
++/* ===================================================================== CLEARANCE
++ *
++ * "Does a body FIT here" -- asked of the engine's own collision, not approximated.
++ *
++ * Everything else in this file answers questions about POINTS. A point is not a body, and the
++ * gap between those two ideas is what strands the CLI player on Train: it steers for a gap
++ * between a crate and a wall that is narrower than Bond, and every reading it has says there is
++ * space, because every reading is about a centre.
++ *
++ * SURFACE_QUEUE 1c used to say to sweep a radius or sample parallel lines either side. Do not:
++ * that approximates this test and misses doors, characters and path blockers entirely. The
++ * engine already ships the exact test and the guard AI runs it before every step it takes
++ * (chr.c:1468) -- a line test to the destination, then a volume test at it.
++ *
++ * ⚠️ THE MASK IN THE GUARD AI DOES NOT INCLUDE WALLS, and that surprised me.
++ *
++ *   CDTYPE_OBJS 0x01  DOORS 0x02  PLAYERS 0x04  CHRS 0x08  PATHBLOCKER 0x10  BG 0x20
++ *
++ * chr.c:1468 passes 0x1f, which is everything EXCEPT CDTYPE_BG -- so the guard's own step test
++ * never asks about background geometry. It does not need to: a guard walks the stan mesh, and
++ * the mesh only exists where there is floor, so walls are implied by the absence of a tile.
++ *
++ * That reasoning does NOT carry over to us. stan snaps to the nearest standable tile rather than
++ * testing a point, so it answers yes almost everywhere -- the Bunker 1 spawn probes as 840x840
++ * units of open floor. Walls are BACKGROUND geometry here, which is exactly why
++ * gePortProbeWalkable had to use CDTYPE_BG to see them at all.
++ *
++ * So the default mask below is 0x3f: the guard's set PLUS the walls it can afford to omit and we
++ * cannot. GETV_STAND_MASK overrides it, because the claim "adding BG to a volume test behaves
++ * sensibly" is an empirical one and the two masks should be comparable in one run rather than
++ * argued about.
++ */
++
++/* stan.c:2073 and stan.c:1686. Declared here rather than including stan's header, for the same
++ * reason gePortProbeWalkable declares bondviewTestLineUnobstructed locally: the header drags in a
++ * chain of constants this translation unit does not otherwise need, and trading a build break for
++ * a coupling is not a trade.
++ *
++ * ⚠️ The last two arguments of stanTestVolume are NOT ymin/ymax. chrGetChrWidthHeight (chr.c)
++ * fills them as height = chrheight - 20 and a third out-param that is literally always 20.0f, and
++ * chr.c:1468 passes them in that order. Naming them ymin/ymax invites someone to pass a floor and
++ * a ceiling, which is a different and wrong question. */
++extern s32 stanTestVolume(StandTile **pTile, f32 x, f32 z, f32 width, s32 cdtypes,
++                          f32 height, f32 foot);
++extern s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z,
++                                    s32 cdtypes, f32 height, f32 a, f32 b, f32 c);
++
++#define GE_STAND_WIDTH   20.0f   /* ChrRecord.chrwidth, chr.c:1936 -- so a gap wants ~40 clear */
++#define GE_STAND_HEIGHT 165.0f   /* chrheight 185 minus the 20 chrGetChrWidthHeight subtracts */
++#define GE_STAND_FOOT    20.0f   /* the "always_20" third out-param, which really is always 20 */
++
++static s32 ge_stand_mask(void)
 +{
-+    s32 i;
-+    s32 n = getPlayerCount();
-+
-+    /* Why the co-op players do not move, if they do not.
-+     *
-+     * lvlManageMpGame() (lv.c:1098) sets g_ClockTimer to 0 whenever controls are locked or
-+     * the game is paused, and to speedgraphframes otherwise. A zero clock means zero delta,
-+     * and zero delta freezes every player including player 0 while rendering carries on
-+     * normally -- which is exactly the reported symptom: p0 travels 72.5 units in co-op
-+     * against 16930 solo, and separating the spawns (GETV_COOP_SPREAD) did not change it.
-+     *
-+     * Printed rather than assumed, because the alternative explanations -- no input reaching
-+     * players 1-3, spawn collision, missing pads -- have already been ruled out one at a
-+     * time and this is the next candidate rather than a conclusion. */
-+    {
-+        extern s32 g_ControlsLockedFlag;
-+        extern s32 g_ClockTimer;
-+        extern s32 checkGamePaused(void);
-+        printf("[getv][state] locked=%d paused=%d clock=%d",
-+               (int) g_ControlsLockedFlag, (int) checkGamePaused(), (int) g_ClockTimer);
++    static s32 mask = -1;
++    if (mask < 0) {
++        const char *e = getenv("GETV_STAND_MASK");
++        /* 0x3f, not the guard's 0x1f: see the wall discussion above. */
++        mask = (e != NULL && *e != '\0') ? (s32) strtol(e, NULL, 0) : 0x3f;
 +    }
-+    printf("[getv][state] f=%d players=%d", frame, (int) n);
-+
-+    /* Every player, not g_CurrentPlayer. That pointer is swapped as each viewport is drawn,
-+     * so in split screen it names whichever player was rendered last -- reading it made
-+     * co-op look motionless when the truth was that consecutive samples described different
-+     * players. g_playerPointers is the stable array. */
-+    {
-+        extern struct player *g_playerPointers[4];
-+        s32 p;
-+        for (p = 0; p < 4; p++) {
-+            if (g_playerPointers[p] == NULL) {
-+                continue;
-+            }
-+            printf(" p%d=%.1f,%.1f,%.1f", (int) p,
-+                   (double) g_playerPointers[p]->pos.x,
-+                   (double) g_playerPointers[p]->pos.y,
-+                   (double) g_playerPointers[p]->pos.z);
-+        }
-+    }
-+    printf(" objectives=%d status=", (int) objective_count);
-+    if (objective_count <= 0) {
-+        printf("-");
-+    } else {
-+        for (i = 0; i < objective_count && i < OBJECTIVES_MAX; i++) {
-+            printf("%d", (int) objectiveStatuses[i]);
-+        }
-+    }
-+    printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
-+    fflush(stdout);
++    return mask;
 +}
-+#endif
++
++/* Seed a StandTile for a query at (x,z).
++ *
++ * 🔑 THE TILE IS AN INPUT. Passing NULL makes every call report obstructed -- the same trap
++ * gePortProbeWalkable documents, and the reason a Bunker 1 reachability map once came back solid
++ * even 60 units from the player.
++ *
++ * Seeded from the point being ASKED ABOUT, not from where the player happens to stand: seeding
++ * every query from the spawn produces answers about the spawn. Returns NULL when it cannot
++ * establish a starting tile, and callers treat that as "cannot say" rather than "blocked" --
++ * those are different, and collapsing them is how an unmeasurable point becomes a fake wall.
++ */
++static StandTile *ge_stand_seed(f32 x, f32 z, f32 *out_y)
++{
++    f32 qx = x, qz = z, y = 0.0f;
++    StandTile *tile = sub_GAME_7F0AFB78(&qx, &y, &qz, 60.0f);
++    if (out_y != NULL) { *out_y = y; }
++    return tile;
++}
++
++/* Can a body of Bond's width stand centred on (x,z)?
++ *
++ *   1  yes, it fits
++ *   0  no, something is in the way
++ *  -1  CANNOT SAY -- no stan tile could be established here
++ *
++ * ⚠️ THREE STATES, DELIBERATELY. A bot that reads "cannot say" as "blocked" walls itself into
++ * the small region it has already measured; one that reads it as "clear" walks into the thing it
++ * failed to see. The caller has to choose, so the distinction is preserved rather than folded
++ * into a bool -- the same reason the sensing API returns masks instead of yes/no.
++ */
++int gePortCanStandAt(f32 x, f32 z)
++{
++    StandTile *tile = ge_stand_seed(x, z, NULL);
++    if (tile == NULL) { return -1; }
++
++    stanResetHits();
++    /* NEGATIVE means it fits. chr.c:1468 tests `< 0` and treats that as room for a body; a
++     * non-negative return is the INDEX of whatever is in the way, so the natural-looking
++     * `if (stanTestVolume(...))` reads exactly backwards. */
++    return (stanTestVolume(&tile, x, z, GE_STAND_WIDTH, ge_stand_mask(),
++                           GE_STAND_HEIGHT, GE_STAND_FOOT) < 0) ? 1 : 0;
++}
++
++/* Can a body walk the straight line from (x0,z0) to (x1,z1)?
++ *
++ * This is the guard AI's pairing, in its order: the line first, then the volume AT THE
++ * DESTINATION. The line test alone is what a point-based planner already does, and it is exactly
++ * what passes a body through a gap it does not fit -- the destination volume test is the half
++ * that makes it about a body.
++ *
++ * Distinct from gePortProbeWalkable, which is not superseded: that one asks bondview with
++ * CDTYPE_BG only, so it answers "is there a wall between these points" and deliberately ignores
++ * characters, because a route planner that treats a passing guard as a wall re-plans forever.
++ * This one asks the full set INCLUDING transients, which is the right question for the next step
++ * and the wrong one for a route. Keep both; they answer different questions.
++ */
++int gePortPathClear(f32 x0, f32 z0, f32 x1, f32 z1)
++{
++    s32 mask = ge_stand_mask();
++    StandTile *tile = ge_stand_seed(x0, z0, NULL);
++    if (tile == NULL) { return -1; }
++
++    stanResetHits();
++    if (!stanTestLineUnobstructed(&tile, x0, z0, x1, z1, mask,
++                                  GE_STAND_HEIGHT, GE_STAND_FOOT, 0.0f, 1.0f)) {
++        return 0;
++    }
++    /* The tile has been walked forward to the destination end by the line test, which is why it
++     * is passed straight on rather than re-seeded -- re-seeding here would throw away the one
++     * piece of state the pairing depends on. */
++    return (stanTestVolume(&tile, x1, z1, GE_STAND_WIDTH, mask,
++                           GE_STAND_HEIGHT, GE_STAND_FOOT) < 0) ? 1 : 0;
++}
++
++
++/* ---------------------------------------------------------------------------------------------
++ * THE GAME'S OWN NAVIGATION GRAPH.
++ *
++ * 🔑 GoldenEye SHIPS A PATHFINDER AND WE BUILT A SECOND ONE BESIDE IT. padhalllv.c holds a full
++ * two-level nav system -- waypoints grouped into waygroups, BFS within a group and across groups,
++ * waypointFindRoute, waypointFindNextStepToward, even Rare's own waypointDebugTestRandomRoute --
++ * and the guards have been using it the whole time.
++ *
++ * It also explains a measurement that never made sense. 139 of Train's 180 pads could not be stood
++ * on, which read as "pads are bad waypoints". They are not: a pad is a marker for anything at all,
++ * and only the pads named by g_CurrentSetup.pathwaypoints are NAV pads. We were routing on the
++ * wrong subset and blaming the set.
++ *
++ * These accessors expose the graph as it is -- ids, positions, neighbours, groups -- because it is
++ * already numbered, which is exactly the addressable space a bot or a mod needs: not "north-west"
++ * but "waypoint 41, whose neighbours are 40 and 42, in group 3".
++ * --------------------------------------------------------------------------------------------- */
++
++int gePortNavCount(void)
++{
++    waypoint *node = g_CurrentSetup.pathwaypoints;
++    int n = 0;
++
++    if (node == NULL) { return 0; }
++    /* Terminated by a negative padID, the same way the engine walks it. */
++    while (node->padID >= 0) { n++; node++; }
++    return n;
++}
++
++int gePortNavAt(s32 index, s32 *out_pad, f32 *out_pos, s32 *out_group)
++{
++    waypoint *node = g_CurrentSetup.pathwaypoints;
++    int n = gePortNavCount();
++
++    if (node == NULL || index < 0 || index >= n) { return 0; }
++    node += index;
++
++    if (out_pad != NULL)   { *out_pad = node->padID; }
++    if (out_group != NULL) { *out_group = node->groupNum; }
++    if (out_pos != NULL) {
++        PadRecord *pad = &g_CurrentSetup.pads[node->padID];
++        out_pos[0] = pad->pos.x;
++        out_pos[1] = pad->pos.y;
++        out_pos[2] = pad->pos.z;
++    }
++    return 1;
++}
++
++int gePortNavNeighbours(s32 index, s32 *out, s32 max)
++{
++    waypoint *node = g_CurrentSetup.pathwaypoints;
++    int n = gePortNavCount();
++    int count = 0;
++    s32 *nb;
++
++    if (node == NULL || index < 0 || index >= n || out == NULL) { return 0; }
++    nb = (node + index)->neighbours;
++    if (nb == NULL) { return 0; }
++    while (*nb >= 0 && count < max) { out[count++] = *nb; nb++; }
++    return count;
++}
++
++/* The nearest nav waypoint to a position, as an INDEX into the list above rather than a pointer,
++ * so callers outside the engine can hold on to it. */
++int gePortNavNearest(f32 x, f32 z)
++{
++    waypoint *node = g_CurrentSetup.pathwaypoints;
++    int n = gePortNavCount();
++    int i, best = -1;
++    f32 bestd = -1.0f;
++
++    if (node == NULL) { return -1; }
++    for (i = 0; i < n; i++) {
++        PadRecord *pad = &g_CurrentSetup.pads[node[i].padID];
++        f32 dx = x - pad->pos.x;
++        f32 dz = z - pad->pos.z;
++        f32 d = dx * dx + dz * dz;
++        if (bestd < 0.0f || d < bestd) { bestd = d; best = i; }
++    }
++    return best;
++}
++
++/* The PAD id of the nav waypoint nearest a position. The log names pads rather than our own node
++ * numbers wherever it can: a pad id means something in the level's own setup data, and our node
++ * ids mean something only to us. */
++int gePortNavNearestPad(f32 x, f32 z)
++{
++    s32 pad = -1;
++    int idx = gePortNavNearest(x, z);
++    if (idx < 0) { return -1; }
++    if (!gePortNavAt(idx, &pad, NULL, NULL)) { return -1; }
++    return (int) pad;
++}
++
++/* A route between two waypoint indices, using the ENGINE'S OWN waypointFindRoute -- the same call
++ * the guards route with. Fills out with indices and returns how many it wrote. */
++int gePortNavRoute(s32 from, s32 to, s32 *out, s32 max)
++{
++    waypoint *head = g_CurrentSetup.pathwaypoints;
++    waypoint *arr[64];
++    int n = gePortNavCount();
++    int got, i, wrote = 0;
++
++    if (head == NULL || out == NULL || max <= 0) { return 0; }
++    if (from < 0 || from >= n || to < 0 || to >= n) { return 0; }
++
++    got = waypointFindRoute(head + from, head + to, arr, 64);
++    if (got <= 0) { return 0; }
++
++    for (i = 0; i < got && wrote < max; i++) {
++        if (arr[i] == NULL) { continue; }
++        out[wrote++] = (s32) (arr[i] - head);
++    }
++    return wrote;
++}
++
++
++
++/* ---------------------------------------------------------------------------------------------
++ * OPEN A DOOR THE WAY THE GUARDS DO.
++ *
++ * 🔑 THE BOT HAS BEEN PRESSING THE PLAYER'S USE BUTTON AND THE GUARDS NEVER DO. Measured on Train:
++ * 1,305 USE presses against one door, 343 door contacts, and it never got through -- because the
++ * player path (doorTestForInteract, propobj.c:14411) additionally demands PROPFLAG_ONSCREEN and a
++ * maxFrac above zero, which is a statement about the CAMERA, and a bot walking at a door in the
++ * dark satisfies neither reliably.
++ *
++ * Perfect Dark is what pointed at this. Its chrOpenDoor (chraction.c:12221) does not simulate a
++ * button at all: it sweeps a cylinder along the movement it wants to make with CDTYPE_CLOSEDDOORS,
++ * checks the door is not flagged AICANNOTUSE, and then asks the door to open --
++ * doorsChooseSwingDirection followed by doorsRequestMode(DOORMODE_OPENING).
++ *
++ * GoldenEye has the same path and its own guards use it, chraction.c:9219: find the door along the
++ * intended movement with sub_GAME_7F0B1410, skip PROPFLAG_DOOR_OPENTOFRONT, require the same 200
++ * units, then doorsChooseSwingDirection and doorActivate. So nothing needs porting -- it needed
++ * finding, and PD is where it was legible.
++ *
++ * Returns 1 if a door was asked to open, 0 if there was nothing to open, -1 if there is no player,
++ * and -2 if the door is locked and the bot is not carrying its key.
++ * --------------------------------------------------------------------------------------------- */
++int gePortOpenDoorAhead(s32 idx, f32 to_x, f32 to_z)
++{
++    PropRecord *self;
++    PropRecord *hit;
++    f32 dx, dy, dz;
++
++    if (idx < 0 || idx >= 4 || g_playerPointers[idx] == NULL) { return -1; }
++    self = g_playerPointers[idx]->prop;
++    if (self == NULL || self->stan == NULL) { return -1; }
++
++    /* 0x5000 is the cdtype mask the guard path passes -- the doors it is allowed to consider. */
++    hit = sub_GAME_7F0B1410(self->stan, self->pos.f[0], self->pos.f[2], to_x, to_z, 0x5000);
++    if (hit == NULL || hit->door == NULL) { return 0; }
++
++    /* A door that opens to its front is one the engine swings for whoever is in front of it; the
++     * guard path skips those rather than asking twice. */
++    if (hit->obj != NULL && (hit->obj->flags2 & PROPFLAG_DOOR_OPENTOFRONT)) { return 0; }
++
++    dx = hit->pos.f[0] - self->pos.f[0];
++    dy = hit->pos.f[1] - self->pos.f[1];
++    dz = hit->pos.f[2] - self->pos.f[2];
++    if (((dx * dx) + (dy * dy) + (dz * dz)) >= 40000.0f) { return 0; }   /* 200 units, as the guards */
++
++    /* 🔴 THE KEY IS NOT OPTIONAL, AND doorActivate DOES NOT CHECK IT.
++     *
++     * doorActivate swings whatever it is handed. The check lives one level up, in the player's
++     * interact path (propobj.c:14591): a door with keyflags of zero is unlocked, otherwise the
++     * player must be CARRYING those key flags. Calling doorActivate without repeating that test
++     * would let the bot walk through Train's locked doors with no key at all -- which is not a bot
++     * that plays the game, it is a bot that ignores it, and every route it then found would be a
++     * route no player could walk.
++     *
++     * Train is exactly where this bites: a guard carries the door key, so the honest sequence is
++     * kill the guard, pick up the key, then the door opens. Refusing here is what forces the bot
++     * to go and do that.
++     */
++    if (hit->door->keyflags != 0 && bondinvCheckHasKeyFlags(hit->door->keyflags) == 0) {
++        return -2;   /* locked, and we do not have its key */
++    }
++
++    doorsChooseSwingDirection(self, hit->door);
++    doorActivate(hit->door, 1);
++    return 1;
++}
++
++
++
++/* ---------------------------------------------------------------------------------------------
++ * WHERE THE OBSTACLE'S EDGES ARE -- PORTED FROM PERFECT DARK, ONTO GOLDENEYE'S OWN DATA.
++ *
++ * 🔑 THIS IS THE "IT TURNED RIGHT WHEN IT SHOULD HAVE TURNED LEFT" BUG, AND RARE FIXED IT IN 2000.
++ *
++ * Our follower asks "which heading is clearest" and sweeps for an answer, which is a guess dressed
++ * as a measurement: the clearest heading from where the bot happens to face can be the opposite
++ * side of the crate from where it needs to go. Perfect Dark never asks that question.
++ * chrNavCanSeeNextPos (chraction.c:11808) casts the movement line offset to each shoulder by the
++ * body radius, and when one collides it calls cdGetEdge to get the EDGE of what blocked it --
++ * returning obstacleleft and obstacleright, the actual sides of the actual obstacle. chrNavTryObstacle
++ * then aims at one side with a clearance of radius * 1.26. Left and right stop being a guess.
++ *
++ * GoldenEye has the same primitive and it is even named the same in Rare's own debug strings:
++ * stan.c saves stanSavedColl_tile and stanSavedColl_pointI on a failed line test, exposed through
++ * functions whose DEBUG text reads "Don't call stanCircleLegalHit()!" and
++ * "Don't call stanCircleLegalHitEdge()!". The blocking edge is that tile's point pair.
++ *
++ * So this is a port of PD's IDEA onto GE's DATA, not a copy of PD's code -- the collision calls
++ * are different and pretending otherwise would produce something that compiles and lies.
++ *
++ * Returns 1 when blocked and both edge points were written, 0 when the way is clear.
++ * --------------------------------------------------------------------------------------------- */
++int gePortObstacleEdge(f32 x0, f32 z0, f32 x1, f32 z1, f32 *out_left, f32 *out_right)
++{
++    s32 mask = ge_stand_mask();
++    StandTile *tile = ge_stand_seed(x0, z0, NULL);
++    StandTile *hit;
++    s32 edge, count, a, b;
++
++    if (tile == NULL) { return 0; }
++
++    /* ⚠️ THE STAN MESH IS THE FLOOR, NOT THE FURNITURE. First version asked
++     * stanTestLineUnobstructed alone and got "clear" 114 times out of 114 while the bot was
++     * pressed against a crate: crates and walls live in OBJECT and BG collision, and stan carries
++     * the standable surface. Asking the floor where the crate is will always answer nothing.
++     *
++     * So the prop sweep runs FIRST -- sub_GAME_7F0B1410 returns the actual blocking prop, which is
++     * the same call the guards use to find a door -- and its bounding radius gives the two sides.
++     * The stan edge is the fallback for geometry that is genuinely part of the walkable mesh. */
++    {
++        PropRecord *obs = sub_GAME_7F0B1410(tile, x0, z0, x1, z1,
++                                            CDTYPE_OBJS | CDTYPE_BG | CDTYPE_PATHBLOCKER);
++        if (obs != NULL) {
++            f32 dx = x1 - x0, dz = z1 - z0;
++            f32 len = sqrtf(dx * dx + dz * dz);
++            f32 px, pz;
++            f32 hx = 0.0f, hz = 0.0f, r = 0.0f;
++
++            if (len < 1.0f) { return 0; }
++            dx /= len;
++            dz /= len;
++
++            /* How wide the thing actually is, from its own bounding box. Falling back to a fixed
++             * width when the extent will not resolve errs WIDE on purpose: swinging too far around
++             * a crate costs a little distance, clipping its corner costs the whole run. */
++            if (!gePortPropExtent(obs, &hx, &hz, &r) || r <= 1.0f) {
++                r = 100.0f;
++            }
++
++            /* The two sides are the obstacle's centre pushed perpendicular to the direction of
++             * travel. Perpendicular rather than axis-aligned, because a crate approached diagonally
++             * presents a corner, and its x extent is not what is in the way. */
++            px = -dz;
++            pz = dx;
++
++            if (out_left != NULL) {
++                out_left[0] = obs->pos.f[0] + px * r;
++                out_left[1] = obs->pos.f[2] + pz * r;
++            }
++            if (out_right != NULL) {
++                out_right[0] = obs->pos.f[0] - px * r;
++                out_right[1] = obs->pos.f[2] - pz * r;
++            }
++            return 1;
++        }
++    }
++
++    stanResetHits();
++    if (stanTestLineUnobstructed(&tile, x0, z0, x1, z1, mask,
++                                 GE_STAND_HEIGHT, GE_STAND_FOOT, 0.0f, 1.0f)) {
++        return 0;   /* nothing in the way, so there are no edges to report */
++    }
++
++    hit = sub_GAME_7F0B1CE0();     /* stanCircleLegalHit -- the tile that stopped the line */
++    edge = sub_GAME_7F0B1CEC();    /* stanCircleLegalHitEdge -- which of its edges */
++    if (hit == NULL) { return 0; }
++
++    /* The engine reads the point count off the tail half-word and masks it itself rather than
++     * going through the bitfield union, so this does the same -- a struct path that differs from
++     * the one every other reader uses is a struct path that drifts. */
++    count = hit->tail.hdrTail.pointCount & 0xF;
++    if (count <= 0) { return 0; }
++
++    /* An edge is a point and its successor, wrapping. Reading pointI+1 without the wrap walks off
++     * the end of the last tile in the list, which is a crash that only happens on the geometry a
++     * bot reaches last. */
++    a = edge % count;
++    b = (a + 1) % count;
++
++    if (out_left != NULL) {
++        out_left[0] = (f32) hit->points[a].x;
++        out_left[1] = (f32) hit->points[a].z;
++    }
++    if (out_right != NULL) {
++        out_right[0] = (f32) hit->points[b].x;
++        out_right[1] = (f32) hit->points[b].z;
++    }
++    return 1;
++}
++
+ #endif

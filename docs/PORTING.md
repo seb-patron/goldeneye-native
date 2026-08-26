@@ -165,7 +165,7 @@ Estimate: **1 day**, mostly building GLEW static for the same triple as everythi
 ## 6. The crash handler
 
 `getv/Sources/ge_tvos_main.c:57-113` is the most Apple-specific code in the tree, and
-it is also load-bearing - it is what cracked the Perfect Dark TCC crash
+it is also essential - it is what cracked the Perfect Dark TCC crash
 and it is the primary debugging tool on this port.
 
 Non-portable pieces:
@@ -232,7 +232,7 @@ Estimate: **1 hour**, plus whatever it takes to agree on
 
 This is the item most likely to be mistaken for a compiler problem.
 
-`getv/build_mac.sh:239-252` documents that `-dead_strip` is load-bearing rather than an
+`getv/build_mac.sh:239-252` documents that `-dead_strip` matters rather than an
 optimisation: ld64 dead-strips **before** it checks for undefined symbols, so a
 reference from an unreachable function is not an error. Neither `lld-link /OPT:REF` nor
 GNU `ld --gc-sections` is guaranteed to behave that way - unresolved externals are
@@ -303,7 +303,7 @@ the port layer, and the macOS build is unchanged at 167/1, 746/0, 40/0, 24/0.
 `getv/port/fs/fs.h` was described here as likewise dead. It is not: `gfx_pc.c:30` and
 `port_support.c:17` both include it, so removing it breaks the build. It is one of the
 fifteen fetched third-party files and stays. Whether its declarations are ever implemented
-is a separate question; the header itself is load-bearing today.
+is a separate question; the header itself matters today.
 
 Estimate: **1 hour.**
 
@@ -344,7 +344,7 @@ setup and stan.
 9. Debugging the first run. **Unbounded and deliberately not estimated.**
 
 Steps 1-4 are worth doing regardless of whether anyone builds for Windows: they are all
-verifiable on macOS today and every one of them makes the macOS build more robust.
+verifiable on macOS today, and every one of them makes the macOS build harder to break.
 
 **Honest overall assessment.** Getting to a first *link* on Windows is on the order of
 **one to two weeks** for someone with the machine, assuming they follow the MinGW route.

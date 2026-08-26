@@ -1,7 +1,7 @@
 /* The player API's queue discipline -- the seam everything else rides on.
  *
  * Bots, the Lua bridge and netplay all reach the game through gePlayerPost, so its contract is
- * load-bearing in a way none of the consumers are individually. test_intent.c covers which BIT an
+ * essential in a way none of the consumers are individually. test_intent.c covers which BIT an
  * intent becomes; this covers WHEN input is applied, for how long, and what happens when it is
  * not.
  *

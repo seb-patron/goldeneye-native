@@ -2,7 +2,7 @@
 
 ## The gap this fills
 
-`ge_world_api` answers *what does this level contain* — objectives, waypoints, routes, and guard
+`ge_world_api` answers *what does this level contain* -- objectives, waypoints, routes, and guard
 spawn points from the extraction. That is static knowledge: true before the level starts, unchanged
 by anything that happens in it. A bot steering by it alone is navigating a map of a room it is not
 looking at.
@@ -35,11 +35,11 @@ what is *true* is the whole basis for deciding whether to break contact:
   location to avoid, not an enemy to fight
 
 A bot that knows enemy positions can fight. A bot that knows what enemies *believe* can disengage,
-flank, and bait — and those are the behaviours that read as intelligent.
+flank, and bait -- and those are the behaviours that read as intelligent.
 
 `geEnemyThreatAt(x, y, z, radius)` exists for exactly this. It scores a **destination**, not a
 neighbourhood, and it is deliberately not the same question as `geEnemiesNear`. In the test fixture
-the origin has one living enemy within 120 units but three converging on it — one of them 9000
+the origin has one living enemy within 120 units but three converging on it -- one of them 9000
 units away, which is precisely the guard about to arrive and the one a proximity query misses.
 
 It does **not** filter on alertness. An enemy walking to where it last saw someone threatens that
@@ -51,12 +51,12 @@ destination. Filtering here would hide the guard that is about to arrive.
 The live data is in `ChrRecord`, and the port layer is compiled without the decomp's include path
 (`$portFlags` in `build_windows.ps1` covers `port/`, `port/include`, `port/fast3d`, `port/src` and
 nothing else), so it cannot name that type. The established bridge is a flat accessor implemented
-game-side — `gePortPlayerPos` in `objective_status.c:717` is exactly that shape.
+game-side -- `gePortPlayerPos` in `objective_status.c:717` is exactly that shape.
 
 Declaring an extern the port cannot satisfy would turn a missing shim into a **link failure for
 everyone**. So the source is registered at boot instead, the way `joySetPlaybackFunc` registers
 input playback. With nothing registered, every query reports zero enemies and
-`geEnemySourceInstalled()` returns 0 — the absence is a readable runtime state rather than a
+`geEnemySourceInstalled()` returns 0 -- the absence is a readable runtime state rather than a
 broken build.
 
 ## What is still needed, and it is not in my lane
@@ -111,13 +111,13 @@ Three details worth not improvising on:
    return `GE_EN_POSITION` alone, so a bot can see it is blind on awareness instead of reading
    every guard as oblivious.
 2. **Check `count`.** Refuse rather than write past the array. Adding a field later must not
-   silently shift every reader by one slot — that failure is quiet and total.
+   silently shift every reader by one slot -- that failure is quiet and total.
 3. **Health is inverted at the boundary, not here.** The game stores damage *taken*; the port
    converts to remaining. Getting it backwards reads a dying guard as healthy.
 
 ## Tests
 
-`getv/port/tests/test_enemy.c` runs the whole API against a fake population with no game running —
+`getv/port/tests/test_enemy.c` runs the whole API against a fake population with no game running -- 
 which is the point of the install seam. It covers the health inversion, nearest-first ordering with
 a `max` cap that keeps the closest rather than the first found, corpse exclusion, partial-data
 rows, and the belief-versus-proximity contrast.

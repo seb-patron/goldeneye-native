@@ -8,13 +8,13 @@ by file. Fetch `C:\mac-work.bundle` before touching a shared file.
 
 ---
 
-## 0. Apply `0004-player-accessors.patch` your link has been failing on this for a day
+## 0. Apply `0003-port-accessors.patch` (the link failure)
 
 `vendor/` is gitignored, so decomp symbols never travel in a bundle. Everything you have tested
 is stub-verified only.
 
 ```
-cd C:\ge\vendor\ge-decomp && git apply ..\..\getv\patches\0004-player-accessors.patch
+cd C:\ge\vendor\ge-decomp && git apply ..\..\getv\patches\0003-port-accessors.patch
 ```
 
 Now carries the player accessors, the control-style helpers, both navigation probes,
@@ -51,7 +51,7 @@ attenuation and `hearingscale` for sound. Add `geSenseNoticedBy(enemy, player)` 
 line, cone and alertness, and keep the two separate rather than replacing one with the other,
 because "could see me if it turned" is a different and useful question.
 
-Train currently reports 17–19 watchers of 40 guards. That is what an unobstructed line down a
+Train currently reports 17-19 watchers of 40 guards. That is what an unobstructed line down a
 row of carriages looks like, **not** seventeen guards watching. Do not tune the line test to make
 that number smaller; add the cone.
 

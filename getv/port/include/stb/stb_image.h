@@ -123,10 +123,10 @@ RECENT REVISION HISTORY:
 //    stbi_image_free(data)
 //
 // Standard parameters:
-//    int *x                 -- outputs image width in pixels
-//    int *y                 -- outputs image height in pixels
-//    int *channels_in_file  -- outputs # of image components in image file
-//    int desired_channels   -- if non-zero, # of image components requested in result
+//    int *x -- outputs image width in pixels
+//    int *y -- outputs image height in pixels
+//    int *channels_in_file -- outputs # of image components in image file
+//    int desired_channels -- if non-zero, # of image components requested in result
 //
 // The return value from an image loader is an 'unsigned char *' which points
 // to the pixel data, or NULL on an allocation failure or if the image is
@@ -1929,7 +1929,7 @@ stbi_inline static int stbi__jpeg_get_bit(stbi__jpeg *j)
    if (j->code_bits < 1) stbi__grow_buffer_unsafe(j);
    k = j->code_buffer;
    j->code_buffer <<= 1;
-   --j->code_bits;
+ --j->code_bits;
    return k & 0x80000000;
 }
 
@@ -2039,7 +2039,7 @@ static int stbi__jpeg_decode_block_prog_ac(stbi__jpeg *j, short data[64], stbi__
       int shift = j->succ_low;
 
       if (j->eob_run) {
-         --j->eob_run;
+ --j->eob_run;
          return 1;
       }
 
@@ -2067,7 +2067,7 @@ static int stbi__jpeg_decode_block_prog_ac(stbi__jpeg *j, short data[64], stbi__
                   j->eob_run = (1 << r);
                   if (r)
                      j->eob_run += stbi__jpeg_get_bits(j, r);
-                  --j->eob_run;
+ --j->eob_run;
                   break;
                }
                k += 16;
@@ -2084,7 +2084,7 @@ static int stbi__jpeg_decode_block_prog_ac(stbi__jpeg *j, short data[64], stbi__
       short bit = (short) (1 << j->succ_low);
 
       if (j->eob_run) {
-         --j->eob_run;
+ --j->eob_run;
          for (k = j->spec_start; k <= j->spec_end; ++k) {
             short *p = &data[stbi__jpeg_dezigzag[k]];
             if (*p != 0)
@@ -2140,7 +2140,7 @@ static int stbi__jpeg_decode_block_prog_ac(stbi__jpeg *j, short data[64], stbi__
                      *p = (short) s;
                      break;
                   }
-                  --r;
+ --r;
                }
             }
          } while (k <= j->spec_end);
@@ -5595,7 +5595,7 @@ static void *stbi__tga_load(stbi__context *s, int *x, int *y, int *comp, int req
            tga_data[i*tga_comp+j] = raw_data[j];
 
          //   in case we're in RLE mode, keep counting down
-         --RLE_count;
+ --RLE_count;
       }
       //   do I need to invert the image?
       if ( tga_inverted )
@@ -6244,7 +6244,7 @@ static void stbi__out_gif_code(stbi__gif *g, stbi__uint16 code)
       while (g->cur_y >= g->max_y && g->parse > 0) {
          g->step = (1 << g->parse) * g->line_size;
          g->cur_y = g->start_y + (g->step >> 1);
-         --g->parse;
+ --g->parse;
       }
    }
 }
@@ -6283,7 +6283,7 @@ static stbi_uc *stbi__process_gif_raster(stbi__context *s, stbi__gif *g)
             if (len == 0)
                return g->out;
          }
-         --len;
+ --len;
          bits |= (stbi__int32) stbi__get8(s) << valid_bits;
          valid_bits += 8;
       } else {

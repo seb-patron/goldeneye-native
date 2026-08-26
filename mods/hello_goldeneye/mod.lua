@@ -15,7 +15,7 @@ local frames = 0
 function onFrame(frame)
     frames = frames + 1
 
-    -- Once a second at 60fps. Printing every frame would bury everything else in the log.
+ -- Once a second at 60fps. Printing every frame would bury everything else in the log.
     if frame % 60 == 0 then
         local x, y, z = ge.player_pos(0)
         if x then

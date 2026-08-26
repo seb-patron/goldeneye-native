@@ -17,7 +17,7 @@
  * The whole save is 512 bytes, which fits a 4 K EEPROM exactly.
  * smallSave  = 4 + 4 + 24            =  32 B = blocks 0..3
  * save_data  = 0x60 (verified below) =  96 B, five slots = 480 B = blocks 4..63
- *                                          --------
+ * --------
  *                                            512 B = 64 blocks of 8 = EEP4K
  * `save_data` contains no pointers (`src/game/file.h:7-21` is all s32/u8/u16 plus a
  * `u8 times[76]`), so it is 0x60 natively too; this is not bug family 1.3. The port layer

@@ -176,7 +176,7 @@ void gePortRenderDisplayList(void *firstGdl)
      * alike, so not a pacing regression).
      *
      *   lock    g_ControlsLockedFlag -- cutscenes and level transitions (lv.c:1036)
-     *   paused  g_pausedFlag         -- the watch / MP menu (lv.c:1040 via checkGamePaused)
+     *   paused  g_pausedFlag -- the watch / MP menu (lv.c:1040 via checkGamePaused)
      *
      * Both land in the same `g_ClockTimer = 0` in lvlManageMpGame, which is the whole
      * freeze. Nothing else writes either flag after init (`lvlSetControlsLockedFlag`,

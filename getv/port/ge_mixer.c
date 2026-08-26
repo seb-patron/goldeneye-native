@@ -331,7 +331,7 @@ void aInterleaveImpl(uint16_t left, uint16_t right) {
         *d++ = r6;
         *d++ = l7;
         *d++ = r7;
-        --count;
+ --count;
     }
     if (ge_mixer_probe) {
         ge_mixer_n_interleave++;

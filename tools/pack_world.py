@@ -25,10 +25,10 @@ Format (little-endian throughout, matching every platform the port targets):
     version u32             4
     level   char[16]       16   name, NUL padded
     counts  u32 * 4        16   waypoints, guards, objectives, steps
-    ---- waypoints ----     16 each   id u16, room u16, x/y/z f32... (see WP_FMT)
-    ---- guards ----        16 each
-    ---- objectives ----    24 each
-    ---- steps ----         24 each
+ ---- waypoints ---- 16 each   id u16, room u16, x/y/z f32... (see WP_FMT)
+ ---- guards ---- 16 each
+ ---- objectives ---- 24 each
+ ---- steps ---- 24 each
 
 Usage:
     python3 tools/pack_world.py --out build/world

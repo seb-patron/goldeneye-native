@@ -30,7 +30,7 @@ goldeneye.exe > cull.log 2>&1
 | `cur` | infront=4/8 nvtx=326 | 8/8 nvtx=0 |
 
 `BEHIND=0`, so nothing was being culled away. The player was simply in **room 0**, which on
-this level has no portals and no geometry — `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
+this level has no portals and no geometry -- `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
 adj=0`, so the portal walk had nowhere to go and the draw list contained one empty room.
 
 `g_BgCurrentRoom` comes from `bondviewGetCurrentPlayersRoom()` (bondview2.c), which reads
@@ -44,7 +44,7 @@ The line that named the cause was already being printed:
 ```
 
 **One tile.** The entire level's stan was a single tile, and the player's tile pointer
-(`...218`) was the zero word 32 bytes past it — not a tile at all, which is why `room` read 0.
+(`...218`) was the zero word 32 bytes past it -- not a tile at all, which is why `room` read 0.
 
 ---
 
@@ -101,10 +101,10 @@ and `extern` added to the forward declaration in all 29 files under
 ```
 
 Scoped to assets deliberately. The game batch is code; the only place adjacency of top-level
-data is load-bearing is the level data. `src/snd.c`'s "declaration order matters" comment is
+data matters is the level data. `src/snd.c`'s "declaration order matters" comment is
 about stack locals for matching and is unrelated.
 
-Verified at the object level before rebuilding — header first, then tiles contiguous at
+Verified at the object level before rebuilding -- header first, then tiles contiguous at
 exactly their byte sizes, nothing in `.bss`:
 
 ```
@@ -136,7 +136,7 @@ Downstream symptoms that were the same bug and are now gone without being touche
   were failing because the tile walk could not reach their tiles.
 - **The weapon and right hand render.** `WINDOWS_BRINGUP.md` recorded `hinv=1/0` as "the right
   hand is invisible, so no weapon is drawn" and listed it as a known harness gap. `hinv=1/0`
-  is `hand_invisible[0]=1, [1]=0` — the **left** hand hidden, which is correct for a
+  is `hand_invisible[0]=1, [1]=0` -- the **left** hand hidden, which is correct for a
   one-handed PP7. The frame capture shows the PP7 drawn with the ammo HUD reading `7 | 93`.
 
 ---

@@ -62,8 +62,8 @@ is one line of targeting policy.
 
 ## What is in the repo
 
-- `data/bots/skill_tiers.json` — six graded tiers (meat, easy, normal, hard, perfect, dark)
-- `data/bots/personalities.json` — twelve behavioural archetypes, orthogonal to skill
+- `data/bots/skill_tiers.json` -- six graded tiers (meat, easy, normal, hard, perfect, dark)
+- `data/bots/personalities.json` -- twelve behavioural archetypes, orthogonal to skill
 
 A personality says what a bot *wants*; a skill tier says how well it executes. They compose:
 a low-skill SpeedSim is still evasive, a high-skill one is brutal.
@@ -128,10 +128,10 @@ performed), and the generator was passing two.
 Both, for different jobs. They compose rather than compete, and the two documents used to point
 different ways, so to be explicit:
 
-- **Player slot** (`ge_bot.c`, and the argument in `docs/PLAYER_API.md`) — anything that must *be*
+- **Player slot** (`ge_bot.c`, and the argument in `docs/PLAYER_API.md`) -- anything that must *be*
   a player: netplay peers, RL agents, co-op partners, bots filling out a four-player roster. One
   seam serves all of them, which is the whole point of that design.
-- **Character** (`ge_bot_ai.c`, this document) — opponents *beyond* the four player slots. The
+- **Character** (`ge_bot_ai.c`, this document) -- opponents *beyond* the four player slots. The
   game has exactly four, and four players **and** four bots is not reachable through the slot
   path at all.
 

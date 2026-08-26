@@ -8,7 +8,7 @@
  * THE STEERING LAW IS THE ONE VALIDATED IN tools/routesim.py, constants included.
  *
  * Turn and walk at once, with forward speed scaled DOWN by heading error. That scaling is
- * load-bearing rather than a refinement: turning radius is speed over turn rate, about 114 units
+ * essential rather than a refinement: turning radius is speed over turn rate, about 114 units
  * at full pelt, so a bot that walks flat out while turning cannot get inside a 120-unit arrival
  * radius and orbits its own waypoint instead. The model measures that as 29 of 61 routes failed
  * with the scaling removed. Do not "simplify" it away.

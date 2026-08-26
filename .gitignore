@@ -227,3 +227,10 @@ build/levels/*.walkthrough.json
 docs/research/TRAIN_WALKTHROUGH.txt
 docs/research/TRAIN_SPATIAL_MODEL.txt
 build/levels/*.brief.json
+
+# Run output. Logs and traces can carry absolute paths and machine names, and none of it is
+# reproducible from the tree, so none of it is worth committing.
+/*.log
+*.out
+*.tsv
+*.bundle

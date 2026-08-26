@@ -41,7 +41,7 @@ if ($env:PATH -notlike "*$Mingw\bin*") { $env:PATH = "$Mingw\bin;$env:PATH" }
 
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 
-# Mirrors $portFlags in build_windows.ps1. The forced-include of ge_win_compat.h is load-bearing:
+# Mirrors $portFlags in build_windows.ps1. The forced-include of ge_win_compat.h matters:
 # without it the decomp's PR headers do not supply s32/u16/OSContPad and every file fails on the
 # base types, which reads as a broken toolchain rather than a missing flag.
 $flags = @(

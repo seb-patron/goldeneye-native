@@ -58,7 +58,7 @@ extern "C" {
 #define GE_ENEMY_F_X          0   /* prop->pos.x                                          */
 #define GE_ENEMY_F_Y          1
 #define GE_ENEMY_F_Z          2
-#define GE_ENEMY_F_DAMAGE     3   /* chr->damage    -- accumulated, NOT remaining health   */
+#define GE_ENEMY_F_DAMAGE     3   /* chr->damage -- accumulated, NOT remaining health   */
 #define GE_ENEMY_F_MAXDAMAGE  4   /* chr->maxdamage -- what it takes to kill them          */
 #define GE_ENEMY_F_ALERTNESS  5   /* chr->alertness, 0..255                                */
 #define GE_ENEMY_F_HEARING    6   /* chr->hearingscale -- rises when shot at               */

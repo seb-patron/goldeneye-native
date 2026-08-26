@@ -86,7 +86,7 @@ done
 echo
 echo "================ AGGREGATING ================"
 arch -arm64 /usr/bin/python3 "$HERE/sweep_aggregate.py" "$BASE" \
-  --n "$N" --ss "$SS" --skipintro "$SKIPINTRO" --lighttrace "$LIGHTTRACE" \
-  --sim "${GETV_SIM:-default}" --slot "$SLOT" --mp "${MP:-off}"
+ --n "$N" --ss "$SS" --skipintro "$SKIPINTRO" --lighttrace "$LIGHTTRACE" \
+ --sim "${GETV_SIM:-default}" --slot "$SLOT" --mp "${MP:-off}"
 echo
 echo "board -> $BASE/board.md"

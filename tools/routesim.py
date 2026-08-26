@@ -85,7 +85,7 @@ class Follower:
         # Forward speed falls off with heading error and reaches zero past the alignment limit,
         # so the bot pivots rather than arcing away when it is badly off.
         #
-        # THIS IS THE LOAD-BEARING PART OF THE LAW. Turning radius is speed divided by turn
+        # This is the part that matters. Turning radius is speed divided by turn
         # rate: at full speed that is about 114 units here, far outside a tight arrival radius,
         # so a bot that walks flat out while turning cannot reach its own waypoint and orbits it
         # instead. Scaling speed by alignment shrinks the radius exactly when it needs to be

@@ -2,7 +2,7 @@
   Build GoldenEye natively on Windows, with mingw-w64.
 
   WHY THIS IS POWERSHELL AND NOT BASH
-  -----------------------------------
+ -----------------------------------
   getv/build_windows.sh exists and is a faithful translation of build_linux.sh, and on a
   healthy MSYS2 it works. On the machine this was brought up on it does not, and the reason
   is worth recording because it is a property of MSYS2 rather than of this project:
@@ -228,7 +228,7 @@ function Build-Lib {
 
   Push-Location $decomp
   try {
-    # Game. The exclusions mirror build_linux.sh exactly and are load-bearing: usb, rmon,
+    # Game. The exclusions mirror build_linux.sh exactly and matter: usb, rmon,
     # sched, ramrom, init and the indy_* files are N64 hardware and SGI dev-host code, and
     # compiling them turns logging stubs into code that writes real RCP/PI registers.
     # crash.c, spectrum.c and tlb_manage.c are N64 hardware and dev-host stubs, and the port

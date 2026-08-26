@@ -72,7 +72,7 @@ property netplay is built on and it is cheap now and expensive to retrofit.
 The tick already exists: one per `osContGetReadData`, i.e. one pass over the four ports. It is
 the same clock `GETV_EXIT_FRAME` counts and the same one `GETV_SCRIPT` schedules against.
 
-**Unresolved and load-bearing.** Two mechanisms decouple simulation from rendering and the
+**Unresolved and essential.** Two mechanisms decouple simulation from rendering and the
 project's own documents do not reconcile them:
 
 - `GETV_TICKFIELDS=<n>` (`frametiming.c`, documented in `docs/FRAME_TIMING.md`) holds simulation
@@ -130,7 +130,7 @@ Three consequences the API must not paper over:
    state and player tick order are therefore welded together: any RNG divergence immediately
    reorders the whole simulation, which is about the worst possible failure mode for lockstep.
    It also means the RNG stream advances at a rate that depends on frame count, not on events.
-3. **`mission_timer` is bound to slot 0, not to the shuffle** (`bondview2.c:8524`) — the one
+3. **`mission_timer` is bound to slot 0, not to the shuffle** (`bondview2.c:8524`) -- the one
    simulation value hard-wired to a specific player. Correct only because slot 0 always exists.
 
 ---
@@ -189,8 +189,8 @@ counterpart `record_player_input_as_packet` (`:201`) at `:450`.
 What it stores per block is the important part:
 
 - the pad samples,
-- **`speedframes` — the frame delta** (`:256`),
-- **`randseed` — an RNG fingerprint** (`:257`), plus a checksum (`:259-260`).
+- **`speedframes` -- the frame delta** (`:256`),
+- **`randseed` -- an RNG fingerprint** (`:257`), plus a checksum (`:259-260`).
 
 And on playback it **aborts on mismatch**: `if (blk->randseed != (u8)g_randomSeed) ramromFadeToTitle();`
 (`:312-315`). **This is a shipped desync detector.** It also snapshots and restores control
@@ -266,8 +266,8 @@ actors) was singled out as the highest-value non-obvious feature, and auxiliary 
 tracks of the Visual Doom AI Competition.
 
 **We have a decompilation.** We know every actor's identity, type and render extent exactly,
-without inference. Emitting labels + bounding boxes is cheap for us and is the single highest
--leverage observation we can offer.
+without inference. Emitting labels and bounding boxes is cheap for us, and it is the most useful thing we can
+offer.
 
 Keep `objects` (all actors, including unseen) separate from `labels` (visible only), so partial
 observability is the default and oracle policies are opt-in.
@@ -296,16 +296,16 @@ discovered later. Every entry is from the project's own measurements.
 | # | Hazard | Consequence |
 |---|---|---|
 | 1 | **PAL and NTSC are compile-time constant sets**, not a scale factor (`CHRLV_FRAMERATE_F` 60/50, `CHRLV_DEFAULT_TIMER` 180/150) | **A US and a EU client can never share a lockstep session.** |
-| 2 | **Render-only frames mutate simulation state** — SFX voice teardown writes into `ChrRecord` (mgb64 FID-0089, P0) | "Render frames are side-effect free" is false here. Breaks the usual tick/draw split. |
+| 2 | **Render-only frames mutate simulation state** -- SFX voice teardown writes into `ChrRecord` (mgb64 FID-0089, P0) | "Render frames are side-effect free" is false here. Breaks the usual tick/draw split. |
 | 3 | **Streets (level 29) is nondeterministic across processes** (FID-0046, verified) | At least one level cannot be lockstepped as-is. |
 | 4 | **State hash is FP-optimisation and link-layout sensitive** (FID-0061/0131); we compile with neither `-ffp-contract=off` nor `-fno-fast-math` | Two differently-built clients disagree. Build flags become part of the protocol. |
 | 5 | Seed is `randomSetSeed(osGetCount())`, and `osGetCount()` in the port is a **non-atomic static also incremented by the audio thread** | Measured deterministic today, but it is a race by construction. `GETV_SEED` forces it. |
 | 6 | `g_GlobalTimerDelta` is **whole video frames, never fractional**; 122 of 135 files under `src/game` do per-frame work | You cannot feed this engine a fractional delta without retuning every constant. |
-| 7 | Full-auto fire rate is gated on a **per-rendered-frame** counter, unscaled (FID-0056/0066) | Automatics fire 2–4× too fast at locked 60 Hz. |
+| 7 | Full-auto fire rate is gated on a **per-rendered-frame** counter, unscaled (FID-0056/0066) | Automatics fire 2-4× too fast at locked 60 Hz. |
 | 8 | **`shuffle_player_ids()` draws 3 RNG values every frame** (`player.c:661-676`) to reorder the per-player tick | RNG state and tick order are welded together. Any divergence instantly reorders the whole simulation. |
 | 9 | The frame delta is wall-clock derived (`frametiming.c:84`) and multiplied into **~310 simulation sites** via `g_ClockTimer` → `g_GlobalTimerDelta` (`lv.c:1112,1117`) | Deterministic in the port only *by accident*: `osGetCount()` returns `count += 1000`, so the quotient is exactly 1 every frame. `GETV_REALCLOCK=1` destroys it. |
-| 10 | `chrObjRandom` is **stubbed to 0** in the port (`ge_link_stubs.c:60-61`) | Deterministic but not faithful — `propobj.c` vertex jitter collapses to a constant. |
-| 11 | Uninitialised locals read into logic: `stan.c:1425,1471`; `chr.c:3957-3968`; `chrprop.c:1377-1390` indexes `((u8*)g_Textures)[-8]` **on every shot** | Retail depended on deterministic RDRAM garbage. Do not "fix" blindly — some are load-bearing. |
+| 10 | `chrObjRandom` is **stubbed to 0** in the port (`ge_link_stubs.c:60-61`) | Deterministic but not faithful -- `propobj.c` vertex jitter collapses to a constant. |
+| 11 | Uninitialised locals read into logic: `stan.c:1425,1471`; `chr.c:3957-3968`; `chrprop.c:1377-1390` indexes `((u8*)g_Textures)[-8]` **on every shot** | Retail depended on deterministic RDRAM garbage. Do not "fix" blindly -- some matter. |
 
 Precedent worth knowing: **the game already contains an input-replay format.** Attract-mode
 demos are recorded controller inputs: `ramromreplay.c`,
@@ -316,7 +316,7 @@ attract mode.
 
 There is also a ready-made desync harness design on file: FNV-1a 64 frame hashing of framebuffer
 and display list, run 7× and diff. It gives the first diverging frame *and* a two-way classifier
-— DL hash matches but framebuffer differs → renderer bug; DL hash differs → game logic.
+ -- DL hash matches but framebuffer differs → renderer bug; DL hash differs → game logic.
 
 ---
 
@@ -364,7 +364,7 @@ Known traps in the MP path, all already measured:
 - **NULL-stan spawn pads crash MP** (COMPLEX, 3 of 7 pads). Guarded by `GETV_MP_SPAWNGUARD`,
   default on; the retail `assert` is compiled out of release. Do not bypass it when respawning.
 - **`CAMERAMODE_MP` is a swirl camera until ~frame 301.** Frame 61 is not gameplay.
-- **Multiplayer never pauses** — one player opening the menu does not stop the others. Good for
+- **Multiplayer never pauses** -- one player opening the menu does not stop the others. Good for
   netplay; means there is no natural stall point.
 
 ---
@@ -376,7 +376,7 @@ the three consumers, not the most expensive, and the reason is worth stating pla
 
 > **Retail GoldenEye multiplayer is already four players shooting each other.** Hit detection,
 > damage, scoring, the kill matrix, respawn and the end-of-match awards all ship and all work.
-> A bot needs **no AI whatsoever**. It needs pad input for slots 1–3.
+> A bot needs **no AI whatsoever**. It needs pad input for slots 1-3.
 
 Everything in the rest of this section (the missing `CHR_BOND` target, the stubbed path tables,
 the empty MP AI scaffolding) applies **only** to reusing the *guard* AI, which we therefore have
@@ -396,9 +396,9 @@ them mid-playback to poll the real pad for a human abort.
 
 So one playback handler can fill all four slots from mixed sources:
 
-- **human slots** — copy the newest sample out of `g_ContData[0]`
-- **bot slots** — write the policy's output
-- **network slots** — write the peer's deserialised input for this tick
+- **human slots** -- copy the newest sample out of `g_ContData[0]`
+- **bot slots** -- write the policy's output
+- **network slots** -- write the peer's deserialised input for this tick
 
 Which is the whole API in one sentence: *a bot, a network peer and an RL agent are the same
 thing, differing only in where the four pad structs come from.*
@@ -426,10 +426,10 @@ player's own `chrnum` (`chraction.c:9855-9861`). It is how cinematics move Bond.
 - **`init_path_table_links` is stubbed in the port.** Retail assigns waypoint `groupNum` and
   `dist` at load, which live pathfinding consumes. Its absence presents as AI misbehaviour, not
   as a crash.
-- The AI has **no player-targeting vocabulary** — the whole special-character set is
+- The AI has **no player-targeting vocabulary** -- the whole special-character set is
   `CHR_BOND_CINEMA, CHR_CLONE, CHR_SEE_SHOT, CHR_SEE_DIE, CHR_PRESET, CHR_SELF, CHR_OBJECTIVE,
   CHR_FREE`. There is not even a generic `CHR_BOND`; the AI addresses the player implicitly.
-- MP arenas ship with `padnames` and `boundpadnames` both NULL — no authored AI-list
+- MP arenas ship with `padnames` and `boundpadnames` both NULL -- no authored AI-list
   scaffolding to inherit.
 
 **Conclusion: drive bots by pad injection, the same seam an RL agent and a network peer use.**
@@ -488,7 +488,7 @@ Each phase is useful on its own and none of them requires the next.
    and exposing the `g_randomSeed` fingerprint. **No decomp change required.** First consumer:
    re-point `GETV_SCRIPT` at this API instead of at `GePadState`, which proves the seam against
    something that already works rather than a demo invented to flatter it.
-3. **State readout, what is reachable.** Position, counts, stage, objectives, MP scoring — as
+3. **State readout, what is reachable.** Position, counts, stage, objectives, MP scoring -- as
    data. No decomp changes needed.
 4. **One bot that walks to a pad and fires**, per the queue's instruction to design against a
    real consumer. This is what tells us the API's shape is wrong before three consumers depend
@@ -524,7 +524,7 @@ this design follows; no code needs to be taken from any of them.
 1. **Cross-platform bit-exactness is not realistically achievable.** x87 vs SSE vs ARM, and
    transcendentals differ between AMD and Intel, let alone between libc versions. And the
    Perfect Dark port, the flagship N64 decomp port, **ships at `-Og` because `-O2` breaks the
-   game**, with `-fno-strict-aliasing` and `-fwrapv`. That is load-bearing undefined behaviour;
+   game**, with `-fno-strict-aliasing` and `-fwrapv`. That matters undefined behaviour;
    the same source produces different behaviour under different flags. Ours has the same
    ancestry and §7 already records that our state hash is FP- and link-layout-sensitive.
 2. **Lockstep adds RTT to your own aim.** GGPO's own guidance is that fighting games notice more
@@ -550,7 +550,7 @@ Worth recording, because the usual objection does not apply:
 - **Pointers are not a problem for rollback specifically.** GGPO's rebasing warning applies to
   games that re-`malloc`; rollback save/restore is same-process, same address space, so raw
   pointers inside a snapshot restore correctly.
-- **The RNG is two `u64` integer seeds** with pure shift/xor and no time seeding — 16 bytes,
+- **The RNG is two `u64` integer seeds** with pure shift/xor and no time seeding -- 16 bytes,
   bit-exact on every platform.
 - **4 players is exactly `GGPO_MAX_PLAYERS`**, and at 30 Hz the 8-frame prediction window is
   ~266 ms rather than ~133 ms.
@@ -614,7 +614,7 @@ The player does not walk. Position is frozen at `(-1356.0, 378.5, 2205.5)` from 
 |---|---|
 | The API is not delivering input | readback returns the posted values, and fire produces 23 shots |
 | Two-controller control style putting move on the second pad | reproduces under Honey (style 0) and Galore (style 5) alike |
-| The intro camera freezing input (`bondviewFrozenMoveBond` zeroes buttons) | `cammode=0` — gameplay — throughout |
+| The intro camera freezing input (`bondviewFrozenMoveBond` zeroes buttons) | `cammode=0` -- gameplay -- throughout |
 | Controls locked | `lv.c:596` calls `lvlSetControlsLockedFlag(0)` at boot and the mark prints |
 | Something specific to the new seam | `GETV_SCRIPT` reproduces it exactly: `[getv][script] f=600 FIRE keys=0x0 stick=(0,60) hold=500` and the player does not move |
 
@@ -639,7 +639,7 @@ That is a much smaller search than "co-op movement", and it is in the Mac's lane
 
 ## ⏳ Open
 
-- The movement gate above — §15. Blocks the bot demo; does not block the API.
+- The movement gate above -- §15. Blocks the bot demo; does not block the API.
 - Whether the AI's render-visibility branching (§10) meaningfully changes behaviour headless.
   Needs measuring, not reasoning about.
 - The `-O2` question: does our build have the same latent UB Perfect Dark works around at `-Og`?

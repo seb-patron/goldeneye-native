@@ -331,8 +331,8 @@ static int ge_decode(struct GeSkyTri *out)
  *
  * Derived from the microcode. vendor/pd-port/src/rsp/gsp.s is an annotated copy of the
  * same microcode GoldenEye runs:
- *     imm_rdphalf_1:     sw t8, sp_n04(sp)          -- stash one word, back to main_loop
- *     imm_rdphalf_cont:  li v0, 0                   -- falls through to:
+ *     imm_rdphalf_1:     sw t8, sp_n04(sp) -- stash one word, back to main_loop
+ *     imm_rdphalf_cont:  li v0, 0 -- falls through to:
  *     imm_rdphalf_2:     lw t9, sp_n04(sp)  ->  dispatch_rdp_novirtaddr
  *     dispatch_rdp_novirtaddr:  sw t9,0(s7); sw t8,4(s7); s7 += 8
  * So a RDPHALF_1 + (RDPHALF_CONT | RDPHALF_2) pair emits exactly one 64-bit RDP word,

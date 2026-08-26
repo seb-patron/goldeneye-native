@@ -9,7 +9,7 @@ It took two false conclusions to get here, and both are worth keeping because bo
 ## The first wrong baseline: a camera, not a player
 
 `GETV_SCRIPT` never moved a player in any mode. Solo on Dam travels from (16872, 9502) to
-(17795, 18011) over 570 frames **with the script and without it, identically** — that travel is
+(17795, 18011) over 570 frames **with the script and without it, identically** -- that travel is
 the intro swirl camera animating, not input driving anyone.
 
 So every "solo moves 900 units, co-op moves nothing" comparison in the original version of this
@@ -26,7 +26,7 @@ same coordinate 900 times.
 That is why co-op looked frozen. The players were moving; the instrument was not.
 
 **The value lives on the object the engine maintains, not on the record that appears to own it.**
-The same shape has now caught us three times — `prop->pos` over `player->pos`,
+The same shape has now caught us three times -- `prop->pos` over `player->pos`,
 `getsubroty(chr->model)` over `chr->aimsideback`. When a readout is suspiciously constant,
 suspect the field before the feature.
 

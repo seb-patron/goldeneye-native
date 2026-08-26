@@ -50,7 +50,7 @@ lv.c:341  lvlStageLoad(stage)
    +-- texReset()                                  image.c        [real]
    +-- load_font_tables()                                         [real]
    |
-   +-- lv.c:438  load_bg_file(g_CurrentStageToLoad)   ---------- BG + STAN
+   +-- lv.c:438  load_bg_file(g_CurrentStageToLoad) ---------- BG + STAN
    |     |
    |     |  bg.c:794
    |     +-- scan levelinfotable[] (bg.c:183) for levelID -> levelentry_index
@@ -63,7 +63,7 @@ lv.c:341  lvlStageLoad(stage)
    |     |      ob.c:150/206  fileGetIndex(name) -> file_resource_table[] index
    |     |                    romCopy(target, &fileentry->hw_address[offset], len)
    |     |                    port_assets.c:123 romCopy = memcpy + range guard
-   |     |      GUARDED BY  `if (rom_size != 0)`  -- rom_size is 0 for every bg
+   |     |      GUARDED BY  `if (rom_size != 0)` -- rom_size is 0 for every bg
    |     |                  file (see §3.2), so THIS CALL IS A SILENT NO-OP
    |     |
    |     +-- bg.c:829  ptr_bgdata_room_fileposition_list =
@@ -72,7 +72,7 @@ lv.c:341  lvlStageLoad(stage)
    |     +-- bg.c:833  ptr_bg_data = mempAllocBytesInBank(size, MEMPOOL_STAGE)
    |     +-- bg.c:834  obLoadBGFileBytesAtOffset(bgname, ptr_bg_data, 0, size)
    |     |
-   |     +-- bg.c:836  gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4)   ----- STAN
+   |     +-- bg.c:836  gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4) ----- STAN
    |     |      ob.c:196  -> fileIndexLoadToBank(fileGetIndex(name), ...)
    |     |      ob.c:233  GE_PORT_NATIVE shortcut: gePortObsegSize(hw)==0
    |     |                => "this is native linked C data", return hw_address
@@ -86,7 +86,7 @@ lv.c:341  lvlStageLoad(stage)
    |
    +-- lv.c:518  init_load_objpos_table()          initobjects.c:43   [real]
    +-- lv.c:521  init_guards()
-   +-- lv.c:523  proplvreset2(stage)   prop.c:1216   -------------- SETUP
+   +-- lv.c:523  proplvreset2(stage)   prop.c:1216 -------------- SETUP
    |     |
    |     +-- prop.c:1239  setup_text_pointers[stageId]        STUB (NULL object)
    |     +-- prop.c:1253  synthesise "Usetup<lvl>Z" or "Ump_setup<lvl>Z"

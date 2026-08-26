@@ -113,7 +113,7 @@ cmd_sdl() {
 
 # --------------------------------------------------------------------- game objects
 # Identical to build_sim.sh's CFLAGS except for the target triple and sysroot. Every
-# one of these is load-bearing and is documented at length in build_sim.sh:
+# one of these matters and is documented at length in build_sim.sh:
 #   -fms-extensions            anonymous struct/union members the decomp relies on
 #   -include ge_port_decls.h   prototypes; IDO allowed implicit declarations
 #   -Wno-everything -Werror=return-type   not -w. `-w` defeats -Werror in both orders,

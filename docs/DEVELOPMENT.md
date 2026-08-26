@@ -12,7 +12,7 @@ integrates it, and owns the result building and being correct. The Windows tree 
 own branch and does not merge Mac work back in and treat that as the truth.
 
 Only the Mac branch is a candidate for `main`, and **pushing is a manual step performed by a
-human** — no part of the tooling pushes.
+human** -- no part of the tooling pushes.
 
 ## Take by path, never by whole-tree merge
 
@@ -24,7 +24,7 @@ spawns once. Selective integration by a single owner is what prevents that.
 
 ### A large negative line count is not, by itself, evidence of a revert
 
-The two branches have **no common ancestor** — `git merge-base` returns nothing between them — so
+The two branches have **no common ancestor** -- `git merge-base` returns nothing between them -- so
 `git diff --stat` reads like a mass deletion of whatever one side has and the other has never
 seen. `gen_prop_extents.py` once showed as `209 --` and looked exactly like a revert. Nobody had
 touched it.
@@ -40,7 +40,7 @@ not link, over seven symbols that existed on one machine only.
 
 A symbol the port layer calls belongs in `getv/patches/` the same day it is written, and the patch
 is verified against the other machine's tree before it is announced. For a file under active edit
-on both sides, copy the file itself and compare hashes — `tools/sync_surface.sh` prints a 1:1
+on both sides, copy the file itself and compare hashes -- `tools/sync_surface.sh` prints a 1:1
 check for exactly this.
 
 Patches must also be a valid series. Two patches generated against the same base cannot both
@@ -53,19 +53,19 @@ apply in order; regenerate the later one against the tree that results from the 
 | `vendor/ge-decomp/**`, `port_input.c`, `port_os.c`, build scripts, docs | Mac |
 | Windows build, launcher, ImGui layer, netplay, test suites, extractor tools | Windows |
 
-Shared files — `tools/gen_level_*.py`, `getv/port/src/ge_*_api.c` — are fetched before being
+Shared files -- `tools/gen_level_*.py`, `getv/port/src/ge_*_api.c` -- are fetched before being
 touched. Paths are claimed before editing, not after; that is the entire discipline.
 
 Editing a file you do not own does not stick, and should not: report the bug against the owner
 rather than fixing it in place. When both sides independently write the same thing, **whoever owns
-the consumer keeps the code** — that tiebreak needs no round trip, and it exists because both
+the consumer keeps the code** -- that tiebreak needs no round trip, and it exists because both
 sides once deleted their own implementation in favour of the other's, leaving neither.
 
 ## Transport
 
 `tools/sync_surface.sh` pushes and pulls git bundles over SSH, prints the diffstat **without
-merging**, lists the other machine's uncommitted work — which never travels, and is a frequent
-source of "I fixed that already" — and verifies both trees agree on commit and decomp hashes.
+merging**, lists the other machine's uncommitted work -- which never travels, and is a frequent
+source of "I fixed that already" -- and verifies both trees agree on commit and decomp hashes.
 
 Git over SSH directly into Windows does not work here: the default shell is `cmd`, and the quoting
 around `git-upload-pack` defeats it. Bundles sidestep the problem entirely.

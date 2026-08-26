@@ -150,7 +150,7 @@ def run(n_players, delay, latency, jitter, loss, steps, seed, bots=(),
             local_input = (i * 7919 + m.tick * 104729) & 0xFFFF
             ok, future = m.begin(local_input)
             # Publish EVEN WHEN STALLED. ge_net.c stores and sends the local input before it
-            # checks readiness, and that ordering is load-bearing: if a stalled machine stopped
+            # checks readiness, and that ordering matters: if a stalled machine stopped
             # publishing, every machine waiting on a peer would go quiet and the session would
             # deadlock permanently the first time anything arrived late.
             # One datagram carrying the last `redundancy` inputs. A lost packet is covered by the

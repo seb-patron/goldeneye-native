@@ -103,7 +103,7 @@ printf 'id\tname\tstage_load\tframe_loop\tgfx_tasks\ttris_sub\ttris_drawn\tframe
 # Use /usr/bin/python3 (Apple's, which has PIL), not `python3` from PATH, which on this
 # Mac is a Homebrew x86_64 build with no PIL. Do not "modernise" this to `python3`.
 #
-# `arch -arm64` is load-bearing, and dropping it fails silently and wrongly. This Mac's
+# `arch -arm64` matters, and dropping it fails silently and wrongly. This Mac's
 # shell environment is x86_64 under Rosetta, and /usr/bin/python3 is a universal shim
 # that inherits the parent process's architecture, so from a Rosetta shell it comes up
 # x86_64 while the installed PIL `_imaging...so` is arm64-only:
@@ -295,7 +295,7 @@ parse_one() {
       outcome=RENDERS-BLACK
     elif awk -v u="$uniq" -v t="$top1" 'BEGIN{exit !(u+0 < 32 || t+0 >= 85)}' 2>/dev/null; then
       # Lit, but not a picture. Two ways to fail, because levels fail both ways:
-      #   distinct < 32   -- a handful of untextured quads (EGYPT: 16 colours at 68% lit)
+      #   distinct < 32 -- a handful of untextured quads (EGYPT: 16 colours at 68% lit)
       #   top1share >= 85 -- one colour owns nearly every lit pixel, i.e. a G_CYC_FILL sky
       #                      or a stuck fade quad with a few stray polys on top. This
       #                      catches frames that have many distinct colours yet are still
