@@ -117,7 +117,7 @@ Three details worth not improvising on:
 
 ## Tests
 
-`getv/port/tests/test_enemy.c` runs the whole API against a fake population with no game running -- 
+`getv/port/tests/test_enemy.c` runs the whole API against a fake population with no game running --
 which is the point of the install seam. It covers the health inversion, nearest-first ordering with
 a `max` cap that keeps the closest rather than the first found, corpse exclusion, partial-data
 rows, and the belief-versus-proximity contrast.
