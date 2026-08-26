@@ -13,7 +13,7 @@
 #include <string.h>
 #include <PR/ultratypes.h>
 
-/* Over-allocated -- the real sizes are unknown, and a stub that is
+/* Over-allocated on purpose -- the real sizes are unknown, and a stub that is
  * too SMALL corrupts whatever global follows it (this is exactly how g_Props
  * ate the memory-pool table). Uninitialised, so it lives in BSS and the
  * generous size costs nothing in the binary. */

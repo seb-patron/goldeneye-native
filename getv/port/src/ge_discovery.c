@@ -177,7 +177,7 @@ int geDiscoveryBegin(const GeDiscoverySource *src)
 {
     if (src == NULL || src->poll == NULL) { return 0; }
 
-    /* does not clear ge_disc.spec: geDiscoveryBeginStatic fills it and then calls
+    /* Deliberately does not clear ge_disc.spec: geDiscoveryBeginStatic fills it and then calls
      * here, and the source it passes points into it. */
     ge_disc.src      = *src;
     ge_disc.have_src = 1;

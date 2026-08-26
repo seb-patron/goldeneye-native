@@ -1,6 +1,6 @@
 /* World knowledge at runtime. See ge_world_api.h for what this is for.
  *
- * Read by explicit offset, never by casting to A struct.
+ * Read BY explicit offset, never BY casting TO A struct.
  *
  * The file is written by tools/pack_world.py with fixed field widths and no padding. Casting a
  * byte pointer to a C struct would work on the compilers this happens to build with and break
@@ -229,7 +229,7 @@ int geWorldStep(int i, GeWorldStep *out)
     out->distance = rd_f32(p + 4);
     out->heading  = rd_f32(p + 8);
     out->turn     = rd_f32(p + 12);
-    /* p + 16 is reserved padding in the format, not read. */
+    /* p + 16 is reserved padding in the format, deliberately not read. */
     out->threats  = rd_u16(p + 20);
     return 1;
 }

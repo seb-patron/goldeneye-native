@@ -16,7 +16,7 @@
  * same arrangement SDL2 already uses.
  *
  * What this is not. It is not a path to rewriting the game in Lua, and the API below is
- * small and read-mostly. The game's own state stays authoritative; scripts
+ * deliberately small and read-mostly. The game's own state stays authoritative; scripts
  * observe it and are handed explicit events. Everything here is off unless mods are
  * present, and a script error disables that one mod rather than taking the process down,
  * because a syntax error in somebody's mod must not look like a crash in GoldenEye.
@@ -504,7 +504,7 @@ static int ge_l_enemy_count(lua_State *L)
 
 /* ge.threat_at(x, y, z [, radius]) -> how many living enemies believe their target is here.
  *
- * not the same question as enemies_near, and the difference is the point: a spot can be crowded
+ * NOT the same question as enemies_near, and the difference is the point: a spot can be crowded
  * and safe if nobody is looking at it, or empty and lethal because several guards are converging
  * on it. This scores a DESTINATION -- which is what to ask before committing to a waypoint. */
 static int ge_l_threat_at(lua_State *L)
@@ -523,7 +523,7 @@ static int ge_l_threat_at(lua_State *L)
  * contain", these answer "what is against me, and who is looking" -- which is what a bot needs to
  * decide anything.
  *
- * Contacts are returned with the raw bitmask and named booleans. The mask is what a mod tests
+ * Contacts are returned with the raw bitmask AND named booleans. The mask is what a mod tests
  * cheaply; the booleans are what makes a printed line readable, and this API exists to be read.
  */
 static void ge_l_push_contact(lua_State *L, const GeSenseContact *c)
@@ -572,7 +572,7 @@ static int ge_l_sense_ahead_body(lua_State *L)
 /* ge.clearest_heading(x, z, heading [, span] [, reach]) -> degrees.
  *
  * A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
- * reaches. Do not steer a body on it: a line has no width, so a gap narrower than the player
+ * reaches. Do NOT steer a body on it: a line has no width, so a gap narrower than the player
  * passes cleanly and the sweep then returns that gap as the best way out. Use
  * ge.clearest_heading_body below for anything that moves. */
 static int ge_l_clearest_heading(lua_State *L)
@@ -596,7 +596,7 @@ static int ge_l_clearest_heading(lua_State *L)
  * being handed the line answer while the C callers had been corrected. Two callers of one idea
  * with only one fixed is worse than neither being fixed, because the tree looks done.
  *
- * Returns two values. The second is how far the chosen heading is actually clear for, so a caller
+ * Returns TWO values. The second is how far the chosen heading is actually clear for, so a caller
  * squeezing through a tight place knows how little it bought; discarding it is fine and is what a
  * caller that only wants a direction will do. */
 static int ge_l_clearest_heading_body(lua_State *L)
@@ -615,7 +615,7 @@ static int ge_l_clearest_heading_body(lua_State *L)
 /* ge.noticed_by(enemy_index, slot) -> table
  *
  * Reports WHICH condition holds rather than a verdict. line-without-facing is a guard you can walk
- * behind; facing-without-line is one you must not step in front of. `face_unknown` is
+ * behind; facing-without-line is one you must not step in front of. `face_unknown` is deliberately
  * distinct from facing being false -- on a build with no facing accessor, "nobody is looking" would
  * be a dangerous thing to imply. */
 static int ge_l_noticed_by(lua_State *L)
@@ -689,7 +689,7 @@ static int ge_l_is_stuck(lua_State *L)
  *
  * Only the fields the game can actually report are present. Position is there; angle, health,
  * weapon and score are not, because those accessors do not exist yet. A field is ABSENT rather
- * than zero -- a script can test for it, where a zero would be indistinguishable
+ * than zero on purpose -- a script can test for it, where a zero would be indistinguishable
  * from a real reading of zero health. */
 static int ge_l_player_state(lua_State *L)
 {
@@ -973,9 +973,9 @@ static void ge_load_mod(const char *dir, const char *name)
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* GETV_MODS_OFF -- a comma-separated list of mod directory names not to load.
+/* GETV_MODS_OFF -- a comma-separated list of mod directory names NOT to load.
  *
- * A DENYLIST rather than an allowlist. The documented contract (wiki/Lua-mods.md)
+ * A DENYLIST rather than an allowlist, deliberately. The documented contract (wiki/Lua-mods.md)
  * is "drop a directory under mods/ with a mod.lua in it and it loads at startup", and an
  * allowlist would quietly break that: every newly dropped mod would be off until someone
  * remembered to add it. With a denylist the contract holds, unset means "load everything"

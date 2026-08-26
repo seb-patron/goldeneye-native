@@ -1,7 +1,7 @@
 /* The player API. See ge_player_api.h for the design and docs/PLAYER_API.md for the evidence.
  *
  * This file attaches to GoldenEye's own demo-playback hook and owns the four pad structs the
- * game reads each frame. It contains no policy, no networking and no observation
+ * game reads each frame. It deliberately contains no policy, no networking and no observation
  * encoding -- those are consumers, and the point of the seam is that they do not have to agree
  * with each other about anything except tick numbers.
  */
@@ -47,7 +47,7 @@ extern int  gePortPlayerPos(int idx, f32 *out);
  * This list used to stop at GOODNIGHT, reasoning that the two-controller styles are forced back to
  * HONEY at three or more players (front.c:4800-4803). The rule is real; the conclusion was wrong
  * in the case that matters. The guard is `numplayers >= 3`, so at one or two players a 2.x style
- * survives untouched -- and this port defaults to 2.2 galore, so in practice every slot is on one.
+ * Survives untouched -- and this port defaults TO 2.2 galore, so in practice every slot is on one.
  *
  * Naming all nine is not enough on its own: see gePlayerSlotIsDrivable, where treating "two pad"
  * as "cannot be driven" disabled every bot on every level. Two-pad is a routing fact, not a
@@ -192,7 +192,7 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
     if (want & GE_IN_DPAD_LEFT)   { b |= L_JPAD; }
     if (want & GE_IN_DPAD_RIGHT)  { b |= R_JPAD; }
 
-    /* Crouch is absent and that is a property of the game, not an omission. In the
+    /* Crouch is deliberately absent and that is a property of the game, not an omission. In the
      * two-controller styles crouch is not a button at all: it is controller 2's stick Y crossing
      * +-30 while aiming (bondview2.c:5027-5085). Binding a button to it would mean synthesising
      * a stick deflection that fights the move stick. */
@@ -238,7 +238,7 @@ static void ge_advance_slot(int slot)
 
     if (ge_held_left[slot] <= 0) {
         /* Nothing scheduled and nothing held: neutral. Not "the last thing forever" -- a button
-         * left down indefinitely produces exactly one press and then blocks the idle timers that
+         * left down indefinitely produces exactly ONE press and then blocks the idle timers that
          * several screens rely on. */
         ge_held[slot].buttons = 0;
         ge_held[slot].stick_x = 0;
@@ -250,7 +250,7 @@ static void ge_advance_slot(int slot)
  * exactly once per main-loop iteration, immediately before joyConsumeSamples runs on the same
  * buffer.
  *
- * Writes exactly one sample and returns its index, so curlast == curstart + 1 and
+ * Writes exactly ONE sample and returns its index, so curlast == curstart + 1 and
  * `buttonspressed |= cur & ~prev` is the clean edge between two consecutive frames. That is what
  * makes a one-tick action reliable here, where on the device-side path it would be a coin flip:
  * joyConsumeSamples derives presses from consecutive ring samples, so a one-frame blip is only a
@@ -404,7 +404,7 @@ int gePlayerPost(int slot, unsigned long tick, const GePlayerInput *in, int hold
     if (slot < 0 || slot >= GE_MAX_SLOTS || in == NULL) { return 0; }
     if (tick == 0) { tick = ge_tick; }
 
-    /* Refused, not silently dropped. In netplay a late post is the desync, and a caller that
+    /* Refused, not silently dropped. In netplay a late post IS the desync, and a caller that
      * cannot distinguish "applied" from "too late" has no way to notice. */
     if (tick < ge_tick) { return 0; }
 
@@ -445,7 +445,7 @@ int gePlayerSlotCount(void) { return (int) getPlayerCount(); }
  * disagreement with the earlier reading that a 2.x slot cannot be steered. It could not be, once:
  * those styles read MOVEMENT from a second controller at playernum + getPlayerCount(), so a
  * caller writing only the slot's own pad drove the turn and never the walk. ge_playback now
- * routes the walk axis to the pad the engine actually reads, so 2.x slots are drivable -- which
+ * routes the walk axis to the pad the engine actually reads, so 2.x slots ARE drivable -- which
  * matters, because this port DEFAULTS to 2.2 Galore and every bot runs on one.
  *
  * It still refuses an out-of-range or empty slot, and a style the engine has not set yet. */
@@ -495,7 +495,7 @@ int gePlayerStateGet(int slot, GePlayerState *out)
     out->kills = out->deaths = out->shots = 0;
 
     /* gePortPlayerPos reads g_playerPointers[slot] -- the stable array -- and returns 0 for an
-     * empty slot. not g_CurrentPlayer, which is a per-viewport cursor. */
+     * empty slot. NOT g_CurrentPlayer, which is a per-viewport cursor. */
     if (!gePortPlayerPos(slot, pos)) { return 0; }
 
     out->present = 1;

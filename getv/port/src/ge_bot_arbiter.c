@@ -1,32 +1,32 @@
 /* Who owns the heading this frame: the route, or the fight.
  *
- * DERIVED FROM THE THREE MEASUREMENTS, not from a scheme. Routing alone reaches waypoint 10 alive.
+ * Derived from the three measurements, not from a scheme. Routing alone reaches waypoint 10 alive.
  * Stop-and-shoot reaches 4 at the same end health. Firing on the move reaches 4 and dies.
  *
  * The second and third are the informative pair. If STOPPING were the cost, firing while moving
  * should have recovered most of the six lost waypoints. It recovered none -- the same waypoint 4.
  * So the cost is not the trigger and not the stop. It is the only thing both fight modes share:
- * THE TURN TO FACE THE TARGET.
+ * The turn TO face the target.
  *
  * And that also explains the death. Once the aim owns the heading, "moving" means moving along the
  * aim heading, which is straight at the guard. Stop-and-shoot at least does not close the distance,
  * which is why it survives at the same health while making the same progress.
  *
- * WHY NOT STRAFE. The obvious fix is to face the target and translate along the route, and the
+ * Why not strafe. The obvious fix is to face the target and translate along the route, and the
  * engine does not offer it. In the default single-controller styles bondview2.c:5637-5663 sets
  * tankTurnLeftSpeed AND digitalStepLeft from the same button, so a sidestep also rotates; and in
  * aim mode digitalStep is disabled and canNaturalTurn goes false. Facing and movement are coupled
  * and cannot be separated from the input side. This was the first design and the code refuted it.
  *
- * WHAT THE ENGINE DOES OFFER IS AUTO-AIM. bondview.h:551-555 keeps separate autoaim_target_x and
+ * What the engine does offer IS auto-AIM. bondview.h:551-555 keeps separate autoaim_target_x and
  * autoaim_target_y with a time constant, so a shot does not need the player pointed at the target.
  * The turn was never buying accuracy that the engine was not already providing.
  *
- * SO THE POLICY IS: DO NOT TURN. Hold the route heading, and pull the trigger when the target is
+ * SO the policy IS: DO not turn. Hold the route heading, and pull the trigger when the target is
  * inside the cone auto-aim can close. The trigger is nearly free; the turn costs six waypoints and
  * eventually a life.
  *
- * AND THE HEADING HAS EXACTLY ONE WRITER. A route turn and an engagement turn that each write a
+ * And the heading has exactly one writer. A route turn and an engagement turn that each write a
  * heading in the same frame means the last writer wins and the bot walks wherever the loser was
  * not pointing. Latching each of them separately does not fix that -- it makes two correct
  * decisions that still disagree. This function returns the heading, and it is the only thing that
@@ -42,10 +42,36 @@
 
 /* How far off the nose a target can sit and still be worth shooting at without turning.
  *
- * Auto-aim closes the last of it, so this is not an accuracy threshold -- it is the angle beyond
- * which a shot is wasted noise that also reveals position. Deliberately generous: the cost of a
- * missed shot is a bullet, and the cost of a turn is measured at six waypoints. */
-#define GE_ARB_FIRE_CONE 35.0f
+ * MEASURED FROM chrpropScoreAutoAimTarget IN chrprop.c, not estimated -- the first version of this
+ * file guessed 35 degrees with no source at all, and a second pass guessed 12 by hand-waving
+ * "screen fraction is roughly angle fraction", which is not true: a screen position is TANGENT-
+ * linear in angle, not angle-linear, and the error from skipping that step was about 25%.
+ *
+ * The decomp's own comment names the box: "central auto-aim acceptance region... 65% vertically in
+ * favor of the top of the screen and 50% horizontally" -- left 25% to right 75% of frame width,
+ * top 17.5% to bottom 82.5% of frame height. Converting a screen fraction f (of the HALF-screen,
+ * centre to edge) to an angle takes tan(theta) = f * tan(half_fov), not theta = f * half_fov.
+ *
+ * At the engine's own vertical FOV of 46 degrees (player.c:430, c_perspfovy) and the reference 4:3
+ * aspect the original screen math assumes:
+ *
+ *     half_vfov = 23.00 deg,  half_hfov = atan((4/3) * tan(23.00 deg)) = 29.51 deg
+ *     horizontal box edge: atan(0.5  * tan(29.51 deg)) = 15.80 deg   (0.5  = (0.75-0.5)/0.5)
+ *     vertical   box edge: atan(0.65 * tan(23.00 deg)) = 15.42 deg   (0.65 = (0.825-0.5)/0.5)
+ *
+ * Both edges land within half a degree of each other despite the box being asymmetric in SCREEN
+ * fraction (50% wide, 65% tall) -- the box was evidently sized to compensate for the FOV's own
+ * aspect distortion, so it is close to a genuine angular cone after all. 15 is used as the round
+ * number; a wider window (the port's aspect is configurable and follows the OS window, ge_config.c
+ * key_aspect) widens half_hfov further and would only make this MORE permissive, so 15 is the
+ * conservative choice across window shapes, not merely the 4:3 one.
+ *
+ * Still an approximation of a shape this is not: the real test is a screen-space box against a
+ * character's projected bounding box, gated on unobstructed line of sight and a lock-on settle
+ * timer, none of which a single half-angle can represent. See GE_ARB_REQUIRE_LOS below for the
+ * line-of-sight half of that gap; the settle timer is not modelled and is called out in the
+ * accuracy limits at the bottom of this file. */
+#define GE_ARB_FIRE_CONE 15.0f
 
 /* Below this the target is close enough that ignoring it is worse than the turn. A guard at
  * touching distance kills faster than the route advances, so the arbiter stops pretending the
@@ -93,7 +119,10 @@ GeBotAction geBotArbitrate(const GeBotSituation *s)
     if (s->distance <= GE_ARB_PANIC_RANGE || s->health <= GE_ARB_LOW_HEALTH) {
         float turn = (s->target_lateral >= 0.0f) ? 1.0f : -1.0f;
         a.heading = s->route_heading + turn * fabsf(err);
-        a.fire = 1;
+        /* Turning to face a threat is worth it even without a confirmed clear shot -- the turn
+         * itself is defensive here, unlike the routing branch where a turn is pure cost. So LOS
+         * gates the trigger but not the turn. */
+        a.fire = s->has_los;
         /* Do NOT advance while the heading belongs to the fight. This is the specific thing that
          * turned stop-and-shoot into fire-on-move-and-die: advancing along an aim-owned heading
          * walks into the guard. Progress is already lost in this branch; the life need not be. */
@@ -102,9 +131,10 @@ GeBotAction geBotArbitrate(const GeBotSituation *s)
         return a;
     }
 
-    if (fabsf(err) <= GE_ARB_FIRE_CONE) {
-        /* Inside the cone auto-aim can close. Fire WITHOUT touching the heading, and keep walking
-         * the route. This is the whole point: the shot is free and the turn is not. */
+    if (fabsf(err) <= GE_ARB_FIRE_CONE && s->has_los) {
+        /* Inside the cone auto-aim can close, AND the shot is confirmed clear. Fire WITHOUT
+         * touching the heading, and keep walking the route. This is the whole point: the shot is
+         * free and the turn is not. */
         a.fire = 1;
         a.reason = GE_ARB_FIRING_ON_ROUTE;
         return a;

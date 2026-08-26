@@ -1,15 +1,15 @@
 /* GETV_GLDEBUG=1 -- find out who is raising GL errors, and when.
  *
- * why. ge_gpu_timer.c drains the GL error queue before allocating its queries and finds a
+ * WHY. ge_gpu_timer.c drains the GL error queue before allocating its queries and finds a
  * GL_INVALID_OPERATION (0x0502) already pending on every run. Nothing else in this tree calls
  * glGetError, so that error has been raised and ignored for the whole life of the project. An
  * error state can drop a driver off a fast path, which is a candidate for the fixed ~6 ms of
  * GPU-side time per frame that is indifferent to resolution (docs/PERFORMANCE.md).
  *
- * two MECHANISMS, because they answer different questions and the cheap one is not always
+ * TWO MECHANISMS, because they answer different questions and the cheap one is not always
  * available:
  *
- *   KHR_debug   a callback fired at the offending call. With GL_DEBUG_OUTPUT_SYNCHRONOUS the
+ *   KHR_debug   a callback fired AT the offending call. With GL_DEBUG_OUTPUT_SYNCHRONOUS the
  *               callback runs on the calling thread before the call returns, so a breakpoint in
  *               it yields the real stack. This is the one that names the culprit.
  *

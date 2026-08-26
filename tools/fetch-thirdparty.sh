@@ -19,12 +19,12 @@
 #
 # What it does
 # ------------
-#  1. Obtains sm64ex at the pinned commit (reusing vendor/sm64ex if it already has it,
-#  otherwise making a bare depth-1 clone in vendor/sm64ex-cache.git).
-#  2. Copies the files listed in getv/patches/thirdparty/MANIFEST into place, reading
-#  them out of git rather than a working tree so a dirty checkout cannot leak in.
-#  3. Applies getv/patches/thirdparty/0001-getv-port-layer.patch, which carries every
-#  Goldeneye-Native change to those files.
+#   1. Obtains sm64ex at the pinned commit (reusing vendor/sm64ex if it already has it,
+#      otherwise making a bare depth-1 clone in vendor/sm64ex-cache.git).
+#   2. Copies the files listed in getv/patches/thirdparty/MANIFEST into place, reading
+#      them out of git rather than a working tree so a dirty checkout cannot leak in.
+#   3. Applies getv/patches/thirdparty/0001-getv-port-layer.patch, which carries every
+#      Goldeneye-Native change to those files.
 #
 # After it finishes, ./getv/build_mac.sh all builds exactly as it did before the files
 # were removed. Nothing here is optional and nothing here is stubbed: the patch is a
@@ -33,13 +33,13 @@
 #
 # usage: tools/fetch-thirdparty.sh {fetch|verify|regen|clean|status}
 #
-#  fetch (default) fetch, copy and patch. Refuses to clobber locally modified files
-#  unless --force is given.
-#  verify check that the files currently on disk are exactly pristine + patch.
-#  regen regenerate the patch from the current working tree. Run this after editing
-#  any file listed in the MANIFEST, or the change is not recorded anywhere.
-#  clean remove the fetched files again (returns the tree to its published state).
-#  status print the pin, the manifest and which files are present.
+#   fetch   (default) fetch, copy and patch. Refuses to clobber locally modified files
+#           unless --force is given.
+#   verify  check that the files currently on disk are exactly pristine + patch.
+#   regen   regenerate the patch from the current working tree. Run this after editing
+#           any file listed in the MANIFEST, or the change is not recorded anywhere.
+#   clean   remove the fetched files again (returns the tree to its published state).
+#   status  print the pin, the manifest and which files are present.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -175,14 +175,14 @@ cmd_regen() {
   # needed to place the hunks, and omitting it keeps unmodified upstream lines out of a
   # file this repository does distribute.
   #
-  # write to A temporary and move only on success. This used to redirect straight into
+  # write TO A temporary and move only ON success. This used to redirect straight into
   # $patchfile, and `>` truncates before the subshell runs -- so any failure inside destroyed the
   # single file carrying every change this project has made to the fifteen third-party sources.
   #
   # Not hypothetical: it happened here. Under MSYS the mkdir/cp forks above died with cygheap
   # `child_copy` errors, so $tmp/b was empty, diff had nothing to compare, and a 363,467-byte
   # patch became 0 bytes. The sources themselves survived only because they are gitignored and
-  # sat untouched in the working tree; the patch came back only because it is tracked. Had both
+  # sat untouched in the working tree; the patch came back only because it IS tracked. Had both
   # been regenerated together the project would have lost the lot.
   #
   # cmd_verify below did report DIFFERS on every file -- the signal existed, but it arrived after
@@ -194,7 +194,7 @@ cmd_regen() {
     [ $? -gt 1 ] && die "diff failed; $PATCHFILE left untouched"
   fi
 
-  # refuse an empty or implausibly small result. Fifteen heavily modified files cannot diff to
+  # refuse AN empty OR implausibly small result. Fifteen heavily modified files cannot diff to
   # nothing, so an empty patch means the comparison did not happen -- not that the changes went
   # away. Overwriting a good patch with that is the failure this whole block exists to prevent.
   local newsz oldsz

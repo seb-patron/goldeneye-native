@@ -20,8 +20,8 @@ away **entirely**. Not attenuated -- discarded. Every movement below the thresho
 at all, which is why sweeping further was the only thing that appeared to work.
 
 ```
-counts/frame 2 6 12 30 63
-before ~0 ~0 ~0 0.35 3.50 deg/frame
+counts/frame     2      6     12     30     63
+before        ~0     ~0     ~0    0.35   3.50   deg/frame
 ```
 
 Magnitude is now remapped from [1, max] onto [deadzone, max], so full scale stays full scale
@@ -69,7 +69,7 @@ is a much larger decision than a sensitivity constant and is not being made here
 
 **210 deg/sec is a hard ceiling** -- it is the game's maximum turn rate at full deflection,
 measured at 3.54 deg/frame. Past 30 counts/frame the accumulator spreads the surplus over
-following frames rather than losing it, and that is why 63 reads slower per count than 30: the
+following frames rather than losing it, which is why 63 reads slower per count than 30: the
 turn is not lost, it is delivered over more frames.
 
 ## Both axes, and both at once

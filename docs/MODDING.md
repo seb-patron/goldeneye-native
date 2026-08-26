@@ -6,24 +6,24 @@ this is a description of how the tree is arranged and where the seams are.
 ## Layout
 
 ```
-vendor/ge-decomp/ the decompiled game, from n64decomp/007. Untracked.
-  src/ game code. Compiled straight to arm64.
-  src/game/ the bulk of it: front-end, AI, weapons, camera, levels
-  src/libultra/ SGI's N64 OS. Mostly excluded from the build; gu/ and audio/ are used.
-  assets/ asset sources, generated from your ROM
-  include/ the game's own headers, including its libultra shims
+vendor/ge-decomp/          the decompiled game, from n64decomp/007. Untracked.
+  src/                     game code. Compiled straight to arm64.
+  src/game/                the bulk of it: front-end, AI, weapons, camera, levels
+  src/libultra/            SGI's N64 OS. Mostly excluded from the build; gu/ and audio/ are used.
+  assets/                  asset sources, generated from your ROM
+  include/                 the game's own headers, including its libultra shims
 
-getv/port/ the platform layer
-  fast3d/ display-list renderer: gfx_pc.c, gfx_opengl.c, gfx_cc.c, gfx_sdl2.c,
+getv/port/                 the platform layer
+  fast3d/                  display-list renderer: gfx_pc.c, gfx_opengl.c, gfx_cc.c, gfx_sdl2.c,
                            plus ge_sky_rdp.c for GoldenEye's hand-built RDP sky triangles
-  src/ OS, input, audio bridge, asset bridge, save, render loop, config
-  audio/ the software mixer
-  mac/ macOS entry point
-  include/ port-side headers
+  src/                     OS, input, audio bridge, asset bridge, save, render loop, config
+  audio/                   the software mixer
+  mac/                     macOS entry point
+  include/                 port-side headers
 
-getv/build_mac.sh the macOS build
-getv/patches/ this port's diff against the decompilation
-tools/ Python generators (prototypes, link stubs, asset blobs, layout audit)
+getv/build_mac.sh          the macOS build
+getv/patches/              this port's diff against the decompilation
+tools/                     Python generators (prototypes, link stubs, asset blobs, layout audit)
 ```
 
 `vendor/` is gitignored, so every change the port makes to the decompilation lives in
@@ -47,7 +47,7 @@ git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c 
 Regenerating `0001` with a bare `git diff` instead will sweep the entire extracted asset tree into
 it - several hundred megabytes of ROM-derived data, which must never be committed.
 
-Generated, ROM-derived data is excluded from the patch - the audio segment, the
+Generated, ROM-derived data is deliberately excluded from the patch - the audio segment, the
 object-segment blobs, animation blobs, the images segment, per-model `Model.c` files. Regenerate
 those with the commands in the README.
 
@@ -85,7 +85,7 @@ static int geMyGate(void)
     static int on = -1;
     if (on < 0) {
         const char *e = getenv("GETV_MYTHING");
-        on = (e != NULL && *e != '\0') ? (atoi(e) != 0) : 1; /* default ON */
+        on = (e != NULL && *e != '\0') ? (atoi(e) != 0) : 1;  /* default ON */
         printf("[getv] mything %s\n", on ? "on" : "off");
         fflush(stdout);
     }
@@ -154,7 +154,7 @@ GETV_SCRIPT="<frame>:<keys>[:<hold>][,<frame>:<keys>[:<hold>]...]"
 - `hold` is how many frames to hold, defaulting to 4.
 
 A button must be held for at least two frames to register, because the press edge is derived from
-consecutive samples. Overlapping entries or together, so a stick can be held across several taps.
+consecutive samples. Overlapping entries OR together, so a stick can be held across several taps.
 A live script forces port 0 present, so it works with no hardware attached.
 
 `GETV_SCRIPT_PORT=<n>` selects which N64 port the script drives (default 0). `GETV_SCRIPT_TRACE=0`
@@ -221,15 +221,15 @@ ground-colour defect. A decode where `d != blksz` is using some other texture's 
 ## The scripting API
 
 Everything a mod can reach lives in one global table, `ge`. Nothing below reaches into the game:
-mods read knowledge, read state, and post input -- the same shape the C bots and a network peer
-have, and that is why a bot can be written entirely in Lua (`mods/route_bot`).
+mods read knowledge, read state, and post input --  the same shape the C bots and a network peer
+have, which is why a bot can be written entirely in Lua (`mods/route_bot`).
 
 ### Hooks you define
 
 | hook | when |
 | --- | --- |
 | `onFrame(frame)` | every rendered frame |
-| `onEvent(name, a, b, c)` | a derived event fired -- see below |
+| `onEvent(name, a, b, c)` | a derived event fired --  see below |
 
 Events are **derived**, not posted by the game: the port compares each frame to the last and emits
 the differences. The names and payloads are `level_change(stage, old)`, `player_spawn(slot)`,
@@ -273,19 +273,19 @@ player is dead. Treating the first as the second walks you into a full-health gu
 
 **Index is not id.** `ge.waypoint_at(i)` takes a position in the table; `ge.waypoint(id)` takes the
 game's own number. Ids are sparse, and synthetic spawn and portal nodes are numbered above every
-natural one. Iterate by index, follow a route by id -- a route step names an id.
+natural one. Iterate by index, follow a route by id --  a route step names an id.
 
 **`guards_near` and `enemies_near` answer different questions.** The first is where guards *start*,
 from the extraction. The second is who is *actually there*, alive, now. Reasoning about a level
 from the first is reasoning from a roster that stopped being true the moment anyone fired.
 
 **`ge.threat_at` is not `ge.enemies_near`.** It counts enemies whose *last known target position*
-is near a point -- who is converging on it, not who is standing on it. A spot can be crowded and
+is near a point --  who is converging on it, not who is standing on it. A spot can be crowded and
 safe, or empty and lethal because three guards are walking to it. It scores a destination, which is
 what to ask before committing to a waypoint.
 
 **`ge.post_input` posts for the NEXT tick and returns false if you were late.** A false return is a
-refusal, not a warning: the tick already ran. Worth reporting rather than swallowing -- in netplay
+refusal, not a warning: the tick already ran. Worth reporting rather than swallowing --  in netplay
 the same condition is a desync.
 
 **`ge.enemy_count()` returns two values.** The second says whether a live-enemy source is installed
@@ -299,7 +299,7 @@ Everything here is generated from your ROM and is untracked.
   portals, `setup/` for object placement, spawn pads and AI lists, `stan/` for the walkable
   collision mesh, `brief/` for mission briefings, `text/` for strings. Each has its own
   `Makefile.*`. A stage needs both a background and a setup file; several stage ids have one and
-  not the other, so they can never load.
+  not the other, which is why they can never load.
 - **Models.** `assets/obseg/chr/` (characters), `gun/` (weapons), `prop/` (props). The port
   consumes these as blobs converted by `tools/gen_obseg_blobs.py`; the decompiled per-model
   `Model.c` representation exists but does not compile and is not needed.
@@ -338,7 +338,7 @@ define the same names as macros. Including them in either order fails to compile
 files that need `memcpy` more than they need the OS header include `<PR/ultratypes.h>` alone.
 
 **`offsetof` in a static assertion is not what you want.** Use `__builtin_offsetof`, and verify
-the assertion is armed by breaking it before trusting a layout proof.
+the assertion is armed by deliberately breaking it before trusting a layout proof.
 
 **Struct layout differs from N64 everywhere.** `sizeof(Gfx)` is 8 on N64 and 16 here, pointers are
 8 bytes rather than 4, and `tools/audit_struct_layout.py` counts 251 real layout hazards across 39

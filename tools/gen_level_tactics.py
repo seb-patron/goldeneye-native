@@ -107,16 +107,16 @@ LEVELS = {
     "egypt":     ("Usetupcryp",      32, 20, "LCRYP"),
 }
 
-# The objectives are ObjectiveStart records (propDef type 23), not WatchMenuObjectiveText.
+# The objectives are ObjectiveStart records (propDef type 23), NOT WatchMenuObjectiveText.
 #
 # That distinction cost an hour and is worth writing down: WatchMenuObjectiveText (type 35)
-# resolves to the LEVEL TITLE -- Dam's points at "B Y E L O M O R Y E D A M" and Cradle's at
-# "A N T E N N A C R A D L E". Both parse cleanly and look like objectives until you read
+# resolves to the LEVEL TITLE -- Dam's points at "B Y E L O M O R Y E  D A M" and Cradle's at
+# "A N T E N N A   C R A D L E". Both parse cleanly and look like objectives until you read
 # them, which is exactly the sort of wrong that ships.
 #
-#  /* Type = ObjectiveStart; index = 5 */
-#  _mkword(0, _mkshort(0, 23)), 0, 11286, 1,
-#  ^objnum ^textid ^min difficulty
+#   /* Type = ObjectiveStart; index = 5 */
+#   _mkword(0, _mkshort(0, 23)), 0, 11286, 1,
+#                                 ^objnum ^textid ^min difficulty
 #
 # The fourth field is the minimum difficulty: objectives are cumulative supersets filtered by
 # `MinDificulty <= selected`, so 0 appears on Agent and 2 only on 00 Agent. That is real
@@ -189,13 +189,13 @@ def parse_objectives(setup_text):
             for (p, o, t, d) in _records(setup_text, OBJ_START_TYPE)]
 
 
-# the completion flags are off by eight bits, and it is not yet known whose fault that is.
+# the completion flags are off BY eight bits, and IT IS not yet known whose fault that IS.
 #
 # 48 of the game's 80 objectives have no tagged target, so they cannot be routed to. Their
 # completion is a flag instead, and the chain that would resolve them is:
 #
-#  objective's complete flag -> the AI list that sets it -> what that list is attached to -> a
-#  position a bot can walk to
+#   objective's complete flag -> the AI list that sets it -> what that list is attached to -> a
+#   position a bot can walk to
 #
 # The machinery is all there. objective_status.c evaluates a complete condition with
 # chrHasStageFlag, which reads objectiveregisters1 (chraction.c:10053). That register has
@@ -203,7 +203,7 @@ def parse_objectives(setup_text):
 # every completion flag in the game is set by a line of AI bytecode, which is readable.
 #
 # The obstacle: the numbers do not line up. Dam's objectives test 0x100, 0x200, 0x400, 0x800,
-# 0x1000, 0x2000 while its AI lists set 0x10000 through 0x200000 -- EXACTLY A FACTOR of 256.
+# 0x1000, 0x2000 while its AI lists set 0x10000 through 0x200000 -- EXACTLY A FACTOR OF 256.
 # Across the levels that have both, 18 of 27 objective flags equal an AI-set flag shifted eight
 # bits; Dam is 6 of 6, Bunker 1 is 5 of 5, Depot 1 of 1, and Caverns 0 of 7.
 #

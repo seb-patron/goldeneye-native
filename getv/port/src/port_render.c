@@ -35,7 +35,7 @@
  * commands on the frames we ask for, and it lets the decode in ge_sky_rdp.c be
  * validated against the real stream without touching the renderer.
  *
- * Bounded, in both command count and recursion depth. This walks raw game
+ * Bounded on purpose, in both command count and recursion depth. This walks raw game
  * memory; an unrecognised branch target would otherwise run off into the arena and the
  * crash would look like a renderer bug. Off unless GETV_SKYDUMP is set.
  *
@@ -163,7 +163,7 @@ void gePortRenderDisplayList(void *firstGdl)
          * average would produce a figure that describes the loader rather than the game. That is
          * the same trap as reading the stage timings above as if they were representative.
          *
-         * The GPU query closes AFTER gfx_end_frame: the swap is inside it, and
+         * The GPU query closes AFTER gfx_end_frame, deliberately: the swap is inside it, and
          * whether the swap blocks is half of what this is trying to find out. */
         geGpuTimerFrameBegin();
         gfx_start_frame();
@@ -177,7 +177,7 @@ void gePortRenderDisplayList(void *firstGdl)
          * entirely asks the question directly: with ZERO draw calls, zero state changes and zero
          * uploads, does the GPU timeline still show 6 ms?
          *
-         * If it collapses, the cost is in drawing and the search continues there. If it does not,
+         * If it collapses, the cost is in drawing and the search continues there. If it does NOT,
          * every draw-side hypothesis is dead at once and the cost is in the frame machinery --
          * context, swapchain or compositor.
          *
@@ -227,7 +227,7 @@ void gePortRenderDisplayList(void *firstGdl)
      *   g_GlobalTimer  += g_ClockTimer        (lv.c)             -> world, must stall when paused
      *   watch_time_0   += speedgraphframes    (bondview2.c:8185) -> presentation, must keep rising
      *
-     * These are read as plain externs from the port layer: no game file is
+     * These are read as plain externs from the port layer on purpose: no game file is
      * touched to obtain the measurement, so the measurement cannot itself be the change. */
     /* ---- GETV_PAUSETEST=<from>:<to>[:lock|paused] --------------------------------
      *
@@ -481,7 +481,7 @@ void gePortRenderDisplayList(void *firstGdl)
      *   musicFadeTick()  the music fade envelope. Without it a fade-in never
      *                    progresses past its first step and a fade-out never completes.
      *
-     * Not carried over: viVsyncRelated() programs VI registers that no
+     * Not carried over, deliberately: viVsyncRelated() programs VI registers that no
      * longer exist, and speedgraphMarkerUpdate() is the debug profiler.
      *
      * Audio rides the frame the same way audi.c's amMain() thread woke on the retrace

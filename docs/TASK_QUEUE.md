@@ -1,64 +1,161 @@
 # Task queue: Windows tree
 
 Ordered. Each item says what "done" means, because a task without a finish condition gets
-argued about instead of finished.
+reported as finished by whoever is tired.
 
-## W1. Vsync toggle in the launcher
+Lane rules: `docs/DEVELOPMENT.md`. Work flows Surface → Mac → `main`; the Mac integrates file
+by file. Fetch `C:\mac-work.bundle` before touching a shared file.
 
-`GETV_VSYNC=0` releases the swap interval and exists as of today. Vsync had been hardcoded on
-with no way off, which pinned the frame rate to the display: 55 fps uncapped on a 60 Hz panel
-against 354-562 with it released.
+---
 
-The launcher is the Windows tree's. Add a checkbox beside the resolution and framerate controls,
-defaulting on, with help text saying it raises the frame rate and that gameplay is still coupled
-to the render rate.
+## 0. Apply `0003-port-accessors.patch` (the link failure)
 
-**Done when** the checkbox writes the config key, the key survives a write-and-read round trip,
-and the frame rate visibly changes.
+`vendor/` is gitignored, so decomp symbols never travel in a bundle. Everything you have tested
+is stub-verified only.
 
-## W2. Benchmark the Surface with vsync off
+```
+cd C:\ge\vendor\ge-decomp && git apply ..\..\getv\patches\0003-port-accessors.patch
+```
 
-`bench_windows.ps1` with `GETV_VSYNC=0`, interleaved the way the harness already does.
+Now carries the player accessors, the control-style helpers, both navigation probes,
+`gePortTeleportProbe`, and the two sensing primitives.
 
-**Done when** there is a measured number in `docs/PERFORMANCE.md`.
+**Done when:** the port layer links and one API test runs against a live game rather than a stub.
 
-## W3. HD texture packs
+---
 
-The Perfect Dark port loads replacement textures from an `ext_tex` folder beside the game data
-(`vendor/pd-ext/port/src/video.c:98`, PR #653). The same approach fits here, because the
-decompilation names every texture.
+## 1. the sensing API IS the priority: build out what a bot can perceive
 
-**Done when** one replaced texture renders in game, loaded from a folder, with the original
-intact on disk.
+This is the half of the platform that was missing, and it matters more than routing. Waypoints
+say where things are. **Interaction** is knowing you are against a wall rather than a crate,
+whether the thing ahead can be opened or must be shot, and whether anyone can see you.
 
-## W4. True widescreen, 16:9 and 21:9
+`ge_sense_api.[ch]` is the seam and the first primitives are in and measured:
 
-The renderer fits the 4:3 view to whatever shape the window is, so a wider window does not show
-more of the level.
+| | |
+|---|---|
+| `geSenseLine` | what blocks a line, as a bitmask: wall / door / object / body |
+| `geSenseAhead` | walks a ray in samples: what, how far, and the last clear point |
+| `geSenseClearestHeading` | the smallest turn that opens up |
+| `geSenseVisibleTo` | does this character have a clear line to this player |
+| `geSenseWatchers` | how many living enemies do |
 
-**Done when** 16:9 and 21:9 show more of the level rather than a stretched view, with the HUD and
-the watch placed for the real aspect.
+Live on Train: `clear at 300u`, then `wall door object body at 300u`, then `object body at 50u,
+clearest +40 deg`.
 
-## W5. Render several frames per simulation tick
+**What is missing, and it is yours:**
 
-The field accounting is done: `framerate=30` ticks the simulation at 30 Hz while game time runs
-at real speed. This is the other half, and it is what turns a 500 fps renderer into a 500 fps
-game.
+**1a. Facing, so sight means attention.** `geSenseVisibleTo` is line of sight only. A guard facing
+away has a clear line and is not looking. GoldenEye's AI uses a facing cone plus distance
+attenuation and `hearingscale` for sound. Add `geSenseNoticedBy(enemy, player)` that combines
+line, cone and alertness, and keep the two separate rather than replacing one with the other,
+because "could see me if it turned" is a different and useful question.
 
-**Done when** the render rate and the simulation rate can be set independently and a mission plays
-correctly at both.
+Train currently reports 17-19 watchers of 40 guards. That is what an unobstructed line down a
+row of carriages looks like, **not** seventeen guards watching. Do not tune the line test to make
+that number smaller; add the cone.
 
-## W6. Wire the bot arbiter
+**1b. Contact, not just prediction.** Everything so far predicts along a ray. A bot also needs to
+know it is *touching* something right now: the difference between "there is a wall ahead" and
+"I am pressed against it and my last four moves did nothing".
 
-`ge_bot_arbiter.c` is written and tested and is not yet called from `ge_bot_route.c`.
+**1c. Reachability with a body, not a line. this IS the current blocker, and do not build it
+the way this item originally said.** A line test passes through a gap narrower than the player.
+Evan has a capture of exactly that: the bot trying to fit between a crate and a wall.
 
-**Done when** the follower takes its heading from the arbiter and the Train waypoint count is
-reported, better or worse.
+The original suggestion here was to sweep the player's collision radius or sample parallel lines
+either side. **Don't.** The engine already ships the exact test, and the guard AI runs it before
+every step it takes:
 
-## W7. Netplay determinism audit
+```c
+s32 stanTestVolume(StandTile **tile, f32 x, f32 z, f32 width,
+                   s32 cdtypes, f32 ymin, f32 ymax);          /* stan.c:2073 */
+s32 stanTestLineUnobstructed(StandTile **tile, f32 x0, f32 z0, f32 x1, f32 z1,
+                             s32 cdtypes, f32 height, f32 a, f32 b, f32 c);  /* stan.c:1686 */
+```
 
-The longest-open question: whether two peers stay identical over thousands of ticks. Streets is
-verified nondeterministic across processes.
+`chr.c:1468` calls the line test, then the volume test at the destination, and treats a
+**negative** `stanTestVolume` return as "a body of `width` fits here". Non-negative is the index
+of what is in the way. The width is `chrwidth`, `20.0f` at `chr.c:1936`, and `chraction.c:4119`
+shows the engine's own margin at `chrwidth * 1.2f`. Use the mask `chraction.c:3448` uses:
+`CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER`.
 
-**Done when** there is a number for how long two peers agree, and a statement of what diverges
-first.
+The tile argument is an **input**, same trap as `bondviewTestLineUnobstructed` in the standing
+corrections. Seed it from the querying body's current tile or everything reads obstructed.
+
+**Do:** `gePortCanStandAt(x, z)` and `gePortPathClear(x0, z0, x1, z1)` over those two. Parallel
+line sampling would have approximated this and missed doors, characters and path blockers, all of
+which `stanTestVolume` already accounts for.
+
+**Done when:** `gePortCanStandAt` returns false for the point between the crate and the wall in
+Evan's capture, and the Train CLI player walks past the crate it currently traps itself on.
+
+**1d. Interaction verbs.** `geSenseUsable(x, z)`: is there a door, switch or pickup within reach
+of this spot, and what is it. The prop API knows where they are; nothing says "you can act on
+this from here".
+
+**Done when:** `mods/level_atlas` can print, for the player's current position: what is ahead and
+how far, whether it can be opened, which way is clear, how many enemies could see it and how many
+actually are, and what it could interact with without moving.
+
+---
+
+## 2. Heights: the graph is planar and levels are not
+
+Every node carries `y` and nothing routes on it. Bunker 1's spawn is at y=340 and both of its
+portals are at y=93, so the bot beelines at a doorway 247 units below it, through a floor. Your
+`audit_route_heights.py` is the right start; what is missing is the descent being *in* the graph,
+so a stairway is a chain of nodes rather than one impossible edge.
+
+The body position and the floor differ by ~157 units. Compare a pad height to a player
+position and you get a phantom cliff in every direction at once.
+
+## 3. Eight levels have no node in their spawn room
+
+`aztec, cradle, dam, depot, runway, statue, surface, surface2`: no graph node within 4000 units
+of where the player actually starts, and `dam` is 20,254 away. That is not a wrong pad, it is a
+graph that does not cover the level's own start, and for Dam a different coordinate space
+entirely. `docs/captures/spawns.json` has the measured truth for all twenty.
+
+Do **not** fix this by widening the threshold. The refusal is deliberate and named per level.
+
+## 4. Bot behaviour beyond following a line
+
+The follower turns, walks, presses the action button at obstacles and holds for contested
+waypoints. It cannot open a locked door, take a lift, shoot what blocks it, or pick up a key it
+routes past. The objective data already names target tags and rooms; `Key` props are in the prop
+export.
+
+---
+
+## Later, in no strict order
+
+**Netplay on a measured tick.** Discovery and the transports are in. What is not proven is that
+two peers stay identical over a long run: the seed fingerprint exists for exactly this and has
+not been used in anger.
+
+**Bot personalities against real levels.** Eighteen archetypes exist and were tested against a
+placeholder. Now that routes are measured, difficulty should mean something: reaction time,
+accuracy, whether a bot retreats.
+
+**Horde mode.** The cheat system can give guards any weapon, and the route graph knows where they
+can come from. That is most of a wave spawner.
+
+**The launcher's mod page.** Mods are loadable and the API is a platform now; the launcher still
+presents them as a checkbox list with no description of what any of them do.
+
+**A second control style verified end to end.** Everything is measured on 2.2 Galore because it
+is the default. 1.1 Honey is one pad and would exercise a genuinely different input path.
+
+---
+
+## Standing corrections: do not re-derive these
+
+- `gePlayerSlotIsDrivable` must **not** return `!IS_TWO_PAD`. Every slot is 2.x by default, so
+  that disables every bot on every level. (Taken and fixed; noted so it does not come back.)
+- `GETV_SCRIPT` does not move the player at all. Verified against controls. Use `gePlayerPost`.
+- `player->pos` is not the world position; `prop->pos` is.
+- Doors are **not** walls. `CDTYPE_DOORS` in a walkability mask makes every room read as sealed.
+- The tile argument to `bondviewTestLineUnobstructed` is an **input**. NULL reports everything
+  obstructed.
+- Run the control. Never sample a trace with `tail -1`.

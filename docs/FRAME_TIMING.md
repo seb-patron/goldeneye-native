@@ -303,7 +303,7 @@ All three are fast, and in every case the game clock is close to half the render
 host timebase reduces the error by about four times and does not remove it.
 
 The comment above the clock selection in `frametiming.c` carried an explicit
-"UNVERIFIED ON THIS HARDWARE" warning, written on a 60Hz machine that could not test it. It has
+"unverified ON this hardware" warning, written on a 60Hz machine that could not test it. It has
 now been tested on a machine that can, and the warning was right to be there: `GETV_REALCLOCK=1`
 does not decouple game speed from the render rate on its own.
 

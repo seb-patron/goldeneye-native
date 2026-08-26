@@ -32,7 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 # Namespace bases. Chosen far apart and round so a uid is readable at a glance: 1_000_074 is
-# plainly waypoint 74, and nothing has to be looked up to see it. not packed tightly
+# plainly waypoint 74, and nothing has to be looked up to see it. Deliberately NOT packed tightly
 # -- saving three digits would cost the one property that makes this useful.
 NS = {
     "waypoint": 1000000,   # the ENGINE's own graph, from pathwaypoints. Authoritative.
@@ -57,7 +57,7 @@ def main():
         stem = f[:-5]
         if any(k in stem for k in ("nuance", ".mp", "_general", "_prop", "_engine")):
             continue
-        # .nodes is in this list because it was not, and the tool consumed its own output as a
+        # .nodes IS IN this list because IT was not, and the tool consumed its own output as a
         # level -- writing train.nodes.nodes.json with zero of everything. A generator that scans
         # the directory it writes into has to exclude its own extension or it grows a new empty
         # file on every run.

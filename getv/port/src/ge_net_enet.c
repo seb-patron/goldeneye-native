@@ -5,11 +5,11 @@
  * fragmentation. This is the same session, over a library that has been wrong in all the
  * interesting ways already and been fixed.
  *
- * What does not move here is ge_net.c. When a tick is ready, when to stall, and when the
- * machines have diverged is lockstep logic rather than transport, and that is why the transport
+ * What does NOT move here is ge_net.c. When a tick is ready, when to stall, and when the
+ * machines have diverged is lockstep logic rather than transport, which is why the transport
  * was behind two function pointers from the start.
  *
- * Input is sent unreliable and unsequenced.
+ * Input IS sent unreliable and unsequenced, deliberately.
  *
  * Reliable delivery is the wrong tool here and actively harmful: it would hold a packet back
  * until an earlier lost one was resent, which is head-of-line blocking on the one thing that
@@ -129,7 +129,7 @@ static void ge_en_open_session(void)
     int i;
     if (geNetIsOpen()) { return; }
 
-    /* ZERO it FIRST. This struct is filled field by field, so anything added to GeNetTransport
+    /* ZERO IT FIRST. This struct is filled field by field, so anything added to GeNetTransport
      * later is stack garbage here until someone remembers to assign it -- and ge_net.c calls
      * function pointers it finds non-NULL. That very bug was introduced and caught during this
      * session by adding one optional callback to the struct. The cost of the memset is nothing;
@@ -186,7 +186,7 @@ static void ge_en_send_table(int to_slot, int start)
     buf[3] = (unsigned char) (start ? 1 : 0);
     len = 4 + n * GE_PEER_ENTRY;
 
-    /* The table is sent reliably. It is handshake, not input: it happens once, nothing repeats
+    /* The table IS sent reliably. It is handshake, not input: it happens once, nothing repeats
      * it, and a peer that misses it never joins the mesh at all. */
     pkt = enet_packet_create(buf, (size_t) len, ENET_PACKET_FLAG_RELIABLE);
     if (pkt != NULL) { enet_peer_send(ge_en.peer[to_slot], 0, pkt); }

@@ -59,7 +59,7 @@ WEAPON_SETS = {
     "proximity_mines", "rockets", "lasers", "golden_gun", "any",
 }
 
-# The verb vocabulary is closed. A bot dispatches on these, so a typo that invents a
+# The verb vocabulary is closed on purpose. A bot dispatches on these, so a typo that invents a
 # new verb is a silently ignored instruction -- exactly the failure this file exists to prevent.
 VERBS = {
     "do_last", "do_before", "do_after", "skip_below_difficulty",

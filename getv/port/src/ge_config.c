@@ -616,7 +616,7 @@ static void key_bool_gate(const char *gate, const char *key, const char *v, int 
  * features land, so a config written today keeps working, and so none of them are
  * foreclosed by accident.
  *
- * Every one defaults off / faithful:
+ * Every one defaults off / faithful, deliberately:
  *   1. the N64 look is the product -- an option is a feature, a changed default is a
  * different game;
  *   2. QA here is comparison against real N64 captures, and anything that silently
@@ -1279,7 +1279,7 @@ int geConfigInit(int argc, char **argv)
          * within about 1.5 seconds. A fresh install then opens with the camera staring
          * at the floor.
          *
-         * Failure is non-fatal and near-silent: a read-only HOME must
+         * Failure is deliberately non-fatal and near-silent: a read-only HOME must
          * still boot on built-in defaults. */
  if (write_default(NULL) == 0 &&
  locate(argc > 0 ? argv[0] : NULL, NULL)) {

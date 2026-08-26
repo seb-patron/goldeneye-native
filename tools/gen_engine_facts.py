@@ -35,7 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Units worth extracting, and their canonical spelling. Chosen because each is something the
 # decompilation can be asked about: a distance, a duration, a rate, an angle, a count of damage.
-# Percentages and bare numbers are not harvested -- a document of this size yields
+# Percentages and bare numbers are deliberately NOT harvested -- a document of this size yields
 # thousands of them, almost all page references and list indices, and the noise would bury the
 # handful that mean anything.
 UNITS = [
@@ -86,12 +86,12 @@ def main():
     ap.add_argument("--levels", default=os.path.join(ROOT, "build", "levels"))
     a = ap.parse_args()
 
-    # gathered by document name, not by which bundle they landed in.
+    # gathered BY document name, not BY which bundle they landed IN.
     #
     # Two of the five engine-wide documents do not reach _engine.walkthrough.json at all:
     #
-    #  Goldeneye64CameraAndControlsVerbose.txt -> control.walkthrough.json
-    #  Goldeneye64MultiplayerMechanicsVerbose.txt -> _mp.walkthrough.json
+    #   Goldeneye64CameraAndControlsVerbose.txt  -> control.walkthrough.json
+    #   Goldeneye64MultiplayerMechanicsVerbose.txt -> _mp.walkthrough.json
     #
     # The first is a NAME COLLISION: the filename contains "Control" and GoldenEye has a level
     # called Control, so engine-wide camera documentation is filed as a walkthrough for the

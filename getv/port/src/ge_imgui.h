@@ -2,7 +2,7 @@
  *
  * The implementation is C++ (ge_imgui.cpp); everything that calls it -- gfx_sdl2.c and
  * anything a later launcher/dev UI hangs off it -- is C. This header is the whole of the
- * boundary and is free of both ImGui and SDL types, so including it costs a
+ * boundary and is deliberately free of both ImGui and SDL types, so including it costs a
  * C translation unit nothing and pulls in no C++.
  *
  * The parameters are void* rather than SDL_Window and SDL_Event pointers for that reason:
@@ -49,7 +49,7 @@ void gePortImguiEvent(void *sdl_event);
 /* Called from gfx_sdl_shutdown() before the GL context is destroyed. */
 void gePortImguiShutdown(void);
 
-/* 1 when the overlay is built in and enabled and initialised. Not used by the port itself;
+/* 1 when the overlay is built in AND enabled AND initialised. Not used by the port itself;
  * it exists so a later launcher can ask rather than re-reading the environment. */
 int  gePortImguiActive(void);
 

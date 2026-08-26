@@ -33,8 +33,8 @@ HEADER = '''/* GENERATED - the "images" ROM segment as C data.
  * Emitted as a C array instead, giving the port a real symbol to hand image.c.
  *
  * Rebuild:
- *  python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
- *  bash scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
+ *   python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
+ *   bash scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
  */
 '''
 

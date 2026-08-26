@@ -1,7 +1,7 @@
 # Rulesets and horde mode
 
 A ruleset scales values the game already reads at load. No level, model, asset or line of
-geometry is touched, and that is why these are cheap and combine freely.
+geometry is touched, which is why these are cheap and combine freely.
 
 ## Presets
 
@@ -43,7 +43,7 @@ up holding.
 
 ```
 [getv][ruleset] "hardcore" -- tougher guards, less ammo, half the player health
-[getv][ruleset] enemy: health 200% damage 150% accuracy 130% reaction 100%
+[getv][ruleset]   enemy: health 200% damage 150% accuracy 130% reaction 100%
 [getv][ruleset] applied: aiHealth=1.000 aiDamage=0.750 aiAccuracy=0.780 ... ammo=1.000
 ```
 

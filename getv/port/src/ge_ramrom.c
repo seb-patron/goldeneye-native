@@ -12,7 +12,7 @@
  *
  * FORMAT, derived rather than assumed. tools/audit_ramrom_header.py is the regression check and
  * carries the full derivation; the short version is that ramromreplay.c:453 advances the cursor by
- * sizeof(struct ramromfilestructure), so the header length is that struct's size:
+ * sizeof(struct ramromfilestructure), so the header length IS that struct's size:
  *
  *   header   232 bytes. s32 filesize at 128, enum LEVELID stagenum at 16, u32 size_cmds at 24.
  *   stream   repeating: a 4-byte {speedframes, count, randseed, check}, then size_cmds*4*count
@@ -25,7 +25,7 @@
  * 0x0040 and 0x0080 are assigned to no button on a real N64 pad: they are clear in all 32,469
  * records under this order and set in 173 under the other.
  *
- * What this does not do, stated because the difference decides how to read its output: it feeds
+ * What this does not DO, stated because the difference decides how to read its output: it feeds
  * recorded INPUT. It does not reproduce the N64's frame pacing. The seed block carries a
  * speedframes field that the original passes to updateFrameCounters, and nothing here consumes it.
  * So a divergence reported below is not by itself a port bug -- this is the instrument that finds
@@ -208,7 +208,7 @@ static int ge_rr_next_block(void)
 
     /* the seed comparison, and the reason it is counted rather than announced.
      *
-     * The recorded seed is one BYTE per block, so two unrelated runs agree by chance about once
+     * The recorded seed is ONE BYTE per block, so two unrelated runs agree by chance about once
      * every 256 blocks. A single matching block therefore proves nothing, and reporting "seed
      * matched" off one would be the same error as calling one sample a rate. What carries
      * information is a RUN of agreement and where it ends. So both totals travel together, and the

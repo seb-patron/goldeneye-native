@@ -1,6 +1,6 @@
 /* Deterministic lockstep session over the player-input seam.
  *
- * The transport is not part of this. A session needs to know when every slot's
+ * The transport is deliberately not part of this. A session needs to know when every slot's
  * input for a tick has arrived, when to stall, and when the machines have diverged -- none of
  * which is a socket concern. Sockets are supplied through GeNetTransport, so the hard part is
  * testable without one.
@@ -34,7 +34,7 @@ typedef enum GeNetSlotKind {
     GE_NET_SLOT_BOT         /* a local policy; simulated on every machine identically */
 } GeNetSlotKind;
 
-/* One slot's input for one tick, as it goes over the wire. small and fixed: the
+/* One slot's input for one tick, as it goes over the wire. Deliberately small and fixed: the
  * whole point of lockstep is that inputs travel, not state. */
 typedef struct GeNetInputMsg {
     unsigned long tick;
@@ -102,7 +102,7 @@ void geNetDeliver(const void *data, int len);
 /* Report that a peer has gone. The transport detects this (ENet reports it; the raw socket
  * version would need a timeout), but handling it is a session concern, not a socket one.
  *
- * Do not simply free the slot on noticing. Survivors notice at different moments, and a
+ * Do NOT simply free the slot on noticing. Survivors notice at different moments, and a
  * departing machine's last packets reach one and not another, so dropping on local detection
  * makes the SURVIVORS diverge from each other -- the exact failure the handling exists to
  * prevent. This starts the agreed procedure instead: relay what we hold for that slot, then

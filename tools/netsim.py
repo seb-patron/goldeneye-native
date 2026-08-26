@@ -80,7 +80,7 @@ class Machine:
             self.dups += 1
             return
 
-        # Strictly less than: input for the tick ABOUT to RUN is still usable, because that tick
+        # Strictly less than: input for the tick ABOUT TO RUN is still usable, because that tick
         # has not been simulated yet. Rejecting it (tick <= self.tick) throws away every input
         # that arrives exactly on time, which silently caps the session at the primed window and
         # then stalls forever on any link where latency reaches the delay.
@@ -368,7 +368,7 @@ def run_drop(mode, n_players=3, dead=2, die_at=40, detect_after=(6, 20), steps=2
         for i in running:
             m = machines[i]
 
-            # An agreed drop takes effect at its tick, identically on every machine.
+            # An agreed drop takes effect at ITS tick, identically on every machine.
             pd = getattr(m, "pending_drop", None)
             if pd is not None and m.tick >= pd[1]:
                 m.slots[pd[0]] = "empty"
@@ -436,7 +436,7 @@ def run_drop(mode, n_players=3, dead=2, die_at=40, detect_after=(6, 20), steps=2
                 # the asymmetry that causes the divergence. A departing machine's final packets
                 # do not stop everywhere at once: they reach some survivors and not others. So
                 # one survivor holds the dead peer's input for a few more ticks than the other
-                # does, and if each drops the slot when it notices, they simulate those ticks
+                # does, and if each drops the slot when IT notices, they simulate those ticks
                 # from different input sets.
                 if i == dead and step >= die_at - 2 and j != alive[0]:
                     continue

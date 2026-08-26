@@ -17,7 +17,7 @@
  * time to deliver it. Rollback hides more latency and would need full save/restore of game
  * state, which is a far larger change and not worth reaching for before measuring.
  *
- * The transport is not here on purpose. Knowing when a tick is ready, when to stall and when
+ * The transport IS not here ON purpose. Knowing when a tick is ready, when to stall and when
  * the machines have diverged is not a socket concern, and keeping it separate means the hard
  * part can be tested with no I/O at all.
  */
@@ -160,7 +160,7 @@ void geNetClose(void)
 {
     if (!ge_net.open) { return; }
     if (ge_net.tp.close) { ge_net.tp.close(ge_net.tp.ctx); }
-    /* late and dup reported separately: late is a link problem worth acting on, dup
+    /* late and dup reported separately on purpose: late is a link problem worth acting on, dup
      * is the redundancy earning its keep and should be large. */
     printf("[getv][net] session closed: %lu ticks, %lu stalls, %lu late, %lu dup, %lu desyncs\n",
            ge_net.stats.ticks_simulated, ge_net.stats.ticks_stalled,
@@ -210,7 +210,7 @@ void geNetDeliver(const void *data, int len)
                 continue;
             }
 
-        /* Strictly less than. Input for the tick ABOUT to RUN is still usable -- that tick has
+        /* Strictly less than. Input for the tick ABOUT TO RUN is still usable -- that tick has
          * not been simulated yet. Testing <= throws away every input that arrives exactly on
          * time, which caps the session at its primed window and then stalls forever on any link
          * where latency reaches the delay. Found by tools/netsim.py, which models this
@@ -433,7 +433,7 @@ int geNetTickBegin(const GePlayerInput *local_input)
     now    = ge_net_now();
     future = now + ge_net.delay;
 
-    /* A scheduled drop takes effect at its tick, identically on every machine. This is checked
+    /* A scheduled drop takes effect at ITS tick, identically on every machine. This is checked
      * before readiness, because the whole point is to stop waiting on a slot that is gone. */
     if (ge_net.drop_slot >= 0 && now >= ge_net.drop_at) {
         geNetSetSlotKind(ge_net.drop_slot, GE_NET_SLOT_EMPTY);

@@ -1,6 +1,6 @@
 /* Play GoldenEye from a terminal, through the API alone.
  *
- * Why this is the real test of the API
+ * Why this IS the real test OF the API
  *
  * A bot that walks into a wall tells you very little: the policy might be poor, or the policy
  * might be fine and unable to perceive the wall. Those need different fixes and the bot cannot
@@ -148,7 +148,7 @@ static void ge_cli_report(int frame)
     if (!gePlayerStateGet(ge_cli_slot, &st) || !st.present) { return; }
 
     printf("\n--- f%d ---\n", frame);
-    /* where in the map, not just what is in front.
+    /* where IN the map, not just what is in front.
      *
      * Every other line here is relative to facing, which is the right form for acting on one
      * thing and the wrong form for holding a picture. A reader given only bearings has to

@@ -35,7 +35,7 @@ extern const unsigned int ge_animation_entries_segment_size;
 
 
 /* Mirror of the fields this file fills in. Declared locally rather than including
- * bondtypes.h: the port TUs exclude the decomp's include/ (its
+ * bondtypes.h: the port TUs deliberately exclude the decomp's include/ (its
  * math.h/string.h/stddef.h shadow the system headers). The layout below must match
  * ModelAnimation in src/bondtypes.h -- gePortAnimSelfCheck() asserts the size the
  * caller sees, so a drift is caught at boot rather than silently mis-decoded. */

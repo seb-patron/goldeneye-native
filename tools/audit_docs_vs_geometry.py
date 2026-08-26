@@ -223,7 +223,7 @@ def check_bool(field, claim, m):
 
 
 # Fields that state a WHOLE-LEVEL extent in the documents' metres. Local dimensions -- a sightline,
-# a doorway width -- are excluded: they cannot be compared against a level extent, and
+# a doorway width -- are deliberately excluded: they cannot be compared against a level extent, and
 # doing so is the same category error that once produced a 12% agreement figure on this project.
 TOTAL_EXTENT_FIELDS = ("approx_total_train_length_m", "total_length_m", "approx_total_length_m")
 

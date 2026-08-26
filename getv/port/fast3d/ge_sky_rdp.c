@@ -282,7 +282,7 @@ static int ge_decode(struct GeSkyTri *out)
     ge_eval(&pt[npt++], &sh, xh + dxhdy * (yl - yh),   yl);              /* F major@YL  */
 
     /* Fan from A. Zero-area fans are the normal case, not an error: a genuine triangle
-     * has A==B and E==F and collapses to exactly one output triangle, and that is why this
+     * has A==B and E==F and collapses to exactly one output triangle, which is why this
      * cannot regress the shapes that already worked. */
     for (i = 1; i + 1 < npt && ntri < GE_SKY_MAX_TRIS; i++) {
         if (ge_area2(&pt[0], &pt[i], &pt[i + 1]) < 0.01f) {

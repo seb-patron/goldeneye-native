@@ -216,7 +216,7 @@ def pick_patrol(level, want):
     waypoints = [w for w in level.get("waypoints", []) if w.get("pos") and "pad" in w]
 
     if not waypoints:
-        # multiplayer arenas have no navigation graph -- one waypoint, no edges -- which is
+        # multiplayer arenas have NO navigation graph -- one waypoint, no edges -- which is
         # awkward, because the arenas are where bots are most wanted. They do have located
         # props, so patrol the PICKUPS instead: armour first, then ammunition.
         #
@@ -436,7 +436,7 @@ def main():
                     errors += 1
                     continue
 
-                # not kind.rstrip("s"): rstrip removes EVERY trailing s, so "personalities"
+                # NOT kind.rstrip("s"): rstrip removes EVERY trailing s, so "personalities"
                 # became "personalitie". "skill_tiers" survives it, which is why the mistake
                 # passed a casual look at the output -- half the symbols were right. Caught by
                 # the Mac build reviewing the branch rather than by me reading my own output.

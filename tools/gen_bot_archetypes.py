@@ -117,7 +117,7 @@ def check(doc, opcodes, path):
             if op not in opcodes:
                 errs.append("%s: opcode %r is not defined by the game" % (where, op))
 
-        # every archetype must be able to move.
+        # every archetype must BE able TO move.
         #
         # Eight of eighteen once could not, and it took testing on another machine to notice:
         # they spawned, stood still, and never saw anybody, so they never fired. Every check in

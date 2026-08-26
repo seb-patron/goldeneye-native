@@ -23,10 +23,10 @@ runs need `GETV_PADS=2` or `joyGetStickY(1)` returns 0 whatever was written.
 frames, `GETV_STATEAPI` sampled at the same two frames in every run:
 
 ```
-control pos=(-1376 280 2297) -> (-1364 327 2305) ang 360.0 -> 332.0
-SY=70 pos=(-1376 280 2297) -> (-1364 327 2305) ang 360.0 -> 332.0
-SX=70 identical
-turn then walk identical
+control          pos=(-1376 280 2297) -> (-1364 327 2305)  ang 360.0 -> 332.0
+SY=70            pos=(-1376 280 2297) -> (-1364 327 2305)  ang 360.0 -> 332.0
+SX=70            identical
+turn then walk   identical
 ```
 
 Byte-identical to the control, including the angle. And at the input layer, `SY=70`, `SX=70`,

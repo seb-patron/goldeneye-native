@@ -8,24 +8,24 @@
 # parses.
 #
 # Isolation -- read this before running two of these at once.
-#  * build_sim.sh picks the simulator by name. Two concurrent runs on one device wedge
-#  each other; the symptom is a run with no output and no error, and eventually
-#  `simctl terminate` hangs. Create a separate device and export GETV_SIM.
-#  * Export GETV_SLOT=<name> for a private build-sim-<name>/{obj,libge.a}, derived data
-#  and generated xcodeproj. Without it, concurrent runs clobber each other's objects.
+#   * build_sim.sh picks the simulator by name. Two concurrent runs on one device wedge
+#     each other; the symptom is a run with no output and no error, and eventually
+#     `simctl terminate` hangs. Create a separate device and export GETV_SIM.
+#   * Export GETV_SLOT=<name> for a private build-sim-<name>/{obj,libge.a}, derived data
+#     and generated xcodeproj. Without it, concurrent runs clobber each other's objects.
 #
 # USAGE
-#  export GETV_SLOT=sweep GETV_SIM="GETV Sweep"
-#  ./build_sim.sh lib && ./build_sim.sh app # once, before sweeping
-#  getv/tools/level_sweep.sh # all levels
-#  getv/tools/level_sweep.sh 33 34 35 # just these
-#  GETV_SWEEP_TIMEOUT=60 getv/tools/level_sweep.sh
+#   export GETV_SLOT=sweep GETV_SIM="GETV Sweep"
+#   ./build_sim.sh lib && ./build_sim.sh app     # once, before sweeping
+#   getv/tools/level_sweep.sh                    # all levels
+#   getv/tools/level_sweep.sh 33 34 35           # just these
+#   GETV_SWEEP_TIMEOUT=60 getv/tools/level_sweep.sh
 #
 # OUTPUT
-#  $out/<id>-<name>.log full console capture
-#  $out/<id>-<name>.png screenshot taken just before the process is killed
-#  $out/results.tsv one row per level, tab-separated
-#  $out/summary.md the same thing grouped by failure signature
+#   $OUT/<id>-<name>.log   full console capture
+#   $OUT/<id>-<name>.png   screenshot taken just before the process is killed
+#   $OUT/results.tsv       one row per level, tab-separated
+#   $OUT/summary.md        the same thing grouped by failure signature
 #
 # The LEVELID enum is sparse; it is not 0..19. BUNKER1=9, SILO=20, then a contiguous run
 # 22..57, plus TITLE=90. A bogus stage number does not error -- it silently falls back to
@@ -42,7 +42,7 @@ TIMEOUT="${GETV_SWEEP_TIMEOUT:-75}"
 BUNDLE_ID="org.goldeneyenative.getv"
 
 # id:name -- straight out of bondconstants.h. LEVELID_DEFAULT=0 and LEVELID_MAX=57 are
-# included: DEFAULT is the "did the harness itself work" control, and MAX is
+# included on purpose: DEFAULT is the "did the harness itself work" control, and MAX is
 # the one-past-the-end sentinel, so a crash there is expected and confirms that an
 # out-of-range stage is distinguishable from a real level failure.
 LEVELS=(
@@ -107,8 +107,8 @@ printf 'id\tname\tstage_load\tframe_loop\tgfx_tasks\ttris_sub\ttris_drawn\tframe
 # shell environment is x86_64 under Rosetta, and /usr/bin/python3 is a universal shim
 # that inherits the parent process's architecture, so from a Rosetta shell it comes up
 # x86_64 while the installed PIL `_imaging...so` is arm64-only:
-#  dlopen(...PIL/_imaging.cpython-39-darwin.so): incompatible architecture
-#  (have 'arm64', need 'x86_64')
+#   dlopen(...PIL/_imaging.cpython-39-darwin.so): incompatible architecture
+#     (have 'arm64', need 'x86_64')
 # The bare `except Exception: print("-")` then turns that into a coverage of "-" for every
 # level, so the metric looks unavailable rather than broken. If this column ever comes
 # back all-"-", suspect the architecture before the images.
@@ -141,7 +141,7 @@ coverage_of() {
 }
 
 # Which levels to do: args if given, else all.
-# `reparse` re-derives results.tsv and summary.md from the .log files already in $out
+# `reparse` re-derives results.tsv and summary.md from the .log files already in $OUT
 # without launching anything. A full set costs ~45 minutes, so a parser bug must not mean
 # re-running everything: the logs are the raw data and they are kept.
 SELECT=("$@")
@@ -295,11 +295,11 @@ parse_one() {
       outcome=RENDERS-BLACK
     elif awk -v u="$uniq" -v t="$top1" 'BEGIN{exit !(u+0 < 32 || t+0 >= 85)}' 2>/dev/null; then
       # Lit, but not a picture. Two ways to fail, because levels fail both ways:
-      #  distinct < 32 -- a handful of untextured quads (EGYPT: 16 colours at 68% lit)
-      #  top1share >= 85 -- one colour owns nearly every lit pixel, i.e. a G_CYC_FILL sky
-      #  or a stuck fade quad with a few stray polys on top. This
-      #  catches frames that have many distinct colours yet are still
-      #  essentially one flat field.
+      #   distinct < 32 -- a handful of untextured quads (EGYPT: 16 colours at 68% lit)
+      #   top1share >= 85 -- one colour owns nearly every lit pixel, i.e. a G_CYC_FILL sky
+      #                      or a stuck fade quad with a few stray polys on top. This
+      #                      catches frames that have many distinct colours yet are still
+      #                      essentially one flat field.
       # Kept out of RENDERS so the headline count cannot be inflated by either.
       outcome=RENDERS-FLAT
     else

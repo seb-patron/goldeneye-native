@@ -1,6 +1,6 @@
 /* Attach compiled bot AI lists to characters in a running stage.
  *
- * This is the npc path, and it is not the same thing as ge_bot.c.
+ * This IS the npc path, and IT IS not the same thing AS ge_bot.c.
  *
  * ge_bot.c drives a PLAYER SLOT by injecting controller input, which is deliberate: a bot, a
  * network peer and an RL agent then all share one path into the game, and its own comment
@@ -19,7 +19,7 @@
  *
  * where ailist is a pointer to bytecode. chrai.c does exactly this for the campaign's own
  * spawn command, passing the result of ailistFindById. We pass our assembled bytes instead,
- * which is why no registration in g_CurrentSetup.ailists is needed: the pointer is the list.
+ * which is why no registration in g_CurrentSetup.ailists is needed: the pointer IS the list.
  *
  *   GETV_BOT_AI=<archetype>[:count][@pad]   e.g. "dark", "hard:3", "kaze:2@12"
  *   GETV_BOT_AI_BODY=<n>                    body model id, default 37 (a campaign guard body)

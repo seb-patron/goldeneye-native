@@ -30,7 +30,7 @@ the single most important thing to internalise:
 |---|---|---|---|
 | **stan** (collision tiles) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/stan/*.c`, 29 files, all compile, all link | effectively ready |
 | **setup** (objects/AI/pads) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/setup/*.c` (+ `e/ j/ u/` variants), 50 objects built, 2 TUs fail | nearly ready, 2 gaps + a variant-selection hazard |
-| **bg** (room geometry) | raw segment dma'd + per-room 1172 chunks | **decompiled C with real pointers, not linked at all, and structurally incompatible with the loader** | the real work |
+| **bg** (room geometry) | raw segment dma'd + per-room 1172 chunks | **decompiled C with real pointers, not linked AT all, and structurally incompatible with the loader** | the real work |
 
 The 1172 decompressor is **not on the stan or setup path at all** in this build, and is
 only on the bg path for per-room chunks (§3.4).
@@ -42,75 +42,75 @@ only on the bg path for per-room chunks (§3.4).
 Verified by reading the sources; line numbers are `vendor/ge-decomp/`.
 
 ```
-front.c (menu) -> selected_stage
+front.c  (menu)  -> selected_stage
    |
    v
-lv.c:341 lvlStageLoad(stage)
+lv.c:341  lvlStageLoad(stage)
    |
-   +-- texReset() image.c [real]
-   +-- load_font_tables() [real]
+   +-- texReset()                                  image.c        [real]
+   +-- load_font_tables()                                         [real]
    |
-   +-- lv.c:438 load_bg_file(g_CurrentStageToLoad) ---------- BG + STAN
-   | |
-   | | bg.c:794
-   | +-- scan levelinfotable[] (bg.c:183) for levelID -> levelentry_index
-   | | entry gives: bg_seg_filename "bg/bg_sev_all_p.seg"
-   | | bg_stan_filename "Tbg_sev_all_p_stanZ"
-   | | levelscale, visibility
-   | +-- lightFixtureInitTables()
-   | |
-   | +-- bg.c:824 obLoadBGFileBytesAtOffset(bgname, header[16], 0, 0x40)
-   | | ob.c:150/206 fileGetIndex(name) -> file_resource_table[] index
-   | | romCopy(target, &fileentry->hw_address[offset], len)
-   | | port_assets.c:123 romCopy = memcpy + range guard
-   | | GUARDED BY `if (rom_size != 0)` -- rom_size is 0 for every bg
-   | | file (see §3.2), so this call is A silent NO-OP
-   | |
-   | +-- bg.c:829 ptr_bgdata_room_fileposition_list =
-   | | BG_SEG_TO_PTR(ptr_bg_data, ((s32*)ptr_bg_data)[1])
-   | +-- bg.c:832 size = ((room_fileposition_list[1].pPointTableBin & 0xffffff) - 1 | 0xf) + 1
-   | +-- bg.c:833 ptr_bg_data = mempAllocBytesInBank(size, MEMPOOL_STAGE)
-   | +-- bg.c:834 obLoadBGFileBytesAtOffset(bgname, ptr_bg_data, 0, size)
-   | |
-   | +-- bg.c:836 gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4) ----- STAN
-   | | ob.c:196 -> fileIndexLoadToBank(fileGetIndex(name), ...)
-   | | ob.c:233 GE_PORT_NATIVE shortcut: gePortObsegSize(hw)==0
-   | | => "this is native linked C data", return hw_address
-   | | directly, skip allocate + inflate. CORRECT for stan
-   | +-- bg.c:838 stanDetermineEOF(gptr_stan, 0, gptr_stan) stan.c:3097
-   | +-- bg.c:839 stanLoadFile(gptr_stan) stan.c:476
-   | | -> stanBuildRoomData() stan.c:246
-   | | walks tiles by list_of_tilesizes[pointCount&0xf]
-   | +-- setLevelScale / setDebugCameraScale / visibility
-   | +-- bg.c:857+ portal + envdata offset->pointer promotion (BG_SEG_TO_PTR)
+   +-- lv.c:438  load_bg_file(g_CurrentStageToLoad) ---------- BG + STAN
+   |     |
+   |     |  bg.c:794
+   |     +-- scan levelinfotable[] (bg.c:183) for levelID -> levelentry_index
+   |     |     entry gives: bg_seg_filename  "bg/bg_sev_all_p.seg"
+   |     |                  bg_stan_filename "Tbg_sev_all_p_stanZ"
+   |     |                  levelscale, visibility
+   |     +-- lightFixtureInitTables()
+   |     |
+   |     +-- bg.c:824  obLoadBGFileBytesAtOffset(bgname, header[16], 0, 0x40)
+   |     |      ob.c:150/206  fileGetIndex(name) -> file_resource_table[] index
+   |     |                    romCopy(target, &fileentry->hw_address[offset], len)
+   |     |                    port_assets.c:123 romCopy = memcpy + range guard
+   |     |      GUARDED BY  `if (rom_size != 0)` -- rom_size is 0 for every bg
+   |     |                  file (see §3.2), so this call IS A silent NO-OP
+   |     |
+   |     +-- bg.c:829  ptr_bgdata_room_fileposition_list =
+   |     |                 BG_SEG_TO_PTR(ptr_bg_data, ((s32*)ptr_bg_data)[1])
+   |     +-- bg.c:832  size = ((room_fileposition_list[1].pPointTableBin & 0xffffff) - 1 | 0xf) + 1
+   |     +-- bg.c:833  ptr_bg_data = mempAllocBytesInBank(size, MEMPOOL_STAGE)
+   |     +-- bg.c:834  obLoadBGFileBytesAtOffset(bgname, ptr_bg_data, 0, size)
+   |     |
+   |     +-- bg.c:836  gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4) ----- STAN
+   |     |      ob.c:196  -> fileIndexLoadToBank(fileGetIndex(name), ...)
+   |     |      ob.c:233  GE_PORT_NATIVE shortcut: gePortObsegSize(hw)==0
+   |     |                => "this is native linked C data", return hw_address
+   |     |                   directly, skip allocate + inflate.  CORRECT for stan
+   |     +-- bg.c:838  stanDetermineEOF(gptr_stan, 0, gptr_stan)   stan.c:3097
+   |     +-- bg.c:839  stanLoadFile(gptr_stan)                     stan.c:476
+   |     |                 -> stanBuildRoomData()                  stan.c:246
+   |     |                    walks tiles by list_of_tilesizes[pointCount&0xf]
+   |     +-- setLevelScale / setDebugCameraScale / visibility
+   |     +-- bg.c:857+ portal + envdata offset->pointer promotion (BG_SEG_TO_PTR)
    |
-   +-- lv.c:518 init_load_objpos_table() initobjects.c:43 [real]
-   +-- lv.c:521 init_guards()
-   +-- lv.c:523 proplvreset2(stage) prop.c:1216 -------------- SETUP
-   | |
-   | +-- prop.c:1239 setup_text_pointers[stageId] STUB (NULL object)
-   | +-- prop.c:1253 synthesise "Usetup<lvl>Z" or "Ump_setup<lvl>Z"
-   | +-- prop.c:1266 g_ptrStageSetupFile =
-   | | _fileNameLoadToBank(name, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE)
-   | | -> same ob.c:233 native-data shortcut CORRECT for setup
-   | +-- prop.c:1269 langLoadToAddr(...)
-   | +-- prop.c:1275-1300 rebase all 10 stagesetup segment offsets
-   | | onto the RAM copy: (u32)base + (u32)field
-   | +-- prop.c:1303+ in-place offset->pointer promotion of
-   | | waypoint.neighbours, waygroup.neighbours/waypoints,
-   | | AIListRecord.ailist, PathRecord.waypoints, ...
-   | +-- object/prop instantiation (setupGetPtrToCommandByIndex, loadobjectmodel.c)
+   +-- lv.c:518  init_load_objpos_table()          initobjects.c:43   [real]
+   +-- lv.c:521  init_guards()
+   +-- lv.c:523  proplvreset2(stage)   prop.c:1216 -------------- SETUP
+   |     |
+   |     +-- prop.c:1239  setup_text_pointers[stageId]        STUB (NULL object)
+   |     +-- prop.c:1253  synthesise "Usetup<lvl>Z" or "Ump_setup<lvl>Z"
+   |     +-- prop.c:1266  g_ptrStageSetupFile =
+   |     |                  _fileNameLoadToBank(name, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE)
+   |     |                  -> same ob.c:233 native-data shortcut  CORRECT for setup
+   |     +-- prop.c:1269  langLoadToAddr(...)
+   |     +-- prop.c:1275-1300  rebase all 10 stagesetup segment offsets
+   |     |                     onto the RAM copy: (u32)base + (u32)field
+   |     +-- prop.c:1303+  in-place offset->pointer promotion of
+   |     |                 waypoint.neighbours, waygroup.neighbours/waypoints,
+   |     |                 AIListRecord.ailist, PathRecord.waypoints, ...
+   |     +-- object/prop instantiation (setupGetPtrToCommandByIndex, loadobjectmodel.c)
    |
-   +-- lv.c:530 init_path_table_links() initpathtablelinks.c (reads g_CurrentSetup)
-   +-- lv.c:546 bondviewLoadSetupIntroSection() bondview_r.c:75
+   +-- lv.c:530  init_path_table_links()   initpathtablelinks.c  (reads g_CurrentSetup)
+   +-- lv.c:546  bondviewLoadSetupIntroSection()  bondview_r.c:75
    |
-   v (per frame, once the level is running)
-bg.c:2252 bgLoadRoomVtxData(room, dst, len)
-bg.c:2299 bgLoadRoomPrimaryGdl(room, dst, allocsize)
-bg.c:2359 bgLoadRoomSecondaryGdl(room, dst, allocsize)
+   v   (per frame, once the level is running)
+bg.c:2252  bgLoadRoomVtxData(room, dst, len)
+bg.c:2299  bgLoadRoomPrimaryGdl(room, dst, allocsize)
+bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
       each: obLoadBGFileBytesAtOffset(bgname, scratch, fileoffset, size)
-            -> bgDecompress(scratch, dst) bg.c:2239 [1172 / DEFLATE]
-            -> texCopyGdls + texLoadFromGdl tex.c:779
+            -> bgDecompress(scratch, dst)      bg.c:2239   [1172 / DEFLATE]
+            -> texCopyGdls + texLoadFromGdl    tex.c:779
 ```
 
 ---
@@ -333,7 +333,7 @@ typedef struct sImageTableEntry { u32 index; u8 width, height, level, format, de
 POINTER. In the port it currently does:
 
 ```c
-*(uintptr_t *)updateword = (uintptr_t)osVirtualToPhysical(tex->data); /* image.c:2494 */
+*(uintptr_t *)updateword = (uintptr_t)osVirtualToPhysical(tex->data);   /* image.c:2494 */
 ```
 
 That is an **8-byte store into a 4-byte field**, which silently overwrites
@@ -357,8 +357,8 @@ a pointer and only wraps the offset. Used at bg.c:829, 859, 871, 881, 885.
 
 ### 4.6 Pointers held in 32-bit types on this path - VERIFIED
 
-- `bg.c:94 s32 ptr_bg_data;` - assigned a stack address and a `mempAllocBytesInBank` result
-- `bg.c:97 s32 gptr_stan;` - assigned `_fileNameLoadToBank(...)`
+- `bg.c:94  s32 ptr_bg_data;` - assigned a stack address and a `mempAllocBytesInBank` result
+- `bg.c:97  s32 gptr_stan;` - assigned `_fileNameLoadToBank(...)`
 - `bg.c:1838 s32 ptr_bgdata_offsets;`
 - `stan.c:3097` `delta`, and the `(s32)tile + ...` walk inside `stanDetermineEOF`
 - `bondview_r.c:328` `(s32)g_ptrStageSetupFile + (s32)intro_credits->unk04`

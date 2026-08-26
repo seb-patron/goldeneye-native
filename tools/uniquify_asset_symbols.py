@@ -109,10 +109,10 @@ def globals_of(rel):
 #
 # In the stan assets that is necessary and wrong. Every generated stan file opens with
 #
-#  StandTile Tbg_sev_all_p_stanZ_tile_0; <- under a "// forward declarations" comment
-#  StandFileHeader Tbg_sev_all_p_stanZ = { NULL, &..._tile_0, ... };
-#  StandTile Tbg_sev_all_p_stanZ_tile_0 = { ... };
-#  StandTile Tbg_sev_all_p_stanZ_tile_1 = { ... };
+#     StandTile Tbg_sev_all_p_stanZ_tile_0;      <- under a "// forward declarations" comment
+#     StandFileHeader Tbg_sev_all_p_stanZ = { NULL, &..._tile_0, ... };
+#     StandTile Tbg_sev_all_p_stanZ_tile_0 = { ... };
+#     StandTile Tbg_sev_all_p_stanZ_tile_1 = { ... };
 #
 # and the stan format requires the tiles to be one contiguous run in declaration order -- the
 # engine walks it by adding each tile's byte size and resolves links as base + (link << 3).

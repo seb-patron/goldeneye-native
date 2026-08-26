@@ -13,9 +13,9 @@
 # opening.
 #
 # On DAM, one binary, three launches at three frame budgets:
-#  frame 61 -> submitted=3831 drawn=2541
-#  frame 181 -> submitted=3814 drawn=2366
-#  frame 301 -> submitted=3389 drawn=2099
+#     frame  61 -> submitted=3831 drawn=2541
+#     frame 181 -> submitted=3814 drawn=2366
+#     frame 301 -> submitted=3389 drawn=2099
 # Those are the same three values a wall-clock run reports as a 3389-3831 spread across
 # launches: one run, three different instants.
 #
@@ -36,8 +36,8 @@
 # as the counter columns.
 #
 # USAGE
-#  export GETV_SLOT=sweep3 GETV_SIM="GETV-sweep3"
-#  GETV_EXIT_FRAME=181 getv/tools/level_sweep_fixedframe.sh 33 34 35
+#   export GETV_SLOT=sweep3 GETV_SIM="GETV-sweep3"
+#   GETV_EXIT_FRAME=181 getv/tools/level_sweep_fixedframe.sh 33 34 35
 # Writes the same results.tsv schema level_sweep.sh does, so sweep_aggregate.py consumes
 # either without knowing which produced it.
 set -uo pipefail
@@ -94,7 +94,7 @@ fi
 RESULTS="$OUT/results.tsv"
 printf 'id\tname\tstage_load\tframe_loop\tgfx_tasks\ttris_sub\ttris_drawn\tframes\tcoverage\tuniq\ttop1share\toutcome\tfault_pc\tfault_addr\tlast_mark\n' > "$RESULTS"
 
-# Identical to level_sweep.sh's: both sweeps must go through the same
+# Identical to level_sweep.sh's, deliberately: both sweeps must go through the same
 # pixel counter or a coverage comparison between them is meaningless.
 # `arch -arm64` is necessary. This Mac's shell is x86_64 under Rosetta,
 # /usr/bin/python3 inherits the parent's architecture, and the installed PIL is
@@ -208,7 +208,7 @@ parse_one() {
     "$([ "$fault_pc" != - ] && echo "@ $fault_pc" || echo "mark=$last_mark")"
 }
 
-# `reparse` rebuilds results.tsv from the .log/.png files already in $out without
+# `reparse` rebuilds results.tsv from the .log/.png files already in $OUT without
 # launching anything.
 # This is not optional polish. results.tsv is truncated at the top of every invocation,
 # so re-running one level into an existing output directory silently destroys every other

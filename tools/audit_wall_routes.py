@@ -89,7 +89,7 @@ def wall_segments(w):
                 if isinstance(p, (list, tuple)) and isinstance(q, (list, tuple)):
                     segs.append((float(p[0]), float(p[-1]), float(q[0]), float(q[-1]), yv))
         elif isinstance(s, (list, tuple)) and len(s) >= 4:
-            # the fifth element is the floor height, and dropping it makes this audit meaningless.
+            # the fifth element IS the floor height, and dropping IT makes this audit meaningless.
             #
             # gen_level_walls.py emits [x1, z1, x2, z2, y]. The first version of this file sliced
             # s[:4] and tested in plan view, which lets a wall on one deck block a link on another.
@@ -150,7 +150,7 @@ def main():
                 # running above or below it is not obstructed by it. Without this the audit reports
                 # a multi-storey level as almost entirely walled -- see the note in wall_segments.
                 #
-                # The band is generous: a waypoint's y is a PAD height and a wall's y is
+                # The band is generous on purpose: a waypoint's y is a PAD height and a wall's y is
                 # a FLOOR height, and those differ by the body-to-floor offset, which this project
                 # has already measured at 12-202 units depending on the level. A tight band would
                 # reject real crossings; this only has to separate DECKS, which are much further

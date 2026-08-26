@@ -98,7 +98,7 @@ def main():
         if w % 5 == 0 and personalities:
             special = personalities[(w // 5 - 1) % len(personalities)]["name"]
 
-        # the stride must be coprime with the point count or waves reuse doors on A short cycle.
+        # the stride must BE coprime with the point count OR waves reuse doors ON A short cycle.
         # A fixed stride of 3 into 12 points shares a factor of 3, so it reaches only 4 of the 12
         # starting offsets: waves 1, 5, 9, 13 and 17 all opened at the same tile, and waves 2, 6,
         # 10, 14, 18 at another. That is learnable by the third repeat, which throws away most of

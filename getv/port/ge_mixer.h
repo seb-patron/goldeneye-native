@@ -74,7 +74,7 @@ void aPoleFilterImpl(uint8_t flags, int16_t gain, void *state);
 #define aPoleFilter(pkt, f, g, s)  aPoleFilterImpl(f, g, (void *)(s))
 
 /* ------------------------------------------------------------ env.c guards --
- * Rare's own build kept asserts enabled in env.c and nowhere else in
+ * Rare's own build deliberately kept asserts enabled in env.c and nowhere else in
  * audio: `src/libultrare/Makefile.libultrare:353-354` reads
  *
  *     # assert is used in env.c
@@ -97,7 +97,7 @@ int  geEnvSamplesGuard(int samples, int maxsamples);
 int  geEnvSourceGuard(const void *source);
 
 /* A_PAN is declared by the ABI but no GoldenEye code path emits it. Left undefined
- *: a call site would then fail to COMPILE rather than silently do
+ * on purpose: a call site would then fail to COMPILE rather than silently do
  * nothing at runtime. */
 
 #endif /* GE_MIXER_H */

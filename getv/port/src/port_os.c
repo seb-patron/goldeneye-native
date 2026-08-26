@@ -144,7 +144,7 @@ s32 osRecvMesg(OSMesgQueue *mq, OSMesg *msg, s32 flag)
          * boundary, so the honest translation of "wait for retrace" is "the retrace
          * just happened" -- synthesise it and return.
          *
-         * Scoped to the one registered queue: a blocking receive on any
+         * Scoped deliberately to the one registered queue: a blocking receive on any
          * other queue still reports empty, because inventing messages for queues whose
          * contents the caller inspects would substitute silent wrong behaviour for a
          * visible failure. */
@@ -200,7 +200,7 @@ u64 osClockRate = 46875000;
  *    motion. It also makes `speedgraphframes` load-dependent, so every physics
  *    integrator's step count varies between runs and no gameplay frame is comparable
  *    across runs. That breaks the reproducibility this project relies on
- *    (PORTING_PLAYBOOK.md §2.10), and that is why it is opt-in.
+ *    (PORTING_PLAYBOOK.md §2.10), which is why it is opt-in.
  *
  * Both deltas stay separate either way. This function feeds `speedgraphframes`, the
  * presentation counter; `g_ClockTimer` is derived from it in `lv.c:1040-1047` and is
@@ -356,7 +356,7 @@ static int geDualAnalog(void)
  * uses. PLAYER_1 is N64 port 0, and in a 2.x style port 0 is the look pad, so menu
  * navigation would answer only to the right stick.
  *
- * The fix is to or both physical sticks onto port 0 while the front-end is up. It has
+ * The fix is to OR both physical sticks onto port 0 while the front-end is up. It has
  * to be conditional: doing it in-game would make walking forward also pitch the
  * camera, because port 0's Y is the look axis there.
  *
@@ -380,7 +380,7 @@ static int geInFrontEnd(void)
 
     /* MENU_INVALID (-1) means "in-game", not "in a menu". On a GETV_STAGE direct boot
      * the front-end state machine never runs at all and `current_menu` stays at its
-     * initial -1 for the whole session. Treating that as "front-end" would or the two
+     * initial -1 for the whole session. Treating that as "front-end" would OR the two
      * sticks together during gameplay -- walking forward would also pitch the camera --
      * and would leave port 1 permanently unreported, so the move stick would be dead.
      * Only states 0..N that the machine actually reaches are menus. */
@@ -732,7 +732,7 @@ s32 osContStartReadData(OSMesgQueue *mq)
  * reaches full deflection at the rail, and the largest single-count step is 1.
  * Endpoints are unchanged at +-80.
  *
- * per-axis rather than radial. The N64 stick's gate is
+ * Deliberately per-axis rather than radial. The N64 stick's gate is
  * square-cornered-octagonal and the game clamps each axis independently
  * (bondview2.c tests `stick_x > 60` and `stick_y > 60` separately), so an axial
  * deadzone is closer to what the code was written against than a circular one.
@@ -764,7 +764,7 @@ static s8 geStick(int v)
      * unchanged from the value below, so leaving the key unset is a no-op.
      * This is the port's deadzone on the raw SDL axis. It is not the game's own
      * aim +-60 / walk +-5 thresholds (bondview2.c:4892-4908, :5330-5364), which are
-     * applied downstream in N64 counts and are left alone. */
+     * applied downstream in N64 counts and are deliberately left alone. */
     {
         static int dz = -1;
         if (dz < 0) {
@@ -901,7 +901,7 @@ static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pa
      * nothing reaching the N64's L/R, a modern pad could not aim from a trigger at all
      * in the single-controller styles, only from the shoulders. Honey/Solitaire take
      * aim from `L_TRIG|R_TRIG` (bondview2.c:5196-5210), so binding aim there is what
-     * makes LT-aims work. The physical shoulders still map to L/R as well; the or is
+     * makes LT-aims work. The physical shoulders still map to L/R as well; the OR is
      * harmless. */
     if (geHeld(st, port, GE_ACT_AIM)) { b |= CONT_L | CONT_R; }
 
@@ -1051,7 +1051,7 @@ void osContGetReadData(OSContPad *pad)
         }
 
         if (i >= live || !st.present) {
-            /* errno 0 = "present but idle", not NO_RESPONSE, for a port we are
+            /* errno 0 = "present but idle", NOT NO_RESPONSE, for a port we are
              * CLAIMING (i < live) whose device has not enumerated yet: joy.c calls
              * joyCheckStatus() on any errno-changed edge, so flapping this would
              * thrash it every frame until a pad appears. A port beyond `live` is
@@ -1150,7 +1150,7 @@ void gePortCreateHarnessQueues(void)
  *      can advance to the next frame. Without this it spins forever.
  *   2. (later) hand firstGdl..gdl to Fast3D.
  *
- * Rendering is not wired up in this step. GoldenEye's display lists are
+ * Rendering is deliberately not wired up in this step. GoldenEye's display lists are
  * built for its own gsp3D microcode, and Fast3D's F3D parser has not been proven
  * against them yet; doing both at once would make a crash ambiguous between "the loop
  * still does not close" and "the display list is not F3D enough". Close the loop first.
@@ -1175,7 +1175,7 @@ void gePortSubmitGfxTask(void *firstGdl, void *gdl, OSMesgQueue *replyQ, OSMesg 
     frames++;
 
     /* Hand the display list to Fast3D. firstGdl..gdl is exactly what the RSP would have
-     * executed. See port_render.c -- the include worlds are kept apart. */
+     * executed. See port_render.c -- the include worlds are kept apart on purpose. */
     { extern void gePortRenderDisplayList(void *firstGdl); gePortRenderDisplayList(firstGdl); }
 
     /* Reply exactly as the scheduler would: the message the caller supplied, to the

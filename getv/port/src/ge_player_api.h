@@ -10,15 +10,15 @@
  * Through GoldenEye's own demo-playback hook, joySetPlaybackFunc() (src/joy.c:360), not through
  * the port's device layer. That choice is necessary:
  *
- *   - it runs on the game thread, exactly once per frame, from joyConsumeSamplesWrapper()
+ *   - it runs ON the game thread, exactly once per frame, from joyConsumeSamplesWrapper()
  *     (joy.c:412 <- boss.c:594). The port's own GETV_SCRIPT path injects into GePadState, which
  *     is filled by osContGetReadData on the RETRACE thread at field rate -- the wrong clock for
  *     one action per simulation step.
- *   - it fills all FOUR pads in a single call, which is the "one tick authority" multiplayer
+ *   - it fills ALL FOUR pads in a single call, which is the "one tick authority" multiplayer
  *     needs: every slot is decided together or not at all.
  *   - it bypasses the connected-controller check entirely. Every joy.c accessor guards on
  *     `(playbackcontcount < 0) && !(g_ConnectedControllers >> n & 1)`; with playback active the
- *     hardware check is skipped, so injected pads work with no controllers attached.
+ *     hardware check is skipped, so injected pads work with NO controllers attached.
  *   - joyGetControllerCount() then returns the injected count (joy.c:277-280), which is what
  *     front.c:4842 uses to default the player count, so the rest of the game agrees.
  *   - rumble is a no-op while playback is installed (joy.c:819-833), so injection cannot trip
@@ -26,7 +26,7 @@
  *   - menus, pause, character select and gameplay all read through g_ContDataPtr, so there is
  *     no path that sees a different pad.
  *
- * And it needs no change to the decompilation: joySetPlaybackFunc is a public function and this
+ * And it needs NO change to the decompilation: joySetPlaybackFunc is a public function and this
  * file simply calls it.
  *
  * ---------------------------------------------------------------- mixing
@@ -91,7 +91,7 @@ extern "C" {
 
 typedef struct GePlayerInput {
     unsigned int buttons;   /* GE_IN_* */
-    /* N64 stick counts, -80..80. not SDL units: full SDL deflection is about +-127 against the
+    /* N64 stick counts, -80..80. NOT SDL units: full SDL deflection is about +-127 against the
      * N64's practical +-84, and the game's deadzones are SUBTRACTED rather than clamped (walk
      * and turn +-5, aim mode +-60), so a caller writing raw SDL magnitudes is outside the range
      * every tuned constant assumes. Values are clamped here. */
@@ -151,7 +151,7 @@ unsigned int gePlayerSeedFingerprint(void);
 
 /* ---------------------------------------------------------------- state readout
  *
- * a flags word rather than a struct full of zeroes. Health, armour, angle, weapon
+ * Deliberately a flags word rather than a struct full of zeroes. Health, armour, angle, weapon
  * and ammo need accessors that can only be written where `struct player` is visible -- inside
  * the decompilation -- and that is a coordinated change with the other machine. Until it lands,
  * a caller must be able to tell "this field is not available in this build" from "this field is
@@ -225,7 +225,7 @@ int gePlayerSlotIsDrivable(int slot);
  *
  * Exists for the contact detector: "stuck" means told to move and did not, and without the first
  * half an idle bot reports itself jammed. The port knows this and nothing else does -- a mod can
- * see where a player is but not what was asked of it. */
+ * see where a player IS but not what was asked of it. */
 int gePlayerCommandedMove(int slot);
 
 /* ---------------------------------------------------------------- lifecycle */

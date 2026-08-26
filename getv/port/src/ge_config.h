@@ -21,7 +21,7 @@ extern "C" {
  * error). */
 int geConfigInit(int argc, char **argv);
 
-/* Non-static: `nm <binary> | grep ge_config_loaded` is the build-integrity
+/* Non-static on purpose: `nm <binary> | grep ge_config_loaded` is the build-integrity
  * proof that a port-layer rebuild actually landed, the same way gfx_sdl2.c's
  * ge_pace_framerate is used. 0 = no file found, 1 = a file was read. */
 extern int ge_config_loaded;

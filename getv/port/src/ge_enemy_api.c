@@ -174,7 +174,7 @@ int geEnemyThreatAt(float x, float y, float z, float radius)
         if (!e.alive)                    { continue; }
         if (!(e.fields & GE_EN_BELIEF))  { continue; }   /* no belief, no opinion about this spot */
 
-        /* not filtered on alertness. An enemy heading to where it last saw someone
+        /* Deliberately NOT filtered on alertness. An enemy heading to where it last saw someone
          * is a threat to that spot whether or not it is currently alert -- alertness describes its
          * state now, the belief describes where it is going. Filtering on alertness here would
          * hide exactly the guard that is about to arrive. */

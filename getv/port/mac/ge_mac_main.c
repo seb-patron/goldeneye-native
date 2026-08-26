@@ -5,7 +5,7 @@
  * SDL_main() and is shared verbatim with this build.
  *
  * On macOS there is no UIApplicationMain to get in the way, so all that is needed is a
- * plain main() that forwards. This lives in its own translation unit: <SDL.h>
+ * plain main() that forwards. This lives in its own translation unit on purpose: <SDL.h>
  * #defines main to SDL_main, so a file that includes it cannot also define the real
  * main(). Declaring SDL_main by hand and never including SDL.h avoids that.
  *
@@ -35,7 +35,7 @@ extern int gePortLauncherRun(int argc, char **argv);
 #if defined(_WIN32)
 /* SDL on Windows defines SDL_MAIN_NEEDED, which means SDL_Init() refuses to run unless
  * either SDL2main supplied the entry point or the application says it has done the setup
- * itself. This file provides the real main() and does not link SDL2main -- two
+ * itself. This file deliberately provides the real main() and does not link SDL2main -- two
  * definitions of main would collide -- so SDL has to be told. Declared by hand for the same
  * reason SDL_main is: including <SDL.h> here would #define main to SDL_main and there would
  * be no real main() left.

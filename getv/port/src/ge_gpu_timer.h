@@ -1,7 +1,7 @@
 /* GPU-side frame timing, to answer one question the CPU profiler cannot.
  *
- * the QUESTION. At steady state this port spends 0.7 ms/frame in the render pipeline and 1.6-3.3
- * ms of CPU per frame, against a 7-16 ms frame. Five to eight milliseconds of every frame has no
+ * THE QUESTION. At steady state this port spends 0.7 ms/frame in the render pipeline and 1.6-3.3
+ * ms of CPU per frame, against a 7-16 ms frame. Five to eight milliseconds of every frame has NO
  * CPU ATTACHED and is not vsync, not the frame cap, not fill rate and not stdout -- all of those
  * were measured and excluded (docs/PERFORMANCE.md). Two explanations remain and they are opposite:
  *
@@ -11,10 +11,10 @@
  * From outside the process these look identical: neither burns CPU in our thread. A GPU timer
  * separates them, and nothing else available here does.
  *
- * The measurement must not perturb what it measures. Reading a query result with
+ * The measurement must not perturb what IT measures. Reading a query result with
  * GL_QUERY_RESULT blocks until the GPU has finished, which inserts exactly the pipeline stall this
  * code exists to detect -- it would report a busy GPU no matter what was true, and it would be
- * self-fulfilling. Results are therefore read several frames late and only after
+ * Self-fulfilling. Results are therefore read several frames late and only after
  * GL_QUERY_RESULT_AVAILABLE says so. If a result is not ready, it is skipped rather than waited
  * for.
  *
@@ -24,7 +24,7 @@
 #ifndef GE_GPU_TIMER_H
 #define GE_GPU_TIMER_H
 
-/* Is the timer switched on and usable? False when GETV_GPUTIME is unset, when the driver lacks
+/* Is the timer switched on AND usable? False when GETV_GPUTIME is unset, when the driver lacks
  * ARB_timer_query, or after the queries failed to allocate. Callers check this rather than
  * tracking the reason themselves. */
 int  geGpuTimerEnabled(void);
@@ -35,7 +35,7 @@ void geGpuTimerFrameBegin(void);
 void geGpuTimerFrameEnd(void);
 
 /* CPU wall time spent inside the present, in milliseconds, recorded by the caller that brackets
- * it. Kept separate from the GPU figure: "the GPU was busy 6 ms" and "we sat in
+ * it. Kept separate from the GPU figure on purpose: "the GPU was busy 6 ms" and "we sat in
  * SwapWindow for 6 ms" are the two answers being told apart, and averaging them into one number
  * would destroy the distinction. */
 void geGpuTimerRecordSwap(double ms);

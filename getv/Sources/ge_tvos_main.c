@@ -44,7 +44,7 @@
 #include <SDL.h>
 
 // Fast3D's headers use Gfx (the N64 display-list command), which comes from the
-// decomp's own GBI. port/include exposes PR/ via a symlink, not the
+// decomp's own GBI. port/include exposes PR/ via a symlink, deliberately not the
 // whole of the decomp's include/, whose math.h/string.h/stdlib.h/stddef.h shadow
 // the system headers.
 #include <PR/gbi.h>
@@ -177,7 +177,7 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
         {
             int i;
 
-            /* The same x0-x28 window as the Darwin branch: the two dumps
+            /* The same x0-x28 window as the Darwin branch, deliberately: the two dumps
              * have to be diffable when one fault is reproduced on both hosts. x29/x30
              * come out below as fp/lr rather than as numbered registers. */
             printf("[getv] regs:");
@@ -233,7 +233,7 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
  * CONTEXT rather than a ucontext_t.
  *
  * dbghelp does the symbolisation that dladdr does elsewhere. SymInitialize is called at
- * fault time rather than at startup: it loads and parses symbol files, which is
+ * fault time rather than at startup on purpose: it loads and parses symbol files, which is
  * work this process should not do on every launch to serve a case that normally never
  * happens. The risk of initialising inside a fault is accepted for the same reason the
  * POSIX side calls printf there -- a best-effort report beats a silent exit, and this

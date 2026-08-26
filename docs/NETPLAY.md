@@ -1,7 +1,7 @@
 # Netplay
 
 The goal: four or more people, each on their own machine, each full-screen, playing each other
-over a WAN -- plus bots, in any mix, including nobody at all and two bots playing while you
+over a WAN --  plus bots, in any mix, including nobody at all and two bots playing while you
 watch.
 
 ## The seam already exists
@@ -37,7 +37,7 @@ you cannot.
 ## Input delay, not rollback
 
 Every machine acts on input captured a few ticks ago, which is what buys the network time to
-deliver it. Default is 3 ticks -- 50ms at 60Hz, which covers most domestic links.
+deliver it. Default is 3 ticks --  50ms at 60Hz, which covers most domestic links.
 
 Rollback hides more latency and would need full save/restore of game state on every mispredict.
 That is a far larger change, and not worth reaching for before measuring. The `inputs_late`
@@ -47,11 +47,11 @@ link, which is a tunable rather than a bug.
 ## Where the four-slot cap bites
 
 The game has exactly four player slots. "Four players **and** four bots" is not reachable through
-the input seam -- the slots are full.
+the input seam --  the slots are full.
 
 That is what `ge_bot_ai.c` is for. Those bots are **characters**, not players: AI-list bytecode
-driving a `chr`, the same entity every campaign guard is. The two paths compose -- four humans in
-the slots, plus AI-driven characters beyond them -- and they are genuinely different mechanisms
+driving a `chr`, the same entity every campaign guard is. The two paths compose --  four humans in
+the slots, plus AI-driven characters beyond them --  and they are genuinely different mechanisms
 rather than two ways of doing one thing. See `docs/BOTS.md`.
 
 A bot slot is treated as ready without waiting for the network, because it is simulated
@@ -61,14 +61,14 @@ frame-rate-dependent decisions.
 
 ## What is built
 
-- `ge_net.h` / `ge_net.c` -- the session: input ring per slot, publish-with-delay, stall until
+- `ge_net.h` / `ge_net.c` --  the session: input ring per slot, publish-with-delay, stall until
   every acting slot has input for the tick, fingerprint exchange, and counters for stalls, late
   inputs and desyncs.
-- The transport is **not** in there. Knowing when a tick is ready, when to stall and
+- The transport is deliberately **not** in there. Knowing when a tick is ready, when to stall and
   when the machines have diverged is not a socket concern, and keeping it out means the hard part
-  is testable with no I/O at all -- `geNetDeliver()` takes a datagram directly.
+  is testable with no I/O at all --  `geNetDeliver()` takes a datagram directly.
 
-- `ge_net_udp.c` -- the socket half, plus the handshake that has to happen first: a host binds a
+- `ge_net_udp.c` --  the socket half, plus the handshake that has to happen first: a host binds a
   port and assigns slots, joiners send JOIN until an ASSIGN lands (a single join packet is exactly
   the thing UDP loses). Handshake traffic is consumed in the transport so the session layer never
   learns a session had to be negotiated.
@@ -80,7 +80,7 @@ Everything on the wire counts from **zero at session open**, not from `gePlayerT
 This was a real flaw, caught while writing the transport. The game tick is per-machine: two
 players who joined a minute apart are thousands of ticks apart, so "tick 900" would mean
 different moments on each machine and the session would compare inputs that were never meant to
-line up. It would have presented as a desync while being purely a setup bug -- the worst kind to
+line up. It would have presented as a desync while being purely a setup bug --  the worst kind to
 debug, because the fingerprint check would fire and point at the simulation rather than at the
 handshake.
 
@@ -90,29 +90,29 @@ Nothing else in either file needs to know.
 ## What is not built
 
 1. **Full-screen per machine.** GoldenEye multiplayer is split-screen: one machine, N viewports,
-   all players local. Rendering a single viewport is the easy half -- the renderer already does
+   all players local. Rendering a single viewport is the easy half --  the renderer already does
    per-player viewports. The real work is that game logic assumes every player is local.
-2. **Cross-architecture float agreement** -- see the audit below. This is the one real
+2. **Cross-architecture float agreement** --  see the audit below. This is the one real
    determinism risk left, and it is not something static analysis can settle.
 3. **A live discovery source.** `ge_discovery.c` exists and parses a session description into
    slots and endpoints, but the only source is the static one. A Nakama source is a small adapter
-   returning 0 while its request is in flight -- see below.
+   returning 0 while its request is in flight --  see below.
 
 Item 1 is now the largest, and decides whether this is playable rather than merely synchronised.
 
-### Mesh topology -- already built, in the transports, and this document said otherwise
+### Mesh topology --  already built, in the transports, and this document said otherwise
 
 The "not built" entry above was **stale**, and badly so. Both transports build a full mesh already:
 
-- `ge_net_udp.c` -- `GE_NET_MSG_PEERS`, `ge_udp_send_table`. Its header comment has said
+- `ge_net_udp.c` --  `GE_NET_MSG_PEERS`, `ge_udp_send_table`. Its header comment has said
   **"full mesh, not A star"** the whole time.
-- `ge_net_enet.c` -- `GE_MSG_PEERS`, `ge_en_send_table`, `ge_en_handle_peers`, including a
+- `ge_net_enet.c` --  `GE_MSG_PEERS`, `ge_en_send_table`, `ge_en_handle_peers`, including a
   *"only the lower slot dials"* rule so a pair does not end up with two connections.
 
 Anyone reading this file and believing it would build a second one. That is what happened: the
 session-level roster below was written against this document rather than against the code.
 
-### The session-level roster -- written, then removed
+### The session-level roster --  written, then removed
 
 A `GE_NET_MSG_ASSIGN` roster was added at the session layer, with opaque addresses and a `connect`
 callback on `GeNetTransport`. It has been **reverted**, and the reasoning is worth keeping so
@@ -120,7 +120,7 @@ nobody adds it again from this document.
 
 It duplicated the transports for the mesh purpose and had no consumer: neither transport supplied a
 `connect` callback, which was the only reason the two mechanisms never fought. The one thing it
-appeared to add -- a bot slot -- turned out to exist already, since `GE_NET_SLOT_BOT` has been in
+appeared to add --  a bot slot --  turned out to exist already, since `GE_NET_SLOT_BOT` has been in
 `GeNetSlotKind` all along.
 
 Two ways to do one job is what this file elsewhere calls worse than none, and dead machinery that
@@ -133,7 +133,7 @@ Three decisions in it are worth not undoing:
 
 **Addresses are opaque to the session layer.** A `GeNetPeerInfo` carries a length and a blob that
 `ge_net.c` never parses. An IPv4 `sockaddr`, an IPv6 one and an `ENetAddress` are different shapes,
-and a session that knew the difference would need changing to gain a transport -- which is the same
+and a session that knew the difference would need changing to gain a transport --  which is the same
 reason `GeNetTransport` exists at all.
 
 **One roster is broadcast verbatim, and "local" is patched on arrival.** The roster says `REMOTE`
@@ -143,7 +143,7 @@ slot is ours is forced `LOCAL` in `ge_net_apply_roster`. Sending a tailored rost
 would remove the special case and cost more: N messages to keep consistent, and a class of bug
 where two machines disagree because they were told different things.
 
-**A failed dial is named, not fatal.** Half a mesh still plays -- the slots that connected run, and
+**A failed dial is named, not fatal.** Half a mesh still plays --  the slots that connected run, and
 the one that did not appears as a stall on a numbered slot, which is findable. Aborting would turn
 one bad link into no game and no explanation.
 
@@ -159,7 +159,7 @@ should and should not be used for.
 
 | project | licence | what it does | verdict |
 | --- | --- | --- | --- |
-| [ENet](https://github.com/lsalzman/enet) | MIT | reliable UDP in pure C | **adopt** -- replaces our transport |
+| [ENet](https://github.com/lsalzman/enet) | MIT | reliable UDP in pure C | **adopt** --  replaces our transport |
 | [GGPO](https://github.com/pond3r/ggpo) | MIT | rollback netcode | later, only if input delay proves insufficient |
 | [Nakama](https://github.com/heroiclabs/nakama) | Apache 2.0 | lobbies, matchmaking, accounts, chat | **adopt for discovery** |
 | [Colyseus](https://docs.colyseus.io/) | MIT | authoritative room server (Node) | lighter alternative to Nakama |
@@ -185,21 +185,21 @@ Routing sixty-hertz input through a server adds a hop to the one thing that must
 the input delay, and turns every player's latency into the sum of two links instead of one. The
 division is:
 
-- **server** -- who is playing, which stage, which slot, and each other's addresses
-- **peers** -- every tick of input, directly, over ENet
+- **server** --  who is playing, which stage, which slot, and each other's addresses
+- **peers** --  every tick of input, directly, over ENet
 
 That also keeps the server off the critical path entirely: if it goes down mid-match, the match
 carries on, because nothing in a running session depends on it.
 
-**GGPO is not adopted yet.** Rollback hides more latency than input delay, but needs
-full save/restore of game state on every mispredict -- a far larger change. Input delay is
+**GGPO is deliberately not adopted yet.** Rollback hides more latency than input delay, but needs
+full save/restore of game state on every mispredict --  a far larger change. Input delay is
 measurable first (`inputs_late` exists for exactly that), and rollback is the answer only if the
 measurement says so.
 
 ## Disconnection: why the obvious fixes fail, and what works
 
 A peer vanishing is not a transport problem. ENet reports the disconnection and `ge_net_enet.c`
-frees the slot -- but **freeing it on local detection makes the survivors diverge from each
+frees the slot --  but **freeing it on local detection makes the survivors diverge from each
 other**, which is the failure the handling was meant to prevent.
 
 The model reproduces it. A departing machine's last packets do not stop everywhere at once: they
@@ -208,11 +208,11 @@ the other, and if each drops the slot when *it* notices, they simulate those tic
 input sets:
 
 ```
-tick 41: slot 0 applied {0: 47542, 1: 55461, 2: 63380}
+tick 41:  slot 0 applied {0: 47542, 1: 55461, 2: 63380}
           slot 1 applied {0: 47542, 1: 55461}
 ```
 
-The obvious fix -- agree a drop tick, apply it everywhere -- **does not work as first written**, and
+The obvious fix --  agree a drop tick, apply it everywhere --  **does not work as first written**, and
 the tick counts say so: 181 ticks progressed on local detection against 41 with the "fix". It
 agrees because it stops.
 
@@ -233,7 +233,7 @@ departed slot, they all converge on the same set, all become able to reach the s
 drop set just past it is reachable by every one of them.
 
 1. On noticing a departure, each survivor **relays** the inputs it still holds for that slot.
-   Bounded -- once, over the ring.
+   Bounded --  once, over the ring.
 2. After the relays settle, the **lowest surviving slot** names the drop tick. A rule every
    machine computes identically, so two of them cannot announce different ticks for the same peer.
 3. The tick is exactly **highest-held + 1**, and everyone applies it there.
@@ -241,7 +241,7 @@ drop set just past it is reachable by every one of them.
 That `+ 1` is exact, and reading it off the current tick instead is a trap worth naming: it puts
 the drop one tick beyond reach, because a machine stalled at T is told to drop at T+1, which it
 can only get to by simulating T, which needs the very input nobody has. It presents as a session
-that agrees perfectly and stops dead -- 43 ticks, zero disagreements, looking entirely healthy.
+that agrees perfectly and stops dead --  43 ticks, zero disagreements, looking entirely healthy.
 
 Measured across the three behaviours:
 
@@ -258,7 +258,7 @@ than freeing the slot itself.
 
 `tools/determinism_audit.py` scans the simulation and port sources for the things that break
 lockstep: wall-clock reads, host RNG, frame-delta logic, threads, float-mode flags. It classifies
-every hit by **where it lives**, because that is the distinction that matters -- a clock read in
+every hit by **where it lives**, because that is the distinction that matters --  a clock read in
 the mixer or the renderer is fine, since two machines may render at different rates all day
 without disagreeing about where anybody is standing. The same call inside movement or AI is
 fatal.
@@ -271,13 +271,13 @@ the wall clock nor a host random source.
 Two things were then verified by reading rather than trusting the scan:
 
 - **The RNG is the game's own.** `port_random.c` is a faithful transcription of the N64's
-  `random.s` -- a 64-bit PRNG with a hardcoded seed, not `rand()`. It is deterministic and
+  `random.s` --  a 64-bit PRNG with a hardcoded seed, not `rand()`. It is deterministic and
   reproducible across machines by construction.
 - **The fingerprint watches exactly that.** `gePlayerSeedFingerprint()` returns the low 32 bits of
   `g_randomSeed`, so the desync check is reading the single value that best summarises whether
   two simulations have diverged.
 
-Every wall-clock hit outside presentation code turned out to be diagnostics -- the one in
+Every wall-clock hit outside presentation code turned out to be diagnostics --  the one in
 `port_input.c` is a rate limiter that prints controller-detection output at most eight times.
 
 So the simulation is structurally suited to lockstep, which is a significant de-risking of
@@ -287,7 +287,7 @@ everything above.
 
 **Floating point across architectures.** The game is full of `f32` math, and a static scan cannot
 prove that an ARM Mac and an x86 PC produce bit-identical results from it. Same-architecture play
-is low risk; Mac-versus-Windows cross-play is not, and no amount of reading will settle it -- it
+is low risk; Mac-versus-Windows cross-play is not, and no amount of reading will settle it --  it
 needs two machines running the same session and comparing fingerprints.
 
 That is worth knowing before anyone assumes cross-platform WAN play is free. The fingerprint
@@ -297,12 +297,12 @@ exchange will detect it immediately if it happens, which is the right place to f
 
 `tools/netsim.py` is the specification, so the transport has a concrete target rather than a
 vague one: run it against the model's 20% and 40% loss scenarios and require **progress**, not
-merely agreement. Agreement is easy -- a session that stalls forever agrees perfectly.
+merely agreement. Agreement is easy --  a session that stalls forever agrees perfectly.
 
 ## Build status
 
 This was written in a session where compilation could not run: every compiler invocation exits 1
 with no diagnostics on either stream, including `-fsyntax-only` on a trivially valid file. A good
-file and a broken one fail identically, so the exit code carries no information
+file and a deliberately broken one fail identically, so the exit code carries no information
 about the code. **`ge_net.c` and `ge_bot_ai.c` are therefore unverified against a compiler** and
 should be built before being trusted.

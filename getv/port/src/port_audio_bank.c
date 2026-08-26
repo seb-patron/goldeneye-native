@@ -6,7 +6,7 @@
  * ALWaveTable / ALEnvelope / ALKeyMap / ALADPCMloop / ALADPCMBook records in which
  * every pointer field is stored as a 32-bit BIG-ENDIAN offset from the start of the
  * file. On the N64 the structs overlay the file bytes exactly, so alBnkfNew() just
- * walks the tree adding the load address to each slot in PLACE.
+ * walks the tree adding the load address to each slot IN PLACE.
  *
  * Neither half of that survives at 64-bit little-endian:
  *   - the slots are 4 bytes and a native pointer is 8, so an in-place patch writes
@@ -506,7 +506,7 @@ static ALBank *geConvBank(struct geBankCtx *c, u32 off)
  * sizes music.c derived from the gaps between consecutive segment starts.
  *
  * Returns a native ALBankFile, or NULL. The storage is malloc'd rather than taken
- * from g_musicHeap: the native tree is roughly 3x the file (8-byte
+ * from g_musicHeap on purpose: the native tree is roughly 3x the file (8-byte
  * pointers plus the alignment of each record), and MUSIC_ALLOCATION_BYTES is a fixed
  * 0x2E000 that also has to cover the synth's voices, the FX delay lines and the
  * three sequence buffers. Growing it to fit two converted banks would be a bigger

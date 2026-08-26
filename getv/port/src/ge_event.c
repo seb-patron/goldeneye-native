@@ -1,10 +1,10 @@
 /* Event bus and the derived emitters. See ge_event.h for what is derived and what is not.
  *
- * The derivation is conservative. Every emitter here answers a question the port
+ * The derivation is deliberately conservative. Every emitter here answers a question the port
  * can already answer honestly, and none of them guesses at something only the game knows. A
  * derived "player gone" is the slot no longer reporting a position -- that covers death, but it
  * also covers a level transition and a frame where the pointer is momentarily unset, so it is
- * named gone rather than died. Naming it died would be a claim the data does not support, and a
+ * Named gone rather than died. Naming it died would be a claim the data does not support, and a
  * learning agent scoring deaths off it would be scoring level loads too.
  *
  *   GETV_EVENT_TRACE=1   log every event as it fires
@@ -131,8 +131,8 @@ void gePortEventFrame(int frame)
      * during a live session -- it reports that two machines disagree, never how long they agreed
      * or where they parted.
      *
-     * The long-RUN test needs no second machine. Two peers fed identical inputs are, for the
-     * determinism question, the same thing as one binary run twice. Delivering identical inputs is
+     * The long-RUN test needs NO second machine. Two peers fed identical inputs are, for the
+     * determinism question, the same thing as ONE binary run twice. Delivering identical inputs is
      * the network's job and netsim.py already models it; whether the simulation is reproducible
      * GIVEN them is a separate property, and nothing tested it.
      *
@@ -140,9 +140,9 @@ void gePortEventFrame(int frame)
      * inputs; it says nothing about whether the transport delivers them. A FAILURE is decisive
      * though: a machine that cannot reproduce itself will never agree with another.
      *
-     * Sampled here, per frame, and not where ge_seed_fp is set. The first version instrumented
+     * Sampled here, per frame, and not where ge_seed_fp IS set. The first version instrumented
      * ge_playback in ge_player_api.c, which only runs when a caller POSTS input -- with no bot
-     * driving, a 3,000-frame run produced two samples. A determinism trace that goes quiet
+     * driving, a 3,000-frame run produced TWO samples. A determinism trace that goes quiet
      * whenever the thing is idle is worse than none: it reports agreement it never checked.
      * g_randomSeed is read directly for the same reason -- ge_seed_fp would be stale on any frame
      * without input. */

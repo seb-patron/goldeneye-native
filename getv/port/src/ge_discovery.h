@@ -12,7 +12,7 @@
  * then irrelevant. If the lobby server dies mid-match the match carries on, because nothing in a
  * running session depends on it. Any future call from the tick path into this file is a bug.
  *
- * What this does not DO
+ * What this deliberately does not DO
  *
  * It does not build the mesh. Both transports already do that themselves and have all along --
  * `ge_net_udp.c` says "full mesh, not A star" at the top of the file, and `ge_net_enet.c` relays

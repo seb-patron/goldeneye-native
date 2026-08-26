@@ -33,16 +33,9 @@ Runs on **macOS**, **Linux** and **Windows** from one source tree.
 
 ## The short version of what works
 
-All 27 loadable stages boot, render and exit cleanly. Split-screen multiplayer works with the
-radar and all 64 characters. Mouse and keyboard are on by default, and any modern pad works
-through SDL2. The launcher, the game's own cheats by name, rulesets, horde mode and Lua mods all
-work today.
-
-Co-op into the single-player missions is alpha but real: players spawn, render and move. What is
-not adapted is everything the campaign authors around a single Bond, which is objectives, AI and
-cutscenes.
-
-True widescreen and 21:9 ultrawide are roadmap items. Changing the window aspect today fits the
-4:3 view to the window rather than widening the field of view.
+All 27 loadable stages boot, render and exit cleanly. Multiplayer works with split screen,
+radar and all 64 characters. Keyboard and mouse are on by default. Lua mods, a launcher,
+rulesets and horde mode all work. Co-op into single-player missions is alpha: players spawn
+and do not yet move.
 
 Nothing here contains game data. You supply your own ROM.

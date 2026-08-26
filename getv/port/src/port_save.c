@@ -43,7 +43,7 @@
  * never touches the user's real save).
  * GETV_SAVE_DEBUG=1 trace every block read/write and every flush.
  */
-/* Not <PR/os.h>. That header redeclares bcopy/bcmp/bzero/sprintf with the
+/* Deliberately not <PR/os.h>. That header redeclares bcopy/bcmp/bzero/sprintf with the
  * N64's `int`-length signatures, and macOS's _FORTIFY_SOURCE headers define the same names
  * as macros, so <string.h> and <PR/os.h> refuse to coexist in either order: string.h first
  * gives "expected parameter declarator" on bcopy, PR/os.h first gives "conflicting types * for bcmp". This file needs memcpy/memset/
@@ -90,7 +90,7 @@
  * this assert is the cheapest place to notice. */
 _Static_assert(32 + 5 * 0x60 == GE_EEP_BYTES, "GE save layout no longer fills a 4K EEPROM");
 
-/* Non-static, all three: these are the runtime discriminators that show a
+/* Non-static on purpose, all three: these are the runtime discriminators that show a
  * port-layer rebuild landed and that the save path actually ran. `strings` is not evidence
  * here, because a static helper inlines away at -O1. */
 int ge_eeprom_enabled = -1;   /* -1 = not yet resolved */
@@ -155,7 +155,7 @@ static int geSavePathInit(void)
 
     /* mkdir the leaf only. "~/Library/Application Support" always exists on macOS,
      * and GETV_SAVEDIR is a test knob whose parent the caller owns. EEXIST is success.
-     * Not gePortMakeDirTree(): a missing parent must stay a visible
+     * Deliberately not gePortMakeDirTree(): a missing parent must stay a visible
      * failure, since creating it would paper over a wrong $HOME. */
  if (gePortMakeDir(base, 0755) != 0) {
  printf("[getv][save] cannot create %s: %s -- persistence OFF\n",
@@ -217,7 +217,7 @@ static void geSaveFlush(void)
     }
  fflush(f);
  fclose(f);
- /* the save has never worked on Windows, and it failed silently.
+ /* the save has never worked ON Windows, and IT failed silently.
   *
   * Posix rename() atomically replaces the destination. Windows rename() refuses when the
   * destination exists, with EEXIST -- so every flush after the file first appeared failed.

@@ -62,7 +62,7 @@ NEG = re.compile(r"\b(?:there (?:is|are) (?:essentially )?no|no (?:meaningful|al
 # A label inside a diagram: letters/digits with no box characters, short enough to be a label.
 LABEL = re.compile(r"[A-Za-z][A-Za-z0-9 '\-]{1,28}")
 
-# these documents contain two kinds of statement and conflating them would be the worst error
+# these documents contain two kinds OF statement and conflating them would BE the worst error
 # AVAILABLE HERE. Most of the text describes a level that exists, and "there is no lateral
 # traversal" is checkable against the tile graph. But stretches of it are DESIGN GUIDANCE about
 # how such a space should be built -- attaching rooms to corridors, breaking up large chambers.
@@ -84,7 +84,7 @@ PRESCRIPTIVE = re.compile(r"\b(?:should|could|consider|try to|aim to|ought to|yo
 # already known to be 1.46x the engine's.
 COORD = re.compile(r"\b([XYZ])\s*=\s*(-?\d+(?:\.\d+)?)")
 
-# the documents qualify their own numbers, and A miner that drops the qualification is worse than
+# the documents qualify their own numbers, and A miner that drops the qualification IS worse than
 # one that misses the number. The Train file lists a per-carriage X for each car and then says, in
 # the next line: do not interpret those derived intervals as extracted game coordinates, they are
 # a normalized reconstruction from the documented ~29 m car length and ~239 m total.
@@ -116,7 +116,7 @@ def diagram_labels(block):
                 arrows.add(name)
         # Strip the drawing characters, then whatever readable text is left is a label.
         # Split on runs of two or more spaces. That is what separates cells in a drawn table, and
-        # it is why the first version produced "CAR 2 CA" and "R 3 CAR 4": a length cap cuts
+        # it is why the first version produced "CAR 2    CA" and "R 3    CAR 4": a length cap cuts
         # wherever the limit lands, which is mid-word whenever a row holds several labels.
         txt = BOX.sub("  ", line)
         for cell in re.split(r"\s{2,}", txt):
@@ -168,7 +168,7 @@ def mine(path, level, source):
             # Coordinates and dimensions written inside a drawing are still coordinates and
             # dimensions. Extracted from the block's own rows before it is reduced to labels,
             # because the reduction throws the numbers away.
-            # A caveat qualifies the whole block, not A radius of lines. The author wrote "those
+            # A caveat qualifies the whole block, not A radius OF lines. The author wrote "those
             # derived intervals" about a list of six carriages; a fixed line window reached four
             # of them and left CAR 1 and CAR 2 marked as though they were measured. Splitting one
             # list like that is worse than not marking it at all, because the split looks

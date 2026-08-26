@@ -18,7 +18,7 @@ import sys
 
 OUT = 'src/ge_port_decls.h'
 
-# Headers that are not self-contained and break when force-included.
+# Headers that are NOT self-contained and break when force-included.
 HEADER_DENYLIST = {'bondview_internal.h', 'zlib.h'}
 
 SDK = subprocess.run(['xcrun', '-sdk', 'appletvos', '--show-sdk-path'],
@@ -118,7 +118,7 @@ def write(hdrs, protos):
 
 
 def main():
-    # This regenerates out from scratch. 0001-source.patch installs a curated version of
+    # This regenerates OUT from scratch. 0001-source.patch installs a curated version of
     # the same header, and regenerating over it silently reverts hand-made corrections --
     # most damagingly the five-argument s32 sub_GAME_7F0B7F84, which the patch changed from
     # the upstream four-argument void form. Reverting it stops src/game/bg.c compiling and

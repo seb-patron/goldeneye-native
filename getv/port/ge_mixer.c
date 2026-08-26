@@ -203,7 +203,7 @@ void aClearBufferImpl(uint16_t addr, int nbytes) {
 void aLoadBufferImpl(const void *source_addr) {
     memcpy(rspa.buf.as_u8 + rspa.in, source_addr, ROUND_UP_8(rspa.nbytes));
     /* Probed as s16 even though ADPCM is nibble-packed: this is only asking "did any
-     * non-zero bytes arrive from dram", which answers whether the dma/wavetable
+     * Non-zero bytes arrive from dram", which answers whether the dma/wavetable
      * pointer is right, and that question is upstream of every codec detail. */
     if (ge_mixer_probe) {
         ge_probe_peak(rspa.buf.as_s16 + rspa.in / sizeof(int16_t),
@@ -1180,7 +1180,7 @@ void aPoleFilterImpl(uint8_t flags, int16_t gain, void *state) {
 }
 
 /* ---------------------------------------------------------- env.c guards --
- * See ge_mixer.h for why these exist: Rare's build kept asserts on in env.c and
+ * See ge_mixer.h for why these exist: Rare's build kept asserts ON in env.c and
  * only env.c, this build compiles them out, and restoring them literally would
  * trade a silent corruption for a silent hang (assert -> abort -> SIGABRT).
  *

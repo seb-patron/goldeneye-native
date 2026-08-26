@@ -35,7 +35,7 @@ twice.
 
 **The run-to-run spread is about 20%.** Two identical runs of one binary measured 63 and 95 fps.
 A single-run comparison here is worthless and has already produced one wrong answer: a
-`GETV_LOADTRACE` A/B came out 44.96 fps with the gate on and 53.61 with it off - noise pointing the
+`GETV_LOADTRACE` A/B came out 44.96 fps with the gate ON and 53.61 with it OFF - noise pointing the
 wrong way, which would have been committed as a speedup by anyone reading one number.
 
 **And the spread is not symmetric noise, it is a systematic drift.** Frame rate decays
@@ -59,7 +59,7 @@ used. `-O2` is **verified not to change behaviour** and is **not measurably fast
 default did not move.
 
 `tools/verify_opt.ps1` is the gate. The port's synthetic clock makes gameplay frames
-byte-reproducible (`osGetCount`, `port_os.c`), so two correct builds must emit identical
+byte-reproducible on purpose (`osGetCount`, `port_os.c`), so two correct builds must emit identical
 diagnostics. `-O1` vs `-O2`: **691 distinct line shapes, occurrence counts matched, values
 identical.**
 
@@ -85,7 +85,7 @@ that exact context, so genuinely computed floats are still compared. It also cou
 Seven consecutive 120-frame reports on Train, unambiguous and stable:
 
 ```
-GPU timeline 5.87 - 7.30 ms | CPU in swap 0.07 - 0.10 ms
+GPU timeline 5.87 - 7.30 ms  |  CPU in swap 0.07 - 0.10 ms
 ```
 
 **The present does not block.** 0.08 ms. The missing time is entirely GPU-side, so it is not the
@@ -109,17 +109,17 @@ buffer orphaning, or the swapchain - not draw calls.
 state validations; it is not. `gfx_flush` returns immediately when the vertex buffer is empty and
 issues no GL call at all. Checked before optimising, and recorded so it is not "found" again.
 
-**There is a real, unfixed `GL_INVALID_OPERATION` -- but it is not the per-frame cost.**
+**There is a real, unfixed `GL_INVALID_OPERATION` --  but it is NOT the per-frame cost.**
 Hunted with `GETV_GLDEBUG=1` (`getv/port/src/ge_gl_debug.c`), which installs a synchronous
 `KHR_debug` callback. Result:
 
 ```
 callback ERROR lines: 6
-poll hits: 1 -> frame 0, after gfx_run
+poll hits: 1  ->  frame 0, after gfx_run
 ```
 
 **Six errors, all during frame 0, all inside `gfx_run`.** The poll after `gfx_start_frame` comes
-back clean, so they are bounded to that one call on that one frame -- where shaders are first
+back clean, so they are bounded to that one call on that one frame --  where shaders are first
 compiled and textures first uploaded.
 
 **The obvious hypothesis was wrong and is recorded as wrong.** The reason to chase this was that
@@ -127,12 +127,12 @@ a driver can drop off a fast path once a context is in an error state, which wou
 for a fixed per-frame cost. It is not: a one-time startup error cannot explain a cost paid every
 frame, and the error does not recur after frame 0. **The ~6 ms per frame remains unexplained.**
 
-Still worth fixing as correctness -- nothing else in the tree calls `glGetError`, so six real GL
+Still worth fixing as correctness --  nothing else in the tree calls `glGetError`, so six real GL
 errors have been raised and ignored for the life of the project. Intel's driver reports the
 function as `(null)`, so pinning the exact call means instrumenting inside `gfx_run`
 (third-party), which has not been done.
 
-**Drain the GL error queue before checking your own call.** `glGetError` reports and clears one
+**Drain the GL error queue before checking your own call.** `glGetError` reports and clears ONE
 error per call from a queue that persists until read, so a stale error from unrelated code gets
 attributed to whatever checks next. The first version of the timer reported "could not allocate
 timer queries" on a driver where allocation had succeeded - it was reading somebody else's error,
@@ -162,14 +162,14 @@ while being indifferent to pixel count *and* to triangle count (311 triangles to
 per-draw driver overhead, not shading and not geometry.
 
 **`GETV_NODRAW` is a diagnostic, not a rendering mode** - the screen shows nothing. It
-still runs `gfx_start_frame` and `gfx_end_frame`, so the present still happens and
+deliberately still runs `gfx_start_frame` and `gfx_end_frame`, so the present still happens and
 the comparison isolates drawing rather than quietly measuring a different frame shape.
 
-Note the wall time does not collapse with it: ~4-6 ms per frame remains with zero GPU work.
+Note the wall time does NOT collapse with it: ~4-6 ms per frame remains with zero GPU work.
 That is the rest of the program - game logic, the display-list walk that still runs to build
 nothing, and per-frame overhead - and it is a separate question from the GPU 6 ms.
 
-**Shader switches are not the cause.** `gfx_pc.c:2854` already guards the switch
+**Shader switches are NOT the cause.** `gfx_pc.c:2854` already guards the switch
 (`if (prg != rendering_state.shader_program)`), so the 9 per frame are 9 genuinely distinct
 colour combiners with no redundancy to remove. At roughly 135 GL calls per frame for switching,
 6 ms would mean ~44 microseconds per call, which is implausible.
@@ -235,7 +235,7 @@ Note this was A/B'd on a single binary with an environment variable. That is str
 than comparing two builds: it removes build-to-build variation, which on this machine is larger
 than the effect being looked for. Prefer it whenever a change can be expressed as a runtime branch.
 
-## Things that were tested and are not the bottleneck
+## Things that were tested and are NOT the bottleneck
 
 Recorded so they are not re-tested:
 

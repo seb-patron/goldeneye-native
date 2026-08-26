@@ -30,6 +30,7 @@ static GeBotSituation base(void)
     s.target_lateral = 0.0f;
     s.distance = 1000.0f;
     s.health = 1.0f;
+    s.has_los = 1;             /* clear by default; only the LOS cases below turn it off */
     return s;
 }
 
@@ -48,11 +49,15 @@ int main(void)
     printf("\nthe fix: a target inside the auto-aim cone costs nothing\n");
     s = base();
     s.has_target = 1;
-    s.target_bearing = 90.0f + 20.0f;     /* 20 degrees off the nose */
+    /* 10 degrees, inside the derived 15-degree cone (GE_ARB_FIRE_CONE). This case used
+     * to read 20, correct against the FIRST unsourced estimate of the cone and silently
+     * wrong against the corrected one -- caught by running the suite after fixing the
+     * cone, not by inspection. */
+    s.target_bearing = 90.0f + 10.0f;
     s.distance = 900.0f;
     a = geBotArbitrate(&s);
     check(a.heading == s.route_heading, "the heading is STILL the route's -- no turn is spent");
-    check(a.fire == 1, "and it fires, because auto-aim closes the last 20 degrees");
+    check(a.fire == 1, "and it fires, because auto-aim closes the last 10 degrees");
     check(a.advance == 1, "and it keeps advancing, so no waypoints are lost");
     check(a.reason == GE_ARB_FIRING_ON_ROUTE, "reported as firing on route");
 
@@ -121,6 +126,38 @@ int main(void)
     a = geBotArbitrate(&s);
     check(a.heading == s.route_heading,
           "at range, a target dead behind leaves the heading untouched");
+
+    printf("\nno confirmed line of sight: the trigger is gated, the defensive turn is not\n");
+    s = base();
+    s.has_target = 1;
+    s.target_bearing = 90.0f + 5.0f;      /* well inside the cone */
+    s.distance = 900.0f;
+    s.has_los = 0;
+    a = geBotArbitrate(&s);
+    check(a.fire == 0, "in the cone but LOS unconfirmed: no shot");
+    check(a.heading == s.route_heading, "and still no turn spent, since routing never turns");
+
+    s = base();
+    s.has_target = 1;
+    s.distance = 150.0f;                  /* panic range: this branch DOES turn */
+    s.target_lateral = 1.0f;
+    s.target_bearing = 90.0f + 90.0f;
+    s.has_los = 0;
+    a = geBotArbitrate(&s);
+    check(a.fire == 0, "cornered without LOS: still no shot fired blind");
+    check(a.heading != s.route_heading, "but the defensive turn still happens");
+
+    printf("\nthe corrected cone: 15 degrees from the screen-space acceptance box\n");
+    s = base();
+    s.has_target = 1;
+    s.target_bearing = 90.0f + 14.0f;     /* inside 15 */
+    s.distance = 900.0f;
+    a = geBotArbitrate(&s);
+    check(a.fire == 1, "14 degrees off: inside the derived cone, fires");
+
+    s.target_bearing = 90.0f + 16.0f;     /* outside 15 */
+    a = geBotArbitrate(&s);
+    check(a.fire == 0, "16 degrees off: outside the derived cone, holds fire");
 
     printf("\n%s\n", fails ? "FAILURES" : "all checks passed");
     return fails ? 1 : 0;

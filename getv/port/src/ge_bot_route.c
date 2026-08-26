@@ -32,7 +32,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include "ge_player_api.h"
 #include "ge_world_api.h"
@@ -52,6 +51,7 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
 
 #include "ge_enemy_api.h"
 #include "ge_sense_api.h"
+#include "ge_bot_arbiter.h"
 #include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
 
 /* Straight from tools/routesim.py. Changing one of these without re-running the model is how a
@@ -336,7 +336,12 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
 #define GE_BR_ENGAGE_SEEN      150    /* frames: a guard that had eyes on us this recently is shooting */
 #define GE_BR_ENGAGE_KEEP   1100.0f   /* hysteresis: a target already chosen is kept a little longer */
 #define GE_BR_ENGAGE_MAX       420    /* frames to spend on one target before walking on */
-#define GE_BR_ENGAGE_FACE     35.0f   /* degrees; inside this the game's own aim assist takes over */
+/* GE_BR_ENGAGE_FACE is gone. It was 35.0, an unsourced guess -- and independently the SAME wrong
+ * number a first pass at ge_bot_arbiter.c also guessed, before that file traced the real test to
+ * chrpropScoreAutoAimTarget (chrprop.c) and corrected it to 15, derived from the engine's own
+ * screen-space acceptance box and its 46-degree fovy. Two people reaching for 35 as a round-number
+ * default is worth noting on its own; neither of us had a source for it. The arbiter's
+ * GE_ARB_FIRE_CONE is that number now, sourced, and this file no longer keeps its own copy. */
 #define GE_BR_BURST_ON           6    /* frames holding fire */
 #define GE_BR_BURST_OFF         10    /* frames between bursts */
 
@@ -352,8 +357,7 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  *     routing and combat  waypoint  4, ends at 0.34 health
  *
  * So as written it costs six waypoints and buys nothing. It stops to shoot, and stopping is what
- * it cannot afford on a level with a timer and a moving train. The next version should fire while
- * still walking the route, and turn to face only what is close enough to matter.
+ * it cannot afford on a level with a timer and a moving train.
  *
  * Firing without stopping was tried too, on the theory that the cost was the standing still.
  * It is worse: waypoint 4 and dead, against waypoint 4 and alive for stopping to aim, and
@@ -361,13 +365,19 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * win, and it does not need to win -- it needs to walk past. A bot that shoots badly is worse
  * than one that does not shoot.
  *
- * GETV_BOT_FIGHT=1 to enable it, GETV_BOT_AIM=1 to stop and face the target as well. */
+ * The next version IS ge_bot_arbiter.c, wired in below. The measurements above are exactly what
+ * it was derived from: the shared cost between the two failing modes was the turn, not the
+ * trigger or the stop, so the fix is to fire inside the cone WITHOUT turning and to hold position
+ * rather than advance when a target is close enough that ignoring it is worse than the turn.
+ *
+ * GETV_BOT_FIGHT=1 to enable it. GETV_BOT_AIM=1 now means something narrower than it used to: it
+ * forces the CORNERED response (stop, face, fire) on every engagement rather than only when the
+ * arbiter judges the target close enough to demand it, which reproduces the OLD stop-and-face
+ * behaviour above for a direct A/B against the new default. */
 static int   ge_br_fight = 0;
 static int   ge_br_target_id = -1;    /* chrnum of the guard being fought, -1 for none */
 static int   ge_br_engaged;           /* frames spent on this target */
-static float ge_br_fire_sign;         /* latched turn direction while engaging */
-static float ge_br_fire_from;         /* the error the current turn started from */
-static int   ge_br_aim;               /* GETV_BOT_AIM=1: stop and face the target */
+static int   ge_br_aim;               /* GETV_BOT_AIM=1: force the cornered (stop-and-face) response */
 
 /* The stick-versus-heading sense, resolved the same way the steering block resolves it. */
 static int ge_br_sign_of(void)
@@ -412,7 +422,6 @@ static int ge_br_pick_target(float x, float y, float z, GeEnemy *out)
 
     ge_br_target_id = -1;
     ge_br_engaged = 0;
-    ge_br_fire_sign = 0.0f;   /* new target, new decision */
 
     for (i = 0; i < geEnemyCount(); i++) {
         GeEnemy e;
@@ -477,7 +486,7 @@ static void ge_br_log_open(const char *level)
     }
     ge_br_log = fopen(path, "w");
     if (ge_br_log == NULL) { return; }
-    fprintf(ge_br_log, "frame\tms\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
+    fprintf(ge_br_log, "frame\tevent\tnode\tpad\tx\tz\theading\tbearing\terr\tstick_x\tstick_y\tnote\n");
     fflush(ge_br_log);
     printf("[getv][botroute] logging every decision to %s\n", path);
     fflush(stdout);
@@ -488,12 +497,8 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
                        int sx, int sy, const char *note)
 {
     if (ge_br_log == NULL) { return; }
-    /* Wall-clock milliseconds, because a frame number is not a time: a run at 500 fps and one at
-     * 60 reach frame 600 ten seconds apart, and any rate computed from frames compares the two
-     * against different amounts of reality. */
-    fprintf(ge_br_log, "%d\t%lu\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
-            frame, (unsigned long) (clock() * 1000ul / CLOCKS_PER_SEC),
-            event, node, pad, (double) x, (double) z,
+    fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
+            frame, event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
     /* Not flushed per row. Measured on Windows, a flushed line at ~24 ms there -- 516
      * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
@@ -1431,108 +1436,92 @@ steer:
                    (int) in.stick_x, (int) in.stick_y, note);
     }
 
-    /* Shoot what is already in front, and never stop walking to do it.
+    /* the arbiter owns this decision. geBotArbitrate was derived from exactly the three
+     * measurements in the comment above, and its job is to decide which of the route's heading
+     * and the fight's heading gets to stand this frame -- see ge_bot_arbiter.c for the full
+     * derivation and ge_bot_arbiter.h for what it deliberately does not model (the lock-on settle
+     * timer, chiefly).
      *
-     * The first version faced its target and stood still, which is how a person plays and not how
-     * this bot can afford to: measured on Train it reached waypoint 4 against 10 for routing
-     * alone, because stopping on a level with a timer and a moving train costs more than the
-     * guard does. GETV_BOT_AIM=1 restores that behaviour for comparison.
-     *
-     * This version never touches steering. It fires when a visible guard is already inside the
-     * cone the game will aim into, and otherwise says nothing, so routing is bit-for-bit what it
-     * would have been. In a corridor that is most of them, because the route and the guards point
-     * the same way.
-     *
-     * Bursts rather than a held trigger, which is the shape Perfect Dark uses
-     * (botactGetShootInterval60 paces every weapon). A held trigger empties the clip during a
-     * turn and leaves nothing for the guard behind it.
-     */
-    /* GETV_BOT_FIRE=1: hold the trigger and log the shot counter.
-     *
-     * Instrumentation for the frame-timing work, not bot behaviour. Fire rate is the clearest
-     * frame-quantised system in the game: retail asks whether a tick counter is a multiple of the
-     * weapon's rate, so without the time-based path the rate is constant per TICK and therefore
-     * halves per second every time the simulation divider rises. Holding the trigger and counting
-     * shots against the wall clock is what tells us whether that has actually been fixed. */
-    if (getenv("GETV_BOT_FIRE") != NULL) {
-        GePlayerState ps;
-        int shots = -1;
-
-        memset(&in, 0, sizeof in);
-        /* Cycle to an automatic weapon first. The starting sidearm on most levels is
-         * semi-automatic, so holding its trigger measures nothing: the rate gate under test only
-         * runs for automatics. Needs the all_guns or extra_weapons cheat to have anything to
-         * cycle to. */
-        in.buttons |= GE_IN_FIRE;
-        if (gePlayerStateGet(ge_br_slot, &ps) && (ps.fields & GE_ST_SCORE)) {
-            shots = ps.shots;
-        }
-        ge_br_logf((int) frame, "fire", shots, (int) ((ps.fields & GE_ST_WEAPON) ? ps.weapon : -1),
-                   st.x, st.z, ge_br_heading, 0.0f, 0.0f, 0, 0,
-                   "trigger");
-        gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
-        return;
-    }
-
-    /* GETV_BOT_WALK=1: hold full forward and nothing else.
-     *
-     * A timing benchmark needs the physics without the policy. The follower's own decisions vary
-     * run to run, so comparing distance travelled across simulation dividers with routing enabled
-     * measures the routing as much as the timestep. This walks in a straight line and lets the
-     * distance per wall-clock second be the whole answer. */
-    if (getenv("GETV_BOT_WALK") != NULL) {
-        /* g_GlobalTimer accumulates g_ClockTimer, so it IS game time measured in video fields.
-         * Logging it against the wall clock is the cleanest test of whether the simulation
-         * divider preserves time: distance travelled is polluted by whatever the walker bumps
-         * into, and this is not. */
-        extern int g_GlobalTimer;
-        char note[32];
-
-        memset(&in, 0, sizeof in);
-        in.stick_y = (signed char) GE_BR_WALK;
-        snprintf(note, sizeof note, "gt=%d", (int) g_GlobalTimer);
-        ge_br_logf((int) frame, "post", -1, -1, st.x, st.z, ge_br_heading, 0.0f, 0.0f,
-                   0, (int) in.stick_y, note);
-        gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
-        return;
-    }
-
+     * A deliberate asymmetry: the arbiter is consulted, but it is never allowed to be the only
+     * thing that decided a heading. In the common case (GE_ARB_ROUTING or GE_ARB_FIRING_ON_ROUTE)
+     * this block does not touch in.stick_x or in.stick_y at all -- whatever the steering and
+     * avoidance blocks above already decided stands untouched, latch and all. That is the whole
+     * point: routing is bit-for-bit what it would have been with combat off, in a corridor, which
+     * is most of the level, because the route and the guards point the same way. */
     if (ge_br_fight) {
         GeEnemy tgt;
         int idx = ge_br_pick_target(st.x, st.y, st.z, &tgt);
 
         if (idx >= 0) {
-            float tb = (float) (atan2((double) (tgt.x - st.x),
-                                      (double) (tgt.z - st.z)) * 180.0 / 3.14159265358979);
-            float terr = ge_br_norm180(tb - ge_br_heading);
-            float tmag = (float) fabs((double) terr);
+            float dx = tgt.x - st.x;
+            float dz = tgt.z - st.z;
+            float tb = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
+            float tdist = sqrtf(dx * dx + dz * dz);
+            float hp = -1.0f, armour = 0.0f;
+            int dead = 0;
+            GeBotSituation sit;
+            GeBotAction act;
+            const char *why;
 
-            if (ge_br_aim) {
-                /* Face the target and stand. Kept for A/B; see the note above. */
-                float sx;
-                if (ge_br_fire_sign != 0.0f) {
-                    if (tmag < GE_BR_ENGAGE_FACE || tmag < ge_br_fire_from * 0.66f) {
-                        ge_br_fire_sign = 0.0f;
-                    }
-                }
-                if (ge_br_fire_sign == 0.0f && tmag > GE_BR_ENGAGE_FACE) {
-                    /* At the antipode the sign of the error is meaningless, so pick a side and
-                     * commit rather than believing a value that is about to flip. */
-                    ge_br_fire_sign = (terr < 0.0f) ? -1.0f : 1.0f;
-                    ge_br_fire_from = tmag;
-                }
-                sx = (float) ge_br_sign_of() * terr * GE_BR_TURN_GAIN;
-                if (ge_br_fire_sign != 0.0f) {
-                    sx = (float) ge_br_sign_of() * ge_br_fire_sign * tmag * GE_BR_TURN_GAIN;
-                }
+            gePortPlayerHealth(ge_br_slot, &hp, &armour, &dead);
+
+            sit.route_heading = ge_br_heading;   /* the arbiter's err is measured off CURRENT
+                                                   * facing, not the route's target bearing --
+                                                   * what matters for the cone is where the gun
+                                                   * is actually pointed right now. */
+            sit.has_target    = 1;
+            sit.target_bearing = tb;
+            /* Lateral offset via a straight rotation of (dx,dz) into the bot's own frame, NOT via
+             * sin() of the wrapped bearing error. Both would look equivalent at first glance, but
+             * sin(wrap180(x)) still carries the wrap's own sign flip right at the seam, which is
+             * exactly the instability target_lateral exists to avoid -- see the field's doc
+             * comment in ge_bot_arbiter.h. This is pure geometry: no angle difference, no modulo,
+             * so there is nothing left in the computation that CAN flip discontinuously. */
+            {
+                double h = (double) ge_br_heading * 3.14159265358979 / 180.0;
+                sit.target_lateral = (float) ((double) dx * cos(h) - (double) dz * sin(h));
+            }
+            sit.distance = tdist;
+            sit.health   = (hp >= 0.0f) ? hp : 1.0f;
+            /* Always 1, not a stand-in: ge_br_pick_target already required geSenseVisibleTo on
+             * every path that can return idx>=0 (both the "stay on target" branch and the
+             * fresh-search branch), so a target reaching here has ALREADY passed the same line
+             * test the real auto-aim runs before it locks. Re-testing would just repeat a check
+             * already made, and "always 1" documents that rather than hiding it behind a second
+             * call that would silently always succeed. */
+            sit.has_los = 1;
+
+            /* GETV_BOT_AIM forces the cornered response regardless of range, reproducing the OLD
+             * stop-and-face behaviour for a direct A/B against the arbiter's default. Done by
+             * lying about distance rather than duplicating the cornered branch's logic -- the
+             * arbiter is the one place that logic should exist. */
+            if (ge_br_aim) { sit.distance = 0.0f; }
+
+            act = geBotArbitrate(&sit);
+
+            if (act.reason == GE_ARB_CORNERED || act.reason == GE_ARB_SURVIVING) {
+                /* The fight owns the heading this frame. Turn toward act.heading with the same
+                 * proportional law and sign convention the route steering uses, so a trace
+                 * comparing the two blocks is comparing like with like. No separate latch is
+                 * needed here: act.heading was built inside the arbiter from target_lateral's
+                 * SIGN, which does not flip at the wrap seam, so recomputing it fresh every frame
+                 * converges instead of oscillating -- that is what the 12-step boundary-crossing
+                 * check in test_bot_arbiter.c verifies offline. */
+                float turn = ge_br_norm180(act.heading - ge_br_heading);
+                float sx = (float) ge_br_sign_of() * turn * GE_BR_TURN_GAIN;
                 if (sx >  GE_BR_STICK_MAX) { sx =  GE_BR_STICK_MAX; }
                 if (sx < -GE_BR_STICK_MAX) { sx = -GE_BR_STICK_MAX; }
                 in.stick_x = (signed char) sx;
-                in.stick_y = 0;
                 in.buttons &= ~GE_IN_USE;
             }
+            if (!act.advance) {
+                /* Never advance on a heading the fight owns -- this is the specific rule that
+                 * turned "fire on the move" from waypoint-4-and-dead into a survivable branch:
+                 * advancing along an aim-owned heading walks straight at the guard. */
+                in.stick_y = 0;
+            }
 
-            if (tmag < GE_BR_ENGAGE_FACE) {
+            if (act.fire) {
                 if (ge_br_burst <= 0) { ge_br_burst = GE_BR_BURST_ON + GE_BR_BURST_OFF; }
                 if (ge_br_burst > GE_BR_BURST_OFF) { in.buttons |= GE_IN_FIRE; }
                 ge_br_burst--;
@@ -1540,10 +1529,22 @@ steer:
                 ge_br_burst = 0;
             }
 
+            switch (act.reason) {
+                case GE_ARB_FIRING_ON_ROUTE: why = "fire-on-route"; break;
+                case GE_ARB_CORNERED:        why = "cornered";      break;
+                case GE_ARB_SURVIVING:       why = "surviving";     break;
+                default:                     why = "routing";       break;
+            }
             ge_br_logf((int) frame, "engage", tgt.id, gePortNavNearestPad(st.x, st.z),
-                       st.x, st.z, ge_br_heading, tb, terr,
-                       (int) in.stick_x, (int) in.stick_y,
-                       (in.buttons & GE_IN_FIRE) ? "fire" : "held");
+                       st.x, st.z, ge_br_heading, tb, ge_br_norm180(tb - ge_br_heading),
+                       (int) in.stick_x, (int) in.stick_y, why);
+        } else {
+            /* No target: nothing to lose lock on and nothing to fire at. Reset the burst here
+             * too, not only on the in-cone/out-of-cone branch above -- a target that DISAPPEARS
+             * mid-burst (killed, or line broken) used to leave ge_br_burst counting down toward a
+             * stale ON phase that would resume the instant a new target appeared, borrowing timing
+             * from an engagement that already ended. */
+            ge_br_burst = 0;
         }
     }
 

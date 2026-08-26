@@ -262,7 +262,7 @@ function Build-Lib {
 
   Push-Location $decomp
   try {
-    # Game. The exclusions mirror build_linux.sh exactly and are necessary: usb, rmon,
+    # Game. The exclusions mirror build_linux.sh exactly and matter: usb, rmon,
     # sched, ramrom, init and the indy_* files are N64 hardware and SGI dev-host code, and
     # compiling them turns logging stubs into code that writes real RCP/PI registers.
     # crash.c, spectrum.c and tlb_manage.c are N64 hardware and dev-host stubs, and the port

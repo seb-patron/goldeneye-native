@@ -5,12 +5,12 @@
  * designed in the abstract will be wrong in ways nobody notices until the third consumer."
  * This is that bot.
  *
- * It is stupid -- walk forward, sweep the aim, fire in bursts. It is not trying to
+ * It is deliberately stupid -- walk forward, sweep the aim, fire in bursts. It is not trying to
  * be good at GoldenEye. Its whole job is to exercise every part of the seam under real
  * conditions: claim a slot, post on a numbered tick, hold for a duration, release, and read
  * state back. A cleverer bot would exercise exactly the same surface.
  *
- * What it is not: it does not touch the guard AI. Perfect Dark's simulants act directly on
+ * What it is NOT: it does not touch the guard AI. Perfect Dark's simulants act directly on
  * chrdata as NPCs, which is why their protocol has no SVC_CHR_MOVE and why their own docs say
  * "simulants don't work in netgames". A bot here is a policy that emits controller input into a
  * player slot, exactly like a network peer or an RL agent, so all three share one path.

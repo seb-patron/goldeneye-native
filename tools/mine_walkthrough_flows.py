@@ -44,9 +44,9 @@ from mine_walkthroughs_deep import CAVEAT, CAVEAT_WINDOW, HEADING, load_attribut
 # A line that is nothing but a connector. Vertical chains use these between their stages.
 # A line that is nothing but a connector.
 #
-# the vertical bar here is U+2502, not the ascii pipe. The first version matched only "|", which
+# the vertical bar here IS U+2502, not the ascii pipe. The first version matched only "|", which
 # the corpus never uses -- it draws with box-drawing verticals. Every branching diagram therefore
-# failed at its first connector and was left entirely uncovered, and that is why the fan-out graphs
+# failed at its first connector and was left entirely uncovered, which is why the fan-out graphs
 # were still sitting in the remainder after four passes.
 CONNECTOR = re.compile(r"^[\s|│┃║↓↑▼▲v^]+$"
                        r"|^[\s|│]*[-=]{0,4}>?[\s|│]*$")
@@ -100,7 +100,7 @@ def chain_at(lines, i):
         return None
     # The head gets the SAME parallel split as every other stage. Without it a fan-out whose top
     # row holds three labels is recorded as one stage literally named
-    # "level actors simulation", which is not a stage name and not anything else
+    # "level          actors        simulation", which is not a stage name and not anything else
     # either. The forward walk already split these; the head walk did not, so the two ends of one
     # chain disagreed about what a row means.
     head_par = parallel_labels(lines[head])
@@ -118,7 +118,7 @@ def chain_at(lines, i):
         if is_connector(lines[j]):
             j += 1
             continue
-        # do not exclude heading-SHAPED lines here. heading matches any all-CAPS line of five or
+        # DO not exclude heading-SHAPED lines here. heading matches any all-CAPS line of five or
         # more characters, and these chains label their stages in caps: contact, retreat, corner,
         # REPOSITION. Excluding them rejected every stage after the head, dropped each chain below
         # the two-stage minimum, and discarded it whole -- so entire combat and traversal loops
@@ -127,7 +127,7 @@ def chain_at(lines, i):
         # A stage is only accepted when the preceding non-blank line was a connector, and that is
         # what distinguishes it from a section heading. The shape of the text never could.
         if is_label(lines[j]) or parallel_labels(lines[j]):
-            # A fan-OUT puts several stages on one line, and they run in parallel rather than in
+            # A fan-OUT puts several stages ON one line, and they run in parallel rather than in
             # sequence. camera, weapon and animation under one junction are three branches of the
             # same step, and flattening them into three sequential stages would assert an order the
             # drawing explicitly does not show.

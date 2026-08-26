@@ -1,6 +1,6 @@
 /* What is around a player, and who can see them.
  *
- * The knowledge APIs answer where things are. This answers what is in the way and who is looking
+ * The knowledge APIs answer where things are. This answers what is IN the way and who is looking
  * -- the questions a bot has to ask every tick and could not ask at all until now.
  *
  * The distinction matters more than it sounds. gePortProbeWalkable returns yes or no, so a policy
@@ -25,8 +25,8 @@
 
 /* What actually stops a body and will not move on its own.
  *
- * GE_SENSE_BODY is not in here, and that is not a judgement call about tactics --
- * The line starts at the asking position, so the asker'S own collision sets it. Every reading
+ * GE_SENSE_BODY is deliberately NOT in here, and that is not a judgement call about tactics --
+ * The line starts at the asking position, so the asker'S own collision sets IT. Every reading
  * came back with BODY, every direction read blocked, and geSenseClearestHeading found nothing
  * open anywhere on the map. Steering decisions must use this mask; deciding whether to shoot
  * something can look at BODY on its own. */
@@ -42,7 +42,7 @@ typedef struct GeSenseContact {
 unsigned int geSenseLine(float from_x, float from_z, float to_x, float to_z);
 
 /* Look ahead from a point along a heading in DEGREES, atan2(x, z) like everything else here.
- * Walks the ray in samples so the caller learns roughly how FAR the obstacle is, which a single
+ * Walks the ray in samples so the caller learns roughly HOW FAR the obstacle is, which a single
  * line test cannot say. Returns 1 and fills `out` always; check out->what for CLEAR. */
 int geSenseAhead(float x, float z, float heading_deg, float reach, GeSenseContact *out);
 
@@ -53,7 +53,7 @@ int geSenseAhead(float x, float z, float heading_deg, float reach, GeSenseContac
  * Judges on GE_SENSE_SOLID, so a direction with a person in it still counts as open. */
 float geSenseClearestHeading(float x, float z, float heading_deg, float span, float reach);
 
-/* Can enemy `index` see player `slot`? Line of sight only -- not whether it is looking.
+/* Can enemy `index` see player `slot`? Line of sight only -- NOT whether it is looking.
  * Alertness and lastseetarget60 in the enemy API answer that, and conflating them gives a bot
  * that hides from a guard facing away and walks past one staring at it. */
 int geSenseVisibleTo(int enemy_index, int player_slot);
@@ -77,9 +77,26 @@ int geSenseWatchers(int player_slot);
 #define GE_NOTICE_LINE     (1u << 0)   /* unobstructed line of sight                      */
 #define GE_NOTICE_FACING   (1u << 1)   /* the player is inside the enemy's view cone      */
 #define GE_NOTICE_ALERT    (1u << 2)   /* the enemy is alert enough to be watching at all */
+/* two different questions, and conflating them hid the view cone completely.
+ *
+ * GE_NOTICE_SEEN used to be line|facing|alert and geSenseNoticing counted it, so "how many are
+ * actually looking at me" silently ALSO required the guard to be alerted. Train's guards start
+ * unalerted, alertness is 0, and the count therefore read 0 of 18 no matter where anyone was
+ * facing -- which looked exactly like a broken cone and sent me to rewrite gePortEnemyFacing.
+ * The facing work was needed anyway, but it was not what made this number zero.
+ *
+ * An always-false term in a composite reads as a broken feature, not as a strict condition.
+ * Same family as the always-true engagement range that deadlocked the bot: a condition that never
+ * changes stops being a condition and becomes a constant, and nothing downstream can tell.
+ *
+ * LOOKING is the perception question -- is there a line, and am I inside the cone. It is what a
+ * bot deciding whether to cross a room needs, and it is true of a guard who has not reacted yet.
+ * NOTICED adds alertness: the guard has actually responded. Both are useful and they are not the
+ * same, so neither is spelled with the other's name. */
+#define GE_NOTICE_LOOKING  (GE_NOTICE_LINE | GE_NOTICE_FACING)
 #define GE_NOTICE_SEEN     (GE_NOTICE_LINE | GE_NOTICE_FACING | GE_NOTICE_ALERT)
 
-/* The facing could not be read at all -- distinct from facing-away, and the distinction is the one
+/* The facing could not be read AT ALL -- distinct from facing-away, and the distinction is the one
  * that matters. Facing away means you can walk behind it; unknown means you cannot assume that. A
  * build without the facing accessor must not read as "nobody is looking". Same rule as
  * GePlayerState's absent fields: absent is not zero. */
@@ -144,7 +161,7 @@ float geSenseClearestHeadingForBody(float x, float z, float heading_deg, float s
 
 /* ---------------------------------------------------------------- 1d: what can I act on
  *
- * The prop data knows where doors, switches and pickups are. Nothing said whether a bot standing
+ * The prop data knows where doors, switches and pickups ARE. Nothing said whether a bot standing
  * here can act on one, which is the only form of the question a bot can use. */
 #define GE_USABLE_NONE   0u
 #define GE_USABLE_DOOR   (1u << 0)

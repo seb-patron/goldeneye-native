@@ -1,6 +1,6 @@
 /* UDP transport and session establishment for the lockstep layer.
  *
- * ge_net.c knows nothing about sockets: whether a tick is ready, when to stall and
+ * ge_net.c deliberately knows nothing about sockets: whether a tick is ready, when to stall and
  * when machines have diverged are not socket concerns. This file is the socket half, plus the
  * part that has to happen before any of it -- machines finding each other and agreeing on who
  * is which slot and when to begin.
@@ -23,7 +23,7 @@
  * machine sends a HELLO to every peer it learns about. That outbound packet is what opens the
  * return path. It carries no data and its only job is to have been sent.
  *
- * Why the session starts on A signal
+ * Why the session starts ON A signal
  *
  * Everyone must prime the same window and begin together. The host waits until the expected
  * number of players is present and then tells everybody to start, rather than each machine
@@ -193,7 +193,7 @@ static void ge_udp_send_table(const GeUdpPeer *to, int start)
     /* The host itself is a peer from everyone else's point of view. Its address is sent as all
      * zeroes rather than guessed: the host cannot know which of its own addresses a given peer
      * reached it on, and the peer already knows, because our datagram came from it. The whole
-     * entry after the slot byte is zeroed -- address and port -- because a partially filled
+     * entry after the slot byte is zeroed -- address AND port -- because a partially filled
      * entry would ship uninitialised stack down the wire. */
     buf[4 + n * GE_PEER_ENTRY] = (unsigned char) ge_udp.local_slot;
     memset(buf + 5 + n * GE_PEER_ENTRY, 0, GE_PEER_ENTRY - 1);
@@ -231,7 +231,7 @@ static void ge_udp_open_session(void)
     int i;
 
     if (geNetIsOpen()) { return; }
-    /* ZERO it FIRST -- see the same guard in ge_net_enet.c. Anything added to GeNetTransport
+    /* ZERO IT FIRST -- see the same guard in ge_net_enet.c. Anything added to GeNetTransport
      * later is stack garbage here until someone assigns it, and ge_net.c calls function pointers
      * it finds non-NULL. */
     memset(&tp, 0, sizeof tp);

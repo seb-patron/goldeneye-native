@@ -270,7 +270,7 @@ a stronger mechanism than Perfect Dark's manual padding and should be kept.
 
 ### 3.1 The Fast3D generation gap
 
-| | this port (`getv/port/fast3d/`) | Perfect Dark (`vendor/pd-port/port/fast3d/`) |
+|  | this port (`getv/port/fast3d/`) | Perfect Dark (`vendor/pd-port/port/fast3d/`) |
 |---|---|---|
 | `gfx_pc` | 5,515 lines, C | 2,834 lines, C++ |
 | `gfx_opengl` | 968 | 1,424 |
@@ -473,7 +473,7 @@ Spawn pads are populated at `vendor/ge-decomp/src/game/bondview_r.c:207-226` fro
 Counting live records (`is_demo_playback == 0`) across the setup files in
 `vendor/ge-decomp/assets/obseg/setup/` and `.../setup/u/`:
 
-| | solo setups | multiplayer setups |
+|  | solo setups | multiplayer setups |
 |---|---|---|
 | files | 21 | 17 |
 | live spawns | **exactly 1 in every one** | 0, or 5 to 8 |
@@ -526,11 +526,11 @@ The raw split understates the difficulty, because of **what** those 568 referenc
 not spawn coordinates. They are AI script logic. From `vendor/pd-port/src/setups/setuplee.c`:
 
 ```
-812: set_target_chr(CHR_COOP)
-1390: if_chr_death_animation_finished(CHR_COOP, /*goto*/ 0x2d)
-1391: if_chr_in_room(CHR_COOP, 0x00, 0x003a, /*goto*/ 0x06)
-2434: if_chr_dead(CHR_COOP, /*goto*/ 0x2c)
-2684: set_chr_chrflag(CHR_COOP, CHRCFLAG_HIDDEN)
+812:   set_target_chr(CHR_COOP)
+1390:  if_chr_death_animation_finished(CHR_COOP, /*goto*/ 0x2d)
+1391:  if_chr_in_room(CHR_COOP, 0x00, 0x003a, /*goto*/ 0x06)
+2434:  if_chr_dead(CHR_COOP, /*goto*/ 0x2c)
+2684:  set_chr_chrflag(CHR_COOP, CHRCFLAG_HIDDEN)
 ```
 
 `CHR_COOP` is `0xf5` (`vendor/pd-port/src/include/constants.h:471`), alongside `CHR_P1P2` `0xf2`

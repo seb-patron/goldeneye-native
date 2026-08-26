@@ -6,7 +6,7 @@
  * osViSetYScale(), osViSetSpecialFeatures(), and mode selection out of
  * osViModeTable[].
  *
- * On tvOS that hardware does not exist and Fast3D + SDL already is the video
+ * On tvOS that hardware does not exist and Fast3D + SDL already IS the video
  * interface: it owns the drawable, the swap, and the 2x supersampled 3840x2160 ->
  * 1920x1080 scaling. So rather than link libultra's VI (a bridge to nowhere), the
  * register-level calls become no-ops here and fr.c's game logic runs unchanged.

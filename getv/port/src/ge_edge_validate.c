@@ -5,7 +5,7 @@
  * Every graph edge in this project has been an assumption. The waypoint links come from pad
  * adjacency, the spawn and door and portal links come from proximity, and the only walkability
  * test available offline is triangle intersection against exported wall polygons. That test
- * disagrees with the game: it passes the Bunker 1 spawn-to-portal line that
+ * Disagrees with the game: it passes the Bunker 1 spawn-to-portal line that
  * bondviewTestLineUnobstructed refuses, so the router kept choosing a 1136-unit leap through a
  * wall over the 555-unit walk to the door, and the bot pressed into that wall every run.
  *
@@ -109,7 +109,7 @@ void gePortEdgeValidateFrame(int frame)
 
         if (!geWorldWaypoint(i, &a)) { continue; }
 
-        /* stand at this node before measuring its edges.
+        /* stand AT this node before measuring its edges.
          *
          * The line test is seeded from a stan tile and the seed decides the answer -- the same
          * 2926 Bunker 1 pairs came back 98%, 73% or 0% walkable depending only on where the test

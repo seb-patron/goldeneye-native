@@ -20,13 +20,13 @@ RATIO_LIMIT = 2.0     # max/min above this on submitted or drawn => bimodal
 # The denominator matters. "22 of 40 levels render" counts stage ids that can never load
 # against the total, which flatters the number: a stage id is not a level. Four classes,
 # and only the first two can ever be a bug:
-#  SOLO a real single-player mission (20 of them)
-#  MP-ONLY no solo setup file exists in the ROM; must be run with GETV_MP>=2, because
-#  at 1 player prop.c asks for "Usetup<code>Z", which does not exist, and the
-#  stage loads geometry with no setup: no props, no Bond spawn.
-#  NO-DATA geometry absent from the ROM (or, for CITADEL, geometry present but no
-#  setup file anywhere). Cannot ever work, so not a failure.
-#  NOT-LEVEL menus, the end credits, and aliases that silently resolve to Bunker 1.
+#   SOLO      a real single-player mission (20 of them)
+#   MP-ONLY   no solo setup file exists in the ROM; must be run with GETV_MP>=2, because
+#             at 1 player prop.c asks for "Usetup<code>Z", which does not exist, and the
+#             stage loads geometry with no setup: no props, no Bond spawn.
+#   NO-DATA   geometry absent from the ROM (or, for CITADEL, geometry present but no
+#             setup file anywhere). Cannot ever work, so not a failure.
+#   NOT-LEVEL menus, the end credits, and aliases that silently resolve to Bunker 1.
 STAGE_CLASS = {
     "9": ("SOLO", "Bunker 1"), "20": ("SOLO", "Silo"), "22": ("SOLO", "Statue Park"),
     "23": ("SOLO", "Control"), "24": ("SOLO", "Archives"), "25": ("SOLO", "Train"),
@@ -93,13 +93,13 @@ RE_ROOMS  = re.compile(r"maxrooms=(\d+)")
 # Counters armed elsewhere in the port that did not fire on the levels available at the
 # time. A whole-game sweep is the cheapest way to learn whether they are live anywhere,
 # so they are harvested here rather than needing their own run.
-#  geTexSelCiNoLut -- a CI texture whose lutmode hit no case, so no combiner was
-#  emitted and the PREVIOUS draw call's combiner stayed in force.
-#  GoldenEye is CI-heavy; if this prints it is a real render bug.
-#  [getv][hitidx] -- propobjFindHit() is the only writer of mtxindex/dlnode and runs
-#  only for HIT_GUN/HIT_HAT, so any other body part passed on an
-#  uninitialised ModelNode* on the shooting path.
-#  [getv][texidx] -- besttexture == -1 indexed g_Textures BEFORE the array.
+#   geTexSelCiNoLut -- a CI texture whose lutmode hit no case, so NO combiner was
+#                      emitted and the PREVIOUS draw call's combiner stayed in force.
+#                      GoldenEye is CI-heavy; if this prints it is a real render bug.
+#   [getv][hitidx] -- propobjFindHit() is the only writer of mtxindex/dlnode and runs
+#                      only for HIT_GUN/HIT_HAT, so any other body part passed on an
+#                      uninitialised ModelNode* on the shooting path.
+#   [getv][texidx] -- besttexture == -1 indexed g_Textures BEFORE the array.
 RE_COUNTERS = {
     "geTexSelCiNoLut": re.compile(r"geTexSelCiNoLut"),
     "hitidx":          re.compile(r"\[getv\]\[hitidx\]"),

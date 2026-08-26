@@ -132,7 +132,7 @@ int main(void)
     checkf("  its x",                    w.x, 100.0f);
     check("waypoint(1) id",              geWorldWaypoint(1, &w) && w.id == 20, 1);
 
-    /* INDEX is not ID, and the file is built so the two differ: index 0 holds id 10. A reader
+    /* INDEX IS NOT ID, and the file is built so the two differ: index 0 holds id 10. A reader
      * that confused them would pass every test where they happened to match. */
     check("byId(20) is index 1",         geWorldWaypointById(20, &w) && w.id == 20, 1);
     checkf("  and its x",                w.x, 900.0f);

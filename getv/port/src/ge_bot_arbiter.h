@@ -29,6 +29,20 @@ typedef struct GeBotSituation {
                                * behind the bot */
     float distance;           /* to the target */
     float health;             /* 0..1 */
+    /* the engine'S own auto-AIM requires stanTestLineUnobstructed before IT locks
+     * (chrprop.c:2952), and a target inside the angular cone but behind cover is not something
+     * auto-aim would ever help hit. Supplied by the caller rather than tested here, because this
+     * file is pure and has no stan lookup to call; ge_sense_stable or geSenseLine is the natural
+     * source.
+     *
+     * Zero means "DO not fire", not "unknown". A first draft of this comment said has_los
+     * defaults to clear unless the caller sets it, which C cannot actually do: a zero-initialised
+     * int and an explicit "no line of sight" are both the value 0, and nothing here can tell them
+     * apart. Rather than add a third state, the zero value was given the SAFE meaning, matching how
+     * ge_sense_api.c already treats an unresolved sample as "not safe to say clear" rather than
+     * "assume clear". A caller that has not wired this up yet gets a bot that never fires, which
+     * is a visible regression the moment it is exercised -- not a silent one. */
+    int   has_los;
 } GeBotSituation;
 
 typedef struct GeBotAction {
@@ -39,5 +53,18 @@ typedef struct GeBotAction {
 } GeBotAction;
 
 GeBotAction geBotArbitrate(const GeBotSituation *s);
+
+/* what this does not model, stated once here rather than discovered by watching a bot miss a
+ * shot it should have kept.
+ *
+ * The lock-ON settle timer. bondviewUpdateXAutoAimTime keeps a target locked for 25-30 ticks
+ * (BONDVIEW_AUTOAIM_TIME, bondview2.c) even after it leaves the acceptance box, so the real engine
+ * is stickier than a per-frame cone test: a target that drifts out and back within the window never
+ * loses lock. geBotArbitrate is stateless by design -- see the header comment on why that is what
+ * makes it testable without a frame history -- and a settle timer needs state across frames by
+ * Definition. Modelling it means a thin stateful wrapper around this function, holding the last
+ * target and a countdown, not a change to the pure core. Worth building if the per-frame cone
+ * proves too twitchy in practice; not built here because there is no measurement yet showing it is
+ * needed, and adding state on spec is exactly the kind of unverified change this project avoids. */
 
 #endif

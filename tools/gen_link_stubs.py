@@ -57,7 +57,7 @@ def load_decls():
             for m in re.finditer(r'^\s*(?:extern\s+)?([A-Za-z_][A-Za-z0-9_ \t\*]*?[ \t\*])'
                                  r'([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)', t, re.M):
                 funcs.setdefault(m.group(2), (m.group(1).strip(), m.group(3)))
-            # data declarations: extern TYPE name; / extern TYPE name[...];
+            # data declarations: extern TYPE name;  /  extern TYPE name[...];
             for m in re.finditer(r'^\s*extern\s+([A-Za-z_][A-Za-z0-9_ \t\*]*?[ \t\*])'
                                  r'([A-Za-z_][A-Za-z0-9_]*)\s*(\[[^\]]*\])?\s*;', t, re.M):
                 data.setdefault(m.group(2), (m.group(1).strip(), m.group(3) or ''))
@@ -177,21 +177,21 @@ def main():
     for s in syms:
         if s in data and s not in funcs:
             # Emitted as raw bytes rather than with the declared type: these stubs live
-            # in a port TU, which excludes the decomp's include/ (its
+            # in a port TU, which deliberately excludes the decomp's include/ (its
             # math.h/string.h/stddef.h shadow the system headers), so game types like
             # StandTilePoint or PropRecord are not visible here. The linker does not care
             # about type; the game's own declaration governs every access.
             # The fill value depends on what the symbol is, and there is no single safe
             # choice:
             #
-            #  Tables scanned for a sentinel need 0xFF. image_entries_load() walks
-            #  g_Textures until dataoffset == 0xffff; a zero-filled stub never hits the
-            #  sentinel and runs off the end of the buffer.
+            #   Tables scanned for a sentinel need 0xFF. image_entries_load() walks
+            #   g_Textures until dataoffset == 0xffff; a zero-filled stub never hits the
+            #   sentinel and runs off the end of the buffer.
             #
-            #  Pointer globals need 0. A 0xFF-filled pointer is 0xFFFF...FF, the most
-            #  invalid address possible, and any dereference is an immediate SIGSEGV,
-            #  which is how lvlStageLoad died. NULL at least faults predictably, and most
-            #  code null-checks.
+            #   Pointer globals need 0. A 0xFF-filled pointer is 0xFFFF...FF, the most
+            #   invalid address possible, and any dereference is an immediate SIGSEGV,
+            #   which is how lvlStageLoad died. NULL at least faults predictably, and most
+            #   code null-checks.
             typ = data[s][0]
             if '*' in typ:
                 out.append('void *%s = 0;   /* pointer global: NULL, not 0xFF */' % s)
@@ -226,7 +226,7 @@ def main():
             stub_arrays.append(s)
             n_guess += 1
 
-    # Data stubs are over-allocated and canaried.
+    # Data stubs are deliberately over-allocated and canaried.
     #
     # A fixed `unsigned char NAME[4096] = {[0...4095] = 0xFF}` is a guess: g_Props is
     # really PropRecord[600] = 24,000 bytes on arm64, so init_load_objpos_table()'s
@@ -236,11 +236,11 @@ def main():
     # subsystems away from the cause.
     #
     # Two properties keep that class of bug from being silent:
-    #  * uninitialised (BSS), so a generous size costs nothing in the binary, with the
-    #  0xFF poison written at runtime instead. The poison still matters, because
-    #  tables scanned for a 0xFFFF sentinel run off the end of a zero-filled stub.
-    #  * a canary after every stub, checked from gePortBootMark(), so an overflow reports
-    #  which symbol and at which boot step instead of corrupting a neighbour.
+    #   * uninitialised (BSS), so a generous size costs nothing in the binary, with the
+    #     0xFF poison written at runtime instead. The poison still matters, because
+    #     tables scanned for a 0xFFFF sentinel run off the end of a zero-filled stub.
+    #   * a canary after every stub, checked from gePortBootMark(), so an overflow reports
+    #     which symbol and at which boot step instead of corrupting a neighbour.
     out.append('')
     out.append('/* ---- stub storage registry (see comment in gen_link_stubs.py) ---- */')
     out.append('static unsigned char *const ge_stub_ptrs[] = {')

@@ -17,7 +17,7 @@
  * The platform matrix:
  *
  *   macOS       $HOME/Library/Application Support/<app>
- *               hand-built rather than delegated to SDL_GetPrefPath. SDL would in
+ *               Hand-built rather than delegated to SDL_GetPrefPath. SDL would in
  *               fact return the same directory here, but going through it would make
  *               the Mac path depend on tvOS's choice -- see the note in port_save.c.
  *               This branch is byte-for-byte the code that used to be inline. It is the
@@ -37,7 +37,7 @@
  * separator, while SDL_GetPrefPath always appends one. Both existing callers then append
  * "/<filename>" unconditionally, so the non-Mac path picks up a doubled slash. Every POSIX
  * and Win32 filesystem collapses that, the behaviour predates this file, and normalising it
- * here would change the tvOS build for no gain, so it is preserved.
+ * here would change the tvOS build for no gain, so it is preserved on purpose.
  */
 #include <errno.h>
 
@@ -138,7 +138,7 @@ int gePortMakeDirTree(const char *path, unsigned mode)
 
     /* Create each intermediate level by temporarily truncating at its separator.
      * i starts at 1 so a leading '/' is never treated as a component to create.
-     * A failing intermediate is not fatal on its own -- it is usually EEXIST on a
+     * A failing intermediate is NOT fatal on its own -- it is usually EEXIST on a
      * directory we do not own, or a Windows drive prefix like "C:" -- so only the
      * final mkdir decides the return value. */
     for (i = 1; i < n; i++) {

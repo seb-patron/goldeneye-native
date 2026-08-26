@@ -7,14 +7,14 @@
  *
  * Three properties matter more than the rest, and all three fail quietly:
  *
- *   A late post is refused, not dropped. In netplay a post for a tick that has already run is the
+ *   A late post IS refused, not dropped. In netplay a post for a tick that has already run IS the
  *   desync. A caller that cannot tell "applied" from "too late" has no way to notice one.
  *
- *   an expired hold goes neutral, not "the last thing forever". A button left down indefinitely
+ *   AN expired hold goes neutral, not "the last thing forever". A button left down indefinitely
  *   produces exactly one press and then blocks the idle timers several screens rely on, so a bot
  *   that stopped posting would wedge the front end rather than idle.
  *
- *   A full queue is also A refusal. Silently overwriting the oldest entry would make a bot that
+ *   A full queue IS also A refusal. Silently overwriting the oldest entry would make a bot that
  *   over-posts look like a bot with a planning bug.
  *
  * The real playback hook is driven here rather than the pieces, so tick advance, queue promotion,
@@ -26,7 +26,7 @@
 
 static unsigned int g_test_style;
 
-/* Everything the unit reaches for. They report "nothing here": a stub returning
+/* Everything the unit reaches for. They report "nothing here" on purpose: a stub returning
  * plausible data would be inventing a game, and the queue would then be tested against my guess
  * at one rather than against its own logic. */
 unsigned int get_player_control_style(int playernum) { (void) playernum; return g_test_style; }
@@ -69,7 +69,7 @@ static void check(const char *what, int got, int want)
 
 /* One frame of the real hook.
  *
- * The argument is joy.c's 20-DEEP sample ring, not one sample. ge_playback computes
+ * The argument IS joy.c's 20-DEEP sample ring, not one sample. ge_playback computes
  * `index = (curlast + 1) % 20` and writes samples[index], so handing it a single struct puts a
  * whole contsample past the end of the buffer.
  *

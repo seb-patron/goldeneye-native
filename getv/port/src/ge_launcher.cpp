@@ -296,7 +296,7 @@ struct Model {
     int  bind_p[4][6];
     int  bind_tab;                /* 0 = all players, 1..4 = that player */
 
-    /* Mouse and keyboard. Both default on in port_input.c, which is the right default -- a
+    /* Mouse and keyboard. Both default ON in port_input.c, which is the right default -- a
      * gamepad is the minority case and the majority should not have to find a setting before
      * the game is playable. Held as tri-state is unnecessary here: the launcher only needs to
      * write the gate when it differs from that default. */
@@ -313,7 +313,7 @@ struct Model {
 
 /* Where the game will actually look for mods, resolved the same way ge_lua.c resolves it:
  * GETV_MODDIR if set, otherwise "mods". ge_lua.c opens that path relative to the process's
- * working directory, so the launcher has to try the same relative path and the directory the
+ * working directory, so the launcher has to try the same relative path AND the directory the
  * binary sits in -- started from a shortcut or from Explorer those are not the same place,
  * and a launcher that scanned only one of them would show an empty list for a mods folder the
  * game is about to load happily. */
@@ -506,7 +506,7 @@ void model_load(Model &m)
         }
     }
 
-    /* Defaults mirror port_input.c: mouse and keyboard both on, sensitivity 100%. */
+    /* Defaults mirror port_input.c: mouse and keyboard both ON, sensitivity 100%. */
     m.mouse        = env_bool("GETV_MOUSE", true);
     m.mouse_sens   = env_int("GETV_MOUSE_SENS", 100);
     m.mouse_invert = env_bool("GETV_MOUSE_INVERT", false);
@@ -562,7 +562,7 @@ void model_store(const Model &m)
     put_str("GETV_WINDOW", m.resolution);
 
     setenv("GETV_FXAA", m.fxaa ? "1" : "0", 1);
-    /* GETV_CRT and the four GETV_CRT_* terms are deliberately not written here. The CRT is
+    /* GETV_CRT and the four GETV_CRT_* terms are deliberately NOT written here. The CRT is
      * mods/crt_screen now, and the launcher turns it on and off through the mod list like any
      * other mod. The gates still exist for anyone driving the game from a shell -- ge_postfx.c
      * reads them -- they simply are not this window's to set. */
@@ -607,7 +607,7 @@ void model_store(const Model &m)
     setenv("GETV_IMGUI", m.dev_overlay ? "1" : "0", 1);
     put_str("GETV_MODDIR", m.moddir);
 
-    /* Only the mods that were switched off are recorded; see the denylist note in ge_lua.c.
+    /* Only the mods that were switched OFF are recorded; see the denylist note in ge_lua.c.
      * A mod added to the folder later is on by default, which is the documented behaviour and
      * the reason this is not an allowlist. */
     {
@@ -1434,7 +1434,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 }
 
                 Section("BINDINGS FOR");
-                /* all first, then the four players. The tab is the scope, so the thing being
+                /* ALL first, then the four players. The tab IS the scope, so the thing being
                  * edited is never ambiguous -- which matters here more than usual, because
                  * "fire" on this page can mean two different keys. */
                 static const char *const kWho[] = { "ALL", "P1", "P2", "P3", "P4" };
@@ -1453,7 +1453,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                                                       : &m.bind_p[m.bind_tab - 1][a];
 
                         /* What this action will actually do if nothing more is chosen: the
-                         * all tab's value if there is one, otherwise port_os.c's default.
+                         * ALL tab's value if there is one, otherwise port_os.c's default.
                          * Shown so an inherited row still says something concrete rather than
                          * leaving the player to work it out. */
                         const char *eff = (m.bind_all[a] >= 0) ? kSources[m.bind_all[a]]

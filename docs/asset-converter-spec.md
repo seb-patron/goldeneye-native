@@ -11,7 +11,7 @@ GoldenEye's model files store **32-bit VMA-relative offsets**, not pointers. At 
 
 ```c
 /* model.c:5677 */
-#define PROMOTE(var) if (var) var = (void *)((u32)var + diff)
+#define PROMOTE(var)  if (var) var = (void *)((u32)var + diff)
 ```
 
 That works on the N64 because a pointer is 4 bytes and fits the file's slot. On arm64

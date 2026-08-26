@@ -121,7 +121,7 @@ static unsigned long geSavesBefore = 0;
 
 /* music.c's own state. Declared here rather than included because music.h is not on the
  * port layer's include path (the decomp ships headers that shadow the system ones -- see
- * docs/ROADMAP.md). Types are from <PR/libaudio.h>, which is included above. */
+ * docs/ROADMAP.md). Types are from <PR/libaudio.h>, which IS included above. */
 extern ALCSPlayer *g_musicXTrack1SeqPlayer;
 extern ALCSPlayer *g_musicXTrack2SeqPlayer;
 extern ALCSPlayer *g_musicXTrack3SeqPlayer;
@@ -273,7 +273,7 @@ static void geDbgFrame(const s16 *buf, s32 frames, s32 queued, s32 cmdLen)
     geDbgSamples += (unsigned long long)frames;
     if (pk > geDbgPeakAll) { geDbgPeakAll = pk; }
     /* "Non-silent" means an RMS above 0.5 LSB, i.e. at least a few non-zero samples --
-     * a floor on the raw value, not a dB threshold, so it cannot be tuned
+     * deliberately a floor on the raw value, not a dB threshold, so it cannot be tuned
      * into reporting success. */
     if (rmsL > 0.5 || rmsR > 0.5) { geDbgNonSilent++; }
     geDbgRmsAcc += (rmsL + rmsR) * 0.5;

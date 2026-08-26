@@ -82,7 +82,7 @@ def main():
     adj = {f["t"]: [n for n in f.get("l", []) if n in pos] for f in floors}
     room = {f["t"]: f.get("r") for f in floors}
 
-    # snap the player into the level'S playable body, not merely to the nearest tile.
+    # snap the player into the level'S playable body, not merely TO the nearest tile.
     #
     # These tile graphs are fragmented -- frigate has 178 connected components, facility 156 -- and
     # a nearest-in-XZ snap lands on whatever scrap of floor happens to be closest. On frigate that
@@ -95,8 +95,8 @@ def main():
     # measured 12-202 offset range, so any band admitting real spawns admits the island too, and the
     # island still wins on horizontal distance.
     #
-    # The constraint that actually holds is semantic, not metric: A player cannot spawn on A two-TILE
-    # ISLAND. The playable body of a level is its largest connected component, so the snap is
+    # The constraint that actually holds is semantic, not metric: A player cannot spawn ON A two-TILE
+    # ISLAND. The playable body of a level IS its largest connected component, so the snap is
     # restricted to that component and the fragments drop out by construction. This also removes the
     # luck from the levels that already worked -- facility passed only because its spawn happened to
     # land in the big component, not because anything made sure it did.
@@ -117,7 +117,7 @@ def main():
     main = max(comps, key=len)
     start = min(main, key=lambda t: (pos[t][0] - px) ** 2 + (pos[t][2] - pz) ** 2)
 
-    # cast at floor height, not body height. The wall set carries the floor y of the tile that
+    # cast AT floor height, not body height. The wall set carries the floor y of the tile that
     # produced each wall; the captured spawn is a BODY position, standing a body-to-floor offset
     # above its floor. Comparing one against the other with a deck-separation band silently rejects
     # every wall on the player's OWN deck as soon as that offset exceeds the band.
@@ -125,7 +125,7 @@ def main():
     # Facility is how this was found: player body y=474, every wall and floor in the level between
     # -577 and +321, so the ray was cast 891 units above the level's own median and matched nothing.
     # The spawn is not wrong -- facility's top floor is 321 and 474-321=153, inside the 12-202
-    # offset range measured elsewhere on this project. It simply exceeded a band of 150 by THREE
+    # offset range measured elsewhere on this project. It simply exceeded a band of 150 BY THREE
     # UNITS, and the level reported zero arrival points, which read as "unsuitable for horde" for a
     # level with 2,219 floor tiles.
     #
@@ -163,14 +163,14 @@ def main():
         cand.append({"tile": t, "pos": [round(v, 1) for v in c], "room": room.get(t),
                      "dist": round(d, 1), "blocked_at": round(hit, 1)})
 
-    # how many points A level gets must come from the level, or it is not grounded in anything.
+    # how many points A level gets must come from the level, OR IT IS not grounded IN anything.
     #
     # A fixed --want 12 made every one of the 20 playable levels return exactly 12 points and
     # therefore exactly 140 enemies over 20 waves -- bunker1, whose median sightline measures 262
     # units, got the identical horde to statue. That is the archetype-audit failure again: a measure
     # returning the same verdict for levels that are visibly different is not measuring them.
     #
-    # rooms that can host an arrival is the discriminator, and it genuinely discriminates: runway
+    # rooms that can host AN arrival is the discriminator, and it genuinely discriminates: runway
     # has 7, control has 73, a tenfold spread. Tile count does not work as well -- it counts floor
     # area, and a large open hall is one place to come from, not fifty.
     #
@@ -185,7 +185,7 @@ def main():
     # spread across the band, not nearest-FIRST. Sorting by distance and taking the first N
     # picks every arrival from the near edge: on Train that gave twelve spawns between 807 and 962
     # units of an 806-4031 band, all in one stretch of carriages. Two per room did not fix it,
-    # because Train's rooms are the carriages and consecutive ones are adjacent -- a per-room cap
+    # because Train's rooms ARE the carriages and consecutive ones are adjacent -- a per-room cap
     # spreads across labels, not across space.
     #
     # So the sorted candidates are sampled at an even stride, which covers the whole band by

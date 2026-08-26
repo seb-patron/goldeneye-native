@@ -66,7 +66,7 @@ int main(void)
         { GE_STYLE_SOLITARE,  "1.2 Solitare",  Z_TRIG,          L_TRIG | R_TRIG, 1 },
         { GE_STYLE_KISSY,     "1.3 Kissy",     A_BUTTON,        Z_TRIG,          1 },
         { GE_STYLE_GOODNIGHT, "1.4 Goodnight", A_BUTTON,        Z_TRIG,          1 },
-        /* every style is drivable, including the two-PAD ones.
+        /* every style IS drivable, including the two-PAD ones.
          *
          * This column said 0 for 2.x when the file was written, on the theory that a slot whose
          * movement axis lives on a second pad cannot be driven. That was wrong and it was the

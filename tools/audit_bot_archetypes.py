@@ -128,7 +128,7 @@ def satisfies(shape, need):
     # cover and long_sightlines are now MEASURED, by ray-casting the derived wall set
     # (tools/gen_level_visibility.py), rather than inferred from a proxy.
     #
-    # the proxies they replace were measuring the wrong quantity, and that is why they are gone
+    # the proxies they replace were measuring the wrong quantity, which is why they are gone
     # rather than merely tuned. `cover` was mean tile adjacency < 8 -- adjacency is mesh
     # CONNECTIVITY, so a room full of crates scored like an empty one. `long_sightlines` was aspect
     # ratio >= 3 -- ratio is ELONGATION, so a large square hall failed and a narrow corridor

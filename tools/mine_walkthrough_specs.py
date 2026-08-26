@@ -85,7 +85,7 @@ def repair(text):
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{1,40}$")
 
 # A value written as a bare placeholder: "position": [x,y,z]. The SHAPE is authored -- position is
-# a three-vector -- and the value is not. Substituted with null so the structure
+# a three-vector -- and the value deliberately is not. Substituted with null so the structure
 # parses, and every substituted path is recorded, so nobody can mistake the null for something the
 # author wrote.
 PLACEHOLDER_LIST = re.compile(r":[ ]*\[[ ]*[a-z](?:[ ]*,[ ]*[a-z])*[ ]*\]")
@@ -172,7 +172,7 @@ def main():
                     continue
                 if PLACEHOLDER_LIST.search(raw):
                     # Values written as placeholders, e.g. a position given as [x,y,z]. The shape
-                    # is authored and the value is not, so the placeholders become
+                    # is authored and the value deliberately is not, so the placeholders become
                     # null and every path that was substituted is recorded. Without that record a
                     # reader could not tell a substituted null from one the author wrote.
                     patched = PLACEHOLDER_LIST.sub(": null", raw)
@@ -211,7 +211,7 @@ def main():
         print("   %-10s %3d spec(s), %4d fields" % (lv, n, fields))
 
     # The field vocabulary is the interesting part: fields shared across many levels are the
-    # author's model of what a GoldenEye level has, stated the same way every time.
+    # author's model of what a GoldenEye level HAS, stated the same way every time.
     # Schema sketches carry field_names and no flat map; JSON specs carry flat and no field_names.
     # Both contribute field names to the vocabulary, so both are read, each by its own key.
     keys = collections.Counter()

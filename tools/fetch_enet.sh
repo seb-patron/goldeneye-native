@@ -5,7 +5,7 @@
 # getv/port/thirdparty/ is gitignored and upstream source is fetched on demand, so the tree
 # never carries code it did not write. See docs/THIRD_PARTY.md for the wider arrangement.
 #
-# why enet rather than the hand-ROLLED UDP in ge_net_udp.c
+# why enet rather than the hand-ROLLED UDP IN ge_net_udp.c
 #
 # ge_net_udp.c works, but it reimplements things ENet has done since 2002 and does better:
 # connection establishment and teardown, timeouts and disconnection detection, sequencing,
@@ -13,7 +13,7 @@
 # the interesting problems in this project live, and every line of it is a line that can be
 # subtly wrong on a link nobody tested.
 #
-# What ENet does not replace is ge_net.c. Deciding when a tick is ready, when to stall and when
+# What ENet does NOT replace is ge_net.c. Deciding when a tick is ready, when to stall and when
 # the machines have diverged is lockstep logic, not transport, and it stays ours.
 #
 # Licence: MIT (LICENSE in the fetched tree, Copyright (c) 2002-2024 Lee Salzman). Compatible

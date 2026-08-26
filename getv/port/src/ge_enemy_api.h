@@ -6,8 +6,8 @@
  * room it is not looking at.
  *
  * This is the other half: who is actually here right now, how hurt they are, whether they have
- * noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
- * THEIR TARGET is. The game already tracks all of it per character; none of it was reachable from
+ * Noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
+ * THEIR TARGET IS. The game already tracks all of it per character; none of it was reachable from
  * a bot or a mod.
  *
  * Why the belief fields are the interesting ones
@@ -26,7 +26,7 @@
  * A bot that only knows enemy POSITIONS can fight. A bot that knows what enemies believe can
  * disengage, flank, and bait -- and those are the behaviours that read as intelligent.
  *
- * The source is installed, not linked
+ * The source IS installed, not linked
  *
  * The live data lives in ChrRecord (bondtypes.h:2454-2591), and the port layer is compiled
  * without the decomp's include path, so it cannot name that type. The established bridge in this
@@ -136,7 +136,7 @@ int  geEnemySourceInstalled(void);
 
 int geEnemyCount(void);
 
-/* By slot index, 0..geEnemyCount()-1. Returns 0 for an empty or invalid slot. Index is not stable
+/* By slot index, 0..geEnemyCount()-1. Returns 0 for an empty or invalid slot. Index is NOT stable
  * across frames as characters die and slots are reused -- use geEnemyById to follow one enemy. */
 int geEnemy(int index, GeEnemy *out);
 

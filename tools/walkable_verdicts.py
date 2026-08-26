@@ -137,7 +137,7 @@ def apply_to_level(level, graph, out_dir, log=True):
               % (level, stats["confirmed"], stats["dropped"], stats["unknown"], total,
                  meta.get("mask") or "unrecorded"))
         if stats["unknown"]:
-            # Loud. A partial capture is the failure this file is shaped around.
+            # Loud on purpose. A partial capture is the failure this file is shaped around.
             print("             %d edges were not in the capture and are KEPT as unknown; "
                   "a short capture is not a stricter router" % stats["unknown"])
     return filtered, stats

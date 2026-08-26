@@ -2,7 +2,7 @@
  *
  * sm64ex supplies these from its own platform/config/filesystem layers.
  * GoldenEye's decomp has none of that, so the port provides the minimum Fast3D
- * actually touches. Kept small: everything here is host plumbing, not
+ * actually touches. Kept deliberately small: everything here is host plumbing, not
  * game behaviour.
  */
 #include <stdarg.h>
@@ -95,7 +95,7 @@ ConfigWindow configWindow = {
     .settings_changed = false,
 };
 
-/* Called from gePortMacWindowConfig() below, before gfx_init(). env-driven
+/* Called from gePortMacWindowConfig() below, before gfx_init(). Deliberately env-driven
  * rather than a config file: this port has no settings UI and every other knob on it is
  * a GETV_* variable. */
 void gePortMacWindowConfig(void)
@@ -120,7 +120,7 @@ void gePortMacWindowConfig(void)
      * the aspect the game was authored for is preserved rather than letterboxed.
      *
      * Only the default is clamped. An explicit GETV_WINDOW is honoured as given:
-     * measurement runs ask for sizes larger than the panel, and `drawn` is
+     * measurement runs deliberately ask for sizes larger than the panel, and `drawn` is
      * resolution-sensitive on Mac (659 at <=1280x960, 672/673 at >=1600x1200), so
      * silently resizing a requested size would corrupt a comparison. */
     if ((w == NULL || *w == '\0') && !configWindow.fullscreen) {
@@ -333,7 +333,7 @@ void ge_log_flush_now(void);
  *
  * The flush existed for A reason, so it is still available. A hard crash can lose whatever sits
  * in the buffer, which is exactly when a debug channel matters most -- GETV_LOGFLUSH=1 restores
- * per-line flushing for chasing a hang or a fault. Defaulting it off is the right way round
+ * per-line flushing for chasing a hang or a fault. Defaulting it OFF is the right way round
  * because an unreproducible crash is rare and a 7x slowdown is every single run, but the choice
  * has to stay available or this becomes a fix that costs someone a day later.
  */
@@ -380,13 +380,13 @@ void ge_log_flush_now(void)
  * periodic runtime censuses, each a handful of lines from a different place, with no single
  * category left worth gating.
  *
- * The frame-rate effect is not measurable on this box and no figure is claimed for it. With
+ * The frame-rate effect is NOT measurable on this box and no figure is claimed for it. With
  * stdout already buffered these lines cost almost nothing, and the run-to-run spread here is
  * larger than any gain -- two identical configurations measured 63 and 95 fps. This gate makes
  * the log SHORT, which is a readability win; the SPEED came from the buffering above. Presenting
  * a noisy delta as a speedup is how a placebo gets committed.
  *
- * it does not cover error paths. osSyncPrintf has 516 call sites and most of them
+ * IT deliberately does not cover error paths. osSyncPrintf has 516 call sites and most of them
  * are the decomp reporting that something went wrong; gating those wholesale is how a failure
  * becomes invisible. Only the sites that report SUCCESSFUL, ROUTINE work are wrapped, and each
  * one was picked by reading it rather than by matching a prefix.
@@ -417,7 +417,7 @@ void osSyncPrintf(const char *fmt, ...)
  * call site, the same way the g_ModelHitEntries stride bug was pinned. */
 void gePortCheckItemEntries(const char *where)
 {
-    /* Local mirror of ChrModelFileRecord -- port_support.c does not pull
+    /* Local mirror of ChrModelFileRecord -- port_support.c deliberately does not pull
      * in the game headers. Only the two leading pointers matter here; the trailing
      * floats/flags pad the record to its natural 32-byte 64-bit size. */
     struct ge_item_rec { void *header; char *filename; float scale, pov;
