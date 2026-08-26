@@ -74,6 +74,24 @@ static float ge_cli_path_cell;
 static float ge_cli_goal_x, ge_cli_goal_z;
 static int   ge_cli_goal_ok;
 static const char *ge_cli_move[8];
+static float ge_cli_arg_x, ge_cli_arg_z;
+static int   ge_cli_have_arg;
+
+/* The footprint of a prop, for callers that must not know the world struct's layout.
+ *
+ * Returns the radius in runtime units and fills the centre, or 0 when the pack has no box for it
+ * -- guards have none, and treating "unknown" as "zero-sized" is how a search routes a body
+ * through a person. */
+float gePortPropFootprint(int index, float *out_x, float *out_z)
+{
+    GeWorldProp p;
+
+    if (!geWorldProp(index, &p)) { return 0.0f; }
+    if (p.kind == GE_PROP_KEY || p.kind == GE_PROP_COLLECTABLE) { return 0.0f; }
+    if (out_x != NULL) { *out_x = p.x; }
+    if (out_z != NULL) { *out_z = p.z; }
+    return p.radius;
+}
 
 static float ge_cli_norm180(float a)
 {
@@ -136,7 +154,16 @@ static void ge_cli_command(const char *line)
      * tick count for a movement command and a bad cell size for a search, and conflating "no
      * argument" with "30" made a bare "path" search a third of its intended range -- which
      * looked exactly like the pathfinder getting worse. */
-    given = sscanf(line, "%31s %d", verb, &n);
+    {
+        /* Up to three numbers: a tick count, and for "goal" a coordinate pair. Parsed together
+         * so there is one place that decides what a command's arguments mean. */
+        int a = 0, b = 0;
+        int got = sscanf(line, "%31s %d %d %d", verb, &n, &a, &b);
+        given = got;
+        if (got >= 3) { ge_cli_arg_x = (float) n; ge_cli_arg_z = (float) a; ge_cli_have_arg = 1; }
+        else          { ge_cli_have_arg = 0; }
+        (void) b;
+    }
     if (given < 1) { return; }
     given = (given >= 2 && n > 0);
     if (n <= 0) { n = 30; }
@@ -171,6 +198,23 @@ static void ge_cli_command(const char *line)
     else if (strcmp(verb, "map") == 0)  { ge_cli_hold = 0; ge_cli_map_now = 1;
                                           ge_cli_report_now = 1;
                                           ge_cli_map_cell = given ? (float) n : 0.0f; }
+    else if (strcmp(verb, "goal") == 0) {
+        /* Point the local path search somewhere specific. Without this the search always heads
+         * for the nearest live objective target, which is right until the way there runs through
+         * a closed door -- at which point the thing to walk to is the doorway, and only the
+         * caller knows that. */
+        if (ge_cli_have_arg) {
+            ge_cli_goal_x = ge_cli_arg_x;
+            ge_cli_goal_z = ge_cli_arg_z;
+            ge_cli_goal_ok = 2;                 /* 2 = set by hand, and not to be overwritten */
+            printf("goal   (%.0f %.0f)\n", (double) ge_cli_goal_x, (double) ge_cli_goal_z);
+        } else {
+            ge_cli_goal_ok = 0;
+            printf("goal   cleared, following the nearest live target again\n");
+        }
+        ge_cli_hold = 0;
+        fflush(stdout);
+    }
     else if (strcmp(verb, "tags") == 0) {
         /* Which setup tags actually resolve to a live object. The world pack's tags come from the
          * extractor; objFindByTagId works off the setup's own tag records, and if the two number
@@ -563,9 +607,11 @@ static void ge_cli_report(int frame)
         }
         if (best >= 0 && geWorldProp(best, &tp)) {
             extern int gePortTargetState(int tag, int *destroyed, float *dmg, float *maxdmg);
-            ge_cli_goal_x = tp.x;
-            ge_cli_goal_z = tp.z;
-            ge_cli_goal_ok = 1;
+            if (ge_cli_goal_ok != 2) {
+                ge_cli_goal_x = tp.x;
+                ge_cli_goal_z = tp.z;
+                ge_cli_goal_ok = 1;
+            }
             int dead = 0;
             float dmg = 0.0f, maxd = 0.0f;
 

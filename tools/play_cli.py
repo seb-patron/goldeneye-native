@@ -20,8 +20,12 @@ import math
 import os
 import re
 import subprocess
+
 import sys
 import threading
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ge_rooms
 import time
 
 NUM = r"(-?\d+)"
@@ -62,9 +66,10 @@ TURN_PER_TICK = 3.5
 
 
 class Player:
-    def __init__(self, proc, log):
+    def __init__(self, proc, log, level="train"):
         self.p = proc
         self.log = log
+        self.level = level
         self.state = {}
         self.best_obj = None
         self.arrived = False
@@ -83,6 +88,9 @@ class Player:
         self.grabs = {}
         self.no_path = False
         self.tried_use = 0
+        self.rooms = None          # the level's room/portal graph; loaded on first use
+        self.portal_use = 0
+        self.goal = None
         self.path_fine = False
 
     transcript = None
@@ -322,6 +330,53 @@ class Player:
                     return self.turn_cmd(max(-45, min(45, bear)))
                 return "fire"
             return "use 40"
+
+        # ROUTE ON ROOMS FIRST, FLOOR SECOND.
+        #
+        # The floor search only finds what it samples, and on Train that was not enough: the
+        # player stood at (-1388, -235) in room 5 for four minutes reporting "nothing reachable
+        # gets any nearer" while the portal into room 6 sat fifty-eight units away. Making the
+        # search finer and making it wider both made the run WORSE, which is the clue -- the
+        # problem was never resolution, it was that a blind search cannot see a doorway as a
+        # doorway.
+        #
+        # The level already knows. Rooms are joined by portals that Rare placed deliberately, so
+        # route coarsely on that graph and steer finely to the next portal. Standard hierarchical
+        # pathfinding, and the walkthrough says the same thing in prose: the front of each
+        # carriage is a door, and you open it rather than walking through.
+        tgt = s.get("target")
+        here = s.get("room")
+        if tgt is not None and here is not None:
+            goal_room = tgt[4]
+            if goal_room != here:
+                if self.rooms is None:
+                    self.rooms = ge_rooms.Rooms(self.level)
+                portal = self.rooms.next_portal(here, goal_room) if self.rooms.ok else None
+                if portal is not None:
+                    px, _, pz = s.get("pos", (0, 0, 0))
+                    pdist = math.hypot(portal[0] - px, portal[1] - pz)
+                    bearing = math.degrees(math.atan2(portal[0] - px, portal[1] - pz))
+                    pturn = (bearing - s.get("facing", 0) + 540) % 360 - 180
+                    if pdist > 130:
+                        # WALK TO IT THE LONG WAY IF NEED BE. Steering straight at the portal
+                        # marched the player into the crate row -- 554 decisions, health down to
+                        # 2%, six metres of progress. The room graph says WHICH doorway; the floor
+                        # search says how to get there without walking through the furniture, and
+                        # it now closes the cells the props occupy. Hand it the portal and let it
+                        # do its job.
+                        if self.goal != portal:
+                            self.goal = portal
+                            self.state["path"] = []
+                            self.path_asked = False
+                            return self.why("to-portal", "goal %d %d" % (int(portal[0]), int(portal[1])))
+                    # AT THE THRESHOLD. The walkthrough calls the carriage door a combat trigger:
+                    # opening it is a separate act from walking through it, and what is on the
+                    # other side is why. Face it and open it.
+                    if abs(pturn) > 20:
+                        return self.why("at-portal", self.turn_cmd(max(-60, min(60, pturn))))
+                    if self.portal_use < 40:
+                        self.portal_use += 1
+                        return self.why("at-portal", "use 40")
 
         # FOLLOW GROUND, NOT A BEARING.
         #
@@ -596,7 +651,7 @@ def main():
             env["PATH"] = mingw + os.pathsep + env.get("PATH", "")
     p = subprocess.Popen([exe], env=env, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
-    player = Player(p, sys.stdout)
+    player = Player(p, sys.stdout, level=args.level)
 
     # The transcript is every line the player saw, in the order it saw them, with the commands it
     # sent interleaved. The console stays a summary -- position and objective -- because a full

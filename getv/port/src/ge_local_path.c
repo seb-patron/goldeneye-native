@@ -21,6 +21,15 @@
 
 extern int gePortCanStandAt(float x, float z);
 
+/* The props the world pack knows about. The floor test answers "is there ground here" and knows
+ * nothing about what is STANDING on the ground -- so a search built on it alone routes straight
+ * through the row of crates across Train's first carriage, which the report has been naming, with
+ * positions, the whole time. Reading them here is the difference between a route a body can walk
+ * and a route a ghost can. */
+typedef struct { int kind, room, tag, nav_node; float x, y, z; float pad[8]; float hx, hz, radius; } GeLpProp;
+extern int geWorldPropCount(void);
+extern int geWorldProp(int index, void *out);
+
 /* 30, not 40. The search is one standability query per cell, so the cost is quadratic in this
  * number: 40 is 6,561 cells against 30's 3,721, and the driver measurably lost ground when the
  * search got slower -- it reached 9.5m into the first carriage instead of 13.6m, at 29% health
@@ -57,6 +66,39 @@ int gePortLocalPath(float px, float pz, float tx, float tz, float cell,
         int gz = (i / GE_LP_DIM) - GE_LP_HALF;
         ge_lp_open[i] = (unsigned char) gePortCanStandAt(px + (float) gx * cell,
                                                          pz + (float) gz * cell);
+    }
+
+    /* Close the cells the props occupy. Radius is the CIRCUMRADIUS, so it over-reserves for a
+     * square footprint by about 41% -- the right direction to be wrong in when the alternative is
+     * walking into the corner of a crate. A prop with no radius is left alone rather than guessed
+     * at: guards have no model box, and closing a cell per guard would wall the level in. */
+    {
+        extern float gePortPropFootprint(int index, float *x, float *z);
+        int pi, pn = geWorldPropCount();
+        for (pi = 0; pi < pn; pi++) {
+            float ox, oz, r = gePortPropFootprint(pi, &ox, &oz);
+            int gx0, gx1, gz0, gz1, gx, gz;
+
+            if (r <= 0.0f) { continue; }
+            gx0 = (int) ((ox - r - px) / cell) - 1 + GE_LP_HALF;
+            gx1 = (int) ((ox + r - px) / cell) + 1 + GE_LP_HALF;
+            gz0 = (int) ((oz - r - pz) / cell) - 1 + GE_LP_HALF;
+            gz1 = (int) ((oz + r - pz) / cell) + 1 + GE_LP_HALF;
+            if (gx1 < 0 || gz1 < 0 || gx0 >= GE_LP_DIM || gz0 >= GE_LP_DIM) { continue; }
+            if (gx0 < 0) { gx0 = 0; }
+            if (gz0 < 0) { gz0 = 0; }
+            if (gx1 >= GE_LP_DIM) { gx1 = GE_LP_DIM - 1; }
+            if (gz1 >= GE_LP_DIM) { gz1 = GE_LP_DIM - 1; }
+
+            for (gz = gz0; gz <= gz1; gz++) {
+                for (gx = gx0; gx <= gx1; gx++) {
+                    float cx = px + (float) (gx - GE_LP_HALF) * cell;
+                    float cz = pz + (float) (gz - GE_LP_HALF) * cell;
+                    float dx2 = cx - ox, dz2 = cz - oz;
+                    if (dx2 * dx2 + dz2 * dz2 <= r * r) { ge_lp_open[gz * GE_LP_DIM + gx] = 0; }
+                }
+            }
+        }
     }
 
     i = GE_LP_HALF * GE_LP_DIM + GE_LP_HALF;    /* the player's own cell */
