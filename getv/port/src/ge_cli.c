@@ -32,6 +32,18 @@
 #ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
+#else
+/* Declared locally rather than #include <windows.h>, matching port_save.c's MoveFileExA --
+ * windows.h's macros collide with names elsewhere in the port layer, and the three functions
+ * this needs are a small, stable, unchanging slice of kernel32. */
+#define GE_CLI_STD_INPUT_HANDLE ((unsigned long) -10)
+#define GE_CLI_FILE_TYPE_PIPE   3
+__declspec(dllimport) void  *__stdcall GetStdHandle(unsigned long);
+__declspec(dllimport) unsigned long __stdcall GetFileType(void *);
+__declspec(dllimport) int   __stdcall PeekNamedPipe(void *, void *, unsigned long, unsigned long *,
+                                                    unsigned long *, unsigned long *);
+__declspec(dllimport) int   __stdcall ReadFile(void *, void *, unsigned long, unsigned long *, void *);
+#include <conio.h>
 #endif
 
 #include "ge_player_api.h"
@@ -44,6 +56,9 @@
 static int   ge_cli_on = -1;
 static int   ge_cli_slot;
 static int   ge_cli_every;
+#ifdef _WIN32
+static int   ge_cli_win_is_pipe;   /* resolved once in ge_cli_setup; see the note there */
+#endif
 static int   ge_cli_hold;          /* ticks left on the current command */
 static int   ge_cli_sx, ge_cli_sy;
 static unsigned int ge_cli_buttons;
@@ -82,6 +97,17 @@ static void ge_cli_setup(void)
         int fl = fcntl(0, F_GETFL, 0);
         if (fl != -1) { fcntl(0, F_SETFL, fl | O_NONBLOCK); }
     }
+#else
+    /* Resolved once rather than on every poll, matching how ge_cli_on/slot/every are cached
+     * above: GetFileType is a real kernel call, not a local variable read, and this runs once a
+     * frame for the life of the process. play_cli.py's redirected pipe is FILE_TYPE_PIPE, so
+     * PeekNamedPipe + ReadFile applies; a human running the .exe directly in a terminal has a
+     * console handle instead, where PeekNamedPipe always fails, so _kbhit/_getch is used there.
+     * Both paths existed already in spirit -- POSIX read() with O_NONBLOCK works the same way
+     * against a real terminal or a pipe without the caller needing to know which; Windows has no
+     * single call that does both, so the two are picked apart once here instead. */
+    ge_cli_win_is_pipe = (GetFileType(GetStdHandle(GE_CLI_STD_INPUT_HANDLE))
+                          == GE_CLI_FILE_TYPE_PIPE);
 #endif
     gePlayerClaim(ge_cli_slot, GE_SLOT_INJECTED);
     printf("[cli] playing slot %d. commands: w/s/a/d <ticks>, use, fire, look, stop, quit\n",
@@ -121,9 +147,9 @@ static void ge_cli_command(const char *line)
 
 static void ge_cli_poll_stdin(void)
 {
-#ifndef _WIN32
     static char buf[256];
     static int len;
+#ifndef _WIN32
     char c;
 
     while (read(0, &c, 1) == 1) {
@@ -134,6 +160,65 @@ static void ge_cli_poll_stdin(void)
         } else if (len < (int) sizeof buf - 1) {
             buf[len++] = c;
         }
+    }
+#else
+    /* this was the whole reason GETV_CLI did nothing ON Windows: the function existed, was
+     * called every frame (once gePortCliFrame itself is wired in -- see the note at its call
+     * site), but its body was `#ifndef _WIN32` around empty, so no byte typed or piped ever
+     * reached ge_cli_command. quit never fired, and neither did anything else -- confirmed by
+     * driving it from play_cli.py and finding the child process alive, producing no report
+     * lines, and never exiting even after "quit" was written and flushed to its stdin pipe.
+     *
+     * Two Windows sources need two different calls, because there is no single Win32 API that
+     * behaves like POSIX non-blocking read() against both a pipe and a real console. Which one
+     * applies is resolved once in ge_cli_setup and cached in ge_cli_win_is_pipe, not re-detected
+     * every frame -- GetFileType is a real kernel call, and this runs once per rendered frame for
+     * the life of the process. */
+    if (ge_cli_win_is_pipe) {
+        /* play_cli.py's case: a redirected pipe, exactly like a script piping into any other CLI
+         * tool. PeekNamedPipe asks how many bytes are waiting WITHOUT consuming them and without
+         * blocking if there are none -- that non-blocking check is the whole point, matching what
+         * O_NONBLOCK gives the POSIX side for free. Only then does ReadFile consume one byte,
+         * which cannot block either because PeekNamedPipe already proved a byte is there. */
+        void *h = GetStdHandle(GE_CLI_STD_INPUT_HANDLE);
+        unsigned long avail = 0;
+        while (PeekNamedPipe(h, NULL, 0, NULL, &avail, NULL) && avail > 0) {
+            char c;
+            unsigned long got = 0;
+            if (!ReadFile(h, &c, 1, &got, NULL) || got != 1) { break; }
+            if (c == '\n') {
+                buf[len] = '\0';
+                if (len > 0) { ge_cli_command(buf); }
+                len = 0;
+            } else if (c != '\r' && len < (int) sizeof buf - 1) {
+                /* '\r' dropped here rather than left in the buffer: Windows text-mode pipes and a
+                 * person's terminal both commonly send CRLF, and the POSIX side never sees a
+                 * stray '\r' because pipes there are binary by default -- without this, "quit"
+                 * arrives as "quit\r", sscanf's %s still reads "quit\r" as one token, and it
+                 * matches none of the known verbs. */
+                buf[len++] = c;
+            }
+        }
+    } else {
+        /* A human running the .exe directly in a terminal: PeekNamedPipe always fails against a
+         * real console handle, so this is the conio.h pair that DOES work against one. _kbhit
+         * is the non-blocking check; _getch reads one key without echoing it or waiting for
+         * Enter, so it is called once per key exactly like the pipe branch above, not once per
+         * line -- echoing and this file's own newline-triggered dispatch stay identical either
+         * way, so a person typing behaves the same as play_cli.py sending one line at a time. */
+        while (_kbhit()) {
+            int c = _getch();
+            if (c == '\r' || c == '\n') {
+                putchar('\n');
+                buf[len] = '\0';
+                if (len > 0) { ge_cli_command(buf); }
+                len = 0;
+            } else if (len < (int) sizeof buf - 1) {
+                putchar(c);          /* conio does not echo; a typed command should be visible */
+                buf[len++] = (char) c;
+            }
+        }
+        fflush(stdout);
     }
 #endif
 }

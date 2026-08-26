@@ -486,8 +486,6 @@ static int ge_br_pick_target(float x, float y, float z, GeEnemy *out)
  * GETV_BOT_LOG names the file; unset writes build/botlog-<level>.tsv.
  */
 
-extern unsigned int gePortHostMillis(void);
-
 static FILE *ge_br_log = NULL;
 static unsigned ge_br_log_rows = 0;
 static int ge_br_locked_seen = 0;
