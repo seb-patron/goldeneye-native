@@ -577,6 +577,70 @@ iterations. Open-ended, and each conversion needs checking against retail.
 
 **Z-fighting and the visual bugs.** M6 and the colour-decode family in `COLOUR_BUGS.md`.
 
+## GoldenEye Plus: the mod packs
+
+Everything in this section is an addition, not a restoration. **The retail build must look and
+play exactly as it does today with these packs disabled**, which is why they are packs and not
+options. The point of building them now, even unfinished, is the seams: each one needs a place in
+the engine to live, and adding that place later is a rewrite.
+
+### Surface depth (`goldeneye-plus/depth`)
+
+N64 walls are flat because the geometry budget said so, not because the artists wanted them flat.
+Four techniques, each a superset of the last:
+
+- **Parallax texture mapping.** Colour, normal, height and roughness per texture; offset the
+  sample by view direction. Convincing on brick, panels, grates and floor plate for very little.
+- **Parallax occlusion mapping.** Ray march the height field so the offset is a real intersection.
+  This is the one that makes vents, recesses and machinery read as geometry. The step count is the
+  entire cost, so budget it explicitly.
+- **Geometry-aware promotion.** We have the real level geometry, so classify surfaces --
+  structural, decorative, texture-only, implied depth -- and promote only the few that earn it.
+  Most of the level stays exactly as Rare built it.
+- **Screen-space layer parallax**, for distant scenery only.
+
+**The materials are the actual work.** None of this runs without a height and roughness channel
+per texture, and we have neither. Follow Perfect Dark's `ext_tex` pack layout rather than inventing
+a format, the same as the HD texture work. Define the fallback for textures with no depth data
+first: every unconverted surface in the game uses that path.
+
+### Third person (`goldeneye-plus/camera`)
+
+**The simulation does not change.** Same levels, same AI, same weapons, same collision, same
+missions, same network simulation. Only the camera and presentation layer differ, and building it
+that way from the first commit is what keeps it honest:
+
+    CameraSystem: WorldState + PlayerState + CameraInput  ->  CameraPose
+
+with `FirstPerson`, `ThirdPerson`, `Shoulder`, `Spectator`, `Replay` and `Cinematic` behind one
+interface, and the renderer taking a pose without knowing which camera made it. Moving today's
+first-person behaviour behind that interface, changing nothing visible, is the first commit.
+
+The dependency order that matters: **camera collision before anything else**, because a camera
+that clips through walls reads as broken however good the rest is. Then occlusion by repositioning
+and shoulder-swapping rather than by fading the world, which looks nothing like GoldenEye. Then
+the explicit aim target, since in third person the camera direction is no longer the weapon
+direction, and the three visibility questions first person never had to separate: can the camera
+see it, can the weapon reach it, can the body see it.
+
+Animation is the largest single piece -- the game was never built to be seen from behind -- and
+the original animation data is the starting point rather than a blank sheet. Weapon IK follows the
+simulation's aim to produce a pose, and never feeds back into gameplay.
+
+**A known consequence, deliberately kept:** a camera three metres back sees around corners and
+over low walls that Rare never meant to be visible. That is a different game, and an interesting
+one. It ships as an alternate mode rather than a bug.
+
+### Stereo, VR and the replay director
+
+Once the rig produces a pose, **a stereo pair is two poses from one rig and VR is a head pose
+driving it**. Neither is implemented. What matters now is that the rig interface can express an
+eye offset and an externally supplied head pose, so neither becomes a rewrite later.
+
+The replay director is the cheapest impressive thing on this roadmap: replay is already
+deterministic, so a director consuming one and emitting third-person, wide, overhead and side
+shots costs nothing at simulation level.
+
 ## Phase 4: the thing this is actually for
 
 **A mod surface people outside this repo can use.** The world API, sensing, the event bus and Lua
