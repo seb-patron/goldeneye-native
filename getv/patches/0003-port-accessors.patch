@@ -799,10 +799,11 @@
  void gePortStateDump(int frame)
  {
      s32 i;
-@@ -781,4 +1555,564 @@
+@@ -780,5 +1554,595 @@
+     }
      printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
      fflush(stdout);
- }
++}
 +
 +/* ===================================================================== CLEARANCE
 + *
@@ -1021,6 +1022,36 @@
 + * Returns the held key flags. Zero means no keys, which is the common and correct answer for
 + * most of a level.
 + */
++/* Is the thing the mission points at still standing, and how close is it to not being.
++ *
++ * The world pack is static: it says a brake unit exists at these coordinates and will say so
++ * forever, destroyed or not. So a player shooting one has no way to tell whether the rounds are
++ * landing, and the objective itself only flips once ALL SIX are gone -- which is far too coarse a
++ * signal to steer by. Twenty-four rounds went into a brake unit on Train with no way to know
++ * whether any of them counted.
++ *
++ * The live object knows. While healthy, damage climbs from zero towards maxdamage and the
++ * DESTROYED bit is clear; when it dies the bit sets and damage is reset to count shots taken
++ * afterwards (propobj.c:498-535). So the bit is the answer to "is it dead" and the ratio is only
++ * meaningful before it.
++ *
++ * Returns 1 if the tag names a live object, 0 if there is no such object.
++ */
++s32 gePortTargetState(s32 tag, s32 *out_destroyed, f32 *out_damage, f32 *out_maxdamage)
++{
++    ObjectRecord *obj = objFindByTagId(tag);
++
++    if (obj == NULL) { return 0; }
++
++    if (out_destroyed != NULL) {
++        *out_destroyed = (((PropDefHeaderRecord *) obj)->state & PROPSTATE_DESTROYED) ? 1 : 0;
++    }
++    if (out_damage != NULL)    { *out_damage = obj->damage; }
++    if (out_maxdamage != NULL) { *out_maxdamage = obj->maxdamage; }
++    return 1;
++}
++
++
 +u32 gePortHeldKeys(void)
 +{
 +    u32 flags = 0;
@@ -1032,7 +1063,7 @@
 +        if (bondinvCheckHasKeyFlags((u32) (1 << bit)) != 0) { flags |= (u32) (1 << bit); }
 +    }
 +    return flags;
-+}
+ }
 +
 +
 +s32 gePortTileAt(f32 x, f32 z, s32 *out_id, s32 *out_room)
