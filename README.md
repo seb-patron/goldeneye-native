@@ -251,8 +251,8 @@ Prerequisites: macOS 13+ on Apple silicon, Xcode Command Line Tools, CMake, Pyth
 stock `/bin/bash` 3.2. Nothing newer is needed.
 
 ```bash
-tools/fetch-thirdparty.sh fetch                                       # the fifteen files
-git clone https://github.com/n64decomp/007 vendor/ge-decomp           # the game's C source
+tools/fetch-thirdparty.sh fetch # the fifteen files
+git clone https://github.com/n64decomp/007 vendor/ge-decomp # the game's C source
 # then: apply getv/patches/0001-source.patch, place your ROM, generate the asset sources
 # from it, and apply getv/patches/0002-assets.patch - docs/SETUP.md sections 2.4 and 3
 cd getv && ./build_mac.sh sdl && ./build_mac.sh all && ./build_mac.sh run
@@ -276,7 +276,7 @@ a tree that fails to compile or silently misbehaves.
 
 `getv/build_mac.sh` takes one of `sdl`, `lib`, `port`, `app`, `all`, `run` or `env`.
 
-- `sdl` builds SDL2 2.30.9 for arm64 into `~/.n64tvos/sdl2-mac` - deliberately outside the
+- `sdl` builds SDL2 2.30.9 for arm64 into `~/.n64tvos/sdl2-mac` - outside the
   repository, because the repository path contains a space and that has broken header search
   paths here before. Once per machine.
 - `lib` compiles the game, assets, audio and platform layer into `build-mac/obj`.
@@ -330,7 +330,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_deps_windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File getv\build_windows.ps1 -Target all
 ```
 
-The build is driven from PowerShell rather than bash on purpose: it needs only the compiler,
+The build is driven from PowerShell rather than bash: it needs only the compiler,
 not a working POSIX emulation layer. `getv/build_windows.sh` exists for hosts with a healthy
 MSYS2.
 
@@ -376,15 +376,15 @@ the practical extension surface, and each defaults to preserving stock behaviour
 ## Layout
 
 ```
-getv/port/        platform layer: renderer, audio, input, config, saves, paths
-getv/patches/     this port's changes to the decompilation and to the fetched sources
+getv/port/ platform layer: renderer, audio, input, config, saves, paths
+getv/patches/ this port's changes to the decompilation and to the fetched sources
 getv/build_mac.sh the macOS build
-getv/tools/       measurement harnesses
-tools/            asset generation, and the third-party fetcher
-docs/             documentation
-vendor/           decompilation and fetched upstream sources   (untracked)
-deps/             SDL2 source                                  (untracked)
-roms/             your ROM                                     (untracked)
+getv/tools/ measurement harnesses
+tools/ asset generation, and the third-party fetcher
+docs/ documentation
+vendor/ decompilation and fetched upstream sources (untracked)
+deps/ SDL2 source (untracked)
+roms/ your ROM (untracked)
 ```
 
 Everything not listed as tracked is fetched, cloned, or derived from your ROM.

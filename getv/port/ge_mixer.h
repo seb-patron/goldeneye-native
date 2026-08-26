@@ -56,29 +56,29 @@ void aPoleFilterImpl(uint8_t flags, int16_t gain, void *state);
 
 /* aSegment programmed the RSP's segment table for the audio task. Every address
  * that reaches this layer is already absolute, so there is nothing to resolve. */
-#define aSegment(pkt, s, b)        do { } while (0)
+#define aSegment(pkt, s, b) do { } while (0)
 
-#define aClearBuffer(pkt, d, c)    aClearBufferImpl(d, c)
+#define aClearBuffer(pkt, d, c) aClearBufferImpl(d, c)
 #define aSetBuffer(pkt, f, i, o, c) aSetBufferImpl(f, i, o, c)
-#define aLoadBuffer(pkt, s)        aLoadBufferImpl((const void *)(s))
-#define aSaveBuffer(pkt, s)        aSaveBufferImpl((int16_t *)(s))
-#define aLoadADPCM(pkt, c, d)      aLoadADPCMImpl(c, (const int16_t *)(d))
-#define aDMEMMove(pkt, i, o, c)    aDMEMMoveImpl(i, o, c)
-#define aSetLoop(pkt, a)           aSetLoopImpl((ADPCM_STATE *)(a))
-#define aADPCMdec(pkt, f, s)       aADPCMdecImpl(f, (int16_t *)(s))
-#define aResample(pkt, f, p, s)    aResampleImpl(f, p, (int16_t *)(s))
-#define aEnvMixer(pkt, f, s)       aEnvMixerImpl(f, (int16_t *)(s))
-#define aMix(pkt, f, g, i, o)      aMixImpl(g, i, o)
+#define aLoadBuffer(pkt, s) aLoadBufferImpl((const void *)(s))
+#define aSaveBuffer(pkt, s) aSaveBufferImpl((int16_t *)(s))
+#define aLoadADPCM(pkt, c, d) aLoadADPCMImpl(c, (const int16_t *)(d))
+#define aDMEMMove(pkt, i, o, c) aDMEMMoveImpl(i, o, c)
+#define aSetLoop(pkt, a) aSetLoopImpl((ADPCM_STATE *)(a))
+#define aADPCMdec(pkt, f, s) aADPCMdecImpl(f, (int16_t *)(s))
+#define aResample(pkt, f, p, s) aResampleImpl(f, p, (int16_t *)(s))
+#define aEnvMixer(pkt, f, s) aEnvMixerImpl(f, (int16_t *)(s))
+#define aMix(pkt, f, g, i, o) aMixImpl(g, i, o)
 #define aSetVolume(pkt, f, v, t, r) aSetVolumeImpl(f, v, t, r)
-#define aInterleave(pkt, l, r)     aInterleaveImpl(l, r)
-#define aPoleFilter(pkt, f, g, s)  aPoleFilterImpl(f, g, (void *)(s))
+#define aInterleave(pkt, l, r) aInterleaveImpl(l, r)
+#define aPoleFilter(pkt, f, g, s) aPoleFilterImpl(f, g, (void *)(s))
 
 /* ------------------------------------------------------------ env.c guards --
- * Rare's own build deliberately kept asserts enabled in env.c and nowhere else in
+ * Rare's own build kept asserts enabled in env.c and nowhere else in
  * audio: `src/libultrare/Makefile.libultrare:353-354` reads
  *
- *     # assert is used in env.c
- *     $(BUILD_DIR)/src/libultrare/audio/env.o: ASSERT_FLAG :=
+ *  # assert is used in env.c
+ *  $(BUILD_DIR)/src/libultrare/audio/env.o: ASSERT_FLAG :=
  *
  * while every other audio object gets -DNDEBUG. This build passes -DNDEBUG to the
  * whole audio file set, so `assert(samples >= 0)`, `assert(samples <= 160)` and
@@ -97,7 +97,7 @@ int  geEnvSamplesGuard(int samples, int maxsamples);
 int  geEnvSourceGuard(const void *source);
 
 /* A_PAN is declared by the ABI but no GoldenEye code path emits it. Left undefined
- * on purpose: a call site would then fail to COMPILE rather than silently do
+ *: a call site would then fail to COMPILE rather than silently do
  * nothing at runtime. */
 
 #endif /* GE_MIXER_H */

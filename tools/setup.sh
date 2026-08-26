@@ -6,11 +6,11 @@
 # yourself and which nothing here will ever download.
 #
 # Everything fetched is permissively licensed and comes from its own upstream:
-#   Lua              lua.org, MIT
-#   Dear ImGui       github.com/ocornut/imgui, MIT
-#   SDL2             libsdl-org, zlib
-#   sm64ex           for the Fast3D renderer -- cloned and patched, never redistributed
-#   n64decomp/007    the decompilation itself
+#  Lua lua.org, MIT
+#  Dear ImGui github.com/ocornut/imgui, MIT
+#  SDL2 libsdl-org, zlib
+#  sm64ex for the Fast3D renderer -- cloned and patched, never redistributed
+#  n64decomp/007 the decompilation itself
 #
 # Re-running is safe. Each step checks for its own output and skips if it is already there.
 set -euo pipefail
@@ -21,7 +21,7 @@ ROOT="$(pwd)"
 case "$(uname -s)" in
     Darwin) PLATFORM=mac ;;
     Linux)  PLATFORM=linux ;;
-    *)      echo "error: unsupported platform $(uname -s). Windows uses tools\\fetch_deps_windows.ps1"; exit 1 ;;
+    *) echo "error: unsupported platform $(uname -s). Windows uses tools\\fetch_deps_windows.ps1"; exit 1 ;;
 esac
 
 say() { printf '\n== %s\n' "$1"; }

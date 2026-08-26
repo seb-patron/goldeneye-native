@@ -13,11 +13,11 @@
 # editing keeps a bug here from breaking other callers.
 #
 # How the extra knobs get in without touching level_sweep.sh
-#   `xcrun simctl launch` forwards every SIMCTL_CHILD_* variable in its own environment
-#   to the child. level_sweep.sh sets SIMCTL_CHILD_GETV_STAGE/_SUPERSAMPLE as a command
-#   prefix, which adds to rather than replaces what is exported here. So exporting
-#   SIMCTL_CHILD_GETV_GUN_SKIPINTRO=1 below is enough to move the whole run from the
-#   intro camera into first-person gameplay.
+#  `xcrun simctl launch` forwards every SIMCTL_CHILD_* variable in its own environment
+#  to the child. level_sweep.sh sets SIMCTL_CHILD_GETV_STAGE/_SUPERSAMPLE as a command
+#  prefix, which adds to rather than replaces what is exported here. So exporting
+#  SIMCTL_CHILD_GETV_GUN_SKIPINTRO=1 below is enough to move the whole run from the
+#  intro camera into first-person gameplay.
 #
 # Measure in first person. Some levels render richly under the intro fly-by camera and
 # collapse the moment gameplay begins, so an intro-camera board measures a camera rather
@@ -29,15 +29,15 @@
 # stamped into the output so results cannot be diffed across settings by accident.
 #
 # USAGE
-#   export GETV_SLOT=sweep3 GETV_SIM="GETV-sweep3"
-#   ./build_sim.sh lib && ./build_sim.sh app
-#   getv/tools/level_sweep_multi.sh                 # all levels, n=3
-#   GETV_SWEEP_N=5 getv/tools/level_sweep_multi.sh 33 34
+#  export GETV_SLOT=sweep3 GETV_SIM="GETV-sweep3"
+#  ./build_sim.sh lib && ./build_sim.sh app
+#  getv/tools/level_sweep_multi.sh # all levels, n=3
+#  GETV_SWEEP_N=5 getv/tools/level_sweep_multi.sh 33 34
 #
 # OUTPUT ($BASE = build-sim-<slot>/sweep-multi)
-#   $BASE/s<i>/            a complete ordinary level_sweep.sh output tree per sample
-#   $BASE/board.tsv        one row per level: median/min/max + stability class
-#   $BASE/board.md         the same as a table, with the bimodal levels called out
+#  $BASE/s<i>/ a complete ordinary level_sweep.sh output tree per sample
+#  $BASE/board.tsv one row per level: median/min/max + stability class
+#  $BASE/board.md the same as a table, with the bimodal levels called out
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

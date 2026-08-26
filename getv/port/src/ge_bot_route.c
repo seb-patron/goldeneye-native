@@ -23,10 +23,10 @@
  * yet. On its own it deadlocked: turning more than GE_BR_ALIGN_DEG zeroes forward speed, so the
  * bot never moved, so the estimate never updated. Do not make it the primary source again.
  *
- *   GETV_BOT_ROUTE=<slot>       drive this slot along a route
- *   GETV_BOT_ROUTE_LEVEL=<name> which level's knowledge to load (no level accessor exists yet)
- *   GETV_BOT_ROUTE_OBJ=<n>      which objective to walk to, default the first with a route
- *   GETV_BOT_ROUTE_TRACE=1      log progress once a second
+ *  GETV_BOT_ROUTE=<slot> drive this slot along a route
+ *  GETV_BOT_ROUTE_LEVEL=<name> which level's knowledge to load (no level accessor exists yet)
+ *  GETV_BOT_ROUTE_OBJ=<n> which objective to walk to, default the first with a route
+ *  GETV_BOT_ROUTE_TRACE=1 log progress once a second
  */
 #include <math.h>
 #include <stdio.h>
@@ -51,11 +51,11 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
 
 #include "ge_enemy_api.h"
 #include "ge_sense_api.h"
-#include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
+#include "ge_world_levels.h" /* generated: stage number -> extractor level name */
 
 /* Straight from tools/routesim.py. Changing one of these without re-running the model is how a
  * validated law quietly becomes an unvalidated one. */
-#define GE_BR_WALK          60.0f   /* N64 counts; the walk deadzone subtracts about 5 */
+#define GE_BR_WALK 60.0f /* N64 counts; the walk deadzone subtracts about 5 */
 /* World units. Must stay outside the turning circle (about 114 at full pelt) OR the bot orbits
  * its own target -- that is where 120 came from and it is still the floor.
  *
@@ -68,20 +68,20 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
  *
  * This is a statement about the WAYPOINT DATA, not a tolerance to tune when a bot misses. If
  * pads are ever replaced by points sampled on the navmesh, put it back to 120. */
-#define GE_BR_ARRIVE       200.0f
-#define GE_BR_TURN_GAIN      3.0f
-#define GE_BR_ALIGN_DEG     60.0f
-#define GE_BR_STICK_MAX     80.0f
+#define GE_BR_ARRIVE 200.0f
+#define GE_BR_TURN_GAIN 3.0f
+#define GE_BR_ALIGN_DEG 60.0f
+#define GE_BR_STICK_MAX 80.0f
 
 /* Below this much movement in a tick the heading estimate is noise rather than direction. */
-#define GE_BR_MOVE_EPSILON   1.5f
+#define GE_BR_MOVE_EPSILON 1.5f
 
 /* How long to tolerate "walking but not moving" before treating it as an obstacle, and how long
  * to steer around one. The first is generous because a legitimate stall happens for a tick or
  * two whenever the collision update clips a corner; the second is roughly the time it takes to
  * turn 90 degrees at full deflection, since the yaw is 3.5 degrees a tick. */
 /* How close an enemy's BELIEF has to be to the next waypoint for it to count as contested.
- * Deliberately wider than the arrival radius: the question is not "is a guard standing on it"
+ * wider than the arrival radius: the question is not "is a guard standing on it"
  * but "is anyone heading there", and a belief is a destination. */
 #define GE_BR_THREAT_RADIUS 300.0f
 
@@ -93,8 +93,8 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
 
 /* What a walking body can climb and drop between two samples 55 units apart. Generous enough
  * for stairs and a kerb, tight enough that a floor reachable only by falling is refused. */
-#define GE_BR_MAX_STEP      40.0f
-#define GE_BR_MAX_DROP      90.0f
+#define GE_BR_MAX_STEP 40.0f
+#define GE_BR_MAX_DROP 90.0f
 
 /* How long to lean on the action button before deciding an obstacle is not a door.
  *
@@ -103,19 +103,19 @@ extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
  * ends with CDTYPE_DOORS in the mask and open at both ends without it, so the two exits ARE
  * doors. Long enough to cover the open animation, short enough that a real wall is not mistaken
  * for a stuck door for more than a moment. */
-#define GE_BR_USE_TICKS     45
+#define GE_BR_USE_TICKS 45
 
 /* How far ahead the bot looks. Far enough to react before contact at walking speed, short enough
  * that it does not steer around something it was going to turn away from anyway. */
-#define GE_BR_LOOKAHEAD    160.0f
+#define GE_BR_LOOKAHEAD 160.0f
 
 /* How long an avoidance heading is held. Roughly the time to turn 60 degrees and clear the
  * obstacle at walking pace -- long enough to finish the manoeuvre, short enough to notice the
  * world changed. */
-#define GE_BR_AVOID_TICKS   40
+#define GE_BR_AVOID_TICKS 40
 
-#define GE_BR_STUCK_TICKS   30
-#define GE_BR_DETOUR_TICKS  26
+#define GE_BR_STUCK_TICKS 30
+#define GE_BR_DETOUR_TICKS 26
 
 static int   ge_br_ready;
 static int   ge_br_slot = -1;
@@ -140,7 +140,7 @@ static int   ge_br_have_prev;
 
 /* Advance toward a contested waypoint, or hold? Returns 1 to advance.
  *
- * Pure on purpose: the interesting part is the policy, and a policy tangled up with posting input
+ * Pure: the interesting part is the policy, and a policy tangled up with posting input
  * and reading world state can only be tested by running the game. See tests/test_bot_policy.c. */
 static int ge_br_should_advance(int threat, int held_frames)
 {
@@ -195,7 +195,7 @@ static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
     return ((float) fabs((double) off_route) <= 50.0f);
 }
 
-#define GE_BR_CLEARSTEP 260.0f   /* how far ahead a candidate heading is tested, runtime units */
+#define GE_BR_CLEARSTEP 260.0f /* how far ahead a candidate heading is tested, runtime units */
 
 /* Routing on the engine's own waypoint graph (padhalllv.c).
  *
@@ -269,8 +269,8 @@ static void ge_br_nav_build(void)
  *
  * Returns 1 and writes a heading when it found a side worth trying.
  */
-#define GE_BR_RADIUS     35.0f
-#define GE_BR_CLEARANCE  1.26f   /* PD's own figure, chraction.c: chr->radius * 1.26f */
+#define GE_BR_RADIUS 35.0f
+#define GE_BR_CLEARANCE 1.26f /* PD's own figure, chraction.c: chr->radius * 1.26f */
 
 static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_deg)
 {
@@ -319,7 +319,7 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * Every stall past that point was a corpse posting stick input, which looks exactly like a
  * navigation failure from the outside and is why the recorder now logs health.
  *
- * The policy is deliberately small. Face the nearest guard that can see us, stop walking, and
+ * The policy is small. Face the nearest guard that can see us, stop walking, and
  * fire in bursts. GoldenEye aims for the player once the target is roughly in front, so a
  * follower does not need a firing solution -- it needs to stop walking away and to point.
  *
@@ -331,13 +331,13 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * the bot fought continuously and advanced two waypoints instead of eleven. It survived, which is
  * the point, but a bot that never arrives is not finishing a mission either. 800 is roughly the
  * length of a carriage section, so it engages what is in the room and walks past what is not. */
-#define GE_BR_ENGAGE_RANGE   800.0f
-#define GE_BR_ENGAGE_SEEN      150    /* frames: a guard that had eyes on us this recently is shooting */
-#define GE_BR_ENGAGE_KEEP   1100.0f   /* hysteresis: a target already chosen is kept a little longer */
-#define GE_BR_ENGAGE_MAX       420    /* frames to spend on one target before walking on */
-#define GE_BR_ENGAGE_FACE     35.0f   /* degrees; inside this the game's own aim assist takes over */
-#define GE_BR_BURST_ON           6    /* frames holding fire */
-#define GE_BR_BURST_OFF         10    /* frames between bursts */
+#define GE_BR_ENGAGE_RANGE 800.0f
+#define GE_BR_ENGAGE_SEEN 150 /* frames: a guard that had eyes on us this recently is shooting */
+#define GE_BR_ENGAGE_KEEP 1100.0f /* hysteresis: a target already chosen is kept a little longer */
+#define GE_BR_ENGAGE_MAX 420 /* frames to spend on one target before walking on */
+#define GE_BR_ENGAGE_FACE 35.0f /* degrees; inside this the game's own aim assist takes over */
+#define GE_BR_BURST_ON 6 /* frames holding fire */
+#define GE_BR_BURST_OFF 10 /* frames between bursts */
 
 /* Off by default, and the measurement is why.
  *
@@ -347,8 +347,8 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * agreeing there was something there. With that fixed the bot survives the same carriage without
  * firing a shot. Measured on Train, same build, 20,000 frames:
  *
- *     routing only        waypoint 10, ends at 0.39 health
- *     routing and combat  waypoint  4, ends at 0.34 health
+ *  routing only waypoint 10, ends at 0.39 health
+ *  routing and combat waypoint 4, ends at 0.34 health
  *
  * So as written it costs six waypoints and buys nothing. It stops to shoot, and stopping is what
  * it cannot afford on a level with a timer and a moving train. The next version should fire while
@@ -783,7 +783,7 @@ void gePortBotRouteFrame(int frame)
     }
     /* GETV_BOT_ROUTE_NEAREST=1 -- walk to the nearest waypoint instead of following a route.
      *
-     * A diagnostic, and a deliberately separable one. "The bot never arrives" has two possible
+     * A diagnostic, and a separable one. "The bot never arrives" has two possible
      * causes and they need different fixes: the movement stack cannot get anywhere, or the routes
      * point somewhere it cannot go. Following a route tests both at once and tells you nothing
      * about which. This tests only the first. */

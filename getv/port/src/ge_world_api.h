@@ -16,7 +16,7 @@
 #ifndef GE_WORLD_API_H
 #define GE_WORLD_API_H
 
-#define GE_WORLD_MAGIC   0x44574547u      /* 'GEWD' little-endian */
+#define GE_WORLD_MAGIC 0x44574547u /* 'GEWD' little-endian */
 /* v3 added hx/hz/radius to the prop record. Bumped rather than tolerated: the record is read
  * POSITIONALLY, so a v2 pack fed to a v3 loader would not fail, it would read the next prop's
  * fields as this one's extents and report confident nonsense. A refusal to load is the only

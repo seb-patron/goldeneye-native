@@ -30,7 +30,7 @@ goldeneye.exe > cull.log 2>&1
 | `cur` | infront=4/8 nvtx=326 | 8/8 nvtx=0 |
 
 `BEHIND=0`, so nothing was being culled away. The player was simply in **room 0**, which on
-this level has no portals and no geometry --  `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
+this level has no portals and no geometry -- `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
 adj=0`, so the portal walk had nowhere to go and the draw list contained one empty room.
 
 `g_BgCurrentRoom` comes from `bondviewGetCurrentPlayersRoom()` (bondview2.c), which reads
@@ -44,7 +44,7 @@ The line that named the cause was already being printed:
 ```
 
 **One tile.** The entire level's stan was a single tile, and the player's tile pointer
-(`...218`) was the zero word 32 bytes past it --  not a tile at all, which is why `room` read 0.
+(`...218`) was the zero word 32 bytes past it -- not a tile at all, which is why `room` read 0.
 
 ---
 
@@ -53,11 +53,11 @@ The line that named the cause was already being printed:
 `nm --numeric-sort` on the built object:
 
 ```
-0000000000000000 B Tbg_sev_all_p_stanZ_tile_1066   <- .bss, not .data
+0000000000000000 B Tbg_sev_all_p_stanZ_tile_1066 <- .bss, not .data
 ...
 00000000000089b8 D Tbg_sev_all_p_stanZ_tile_1
-00000000000089e0 D Tbg_sev_all_p_stanZ             <- header wedged between them
-00000000000089f8 D Tbg_sev_all_p_stanZ_tile_0      <- END of .data
+00000000000089e0 D Tbg_sev_all_p_stanZ <- header wedged between them
+00000000000089f8 D Tbg_sev_all_p_stanZ_tile_0 <- END of .data
 ```
 
 Three separate things were wrong, and all three break the same invariant.
@@ -88,7 +88,7 @@ in memory, in source order, with nothing in between.
 Two compiler flags on the **asset batch only** (`build_windows.ps1`):
 
 ```
--fno-toplevel-reorder        # emit .data in declaration order
+-fno-toplevel-reorder # emit .data in declaration order
 -fno-zero-initialized-in-bss # keep the all-zero terminator tile in .data
 ```
 
@@ -104,7 +104,7 @@ Scoped to assets deliberately. The game batch is code; the only place adjacency 
 data is necessary is the level data. `src/snd.c`'s "declaration order matters" comment is
 about stack locals for matching and is unrelated.
 
-Verified at the object level before rebuilding --  header first, then tiles contiguous at
+Verified at the object level before rebuilding -- header first, then tiles contiguous at
 exactly their byte sizes, nothing in `.bss`:
 
 ```
@@ -136,7 +136,7 @@ Downstream symptoms that were the same bug and are now gone without being touche
   were failing because the tile walk could not reach their tiles.
 - **The weapon and right hand render.** `WINDOWS_HANDOFF.md` recorded `hinv=1/0` as "the right
   hand is invisible, so no weapon is drawn" and listed it as a known harness gap. `hinv=1/0`
-  is `hand_invisible[0]=1, [1]=0` --  the **left** hand hidden, which is correct for a
+  is `hand_invisible[0]=1, [1]=0` -- the **left** hand hidden, which is correct for a
   one-handed PP7. The frame capture shows the PP7 drawn with the ammo HUD reading `7 | 93`.
 
 ---

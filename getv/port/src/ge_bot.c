@@ -5,19 +5,19 @@
  * designed in the abstract will be wrong in ways nobody notices until the third consumer."
  * This is that bot.
  *
- * It is deliberately stupid -- walk forward, sweep the aim, fire in bursts. It is not trying to
+ * It is stupid -- walk forward, sweep the aim, fire in bursts. It is not trying to
  * be good at GoldenEye. Its whole job is to exercise every part of the seam under real
  * conditions: claim a slot, post on a numbered tick, hold for a duration, release, and read
  * state back. A cleverer bot would exercise exactly the same surface.
  *
  * What it is NOT: it does not touch the guard AI. Perfect Dark's simulants act directly on
- * chrdata as NPCs, which is why their protocol has no SVC_CHR_MOVE and why their own docs say
+ * chrdata as NPCs, so their protocol has no SVC_CHR_MOVE and why their own docs say
  * "simulants don't work in netgames". A bot here is a policy that emits controller input into a
  * player slot, exactly like a network peer or an RL agent, so all three share one path.
  *
- *   GETV_BOT=<slots>   comma-separated slots to drive, e.g. "1,2,3" or "0" to drive the
- *                      player in a solo stage. Off unless set.
- *   GETV_BOT_TRACE=1   log what the bot posts, once a second.
+ *  GETV_BOT=<slots> comma-separated slots to drive, e.g. "1,2,3" or "0" to drive the
+ *  player in a solo stage. Off unless set.
+ *  GETV_BOT_TRACE=1 log what the bot posts, once a second.
  */
 #include <stdio.h>
 #include <stdlib.h>

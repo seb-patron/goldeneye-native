@@ -49,8 +49,8 @@ This is the tightest the search has been. With the camera fix in place, in co-op
 
 ```
 [getv][start] dispatch cammode=4 timeractive=1 stick=(0,68) branch=MoveBond lockctl=0
-[getv][walk]  p=0 spd=0.972 theta=(-1.000,-0.006) dt=1.00 off=(-0.762,-0.013)
-[getv][walk]  p=0 spd=0.972 theta=(-1.000,-0.006) dt=1.00 off=(-2.063,-0.084)
+[getv][walk] p=0 spd=0.972 theta=(-1.000,-0.006) dt=1.00 off=(-0.762,-0.013)
+[getv][walk] p=0 spd=0.972 theta=(-1.000,-0.006) dt=1.00 off=(-2.063,-0.084)
 ```
 
 Every link works:
@@ -80,9 +80,9 @@ inputs to it are known good.
 
 ```c
 if (mode == NONE || (mode == FP && is_timer_active) || mode == FADE_TO_TITLE)
-    MoveBond(stick_x, stick_y, buttons, ...);      /* real movement */
+    MoveBond(stick_x, stick_y, buttons, ...); /* real movement */
 else
-    bondviewFrozenMoveBond(...);                   /* input discarded */
+    bondviewFrozenMoveBond(...); /* input discarded */
 ```
 
 Both branches receive `stick=(0,0)` under GETV_SCRIPT, so the injected stick is not reaching
@@ -105,8 +105,8 @@ same pad -- and `change_player_pos_to_target()` seeds that single position into 
 own camera record.
 
 ```
-co-op on a campaign mission   startpadcount = 1
-multiplayer on stage 27       startpadcount = 5
+co-op on a campaign mission startpadcount = 1
+multiplayer on stage 27 startpadcount = 5
 ```
 
 The fan-out now happens at `start_pos`, before the camera is seeded, and only when there is a
@@ -117,8 +117,8 @@ since a wrong tile drops the player through the ground.
 After:
 
 ```
-p=0  pos=(-1381.4, 2279.9)  cam=(-1381.4, 2284.4)
-p=1  pos=(-1181.4, 2278.4)  cam=(-1181.4, 2284.4)
+p=0 pos=(-1381.4, 2279.9) cam=(-1381.4, 2284.4)
+p=1 pos=(-1181.4, 2278.4) cam=(-1181.4, 2284.4)
 ```
 
 Each camera matches its own player, which is what multiplayer already looked like.
@@ -129,8 +129,8 @@ Each camera matches its own player, which is what multiplayer already looked lik
 
 ```
 GETV_MP=2, stage 27, scripted forward input on either port, 570 frames
-  p0  0.0,-2388.6      unchanged
-  p1  -2069.3,2882.6   unchanged
+  p0 0.0,-2388.6 unchanged
+  p1 -2069.3,2882.6 unchanged
 ```
 
 The same input carries a solo player 900 units. So the whole session's framing of this as "the
@@ -158,8 +158,8 @@ retail, and position does not change -- in co-op *and* in retail multiplayer.
 `bondview_r.c:885` picks the camera path by player count:
 
 ```c
-if (getPlayerCount() == 1)  bondviewSetCameraMode(CAMERAMODE_INTRO);
-else                        bondviewSetCameraMode(CAMERAMODE_MP);
+if (getPlayerCount() == 1) bondviewSetCameraMode(CAMERAMODE_INTRO);
+else bondviewSetCameraMode(CAMERAMODE_MP);
 ```
 
 Co-op is a campaign mission with two players, so it takes the arena path. That path is a dead
@@ -174,9 +174,9 @@ That is the freeze, and it is why retail multiplayer freezes here too.
 Measured:
 
 ```
-Solo     intro 482 frames, fadeswirl 60, swirl 358      moves 900 units
-co-op    MP 113 frames, NONE 787                        moves nothing
-real MP  MP 113 frames, NONE 787                        moves nothing
+Solo intro 482 frames, fadeswirl 60, swirl 358 moves 900 units
+co-op MP 113 frames, NONE 787 moves nothing
+real MP MP 113 frames, NONE 787 moves nothing
 ```
 
 ### Fixed: co-op reaches first person
@@ -187,8 +187,8 @@ characters in, set FP -- and skipping the swirl itself, which is a single-player
 that drags every player along its path when two exist.
 
 ```
-before   MP 113 frames, NONE 787      camera frozen at the default position
-after    MP 113 frames, FP 787        first person, positions sane
+before MP 113 frames, NONE 787 camera frozen at the default position
+after MP 113 frames, FP 787 first person, positions sane
 ```
 
 Real multiplayer is untouched, since the branch is gated on `gePortCoopPlayers() >= 2`.
@@ -229,8 +229,8 @@ original finding below covers the second.
 With the spawn spread set to 6000 units:
 
 ```
-p=0  cur=0x1051e9800  pos=(-1381.4, 2278.4)  cam=(-1381.4, 2284.4)
-p=1  cur=0x1051ec3f8  pos=( 4618.6, 2279.9)  cam=(-1381.4, 2284.4)
+p=0 cur=0x1051e9800 pos=(-1381.4, 2278.4) cam=(-1381.4, 2284.4)
+p=1 cur=0x1051ec3f8 pos=( 4618.6, 2279.9) cam=(-1381.4, 2284.4)
 ```
 
 Player 1's `pos` is correctly 6000 units away. Player 1's camera is at player **0's** position,
@@ -264,10 +264,10 @@ Real multiplayer does this correctly. Same build, same probe, `GETV_MP=2` instea
 `GETV_COOP=2`:
 
 ```
-stage 27 MP   p0  pos=(    0.0, -2388.6)  cam=(    0.0, -2382.7)   matches
-              p1  pos=(-2069.3,  2882.6)  cam=(-2069.3,  2887.0)   matches
-stage 31 MP   p0  pos=(-1651.0,  -348.9)  cam=(-1645.0,  -348.9)   matches
-              p1  pos=( -909.1,  2263.3)  cam=( -904.7,  2263.3)   matches
+stage 27 MP p0 pos=( 0.0, -2388.6) cam=( 0.0, -2382.7) matches
+              p1 pos=(-2069.3, 2882.6) cam=(-2069.3, 2887.0) matches
+stage 31 MP p0 pos=(-1651.0, -348.9) cam=(-1645.0, -348.9) matches
+              p1 pos=( -909.1, 2263.3) cam=( -904.7, 2263.3) matches
 ```
 
 Against co-op on the same levels, where player 1's camera is player 0's every time. Stage 27
@@ -283,8 +283,8 @@ offsetting fields by hand. That is a reference implementation sitting in the sam
 `GETV_MOVETRACE=1`, first occurrence per player on stage 27 co-op:
 
 ```
-p=1  pos=(0.0, 0.0)  cam=(-3404.3, 4539.1)
-p=0  pos=(0.0, 0.0)  cam=(-3404.3, 4539.1)
+p=1 pos=(0.0, 0.0) cam=(-3404.3, 4539.1)
+p=0 pos=(0.0, 0.0) cam=(-3404.3, 4539.1)
 ```
 
 Both cameras already hold the same value while both positions are still zero. That value is

@@ -46,7 +46,7 @@ from mine_walkthroughs_deep import CAVEAT, CAVEAT_WINDOW, HEADING, load_attribut
 #
 # the vertical bar here IS U+2502, not the ascii pipe. The first version matched only "|", which
 # the corpus never uses -- it draws with box-drawing verticals. Every branching diagram therefore
-# failed at its first connector and was left entirely uncovered, which is why the fan-out graphs
+# failed at its first connector and was left entirely uncovered, and that is why the fan-out graphs
 # were still sitting in the remainder after four passes.
 CONNECTOR = re.compile(r"^[\s|│┃║↓↑▼▲v^]+$"
                        r"|^[\s|│]*[-=]{0,4}>?[\s|│]*$")
@@ -100,7 +100,7 @@ def chain_at(lines, i):
         return None
     # The head gets the SAME parallel split as every other stage. Without it a fan-out whose top
     # row holds three labels is recorded as one stage literally named
-    # "level          actors        simulation", which is not a stage name and not anything else
+    # "level actors simulation", which is not a stage name and not anything else
     # either. The forward walk already split these; the head walk did not, so the two ends of one
     # chain disagreed about what a row means.
     head_par = parallel_labels(lines[head])

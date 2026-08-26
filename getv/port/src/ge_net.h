@@ -1,6 +1,6 @@
 /* Deterministic lockstep session over the player-input seam.
  *
- * The transport is deliberately not part of this. A session needs to know when every slot's
+ * The transport is not part of this. A session needs to know when every slot's
  * input for a tick has arrived, when to stall, and when the machines have diverged -- none of
  * which is a socket concern. Sockets are supplied through GeNetTransport, so the hard part is
  * testable without one.
@@ -10,7 +10,7 @@
 
 #include "ge_player_api.h"
 
-#define GE_NET_MAX_PEERS   GE_MAX_SLOTS
+#define GE_NET_MAX_PEERS GE_MAX_SLOTS
 
 /* Ticks of input delay. Every machine acts on input captured this many ticks ago, which is what
  * buys the network time to deliver it before the tick it belongs to is simulated. Higher hides
@@ -34,7 +34,7 @@ typedef enum GeNetSlotKind {
     GE_NET_SLOT_BOT         /* a local policy; simulated on every machine identically */
 } GeNetSlotKind;
 
-/* One slot's input for one tick, as it goes over the wire. Deliberately small and fixed: the
+/* One slot's input for one tick, as it goes over the wire. small and fixed: the
  * whole point of lockstep is that inputs travel, not state. */
 typedef struct GeNetInputMsg {
     unsigned long tick;

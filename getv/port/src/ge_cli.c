@@ -12,14 +12,14 @@
  * weapon, what is ahead and how far, the clearest way out, doors and keys and objectives with
  * bearings, and every enemy with range, bearing and whether it can see you. No screen.
  *
- *   GETV_CLI=1              turn it on; reads commands from stdin
- *   GETV_CLI_SLOT=<n>       which player, default 0
- *   GETV_CLI_EVERY=<n>      frames between reports, default 60
+ *  GETV_CLI=1 turn it on; reads commands from stdin
+ *  GETV_CLI_SLOT=<n> which player, default 0
+ *  GETV_CLI_EVERY=<n> frames between reports, default 60
  *
- * COMMANDS   w <n>  walk n ticks        a/d <n>  turn left/right n ticks
- *            s <n>  back                use      open a door / act
- *            fire   shoot               look     report now
- *            stop   neutral             quit     end the run
+ * COMMANDS w <n> walk n ticks a/d <n> turn left/right n ticks
+ *  s <n> back use open a door / act
+ *  fire shoot look report now
+ *  stop neutral quit end the run
  *
  * stdin is read NON-BLOCKING. Blocking would stall the game loop, and a frozen game with a
  * prompt looks exactly like a crash -- which is how the first version presented.

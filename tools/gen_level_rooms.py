@@ -414,7 +414,7 @@ def main():
         # So: two floor tiles are also neighbours if their FOOTPRINTS overlap in plan and their
         # heights differ by no more than a body can step. That is what climbing a stair is.
         #
-        # GE_STEP is deliberately smaller than the follower's 90-unit drop limit. This edge means
+        # GE_STEP is smaller than the follower's 90-unit drop limit. This edge means
         # "a body can walk between these", and a 90-unit drop is survivable rather than walkable;
         # putting it in the mesh would route bots off ledges.
         GE_STEP = 40
@@ -698,15 +698,15 @@ def main():
             # Stairs and ramps are already kept as floor by the 0.5 normal threshold above, so the
             # descent is present in this data -- it simply was not emitted.
             #
-            # Compact on purpose: 36,458 tiles across twenty levels, and a router needs where a
+            # Compact: 36,458 tiles across twenty levels, and a router needs where a
             # tile is, how high it is, and which room it belongs to. The full polygon is what
             # `walls` needs for ray casting; a floor is only ever asked "can a body stand here,
             # and at what height".
             #
-            #   r  room id
-            #   c  centroid, [x, y, z]
-            #   bb XZ footprint, [minx, minz, maxx, maxz] -- adjacency and containment in plan
-            #      view, which is what a walking body meets
+            #  r room id
+            #  c centroid, [x, y, z]
+            #  bb XZ footprint, [minx, minz, maxx, maxz] -- adjacency and containment in plan
+            #  view, which is what a walking body meets
             #
             # note for consumers: this y is the floor, not a body position. On Bunker 1 they
             # differ by 157 units (pos.y=329 against a floor at 172), so comparing a player
@@ -725,8 +725,8 @@ def main():
             # today's work has been discovering that it frequently is not. The tile graph has no
             # such hope in it -- an edge exists because the game says a body can cross it.
             #
-            #   t  tile id, as the game numbers it
-            #   l  links to other FLOOR tiles: the walkable edges
+            #  t tile id, as the game numbers it
+            #  l links to other FLOOR tiles: the walkable edges
             #
             # Links to non-floor tiles are dropped rather than kept and filtered later, because a
             # consumer that forgot to filter would route a body through a wall and the data would
@@ -741,7 +741,7 @@ def main():
                         "l": sorted(nav.get(t["tile"], ()))}
                        for t in tiles if t["is_floor"]],
             # Stairways, as runs of tiles that climb. Derived from shared-edge and step adjacency
-            # only -- the portal bridges are added after this and are deliberately excluded, since
+            # only -- the portal bridges are added after this and are excluded, since
             # a doorway between two heights is a threshold, not a tread.
             "stairs": stairs,
             "waypoint_room": wp_rooms,

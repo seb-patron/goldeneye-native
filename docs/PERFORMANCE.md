@@ -59,7 +59,7 @@ used. `-O2` is **verified not to change behaviour** and is **not measurably fast
 default did not move.
 
 `tools/verify_opt.ps1` is the gate. The port's synthetic clock makes gameplay frames
-byte-reproducible on purpose (`osGetCount`, `port_os.c`), so two correct builds must emit identical
+byte-reproducible (`osGetCount`, `port_os.c`), so two correct builds must emit identical
 diagnostics. `-O1` vs `-O2`: **691 distinct line shapes, occurrence counts matched, values
 identical.**
 
@@ -85,7 +85,7 @@ that exact context, so genuinely computed floats are still compared. It also cou
 Seven consecutive 120-frame reports on Train, unambiguous and stable:
 
 ```
-GPU timeline 5.87 - 7.30 ms  |  CPU in swap 0.07 - 0.10 ms
+GPU timeline 5.87 - 7.30 ms | CPU in swap 0.07 - 0.10 ms
 ```
 
 **The present does not block.** 0.08 ms. The missing time is entirely GPU-side, so it is not the
@@ -109,17 +109,17 @@ buffer orphaning, or the swapchain - not draw calls.
 state validations; it is not. `gfx_flush` returns immediately when the vertex buffer is empty and
 issues no GL call at all. Checked before optimising, and recorded so it is not "found" again.
 
-**There is a real, unfixed `GL_INVALID_OPERATION` --  but it is NOT the per-frame cost.**
+**There is a real, unfixed `GL_INVALID_OPERATION` -- but it is NOT the per-frame cost.**
 Hunted with `GETV_GLDEBUG=1` (`getv/port/src/ge_gl_debug.c`), which installs a synchronous
 `KHR_debug` callback. Result:
 
 ```
 callback ERROR lines: 6
-poll hits: 1  ->  frame 0, after gfx_run
+poll hits: 1 -> frame 0, after gfx_run
 ```
 
 **Six errors, all during frame 0, all inside `gfx_run`.** The poll after `gfx_start_frame` comes
-back clean, so they are bounded to that one call on that one frame --  where shaders are first
+back clean, so they are bounded to that one call on that one frame -- where shaders are first
 compiled and textures first uploaded.
 
 **The obvious hypothesis was wrong and is recorded as wrong.** The reason to chase this was that
@@ -127,7 +127,7 @@ a driver can drop off a fast path once a context is in an error state, which wou
 for a fixed per-frame cost. It is not: a one-time startup error cannot explain a cost paid every
 frame, and the error does not recur after frame 0. **The ~6 ms per frame remains unexplained.**
 
-Still worth fixing as correctness --  nothing else in the tree calls `glGetError`, so six real GL
+Still worth fixing as correctness -- nothing else in the tree calls `glGetError`, so six real GL
 errors have been raised and ignored for the life of the project. Intel's driver reports the
 function as `(null)`, so pinning the exact call means instrumenting inside `gfx_run`
 (third-party), which has not been done.
@@ -162,7 +162,7 @@ while being indifferent to pixel count *and* to triangle count (311 triangles to
 per-draw driver overhead, not shading and not geometry.
 
 **`GETV_NODRAW` is a diagnostic, not a rendering mode** - the screen shows nothing. It
-deliberately still runs `gfx_start_frame` and `gfx_end_frame`, so the present still happens and
+still runs `gfx_start_frame` and `gfx_end_frame`, so the present still happens and
 the comparison isolates drawing rather than quietly measuring a different frame shape.
 
 Note the wall time does NOT collapse with it: ~4-6 ms per frame remains with zero GPU work.

@@ -69,7 +69,7 @@ def mine(text):
 
         if RE_CAPS.match(line):
             t = line.strip()
-            # ascii diagram rows ("car A       car B") collapse runs of spaces so the label reads
+            # ascii diagram rows ("car A car B") collapse runs of spaces so the label reads
             # as one token rather than as accidental whitespace structure.
             t = re.sub(r"\s{2,}", " | ", t)
             caps[t] += 1

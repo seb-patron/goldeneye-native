@@ -57,9 +57,9 @@ int gePortInputPadCount(void);
 void gePortInputPollPort(int port, struct GePadState *out);
 
 /* GETV_INPUT_DEBUG, read once and cached.
- *   0 = silent (default)
- *   1 = one line whenever the decoded N64 pad changes, plus a heartbeat
- *   2 = one line every frame the game reads the pad
+ *  0 = silent (default)
+ *  1 = one line whenever the decoded N64 pad changes, plus a heartbeat
+ *  2 = one line every frame the game reads the pad
  * Lives here rather than in port_os.c only because port_os.c cannot include a system
  * <stdlib.h> safely next to <PR/os.h>. */
 int gePortInputDebugLevel(void);
@@ -71,7 +71,7 @@ const char *gePortInputPadName(int port);
  *
  * SDL's face-button constants are positional, not label-based. `SDL_CONTROLLER_BUTTON_A`
  * is the bottom face button on every pad SDL's database knows, including Nintendo's,
- * where SDL deliberately maps the physically-bottom button (labelled B) to `_BUTTON_A`.
+ * where SDL maps the physically-bottom button (labelled B) to `_BUTTON_A`.
  * `struct GePadState` inherits that, so `st->a` already means "bottom face button" on an
  * Xbox pad, a DualSense and a Switch Pro alike.
  *
@@ -80,7 +80,7 @@ const char *gePortInputPadName(int port);
  * on Xbox, wrong on a DualSense (Cross) and misleading on a Switch Pro, where the button
  * labelled A is the one to its right.
  *
- * This API is deliberately a labelling service, not a remapping one, so that a future
+ * This API is a labelling service, not a remapping one, so that a future
  * HUD or button-prompt layer is a lookup rather than a refactor. */
 enum {
     GE_PAD_GENERIC = 0,

@@ -21,10 +21,10 @@
  * exactly the one-way cases -- a ledge you can drop off but not climb -- that matter most.
  * Disagreements are reported rather than averaged away.
  *
- *   GETV_EDGEVALIDATE=1              run it, then exit
- *   GETV_EDGEVALIDATE_OUT=<path>     where to write (default build/levels/<level>.edges.txt)
- *   GETV_EDGEVALIDATE_MAX=<units>    cutoff, default 1600
- *   GETV_EDGEVALIDATE_FRAME=<n>      which frame to run on, default 601
+ *  GETV_EDGEVALIDATE=1 run it, then exit
+ *  GETV_EDGEVALIDATE_OUT=<path> where to write (default build/levels/<level>.edges.txt)
+ *  GETV_EDGEVALIDATE_MAX=<units> cutoff, default 1600
+ *  GETV_EDGEVALIDATE_FRAME=<n> which frame to run on, default 601
  *
  * It must run LATE ENOUGH that the level is fully placed. The stan tiles the test seeds from
  * are not ready at frame 1, and a run against a half-built level reports a wall everywhere --

@@ -4,7 +4,7 @@
  *
  * ge_player_api already posts input per slot per tick and refuses a post for a tick that has
  * already run. That refusal is not a bot concern -- it is precisely the netplay failure it
- * looks like, which is why bots, remote players and RL agents can all ride one path. This file
+ * looks like, so bots, remote players and RL agents can all ride one path. This file
  * is the part that makes several machines agree on which tick they are on.
  *
  * Lockstep rather than state replication: only inputs travel, and every machine simulates the
@@ -26,13 +26,13 @@
 
 #include "ge_net.h"
 
-#define GE_NET_RING 64          /* per-slot ring of pending inputs; power of two */
+#define GE_NET_RING 64 /* per-slot ring of pending inputs; power of two */
 #define GE_NET_RING_MASK (GE_NET_RING - 1)
 
 #define GE_NET_MSG_INPUT 1
-#define GE_NET_MSG_SYNC  2
-#define GE_NET_MSG_RELAY 3      /* a departed peer's inputs, pooled among survivors */
-#define GE_NET_MSG_DROP  4      /* slot N stops existing at tick T, on every machine */
+#define GE_NET_MSG_SYNC 2
+#define GE_NET_MSG_RELAY 3 /* a departed peer's inputs, pooled among survivors */
+#define GE_NET_MSG_DROP 4 /* slot N stops existing at tick T, on every machine */
 
 /* Ticks to wait after a departure before naming the drop tick, so relays from every survivor
  * have landed first. Naming it early means naming it from an incomplete pool. */
@@ -160,7 +160,7 @@ void geNetClose(void)
 {
     if (!ge_net.open) { return; }
     if (ge_net.tp.close) { ge_net.tp.close(ge_net.tp.ctx); }
-    /* late and dup reported separately on purpose: late is a link problem worth acting on, dup
+    /* late and dup reported separately: late is a link problem worth acting on, dup
      * is the redundancy earning its keep and should be large. */
     printf("[getv][net] session closed: %lu ticks, %lu stalls, %lu late, %lu dup, %lu desyncs\n",
            ge_net.stats.ticks_simulated, ge_net.stats.ticks_stalled,

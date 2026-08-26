@@ -136,7 +136,7 @@ def extents_from_box(b):
         "hz": round(hz, 2),
         "hy": round(abs(ymax - ymin) / 2.0, 2),
         # XZ circumradius: the smallest circle containing the footprint at ANY rotation. This is
-        # the number to use when the prop's orientation is unknown, and it is deliberately
+        # the number to use when the prop's orientation is unknown, and it is
         # conservative -- it over-reserves for a square box by ~41%.
         "radius": round((hx * hx + hz * hz) ** 0.5, 2),
         "cx": round((xmin + xmax) / 2.0, 2),

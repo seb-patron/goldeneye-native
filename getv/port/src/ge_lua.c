@@ -16,22 +16,22 @@
  * same arrangement SDL2 already uses.
  *
  * What this is not. It is not a path to rewriting the game in Lua, and the API below is
- * deliberately small and read-mostly. The game's own state stays authoritative; scripts
+ * small and read-mostly. The game's own state stays authoritative; scripts
  * observe it and are handed explicit events. Everything here is off unless mods are
  * present, and a script error disables that one mod rather than taking the process down,
  * because a syntax error in somebody's mod must not look like a crash in GoldenEye.
  *
  * Layout, matching the structure requested in the design notes:
  *
- *     mods/
- *       goldeneye_camera/
- *         mod.lua
+ *  mods/
+ *  goldeneye_camera/
+ *  mod.lua
  *
  * Each mod.lua is loaded in its own right and may define any of the hooks:
  *
- *     function onFrame(frame)          end
- *     function onPlayerSpawn(player)   end
- *     function onWeaponFire(weapon)    end
+ *  function onFrame(frame) end
+ *  function onPlayerSpawn(player) end
+ *  function onWeaponFire(weapon) end
  *
  * A mod that defines none of them is still useful: the chunk body itself runs once at
  * load, which is enough for one-shot configuration.
@@ -87,7 +87,7 @@ extern int bossGetStageNum(void);
 #include "ge_player_api.h"
 #include "ge_world_api.h"
 #include "ge_enemy_api.h"
-#include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
+#include "ge_world_levels.h" /* generated: stage number -> extractor level name */
 #include "ge_event.h"
 #include "ge_sense_api.h"
 
@@ -110,7 +110,7 @@ static int ge_l_player_count(lua_State *L)
     return 1;
 }
 
-/* ge.player_pos(i) -> x, y, z   (nil when that player does not exist)
+/* ge.player_pos(i) -> x, y, z (nil when that player does not exist)
  *
  * g_playerPointers is the stable array; g_CurrentPlayer is not usable here because it is
  * swapped as each viewport is drawn, so in split screen it names whichever player was
@@ -155,7 +155,7 @@ static int ge_l_postfx(lua_State *L)
     if (lua_gettop(L) >= 1 && lua_istable(L, 1)) {
         /* A flag accepts a boolean or a number, because `crt = 1` is what someone coming
          * from goldeneye.cfg will write and refusing it would be pedantry. */
-#define GE_FX_FLAG(name, dst)                                                       \
+#define GE_FX_FLAG(name, dst) \
         do {                                                                        \
             lua_getfield(L, 1, name);                                               \
             if (!lua_isnil(L, -1)) {                                                \
@@ -164,7 +164,7 @@ static int ge_l_postfx(lua_State *L)
             }                                                                       \
             lua_pop(L, 1);                                                          \
         } while (0)
-#define GE_FX_NUM(name, dst)                                                        \
+#define GE_FX_NUM(name, dst) \
         do {                                                                        \
             lua_getfield(L, 1, name);                                               \
             if (!lua_isnil(L, -1)) { (dst) = (float) lua_tonumber(L, -1); }         \
@@ -615,7 +615,7 @@ static int ge_l_clearest_heading_body(lua_State *L)
 /* ge.noticed_by(enemy_index, slot) -> table
  *
  * Reports WHICH condition holds rather than a verdict. line-without-facing is a guard you can walk
- * behind; facing-without-line is one you must not step in front of. `face_unknown` is deliberately
+ * behind; facing-without-line is one you must not step in front of. `face_unknown` is
  * distinct from facing being false -- on a build with no facing accessor, "nobody is looking" would
  * be a dangerous thing to imply. */
 static int ge_l_noticed_by(lua_State *L)
@@ -689,7 +689,7 @@ static int ge_l_is_stuck(lua_State *L)
  *
  * Only the fields the game can actually report are present. Position is there; angle, health,
  * weapon and score are not, because those accessors do not exist yet. A field is ABSENT rather
- * than zero on purpose -- a script can test for it, where a zero would be indistinguishable
+ * than zero -- a script can test for it, where a zero would be indistinguishable
  * from a real reading of zero health. */
 static int ge_l_player_state(lua_State *L)
 {
@@ -975,7 +975,7 @@ static void ge_load_mod(const char *dir, const char *name)
 
 /* GETV_MODS_OFF -- a comma-separated list of mod directory names NOT to load.
  *
- * A DENYLIST rather than an allowlist, deliberately. The documented contract (wiki/Lua-mods.md)
+ * A DENYLIST rather than an allowlist. The documented contract (wiki/Lua-mods.md)
  * is "drop a directory under mods/ with a mod.lua in it and it loads at startup", and an
  * allowlist would quietly break that: every newly dropped mod would be off until someone
  * remembered to add it. With a denylist the contract holds, unset means "load everything"
@@ -1196,7 +1196,7 @@ void gePortLuaWeaponFire(int weapon)
     }
 }
 
-#else  /* !GE_WITH_LUA */
+#else /* !GE_WITH_LUA */
 
 /* Built without Lua. The hook points stay in the game and the port layer unconditionally,
  * so that enabling scripting is a build flag rather than a source change, and so the call

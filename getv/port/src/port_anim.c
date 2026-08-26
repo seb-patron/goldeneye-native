@@ -1,11 +1,11 @@
 /* GoldenEye tvOS port - the animation-table loader.
  *
  * What the N64 did (initanitable.c, alloc_load_expand_ani_table):
- *   1. romCopy() one contiguous animation-data segment out of the cartridge,
- *   2. walk animation_table_ptrs1/2 -- arrays of byte offsets into that segment --
- *      rewriting each offset into a pointer,
- *   3. relocate two pointer fields inside each record (bitDescriptors, bitStream) by
- *      the segment base, and the `address` field by the animation-entries segment base.
+ *  1. romCopy() one contiguous animation-data segment out of the cartridge,
+ *  2. walk animation_table_ptrs1/2 -- arrays of byte offsets into that segment --
+ *  rewriting each offset into a pointer,
+ *  3. relocate two pointer fields inside each record (bitDescriptors, bitStream) by
+ *  the segment base, and the `address` field by the animation-entries segment base.
  *
  * Step 2 cannot work natively. ModelAnimation has three pointers (address,
  * bitDescriptors, bitStream) and sub-word fields (u16 unk04, u8 unk06/unk07), so at
@@ -35,7 +35,7 @@ extern const unsigned int ge_animation_entries_segment_size;
 
 
 /* Mirror of the fields this file fills in. Declared locally rather than including
- * bondtypes.h: the port TUs deliberately exclude the decomp's include/ (its
+ * bondtypes.h: the port TUs exclude the decomp's include/ (its
  * math.h/string.h/stddef.h shadow the system headers). The layout below must match
  * ModelAnimation in src/bondtypes.h -- gePortAnimSelfCheck() asserts the size the
  * caller sees, so a drift is caught at boot rather than silently mis-decoded. */
@@ -51,8 +51,8 @@ typedef struct GeAnim {
     s32  unk14, unk18, unk1c, unk20, unk24, unk28, unk2c, unk30, unk34, unk38, unk3c;
 } GeAnim;
 
-#define GE_ANIM_FILE_SIZE 64        /* sizeof(ModelAnimation_file), asserted 21/21 */
-#define GE_ANIM_MAX       256
+#define GE_ANIM_FILE_SIZE 64 /* sizeof(ModelAnimation_file), asserted 21/21 */
+#define GE_ANIM_MAX 256
 
 static GeAnim ge_anim_records[GE_ANIM_MAX];
 static unsigned int ge_anim_offsets[GE_ANIM_MAX];
@@ -171,8 +171,8 @@ void gePortAnimInit(unsigned int animsize)
 /* ---- decoder bounds ------------------------------------------------------ */
 
 /* The animation decoder (modelAnimReadRootMotionValue) indexes
- *   desc    = anim->bitDescriptors + fieldIndex
- *   byteptr = anim->bitStream + byteIndex
+ *  desc = anim->bitDescriptors + fieldIndex
+ *  byteptr = anim->bitStream + byteIndex
  * with no bound check -- correct on the N64 because the data guaranteed the ranges. Here
  * a mis-decoded record or an out-of-range joint would read past the segment, so callers
  * can ask whether a pointer is still inside it.

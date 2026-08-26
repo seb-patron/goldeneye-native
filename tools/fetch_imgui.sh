@@ -128,7 +128,7 @@ mkdir -p "$PREFIX/lib" "$PREFIX/include"
 OBJDIR="$(mktemp -d)"
 trap 'rm -rf "$OBJDIR"' EXIT
 
-# imgui_demo.cpp is included on purpose. It is the reference for every widget in the
+# imgui_demo.cpp is included. It is the reference for every widget in the
 # library and ImGui::ShowDemoWindow() is the fastest way to sanity-check that the overlay's
 # GL state handling is correct against a busy draw list rather than one small window. It
 # costs archive size only: ar members are pulled on demand, so a binary that never calls

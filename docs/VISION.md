@@ -29,7 +29,7 @@ proof:
 3. **Open up.** Expose the engine so other people can build things Rare never could.
    Judged on whether someone else can do it without your help.
 
-These pull against each other, which is why they are worth naming. Mouse look is (2) and
+These pull against each other, and that is why they are worth naming. Mouse look is (2) and
 actively wrong for (1). A Lua mod that rebalances weapons is (3) and has no bearing on
 either. Keeping them separate is what lets "faithful" and "GoldenEye+" coexist instead of
 arguing.
@@ -162,9 +162,9 @@ before they can be shuffled, and that schema is the actual work.
 `tools/fetch_lua.sh`, never vendored). Mods live in `mods/<name>/mod.lua` and may define:
 
 ```lua
-function onFrame(frame)        end
+function onFrame(frame) end
 function onPlayerSpawn(player) end
-function onWeaponFire(weapon)  end
+function onWeaponFire(weapon) end
 ```
 
 with a read-mostly `ge.*` API (`log`, `stage`, `player_count`, `player_pos`). Verified on

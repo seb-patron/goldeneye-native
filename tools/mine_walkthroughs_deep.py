@@ -116,7 +116,7 @@ def diagram_labels(block):
                 arrows.add(name)
         # Strip the drawing characters, then whatever readable text is left is a label.
         # Split on runs of two or more spaces. That is what separates cells in a drawn table, and
-        # it is why the first version produced "CAR 2    CA" and "R 3    CAR 4": a length cap cuts
+        # it is why the first version produced "CAR 2 CA" and "R 3 CAR 4": a length cap cuts
         # wherever the limit lands, which is mid-word whenever a row holds several labels.
         txt = BOX.sub("  ", line)
         for cell in re.split(r"\s{2,}", txt):

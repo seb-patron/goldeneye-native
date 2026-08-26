@@ -37,7 +37,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STICK_MAX = 80.0
 WALK = 60.0
 
-# Approximate engine motion per tick at full stick. Deliberately not exact.
+# Approximate engine motion per tick at full stick. Not exact.
 UNITS_PER_TICK = 9.0
 DEG_PER_TICK_AT_FULL = 4.5
 

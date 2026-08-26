@@ -9,10 +9,10 @@
 # which turns those into things we can measure directly.
 #
 # It is a DIFFERENT PLATFORM from the device, not a flag on it:
-#   device    -> -target arm64-apple-tvos17.0            -sdk appletvos        (platform 3)
-#   simulator -> -target arm64-apple-tvos17.0-simulator  -sdk appletvsimulator (platform 8)
+#  device -> -target arm64-apple-tvos17.0 -sdk appletvos (platform 3)
+#  simulator -> -target arm64-apple-tvos17.0-simulator -sdk appletvsimulator (platform 8)
 # Linking a device SDL2 into a simulator binary fails at link time with a platform
-# mismatch, which is why deps/sdl2-tvsim exists separately from the device build.
+# mismatch, and that is why deps/sdl2-tvsim exists separately from the device build.
 #
 # Kept OUT of build.sh deliberately: several agents share that script, and the device
 # path is the one that ships. This is an additive diagnostic tool.
@@ -163,7 +163,7 @@ cmd_lib() {
   # boss.c routes **START** into debug_menu_processor, which is disruptive during normal
   # play and would silently change every lane's measurements. Turn it on per-run:
   #
-  #     GETV_DEBUGMENU=1 ./build_sim.sh lib
+  #  GETV_DEBUGMENU=1 ./build_sim.sh lib
   #
   # It changes code generation, so a slot must REBUILD when toggling it, and any number
   # measured under it is not comparable to one measured without it.
@@ -264,6 +264,6 @@ case "${1:-}" in
   shot) cmd_shot "${2:-}" ;;
   run)  cmd_run ;;
   env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "SLOT=${SLOT:-<none>}"; echo "BUILD=$BUILD"; echo "SIM=$(sim_udid)" ;;
-  *)    echo "usage: $0 {lib|port|app|boot|run|shot [path]|env}"
+  *) echo "usage: $0 {lib|port|app|boot|run|shot [path]|env}"
         echo "  port = recompile getv/port/** only and re-archive (seconds, not ~20 min)" ;;
 esac

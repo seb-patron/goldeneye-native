@@ -1,11 +1,11 @@
-/* See ge_sense_api.h. Thin on purpose: the engine already knows all of this, and every line here
+/* See ge_sense_api.h. Thin: the engine already knows all of this, and every line here
  * that reimplements rather than asks is a line that can disagree with the game. */
 #include <math.h>
 #include <string.h>
 
 #include "ge_sense_api.h"
 #include "ge_enemy_api.h"
-#include "ge_player_api.h"   /* GePlayerState, gePlayerStateGet, GE_ST_POSITION, GE_MAX_SLOTS */
+#include "ge_player_api.h" /* GePlayerState, gePlayerStateGet, GE_ST_POSITION, GE_MAX_SLOTS */
 
 extern int gePortSenseLine(float from_x, float from_z, float to_x, float to_z);
 extern int gePortSenseVisibleTo(int chr_index, int player_index);
@@ -14,7 +14,7 @@ extern int gePortSenseVisibleTo(int chr_index, int player_index);
 
 /* How far out the first segment starts: roughly a body's own width. What is already touching the
  * bot is not information about which way to go, and including it makes every direction blocked. */
-#define GE_SENSE_SKIN    35.0f
+#define GE_SENSE_SKIN 35.0f
 
 static float ge_deg2rad(float d) { return d * 3.14159265358979f / 180.0f; }
 
@@ -120,7 +120,7 @@ int geSenseWatchers(int player_slot)
  * Required game-SIDE accessor. A view cone needs the character's facing, and nothing exposes it.
  * Declared here the same way gePortSenseLine is, so the shape is agreed before the shim exists:
  *
- *     int gePortEnemyFacing(int chr_index, float *out_deg);
+ *  int gePortEnemyFacing(int chr_index, float *out_deg);
  *
  * Degrees, atan2(x, z), matching every other angle in this layer. Returns 0 when the character has
  * no facing to report, which is a real state for one that has not spawned.
@@ -184,7 +184,7 @@ int geSenseNoticing(int player_slot)
 /* ---------------------------------------------------------------- 1b: contact */
 
 #define GE_CONTACT_HISTORY 16
-#define GE_CONTACT_EPSILON 1.5f     /* below this a move is noise, not travel */
+#define GE_CONTACT_EPSILON 1.5f /* below this a move is noise, not travel */
 
 static struct {
     float x[GE_CONTACT_HISTORY];
@@ -225,7 +225,7 @@ int geSenseIsStuck(int player_slot, int ticks)
         if (ge_contact[player_slot].moved[h]) { commanded++; }
     }
 
-    /* Both halves are required. A bot standing still on purpose is not stuck, and a bot moving
+    /* Both halves are required. A bot standing still is not stuck, and a bot moving
      * freely is not stuck however long it has been going. Only "told to move and did not" is. */
     return (commanded >= ticks - 1) && (moved < GE_CONTACT_EPSILON * (float)(ticks - 1));
 }
@@ -290,8 +290,8 @@ int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSens
  *
  * Required game-SIDE accessor, same arrangement as the facing one above:
  *
- *     int gePortUsableAt(int index, float *out);   out[0..2] xyz, out[3] kind, out[4] prop id
- *     int gePortUsableCount(void);
+ *  int gePortUsableAt(int index, float *out); out[0..2] xyz, out[3] kind, out[4] prop id
+ *  int gePortUsableCount(void);
  *
  * The prop table knows where doors, keys and switches are; only the game knows which of them are
  * live right now -- a collected key is still in the table and is no longer there to pick up.

@@ -7,10 +7,10 @@
  *
  * The cases that matter are the ones where a plausible implementation is wrong:
  *
- *   a body is not a ray -- the CENTRE line being clear is not enough
- *   sight is not attention -- a line to a guard facing away is not being seen
- *   absent facing is not facing-away -- they lead to opposite behaviour
- *   standing still on purpose is not being stuck
+ *  a body is not a ray -- the CENTRE line being clear is not enough
+ *  sight is not attention -- a line to a guard facing away is not being seen
+ *  absent facing is not facing-away -- they lead to opposite behaviour
+ *  standing still is not being stuck
  */
 
 #include <stdio.h>
@@ -24,7 +24,7 @@
 /* ---------------------------------------------------------------- the fake world */
 
 /* Blocking segments, as vertical planes at a given x. A ray from x0 to x1 is blocked if it crosses
- * one. Crude on purpose: the geometry under test is the SWEEP, not the line test. */
+ * one. Crude: the geometry under test is the SWEEP, not the line test. */
 #define FAKE_BLOCKERS 4
 static struct { float at_x; float z_lo, z_hi; unsigned int what; } blocker[FAKE_BLOCKERS];
 static int n_blockers;
@@ -55,7 +55,7 @@ int gePortSenseLine(float fx, float fz, float tx, float tz)
 }
 
 /* The engine's volume test, which geSenseAheadForBody now consumes instead of sampling parallel
- * lines. Driven from THE SAME blocker geometry as fake_line_hits, deliberately.
+ * lines. Driven from THE SAME blocker geometry as fake_line_hits.
  *
  * A second, independent fake world would let the ray and the body disagree for reasons that are
  * about the test rather than about the code -- and the whole point of this pair of functions is

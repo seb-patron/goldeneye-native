@@ -5,8 +5,8 @@
  * CPU ATTACHED and is not vsync, not the frame cap, not fill rate and not stdout -- all of those
  * were measured and excluded (docs/PERFORMANCE.md). Two explanations remain and they are opposite:
  *
- *   the GPU is genuinely busy      -> the work is real; reduce it or accept it
- *   the CPU is blocked in the swap -> the GPU is idle and the driver or compositor is stalling us
+ *  the GPU is genuinely busy -> the work is real; reduce it or accept it
+ *  the CPU is blocked in the swap -> the GPU is idle and the driver or compositor is stalling us
  *
  * From outside the process these look identical: neither burns CPU in our thread. A GPU timer
  * separates them, and nothing else available here does.
@@ -35,7 +35,7 @@ void geGpuTimerFrameBegin(void);
 void geGpuTimerFrameEnd(void);
 
 /* CPU wall time spent inside the present, in milliseconds, recorded by the caller that brackets
- * it. Kept separate from the GPU figure on purpose: "the GPU was busy 6 ms" and "we sat in
+ * it. Kept separate from the GPU figure: "the GPU was busy 6 ms" and "we sat in
  * SwapWindow for 6 ms" are the two answers being told apart, and averaging them into one number
  * would destroy the distinction. */
 void geGpuTimerRecordSwap(double ms);

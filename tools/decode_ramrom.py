@@ -99,11 +99,11 @@ def decode(path):
 # byte order IS derived, not assumed. The record is {s8 stick_x, s8 stick_y, u8 button_low,
 # u8 button_high} and the u16 is (button_high << 8) | button_low -- low byte FIRST in memory, which
 # is not what a big-endian target would lead you to expect. Two independent checks settle it:
-#   * bits 0x0040 and 0x0080 are assigned to no button on a real N64 pad, so they must never be set
-#     in recorded play. Under this order they are clear in all 32,469 records; under the other,
-#     173 records set one, which is physically impossible.
-#   * under this order Z is the most-held button at 11.6% and A, B and START are each under 0.5%.
-#     Z is fire. The other order puts the fire button essentially unused, which no play looks like.
+#  * bits 0x0040 and 0x0080 are assigned to no button on a real N64 pad, so they must never be set
+#  in recorded play. Under this order they are clear in all 32,469 records; under the other,
+#  173 records set one, which is physically impossible.
+#  * under this order Z is the most-held button at 11.6% and A, B and START are each under 0.5%.
+#  Z is fire. The other order puts the fire button essentially unused, which no play looks like.
 N64_TO_GE = [
     (0x2000, "GE_IN_FIRE"),         # Z_TRIG
     (0x8000, "GE_IN_WEAPON_NEXT"),  # A_BUTTON is inventory in the port's mapping
@@ -122,8 +122,8 @@ N64_TO_GE = [
 # L_TRIG IS the aim button IN these demos, and that is settled by the decomp, not inferred from
 # frequency alone. bondview2.c:5546-5558 assigns the single-controller styles two ways:
 #
-#   KISSY / GOODNIGHT   shoot = A_BUTTON, aim = Z_TRIG,          inv = L_TRIG | R_TRIG
-#   every other style   shoot = Z_TRIG,   aim = L_TRIG | R_TRIG, inv = A_BUTTON
+#  KISSY / GOODNIGHT shoot = A_BUTTON, aim = Z_TRIG, inv = L_TRIG | R_TRIG
+#  every other style shoot = Z_TRIG, aim = L_TRIG | R_TRIG, inv = A_BUTTON
 #
 # The measured corpus matches the second branch exactly: Z is the most-held button at 11.6%
 # (shoot), A is 0.1% (inventory), L_TRIG is 2.8% (aim). So the demos were recorded on a default

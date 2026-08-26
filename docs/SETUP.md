@@ -19,7 +19,7 @@ Read in order:
 7. [Troubleshooting](#7-troubleshooting)
 8. [Verifying it works](#8-verifying-it-works)
 
-A fresh clone of this repository does not build. Three things are deliberately absent from it and
+A fresh clone of this repository does not build. Three things are absent from it and
 you have to put them there: the decompiled game source, fifteen third-party port-layer files, and
 the SDL2 source tree. Sections 2 and 3 cover all three. If you skip them, section 7 tells you what
 the resulting errors look like.
@@ -43,7 +43,7 @@ Check what you have:
 
 ```bash
 sw_vers -productVersion
-uname -m          # must print: arm64
+uname -m # must print: arm64
 ```
 
 ### Shell
@@ -134,7 +134,7 @@ There are two reasons, both recorded in the header comment of `getv/build_mac.sh
 - A Homebrew running under Rosetta produces an **x86_64** SDL2, which cannot be linked into an
   arm64 binary. This is a silent trap: `brew install sdl2` succeeds, and the failure only appears
   at link time as undefined symbols.
-- The install prefix is deliberately outside the repository because the repository path contains a
+- The install prefix is outside the repository because the repository path contains a
   space (`.../Code Projects/...`), and a space in a header search path has broken this build before.
 
 The SDL2 source is **not in a fresh clone.** `deps/` is listed in `.gitignore` and nothing under it
@@ -215,13 +215,13 @@ tools/fetch-thirdparty.sh status
 
 ```
 upstream : https://github.com/sm64pc/sm64ex.git
-commit   : d7ca2c04364a6dd0dac58b47151e04e26887e6f0
-patch    : /path/to/goldeneye-native/getv/patches/thirdparty/0001-getv-port-layer.patch
+commit : d7ca2c04364a6dd0dac58b47151e04e26887e6f0
+patch : /path/to/goldeneye-native/getv/patches/thirdparty/0001-getv-port-layer.patch
 
-  present  getv/port/fast3d/gfx_cc.c            <- src/pc/gfx/gfx_cc.c
-  present  getv/port/fast3d/gfx_cc.h            <- src/pc/gfx/gfx_cc.h
+  present getv/port/fast3d/gfx_cc.c <- src/pc/gfx/gfx_cc.c
+  present getv/port/fast3d/gfx_cc.h <- src/pc/gfx/gfx_cc.h
   ...
-  present  getv/port/fs/fs.h                    <- src/pc/fs/fs.h
+  present getv/port/fs/fs.h <- src/pc/fs/fs.h
 ```
 
 Every line must read `present`. Any `ABSENT` means a partial fetch; see section 7.6.
@@ -234,7 +234,7 @@ tools/fetch-thirdparty.sh verify
 ```
 
 ```
-ok       getv/port/fast3d/gfx_cc.c
+ok getv/port/fast3d/gfx_cc.c
 ...
 fetch-thirdparty: 15/15 files match pristine + patch
 ```
@@ -248,7 +248,7 @@ preflight checks for `getv/port/fast3d/gfx_pc.c` and, not finding it, prints:
 
 ```
 error: third-party port sources are missing.
-       run tools/fetch-thirdparty.sh fetch   (see docs/THIRD_PARTY.md)
+       run tools/fetch-thirdparty.sh fetch (see docs/THIRD_PARTY.md)
 ```
 
 and exits 1. The check exists because without it the compile emits a long list of missing headers
@@ -279,9 +279,9 @@ Verify placement:
 ```bash
 ls deps/SDL2-2.30.9/CMakeLists.txt
 grep -E 'SDL_(MAJOR_VERSION|MINOR_VERSION|PATCHLEVEL)' deps/SDL2-2.30.9/include/SDL_version.h
-# #define SDL_MAJOR_VERSION   2
-# #define SDL_MINOR_VERSION   30
-# #define SDL_PATCHLEVEL      9
+# #define SDL_MAJOR_VERSION 2
+# #define SDL_MINOR_VERSION 30
+# #define SDL_PATCHLEVEL 9
 ```
 
 ### 2.4 Clone and prepare the decompilation
@@ -371,23 +371,23 @@ art). Do not defeat those rules. A `git add -A` without them would commit derive
 
 ```bash
 ls -l roms/ge007.u.z64
-# -rw-r--r--  1 you  staff  12582912  ... roms/ge007.u.z64
+# -rw-r--r-- 1 you staff 12582912 ... roms/ge007.u.z64
 
 shasum -a 1 roms/ge007.u.z64
-# abe01e4aeb033b6c0836819f549c791b26cfde83  roms/ge007.u.z64
+# abe01e4aeb033b6c0836819f549c791b26cfde83 roms/ge007.u.z64
 
 xxd -l 4 roms/ge007.u.z64
-# 00000000: 8037 1240                                .7.@
+# 00000000: 8037 1240 .7.@
 
 dd if=roms/ge007.u.z64 bs=1 skip=32 count=20 2>/dev/null | xxd
-# 00000000: 474f 4c44 454e 4559 4520 2020 2020 2020  GOLDENEYE
+# 00000000: 474f 4c44 454e 4559 4520 2020 2020 2020 GOLDENEYE
 ```
 
 Cross-check against the decompilation's own recorded hash:
 
 ```bash
 cat vendor/ge-decomp/ge007.u.sha1
-# abe01e4aeb033b6c0836819f549c791b26cfde83  build/u/ge007.u.z64
+# abe01e4aeb033b6c0836819f549c791b26cfde83 build/u/ge007.u.z64
 ```
 
 The path on the right differs because that file describes the decomp's own build output; only the
@@ -419,7 +419,7 @@ python3 scripts/generate_gun_c.py
 python3 scripts/generate_prop_model_c.py
 python3 ../../tools/gen_obseg_blobs.py
 python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
-bash  scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
+bash scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
 python3 ../../tools/gen_images_segment.py
 python3 ../../tools/fix_asset_switchnodes.py
 python3 ../../tools/gen_anim_blobs.py
@@ -491,7 +491,7 @@ Why it is six invocations rather than one:
 
 - **`chr`, `gun` and `prop` need `--recurse`.** Their models are laid out as
   `<dir>/<name>/Model.c` - 340 props all defining `ModelNode_0x048`, each its own translation
-  unit. A flat glob finds only `.inc.c` files, which the tool deliberately skips, so it prints
+  unit. A flat glob finds only `.inc.c` files, which the tool skips, so it prints
   nothing at all and still exits 0. With `--recurse` the subdirectory supplies the prefix, giving
   `commguard_Model_` and `desk_lamp2_Model_`.
 - **`setup` must not be recursed.** Its 30 level setups sit flat in the directory and take the
@@ -547,7 +547,7 @@ counterparts and every one of them is larger.
 The build therefore excludes both directories (`build_mac.sh`, the `mac assets` find). Nothing
 outside them references their symbols and `file_resource_table.inc.c` asks for the bare name, so
 excluding them is the whole fix. It also resolves the related case the tool cannot: the top-level
-`stagesetup UsetuplenZ`, which the engine looks up by name and which is therefore deliberately left
+`stagesetup UsetuplenZ`, which the engine looks up by name and which is therefore left
 unprefixed in all three directories.
 
 ## 4. Building
@@ -563,11 +563,11 @@ usage and exits:
 
 ```
 usage: ./build_mac.sh {sdl|lib|port|app|all|run|env}
-  sdl  = build SDL2 2.30.9 arm64 from deps/ into /Users/you/.n64tvos/sdl2-mac (once)
-  lib  = compile game + assets + audio + port layer for arm64 macOS
+  sdl = build SDL2 2.30.9 arm64 from deps/ into /Users/you/.n64tvos/sdl2-mac (once)
+  lib = compile game + assets + audio + port layer for arm64 macOS
   port = recompile getv/port/** and the harness only (seconds)
-  app  = link /path/to/goldeneye-native/getv/build-mac/goldeneye
-  run  = launch it
+  app = link /path/to/goldeneye-native/getv/build-mac/goldeneye
+  run = launch it
 ```
 
 ### 4.1 `env` - show the resolved paths
@@ -619,10 +619,10 @@ in section 4.5 will fail and everything after it is wasted time.
 ```
 
 Compiles four batches in parallel and reports each. Parallelism is capped by `GETV_JOBS`, which
-defaults to 6 - deliberately not `nproc`, so a build does not monopolise the machine:
+defaults to 6 - not `nproc`, so a build does not monopolise the machine:
 
 ```bash
-GETV_JOBS=10 ./build_mac.sh lib     # if you want it to
+GETV_JOBS=10 ./build_mac.sh lib # if you want it to
 ```
 
 Expected output:
@@ -675,11 +675,11 @@ cd ../vendor/ge-decomp
       -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
   find src/libultra/gu -name '*.c'; } \
   | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' \
-  | wc -l          # 168 = 167 built + 1 failed
+  | wc -l # 168 = 167 built + 1 failed
 find assets -name '*.c' ! -name '*.inc.c' \
       ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' \
-    | wc -l                                                      # 746
-find src/libultra/audio src/libultrare/audio -name '*.c' | wc -l  # 40
+    | wc -l # 746
+find src/libultra/audio src/libultrare/audio -name '*.c' | wc -l # 40
 cd ../../getv
 ```
 
@@ -716,7 +716,7 @@ no objects in /path/to/getv/build-mac/obj -- run './build_mac.sh lib' once first
 ```
 
 ```
-mac libge.a:  31M, 974 members
+mac libge.a: 31M, 974 members
 ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
 mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 18M, arm64)
 ```
@@ -761,7 +761,7 @@ mac game: 167 built, 1 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
 mac port layer: 23 built, 0 failed
-mac libge.a:  31M, 974 members
+mac libge.a: 31M, 974 members
 ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
 mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 18M, arm64)
 ```
@@ -772,7 +772,7 @@ on a cold cache, on a slower machine, or with the ROM extraction still fresh wil
 21 seconds. Treat the number as an order of magnitude, not a guarantee.
 
 Note that there is no incremental check: `run_batch` compiles every file every time. `all` is
-always a full rebuild, which is why `port` exists.
+always a full rebuild, so `port` exists.
 
 **When to use:** the first build, and any time you are unsure what state the tree is in.
 
@@ -886,7 +886,7 @@ To regenerate the template at any time, overwriting what is there:
 `--write-config=PATH` writes somewhere else instead. Both exit without starting the game.
 `--help` prints the built-in usage summary; `--list-cheats` prints every named cheat.
 
-Failure to write the template is deliberately non-fatal and near-silent: a read-only home directory
+Failure to write the template is non-fatal and near-silent: a read-only home directory
 must still boot on built-in defaults.
 
 Every setting is documented in [`CONFIGURATION.md`](CONFIGURATION.md).
@@ -1013,7 +1013,7 @@ knows, including Nintendo's, where that same button is printed `B`. Defaults: `f
 `fire = rt` / `aim = lt` is the modern-shooter convention rather than a settled fact; GoldenEye's
 retail scheme has neither, and swapping them is one line.
 
-`weapon_prev` defaults to `none` on purpose: GoldenEye has no back-cycle button. The retail gesture
+`weapon_prev` defaults to `none`: GoldenEye has no back-cycle button. The retail gesture
 is hold-inventory plus tap-fire. A synthesised single-button version exists and is faithful to that
 gesture, but it has not been verified against real hardware, so it stays opt-in.
 
@@ -1037,7 +1037,7 @@ sources named beside them.
 
 ```
 error: third-party port sources are missing.
-       run tools/fetch-thirdparty.sh fetch   (see docs/THIRD_PARTY.md)
+       run tools/fetch-thirdparty.sh fetch (see docs/THIRD_PARTY.md)
 ```
 
 **Cause** - the preflight in `require_thirdparty()` (`getv/build_mac.sh`) found no
@@ -1170,8 +1170,8 @@ produces an Intel SDL2 that cannot link into an arm64 binary, and it does so wit
 **Fix** - check what you are actually running:
 
 ```bash
-uname -m                    # must be arm64, not x86_64
-arch                        # same
+uname -m # must be arm64, not x86_64
+arch # same
 which cmake && file $(which cmake)
 ```
 
@@ -1198,10 +1198,10 @@ exists (common after deleting or moving Xcode).
 **Fix**
 
 ```bash
-xcode-select -p                       # what it currently points at
-xcode-select --install                # install the tools
-sudo xcode-select --reset             # or reset a stale pointer
-xcrun -sdk macosx --show-sdk-path     # must print a real path
+xcode-select -p # what it currently points at
+xcode-select --install # install the tools
+sudo xcode-select --reset # or reset a stale pointer
+xcrun -sdk macosx --show-sdk-path # must print a real path
 ```
 
 **Symptom** - the link fails with `building for macOS-arm64 but attempting to link with file
@@ -1360,8 +1360,8 @@ The resolved repository is not sm64ex, or the manifest has been edited.
 reports:
 
 ```
-MISSING  getv/port/audio/ge_mixer.c
-DIFFERS  getv/port/fast3d/gfx_pc.c
+MISSING getv/port/audio/ge_mixer.c
+DIFFERS getv/port/fast3d/gfx_pc.c
 ```
 
 `MISSING` means the fetch did not complete - run `clean` then `fetch`. `DIFFERS` means the file on
@@ -1391,7 +1391,7 @@ off for that run. Nothing crashes.
 **Fix**
 
 ```bash
-HOME="$HOME" ./build_mac.sh run          # from an interactive shell
+HOME="$HOME" ./build_mac.sh run # from an interactive shell
 GETV_SAVEDIR=/some/writable/dir ./build_mac.sh run
 ```
 
@@ -1493,7 +1493,7 @@ tail -3 /tmp/ge-smoke.log
 ```
 
 ```
-[getv][texfmt]   I    8b  : 14421
+[getv][texfmt] I 8b : 14421
 [getv][fp] 4bit_texture_loads=0 sky_tris=0
 [getv][fp] exit_frame reached: frames=61
 ```

@@ -111,7 +111,7 @@ audio_sources() {
 }
 
 # The decomp extracts every asset to C source under assets/ (1,324 files, 34 MB). On the
-# N64 those objects were placed in ROM segments and DMA'd in at runtime, which is why the
+# N64 those objects were placed in ROM segments and DMA'd in at runtime, so the
 # game refers to _xxxSegmentRomStart/End. Compiled natively they are ordinary linked-in
 # data with real pointers -- no ROM loader and no offset-to-pointer conversion is needed
 # for this class of asset.
@@ -147,7 +147,7 @@ cmd_lib() {
   done < <(audio_sources)
   printf 'libultra audio: %d built, %d failed\n' "$uok" "$ufail"
 
-  # The software rsp. Deliberately not built with cflags: it is port code, it wants
+  # The software rsp. Not built with cflags: it is port code, it wants
   # the system <string.h>/<stdint.h>, and the decomp's include/ shadows those.
   if clang -target arm64-apple-tvos17.0 -isysroot "$SDK" \
        -I "$HERE/port/include" -I "$HERE/port/audio" \
@@ -180,7 +180,7 @@ cmd_lib() {
   # The port layer: Fast3D (from sm64ex -- NOT Perfect Dark, whose Fast3D was
   # rewritten for PD's custom 12-byte vertex; GoldenEye uses the standard N64 Vtx,
   # same as SM64) plus the host shims it needs.
-  # NOTE: GE's include/ is deliberately absent here. The decomp ships its own
+  # NOTE: GE's include/ is absent here. The decomp ships its own
   # math.h/string.h/stdlib.h/stddef.h which shadow the system headers; port/include
   # exposes only PR/ via a symlink.
   local PORTFLAGS=(

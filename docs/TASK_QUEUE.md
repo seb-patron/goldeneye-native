@@ -69,9 +69,9 @@ every step it takes:
 
 ```c
 s32 stanTestVolume(StandTile **tile, f32 x, f32 z, f32 width,
-                   s32 cdtypes, f32 ymin, f32 ymax);          /* stan.c:2073 */
+                   s32 cdtypes, f32 ymin, f32 ymax); /* stan.c:2073 */
 s32 stanTestLineUnobstructed(StandTile **tile, f32 x0, f32 z0, f32 x1, f32 z1,
-                             s32 cdtypes, f32 height, f32 a, f32 b, f32 c);  /* stan.c:1686 */
+                             s32 cdtypes, f32 height, f32 a, f32 b, f32 c); /* stan.c:1686 */
 ```
 
 `chr.c:1468` calls the line test, then the volume test at the destination, and treats a

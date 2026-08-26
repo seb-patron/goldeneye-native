@@ -40,7 +40,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Level names as they appear in prose, mapped to the level keys the rest of the pipeline uses.
-# "bunker" is deliberately NOT mapped: it is ambiguous between bunker1 and bunker2 and guessing
+# "bunker" is NOT mapped: it is ambiguous between bunker1 and bunker2 and guessing
 # would reintroduce exactly the misattribution this file exists to catch.
 ALIASES = {
     "dam": "dam", "facility": "facility", "runway": "runway", "silo": "silo",

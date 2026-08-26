@@ -2,11 +2,11 @@
  *
  * Covers the last two N64 subsystems the boot path depends on:
  *
- *   TLB   - GoldenEye maps cartridge pages into virtual memory on demand. There is
- *           no cartridge and no TLB here. What actually matters is that boss.c
- *           derives its heap from this subsystem, so the port owns a real heap and
- *           reports its bounds.
- *   OS    - message queues, timers, cache and interrupt control, controllers.
+ *  TLB - GoldenEye maps cartridge pages into virtual memory on demand. There is
+ *  no cartridge and no TLB here. What actually matters is that boss.c
+ *  derives its heap from this subsystem, so the port owns a real heap and
+ *  reports its bounds.
+ *  OS - message queues, timers, cache and interrupt control, controllers.
  *
  * The message queues are IMPLEMENTED, not stubbed: the game uses them to hand data
  * between subsystems, and a stub would silently drop it. See the note on blocking.
@@ -40,8 +40,8 @@ unsigned int gePortHostN64Count(void);
 /* ---- the heap ----------------------------------------------------------- */
 
 /* boss.c does:
- *     start = PHYS_TO_K0(osVirtualToPhysical(&_bssSegmentEnd));
- *     mempCheckMemflagTokens(start, tlbmanageGetTlbAllocatedBlock() - start);
+ *  start = PHYS_TO_K0(osVirtualToPhysical(&_bssSegmentEnd));
+ *  mempCheckMemflagTokens(start, tlbmanageGetTlbAllocatedBlock() - start);
  * i.e. the heap is [ &_bssSegmentEnd, tlbmanageGetTlbAllocatedBlock() ). On the N64
  * those were linker symbols bracketing free RAM. Here the port owns the memory, so
  * both ends point into one real allocation.
@@ -144,7 +144,7 @@ s32 osRecvMesg(OSMesgQueue *mq, OSMesg *msg, s32 flag)
          * boundary, so the honest translation of "wait for retrace" is "the retrace
          * just happened" -- synthesise it and return.
          *
-         * Scoped deliberately to the one registered queue: a blocking receive on any
+         * Scoped to the one registered queue: a blocking receive on any
          * other queue still reports empty, because inventing messages for queues whose
          * contents the caller inspects would substitute silent wrong behaviour for a
          * visible failure. */
@@ -183,24 +183,24 @@ u64 osClockRate = 46875000;
  *
  * The one consumer that matters is `frametiming.c:waitForNextFrame()`:
  *
- *     do { n = ((osGetCount() - prev) + 387937) / 775875; } while (n < frameDelay);
- *     updateFrameCounters(n);          // n -> speedgraphframes -> g_ClockTimer
+ *  do { n = ((osGetCount() - prev) + 387937) / 775875; } while (n < frameDelay);
+ *  updateFrameCounters(n); // n -> speedgraphframes -> g_ClockTimer
  *
  * 775875 counts is one NTSC video frame at the N64's 46.875 MHz count rate.
  *
  *  - Synthetic (default): +1000 per call means the loop exits on call 388 with
- *    delta = 388000, and (388000 + 387937) / 775875 is exactly 1, on every frame,
- *    every launch, every host. `speedgraphframes` is a constant, gameplay frames
- *    stay byte-reproducible, and the game's wall-clock speed is whatever the render
- *    rate is (now 60 fps -- see GETV_FPS in gfx_sdl2.c).
+ *  delta = 388000, and (388000 + 387937) / 775875 is exactly 1, on every frame,
+ *  every launch, every host. `speedgraphframes` is a constant, gameplay frames
+ *  stay byte-reproducible, and the game's wall-clock speed is whatever the render
+ *  rate is (now 60 fps -- see GETV_FPS in gfx_sdl2.c).
  *
  *  - Real: `n` becomes the number of video frames that genuinely elapsed, which is
- *    N64 semantics -- a host that cannot hold 60 fps advances the world 2 or 3
- *    frames per render and keeps wall-clock time correct instead of going into slow
- *    motion. It also makes `speedgraphframes` load-dependent, so every physics
- *    integrator's step count varies between runs and no gameplay frame is comparable
- *    across runs. That breaks the reproducibility this project relies on
- *    (PORTING_PLAYBOOK.md §2.10), which is why it is opt-in.
+ *  N64 semantics -- a host that cannot hold 60 fps advances the world 2 or 3
+ *  frames per render and keeps wall-clock time correct instead of going into slow
+ *  motion. It also makes `speedgraphframes` load-dependent, so every physics
+ *  integrator's step count varies between runs and no gameplay frame is comparable
+ *  across runs. That breaks the reproducibility this project relies on
+ *  (PORTING_PLAYBOOK.md §2.10), which is why it is opt-in.
  *
  * Both deltas stay separate either way. This function feeds `speedgraphframes`, the
  * presentation counter; `g_ClockTimer` is derived from it in `lv.c:1040-1047` and is
@@ -262,7 +262,7 @@ OSIntMask osSetIntMask(OSIntMask im) { (void)im; return 0; }
 /* Input: SDL GameController -> OSContPad, replacing the N64's SI bus.
  *
  * joy.c's poll loop (joy.c:463) is gated on
- *     `g_ContInitDone && osRecvMesg(&g_ContInputMessageQueue, &msg, 0) == 0`
+ *  `g_ContInitDone && osRecvMesg(&g_ContInputMessageQueue, &msg, 0) == 0`
  * so a controller read only happens if osContStartReadData posts to that queue. On the
  * N64 the SI interrupt posted when the transfer completed; here the pad state is
  * available immediately, so post straight away.
@@ -289,8 +289,8 @@ OSIntMask osSetIntMask(OSIntMask im) { (void)im; return 0; }
  * which is exactly a modern twin-stick pad. Nothing has to be invented; the two sticks
  * just have to arrive on two N64 ports.
  *
- *   N64 port 0  = "controller 1"  X = turn,   Y = pitch   <- physical RIGHT stick
- *   N64 port 1  = "controller 2"  X = strafe, Y = walk    <- physical LEFT  stick
+ *  N64 port 0 = "controller 1" X = turn, Y = pitch <- physical RIGHT stick
+ *  N64 port 1 = "controller 2" X = strafe, Y = walk <- physical LEFT stick
  *
  * `bondview2.c:5017-5019` reads the second pad at
  * `joyGetStickX(get_cur_playernum() + getPlayerCount())`, which in 1P is index 1.
@@ -307,12 +307,12 @@ OSIntMask osSetIntMask(OSIntMask im) { (void)im; return 0; }
  * (2.4 Goodhead is the same sticks with the two Zs swapped.)
  *
  * Two known consequences, which are why this defaults to off:
- *   - The front-end reads port 0's stick for menu navigation (`front.c:1149-1150`,
- *     `joyGetStickX(PLAYER_1)`), and port 0 is now the look stick, so menus are driven
- *     by the right stick. The physical D-pad still works and is unaffected.
- *   - A second reported port makes the main menu's multiplayer entry selectable
- *     (`front.c:3095`, `:3243`, both gated on `joyGetControllerCount() >= 2`) even
- *     though only one physical pad exists.
+ *  - The front-end reads port 0's stick for menu navigation (`front.c:1149-1150`,
+ *  `joyGetStickX(PLAYER_1)`), and port 0 is now the look stick, so menus are driven
+ *  by the right stick. The physical D-pad still works and is unaffected.
+ *  - A second reported port makes the main menu's multiplayer entry selectable
+ *  (`front.c:3095`, `:3243`, both gated on `joyGetControllerCount() >= 2`) even
+ *  though only one physical pad exists.
  *
  * Port 1 is only ever claimed when there is exactly one physical pad. With two real
  * pads the player genuinely has two controllers and the retail assignment applies
@@ -371,8 +371,8 @@ static int geDualAnalog(void)
  * `MENU_INVALID = -1` followed by unvalued members (bondconstants.h:1939-1966), so the
  * ordinals are fixed by the C standard, and the names are spelled out below so a
  * reordering is at least greppable. */
-#define GE_MENU_RUN_STAGE    11   /* bondconstants.h:1950 MENU_RUN_STAGE   */
-#define GE_MENU_SPECTRUM_EMU 25   /* bondconstants.h:1964 MENU_SPECTRUM_EMU */
+#define GE_MENU_RUN_STAGE 11 /* bondconstants.h:1950 MENU_RUN_STAGE */
+#define GE_MENU_SPECTRUM_EMU 25 /* bondconstants.h:1964 MENU_SPECTRUM_EMU */
 
 static int geInFrontEnd(void)
 {
@@ -713,8 +713,8 @@ s32 osContStartReadData(OSMesgQueue *mq)
  *
  * The deadzone must rescale, not just cut. A naive
  *
- *     if (v > -3200 && v < 3200) return 0;
- *     out = (v * 80) / 32767;
+ *  if (v > -3200 && v < 3200) return 0;
+ *  out = (v * 80) / 32767;
  *
  * subtracts nothing after the cut, so the output leaps straight from 0 to
  * (3200*80)/32767 = 7 the instant the axis crosses the threshold: a largest
@@ -732,7 +732,7 @@ s32 osContStartReadData(OSMesgQueue *mq)
  * reaches full deflection at the rail, and the largest single-count step is 1.
  * Endpoints are unchanged at +-80.
  *
- * Deliberately per-axis rather than radial. The N64 stick's gate is
+ * per-axis rather than radial. The N64 stick's gate is
  * square-cornered-octagonal and the game clamps each axis independently
  * (bondview2.c tests `stick_x > 60` and `stick_y > 60` separately), so an axial
  * deadzone is closer to what the code was written against than a circular one.
@@ -741,9 +741,9 @@ s32 osContStartReadData(OSMesgQueue *mq)
  * config, so a run with no config file behaves the same as a run with the stock one.
  * The two used to disagree (3200, ~9.8%) and the difference was only visible on a
  * machine where the config could not be written. Chosen against a real Xbox pad. */
-#define GE_STICK_DEADZONE  6553     /* 20% of the SDL axis */
-#define GE_STICK_MAX         80     /* N64 full deflection, as the game reads it */
-#define GE_SDL_AXIS_MAX   32767
+#define GE_STICK_DEADZONE 6553 /* 20% of the SDL axis */
+#define GE_STICK_MAX 80 /* N64 full deflection, as the game reads it */
+#define GE_SDL_AXIS_MAX 32767
 
 static int geStickDeadzone = GE_STICK_DEADZONE;
 
@@ -764,7 +764,7 @@ static s8 geStick(int v)
      * unchanged from the value below, so leaving the key unset is a no-op.
      * This is the port's deadzone on the raw SDL axis. It is not the game's own
      * aim +-60 / walk +-5 thresholds (bondview2.c:4892-4908, :5330-5364), which are
-     * applied downstream in N64 counts and are deliberately left alone. */
+     * applied downstream in N64 counts and are left alone. */
     {
         static int dz = -1;
         if (dz < 0) {
@@ -801,8 +801,8 @@ static s8 geStick(int v)
  * stays on until the axis falls back below GE_C_OFF.
  *
  * The state must be static -- the point is remembering last frame. */
-#define GE_C_ON   12000
-#define GE_C_OFF   8000
+#define GE_C_ON 12000
+#define GE_C_OFF 8000
 
 static int geCEdge(int v, int *held)
 {
@@ -820,11 +820,11 @@ static int geCEdge(int v, int *held)
  * the SDL side would confirm that SDL sees a controller and say nothing about whether
  * the N64 bits came out right, which is the half that can be wrong.
  *
- *   GETV_INPUT_DEBUG=1  one line whenever the decoded pad changes, plus a 2s heartbeat.
- *                       Prefer this: 60 identical lines a second through
- *                       `simctl launch --console-pty` buries every other message.
- *   GETV_INPUT_DEBUG=2  one line every frame the game polls, changed or not. Use when
- *                       the question is "is the game polling at all".
+ *  GETV_INPUT_DEBUG=1 one line whenever the decoded pad changes, plus a 2s heartbeat.
+ *  Prefer this: 60 identical lines a second through
+ *  `simctl launch --console-pty` buries every other message.
+ *  GETV_INPUT_DEBUG=2 one line every frame the game polls, changed or not. Use when
+ *  the question is "is the game polling at all".
  *
  * The level is read through gePortInputDebugLevel() in port_input.c, not getenv() here:
  * this translation unit includes <PR/os.h>, which cannot safely sit next to the system
@@ -927,9 +927,9 @@ static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pa
      * What the C buttons do, per bondview2.c: the game ORs them with the D-pad
      * everywhere (`buttons & (L_JPAD | L_CBUTTONS)`), and the meaning depends on aim
      * mode --
-     *   hip-fire  : C-left/right  -> digitalStepLeft/Right (strafe)
-     *               C-up/down     -> speedVertaDown/Up      (step forward/back)
-     *   aim mode  : C-left/right  -> aimTurnLeft/RightSpeed (look)
+     *  hip-fire : C-left/right -> digitalStepLeft/Right (strafe)
+     *  C-up/down -> speedVertaDown/Up (step forward/back)
+     *  aim mode : C-left/right -> aimTurnLeft/RightSpeed (look)
      * so right-stick-to-C gives a workable modern layout: strafe from the hip, look
      * while aiming. X/Y double up C-up/C-down for anything that wants them discretely.
      *
@@ -1146,11 +1146,11 @@ void gePortCreateHarnessQueues(void)
 
 /* Called from rspGfxTaskStart() in place of handing the task to the N64 video
  * scheduler. Two jobs:
- *   1. acknowledge the task, so bossMainloop's `pendingGfx--` fires and the frame loop
- *      can advance to the next frame. Without this it spins forever.
- *   2. (later) hand firstGdl..gdl to Fast3D.
+ *  1. acknowledge the task, so bossMainloop's `pendingGfx--` fires and the frame loop
+ *  can advance to the next frame. Without this it spins forever.
+ *  2. (later) hand firstGdl..gdl to Fast3D.
  *
- * Rendering is deliberately not wired up in this step. GoldenEye's display lists are
+ * Rendering is not wired up in this step. GoldenEye's display lists are
  * built for its own gsp3D microcode, and Fast3D's F3D parser has not been proven
  * against them yet; doing both at once would make a crash ambiguous between "the loop
  * still does not close" and "the display list is not F3D enough". Close the loop first.
@@ -1175,7 +1175,7 @@ void gePortSubmitGfxTask(void *firstGdl, void *gdl, OSMesgQueue *replyQ, OSMesg 
     frames++;
 
     /* Hand the display list to Fast3D. firstGdl..gdl is exactly what the RSP would have
-     * executed. See port_render.c -- the include worlds are kept apart on purpose. */
+     * executed. See port_render.c -- the include worlds are kept apart. */
     { extern void gePortRenderDisplayList(void *firstGdl); gePortRenderDisplayList(firstGdl); }
 
     /* Reply exactly as the scheduler would: the message the caller supplied, to the

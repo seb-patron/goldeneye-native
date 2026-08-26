@@ -6,7 +6,7 @@
  *
  * What this is and is not. It is a small set of POSIX names that MinGW does not provide but
  * has exact Win32 or MSVCRT equivalents for -- a spelling difference, nothing more. It is
- * deliberately NOT the place for anything that needs real behaviour: the crash handler's
+ * NOT the place for anything that needs real behaviour: the crash handler's
  * backtrace has no equivalent spelling and is branched properly in ge_tvos_main.c, and the
  * launcher's process replacement is branched in ge_launcher.cpp, because on Windows it is a
  * genuinely different operation rather than a renamed one.
@@ -21,7 +21,7 @@
 
 #if defined(_WIN32)
 
-/* Deliberately NOT <windows.h>. Everything below needs only stdlib and string, and this
+/* NOT <windows.h>. Everything below needs only stdlib and string, and this
  * header is force-included into the GAME batch as well as the port layer -- where windows.h
  * would be actively dangerous, because it defines `near`, `far` and `BOOL` as macros and the
  * decomp uses all three as ordinary identifiers. Keeping this header free of it is what
@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-/* errno is undefined here, deliberately and globally.
+/* errno is undefined here and globally.
  *
  * PR/os.h declares struct fields literally named `errno` -- OSContStatus and OSContPad both
  * carry one, and joy.c reads them. That is legal C until a libc defines errno as a macro, at
@@ -74,9 +74,9 @@ static inline int ge_win_unsetenv(const char *name)
 }
 
 #define setenv(n, v, o) ge_win_setenv((n), (v), (o))
-#define unsetenv(n)     ge_win_unsetenv((n))
+#define unsetenv(n) ge_win_unsetenv((n))
 
-/* usleep is deliberately NOT shimmed here.
+/* usleep is NOT shimmed here.
  *
  * It was, as `#define usleep(u) ...`, and that broke the build: MinGW's <unistd.h> declares
  * usleep itself, the macro expanded inside that declaration, and gcc reported the error

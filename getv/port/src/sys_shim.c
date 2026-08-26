@@ -1,7 +1,7 @@
 /* GoldenEye tvOS port - host services for Fast3D.
  *
  * Perfect Dark provides these from its platform layer. GoldenEye's decomp has none,
- * so the port supplies them. Deliberately minimal: Fast3D only needs logging, a
+ * so the port supplies them. minimal: Fast3D only needs logging, a
  * fatal path, two argv queries (meaningless on tvOS, where there is no command
  * line), a spin hint and a sleep. */
 #include <stdarg.h>

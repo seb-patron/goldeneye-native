@@ -32,7 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 # Namespace bases. Chosen far apart and round so a uid is readable at a glance: 1_000_074 is
-# plainly waypoint 74, and nothing has to be looked up to see it. Deliberately NOT packed tightly
+# plainly waypoint 74, and nothing has to be looked up to see it. NOT packed tightly
 # -- saving three digits would cost the one property that makes this useful.
 NS = {
     "waypoint": 1000000,   # the ENGINE's own graph, from pathwaypoints. Authoritative.

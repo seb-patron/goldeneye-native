@@ -3,8 +3,8 @@
  * docs/NETPLAY.md draws the line this file sits on, and it is worth restating because it is easy
  * to erode one convenience at a time:
  *
- *     server -- who is playing, which slot, and each other's addresses
- *     peers -- every tick of input, directly, over the transport
+ *  server -- who is playing, which slot, and each other's addresses
+ *  peers -- every tick of input, directly, over the transport
  *
  * Routing sixty-hertz input through a server adds a hop to the one thing that must arrive inside
  * the input delay, and turns every player's latency into the sum of two links instead of one. So
@@ -12,7 +12,7 @@
  * then irrelevant. If the lobby server dies mid-match the match carries on, because nothing in a
  * running session depends on it. Any future call from the tick path into this file is a bug.
  *
- * What this deliberately does not DO
+ * What this does not DO
  *
  * It does not build the mesh. Both transports already do that themselves and have all along --
  * `ge_net_udp.c` says "full mesh, not A star" at the top of the file, and `ge_net_enet.c` relays
@@ -47,9 +47,9 @@
 extern "C" {
 #endif
 
-#define GE_DISCOVERY_SPEC_MAX     512
+#define GE_DISCOVERY_SPEC_MAX 512
 #define GE_DISCOVERY_ENDPOINT_MAX 96
-#define GE_DISCOVERY_MAX_PEERS    4    /* the game has four player slots and no more */
+#define GE_DISCOVERY_MAX_PEERS 4 /* the game has four player slots and no more */
 
 typedef enum GeDiscoveryState {
     GE_DISCOVERY_IDLE = 0,   /* nothing started */
@@ -79,7 +79,7 @@ typedef struct GeDiscoverySource {
  *
  * Comma-separated entries, each `slot@endpoint`:
  *
- *     0@10.0.0.1:5000,1@10.0.0.2:5000,2@bot
+ *  0@10.0.0.1:5000,1@10.0.0.2:5000,2@bot
  *
  * `@` separates rather than `:` because an endpoint contains colons -- an IPv6 literal is mostly
  * colons -- and splitting on one would mangle every address that is not bare IPv4.

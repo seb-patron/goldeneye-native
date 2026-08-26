@@ -15,16 +15,16 @@
  *
  * The attachment itself is one call the game already provides:
  *
- *     chrSpawnAtPad(self, bodynum, headnum, padid, ailist, flags)
+ *  chrSpawnAtPad(self, bodynum, headnum, padid, ailist, flags)
  *
  * where ailist is a pointer to bytecode. chrai.c does exactly this for the campaign's own
  * spawn command, passing the result of ailistFindById. We pass our assembled bytes instead,
  * which is why no registration in g_CurrentSetup.ailists is needed: the pointer IS the list.
  *
- *   GETV_BOT_AI=<archetype>[:count][@pad]   e.g. "dark", "hard:3", "kaze:2@12"
- *   GETV_BOT_AI_BODY=<n>                    body model id, default 37 (a campaign guard body)
- *   GETV_BOT_AI_DELAY=<frames>              wait before spawning, default 180
- *   GETV_BOT_AI_LIST=1                      print the available archetypes and do nothing else
+ *  GETV_BOT_AI=<archetype>[:count][@pad] e.g. "dark", "hard:3", "kaze:2@12"
+ *  GETV_BOT_AI_BODY=<n> body model id, default 37 (a campaign guard body)
+ *  GETV_BOT_AI_DELAY=<frames> wait before spawning, default 180
+ *  GETV_BOT_AI_LIST=1 print the available archetypes and do nothing else
  */
 #include <stdio.h>
 #include <stdlib.h>

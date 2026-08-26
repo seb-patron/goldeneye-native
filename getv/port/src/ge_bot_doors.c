@@ -15,19 +15,19 @@
  * of carriages joined by doors with seven brake units along it -- so "walk to the next door,
  * open it, walk to the next" reproduces the shape a person walks, without a graph at all.
  *
- * THE POLICY, greedy on purpose:
+ * THE POLICY, greedy:
  *
- *   pick the door D minimising dist(here, D) + dist(D, objective)
- *   walk to it, open it, pass through, mark it used
- *   when no door improves on walking straight at the objective, walk at the objective
+ *  pick the door D minimising dist(here, D) + dist(D, objective)
+ *  walk to it, open it, pass through, mark it used
+ *  when no door improves on walking straight at the objective, walk at the objective
  *
  * Greedy will not solve a level that doubles back, and it is not trying to. It is the shortest
- * path from "can perceive" to "arrives somewhere on purpose", and everything it cannot do is
+ * path from "can perceive" to "arrives somewhere", and everything it cannot do is
  * visible in the trace rather than hidden in a heuristic.
  *
- *   GETV_BOT_DOORS=<slot>     drive this slot by doors
- *   GETV_BOT_DOORS_OBJ=<n>    which objective to head for, default 0
- *   GETV_BOT_DOORS_TRACE=1    say what it is doing
+ *  GETV_BOT_DOORS=<slot> drive this slot by doors
+ *  GETV_BOT_DOORS_OBJ=<n> which objective to head for, default 0
+ *  GETV_BOT_DOORS_TRACE=1 say what it is doing
  */
 #include <math.h>
 #include <stdio.h>
@@ -38,10 +38,10 @@
 #include "ge_world_api.h"
 #include "ge_sense_api.h"
 
-#define GE_BD_WALK        60.0f
-#define GE_BD_STICK_MAX   80.0f
-#define GE_BD_TURN_GAIN    3.0f
-#define GE_BD_ALIGN_DEG   60.0f
+#define GE_BD_WALK 60.0f
+#define GE_BD_STICK_MAX 80.0f
+#define GE_BD_TURN_GAIN 3.0f
+#define GE_BD_ALIGN_DEG 60.0f
 
 /* Close enough to a door to open it. NOT a guess -- doorTestForInteract (propobj.c:14411)
  * requires xdiff*xdiff + zdiff*zdiff < 40000, which is exactly 200 units, and |ydiff| < 200.
@@ -56,13 +56,13 @@
  * consider the press at all, so walking past a door with USE held does nothing however close it
  * is -- the bot has to be LOOKING at it. Within this many degrees counts as looking; wider than
  * the frustum would let a bot claim it is facing something the renderer has culled. */
-#define GE_BD_DOOR_FACE   30.0f
+#define GE_BD_DOOR_FACE 30.0f
 
 /* Close enough to the objective to call it arrived. The objective position is a prop, not a
  * standing spot, so this carries the same caveat as the route follower's arrive radius. */
-#define GE_BD_OBJ_REACH  250.0f
+#define GE_BD_OBJ_REACH 250.0f
 
-#define GE_BD_MAX_DOORS  64
+#define GE_BD_MAX_DOORS 64
 
 static int   ge_bd_slot = -1;
 static int   ge_bd_obj;
@@ -136,7 +136,7 @@ void gePortBotDoorsFrame(int frame)
      *
      * When the distance has not improved for a while, stop trusting the local obstacle logic and
      * re-aim. The obstacle rules are what walk it sideways into a compartment; the objective
-     * bearing is what brings it back onto the axis. Deliberately a NUDGE rather than an override:
+     * bearing is what brings it back onto the axis. a NUDGE rather than an override:
      * the obstacle logic is right most of the time, and a rule that fires constantly would just
      * be a slower version of ignoring it. */
     if (ge_bd_best <= 0.0f || dist_obj < ge_bd_best - 30.0f) {

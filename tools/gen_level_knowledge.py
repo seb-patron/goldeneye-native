@@ -274,7 +274,7 @@ def parse_props(text):
     # means 1.0. The model bounding boxes in assets/obseg/prop are MODEL space and are useless as
     # world lengths without it -- Train's median model box is hx=221 against a level only 111 units
     # wide, about ten times too large. This is the missing multiplier, and it is per PLACEMENT
-    # rather than per model, which is why it has to come from here and not from the model file.
+    # rather than per model, so it has to come from here and not from the model file.
     #
     # Captured as None when the header is not in the _mkword(n, _mkshort(...)) form rather than
     # defaulting to 256. A record whose scale could not be read is NOT a record scaled by 1.0, and
@@ -690,12 +690,12 @@ def build(name, stem, stage_id, mission, path):
     #
     # Three multiplications, and all three are needed:
     #
-    #   model box     assets/obseg/prop/<name>/Model.c, a ModelRoData_BoundingBoxRecord. MODEL
-    #                 space -- Train's median is hx=221 against a carriage 111 units wide.
-    #   extrascale    the per-PLACEMENT scale from this level's own setup data. propobj.c:78 --
-    #                 `scale = extrascale * (1/256)`. The same hatchbolt model is 600 units as a
-    #                 Collectable and 28 as a StandardProp; without this they would be identical.
-    #   levelscale    model boxes are runtime-proportioned and this file is ASSET space.
+    #  model box assets/obseg/prop/<name>/Model.c, a ModelRoData_BoundingBoxRecord. MODEL
+    #  space -- Train's median is hx=221 against a carriage 111 units wide.
+    #  extrascale the per-PLACEMENT scale from this level's own setup data. propobj.c:78 --
+    #  `scale = extrascale * (1/256)`. The same hatchbolt model is 600 units as a
+    #  Collectable and 28 as a StandardProp; without this they would be identical.
+    #  levelscale model boxes are runtime-proportioned and this file is ASSET space.
     #
     # emitted IN asset space, like every other length here. pack_world.py applies
     # runtime = asset / levelscale to every position it packs, and these ride the same conversion.

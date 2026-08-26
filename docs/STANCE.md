@@ -18,7 +18,7 @@ Measured with `GETV_CROUCH_SELFTEST=1`: eye height 339.719 → 239.719, a drop o
 100.0, which is `FULL_CROUCH_OFFSET`. The weapon flag `WEAPONSTATBITFLAG_DISABLE_CROUCH` is
 still honoured, so weapons that forbid crouching still forbid it.
 
-These hooks deliberately do **not** go through `port_os.c`'s action table. That table is the
+These hooks do **not** go through `port_os.c`'s action table. That table is the
 Surface's lane for the per-player binding work; a second author adding rows to it mid-flight is
 how the last collision happened. When the binding work lands, these become `GE_ACT_CROUCH` and
 `GE_ACT_STAND` and pick up gamepad support for free.

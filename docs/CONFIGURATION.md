@@ -36,7 +36,7 @@ case is meaningful.
 
 ## Precedence
 
-    command line  >  environment  >  config file  >  built-in default
+    command line > environment > config file > built-in default
 
 This is implemented with one mechanism: the config file calls `setenv` with overwrite disabled,
 so it can never displace a variable that is already set, while command-line flags call it with
@@ -78,7 +78,7 @@ shape (`1280x960` for 4:3, `1600x900` for 16:9), and if `resolution` is set it c
 shape against the requested aspect and prints a note if they disagree by more than 3%. An explicit
 resolution always wins. `auto` is a no-op.
 
-There is no second, independent aspect control, and there deliberately is not one: two of them
+There is no second, independent aspect control, and there is not one: two of them
 would aspect-correct twice.
 
 ### `fullscreen`
@@ -199,9 +199,9 @@ gesture but has not been verified against real hardware, so it stays opt-in.
 Prefix any of the six with `p1.` to `p4.` to set it for one player only:
 
 ```
-fire     = lt        # all four players
-p2.fire  = rb        # except player 2
-p3.aim   = x
+fire = lt # all four players
+p2.fire = rb # except player 2
+p3.aim = x
 ```
 
 Resolution is three steps, in order: `p<n>.<action>` if set, else the bare `<action>`, else the
@@ -317,7 +317,7 @@ not-implemented notice rather than silently doing nothing.
 | Key | Accepts | Effect |
 |---|---|---|
 | `coop` | 0-4, clamped | Load a single-player mission with this many players sharing it, split screen. `0` or `1` is normal solo play. Bring-up only: the mission's objectives, AI and cutscenes are written around one Bond, so the extra players are present rather than accounted for. Distinct from multiplayer, which uses its own arena setups; co-op keeps the mission's own setup file. |
-| `fov` | 50-160, clamped | Vertical field of view as a percentage of the original, 100 being unchanged. The game re-sets the field of view every frame from the player's zoom state, so this is applied on the way through rather than set once. It deliberately does not alter the value the game reads back: `bondview2.c` computes `viGetFovY() / FOV_Y_F` in three places to make aiming finer as you zoom, so scaling the stored value would widen the view and retune aim sensitivity at the same time. Only the projection matrix sees the multiplier, so the view widens and aim behaves exactly as before. |
+| `fov` | 50-160, clamped | Vertical field of view as a percentage of the original, 100 being unchanged. The game re-sets the field of view every frame from the player's zoom state, so this is applied on the way through rather than set once. It does not alter the value the game reads back: `bondview2.c` computes `viGetFovY() / FOV_Y_F` in three places to make aiming finer as you zoom, so scaling the stored value would widen the view and retune aim sensitivity at the same time. Only the projection matrix sees the multiplier, so the view widens and aim behaves exactly as before. |
 | `depth_bits` | 16-32, clamped | Requested depth-buffer width. Note that the driver decides: on Apple silicon the context comes back 32-bit whatever is asked for, including 16, so this cannot currently be used to reproduce N64 z-fighting. The obtained width is printed at startup as `[getv][gl] depth buffer N-bit`. |
 | `anisotropic` | 0-16, clamped | Anisotropic filtering, off by default. Clamped again at runtime to the driver's own maximum, since asking for more than the hardware offers is a GL error rather than a silent downgrade: on this machine 64 becomes 16. Applied only where the game already chose linear filtering, so the HUD, the watch faces and text keep point sampling and stay sharp. |
 | `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
@@ -406,8 +406,8 @@ what was requested and what the engine ended up holding:
 
 ```
 [getv][ruleset] "hardcore" -- tougher guards, less ammo, half the player health
-[getv][ruleset]   enemy: health 200% damage 150% accuracy 130% reaction 100%
-[getv][ruleset]   player: health 50% armour 100% | ammo 50% explosion 100% turret 100%
+[getv][ruleset] enemy: health 200% damage 150% accuracy 130% reaction 100%
+[getv][ruleset] player: health 50% armour 100% | ammo 50% explosion 100% turret 100%
 [getv][ruleset] applied: aiHealth=1.000 aiDamage=0.750 aiAccuracy=0.780 ... ammo=1.000
 ```
 

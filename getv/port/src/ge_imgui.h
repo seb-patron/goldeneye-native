@@ -2,7 +2,7 @@
  *
  * The implementation is C++ (ge_imgui.cpp); everything that calls it -- gfx_sdl2.c and
  * anything a later launcher/dev UI hangs off it -- is C. This header is the whole of the
- * boundary and is deliberately free of both ImGui and SDL types, so including it costs a
+ * boundary and is free of both ImGui and SDL types, so including it costs a
  * C translation unit nothing and pulls in no C++.
  *
  * The parameters are void* rather than SDL_Window and SDL_Event pointers for that reason:
@@ -12,9 +12,9 @@
  * and both are documented here.
  *
  * Every function is safe to call unconditionally:
- *   - built without ImGui (no -DGE_WITH_IMGUI), they are empty;
- *   - built with it but not enabled (GETV_IMGUI unset), they return immediately;
- *   - called out of order or after a failed init, they return immediately.
+ *  - built without ImGui (no -DGE_WITH_IMGUI), they are empty;
+ *  - built with it but not enabled (GETV_IMGUI unset), they return immediately;
+ *  - called out of order or after a failed init, they return immediately.
  * That is the point. gfx_sdl2.c has no #ifdef in it.
  */
 #ifndef GE_IMGUI_H
@@ -25,8 +25,8 @@ extern "C" {
 #endif
 
 /* Called once from gfx_sdl_init() after the GL context exists.
- *   window -- SDL_Window*
- *   glctx -- SDL_GLContext (itself a void*)
+ *  window -- SDL_Window*
+ *  glctx -- SDL_GLContext (itself a void*)
  * Reads GETV_IMGUI. Anything other than a set, non-empty, non-"0" value leaves the
  * overlay off and this call is then the only cost the feature has at runtime. */
 void gePortImguiInit(void *window, void *glctx);

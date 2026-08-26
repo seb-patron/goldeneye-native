@@ -110,13 +110,13 @@ LEVELS = {
 # The objectives are ObjectiveStart records (propDef type 23), NOT WatchMenuObjectiveText.
 #
 # That distinction cost an hour and is worth writing down: WatchMenuObjectiveText (type 35)
-# resolves to the LEVEL TITLE -- Dam's points at "B Y E L O M O R Y E  D A M" and Cradle's at
-# "A N T E N N A   C R A D L E". Both parse cleanly and look like objectives until you read
+# resolves to the LEVEL TITLE -- Dam's points at "B Y E L O M O R Y E D A M" and Cradle's at
+# "A N T E N N A C R A D L E". Both parse cleanly and look like objectives until you read
 # them, which is exactly the sort of wrong that ships.
 #
-#   /* Type = ObjectiveStart; index = 5 */
-#   _mkword(0, _mkshort(0, 23)), 0, 11286, 1,
-#                                 ^objnum ^textid ^min difficulty
+#  /* Type = ObjectiveStart; index = 5 */
+#  _mkword(0, _mkshort(0, 23)), 0, 11286, 1,
+#  ^objnum ^textid ^min difficulty
 #
 # The fourth field is the minimum difficulty: objectives are cumulative supersets filtered by
 # `MinDificulty <= selected`, so 0 appears on Agent and 2 only on 00 Agent. That is real
@@ -194,8 +194,8 @@ def parse_objectives(setup_text):
 # 48 of the game's 80 objectives have no tagged target, so they cannot be routed to. Their
 # completion is a flag instead, and the chain that would resolve them is:
 #
-#   objective's complete flag -> the AI list that sets it -> what that list is attached to -> a
-#   position a bot can walk to
+#  objective's complete flag -> the AI list that sets it -> what that list is attached to -> a
+#  position a bot can walk to
 #
 # The machinery is all there. objective_status.c evaluates a complete condition with
 # chrHasStageFlag, which reads objectiveregisters1 (chraction.c:10053). That register has

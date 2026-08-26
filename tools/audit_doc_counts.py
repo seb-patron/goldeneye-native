@@ -40,7 +40,7 @@ NOUN_MAP = {
 
 
 # Cues that a sentence is describing the WHOLE level rather than one spot. "the four alarms are:"
-# introduces a complete list; "there are two guards inside" does not. Deliberately conservative --
+# introduces a complete list; "there are two guards inside" does not. conservative --
 # a claim wrongly treated as local is merely unscored, while one wrongly treated as total produces
 # a false disagreement and impugns the source.
 SCOPE_CUES = re.compile(

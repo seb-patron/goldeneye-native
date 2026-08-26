@@ -197,7 +197,7 @@ If the files came from a slightly earlier commit, the patch absorbs the differen
 generated against `d7ca2c04` and round-trips to the current tree byte for byte, which
 `tools/fetch-thirdparty.sh verify` checks on demand.
 
-## 8b. Lua, Dear ImGui, and the projects deliberately not read
+## 8b. Lua, Dear ImGui, and the projects not read
 
 **Lua 5.4.7 (MIT).** Fetched and built by `tools/fetch_lua.sh` into `~/.n64tvos/lua-*`, never
 vendored, on the same terms as SDL2: `deps/` is not tracked. It backs the mod scripting host in
@@ -220,7 +220,7 @@ before anything is compiled into the game.
 
 Five ImGui core sources plus two backends are compiled: `imgui_impl_sdl2.cpp` and -- note --
 `imgui_impl_opengl2.cpp`, the *fixed-function* renderer backend rather than the usual
-`imgui_impl_opengl3.cpp`. `build_mac.sh` deliberately takes macOS's legacy GL 2.1 context
+`imgui_impl_opengl3.cpp`. `build_mac.sh` takes macOS's legacy GL 2.1 context
 because `gfx_opengl.c` emits `#version 120` shaders, and the GL3 backend unconditionally calls
 `glGenVertexArrays`, which that context does not have. The consequence is that ImGui cannot
 restore the bound shader program or array buffer itself (its own source says so), so

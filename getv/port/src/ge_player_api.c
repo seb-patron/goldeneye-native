@@ -1,7 +1,7 @@
 /* The player API. See ge_player_api.h for the design and docs/PLAYER_API.md for the evidence.
  *
  * This file attaches to GoldenEye's own demo-playback hook and owns the four pad structs the
- * game reads each frame. It deliberately contains no policy, no networking and no observation
+ * game reads each frame. It contains no policy, no networking and no observation
  * encoding -- those are consumers, and the point of the seam is that they do not have to agree
  * with each other about anything except tick numbers.
  */
@@ -52,15 +52,15 @@ extern int  gePortPlayerPos(int idx, f32 *out);
  * Naming all nine is not enough on its own: see gePlayerSlotIsDrivable, where treating "two pad"
  * as "cannot be driven" disabled every bot on every level. Two-pad is a routing fact, not a
  * disqualification. */
-#define GE_STYLE_HONEY      0   /* 1.1 */
-#define GE_STYLE_SOLITARE   1   /* 1.2 */
-#define GE_STYLE_KISSY      2   /* 1.3 */
-#define GE_STYLE_GOODNIGHT  3   /* 1.4 */
-#define GE_STYLE_PLENTY     4   /* 2.1 */
-#define GE_STYLE_GALORE     5   /* 2.2 -- this port's default */
-#define GE_STYLE_DOMINO     6   /* 2.3 */
-#define GE_STYLE_GOODHEAD   7   /* 2.4 */
-#define GE_STYLE_CINEMA     8
+#define GE_STYLE_HONEY 0 /* 1.1 */
+#define GE_STYLE_SOLITARE 1 /* 1.2 */
+#define GE_STYLE_KISSY 2 /* 1.3 */
+#define GE_STYLE_GOODNIGHT 3 /* 1.4 */
+#define GE_STYLE_PLENTY 4 /* 2.1 */
+#define GE_STYLE_GALORE 5 /* 2.2 -- this port's default */
+#define GE_STYLE_DOMINO 6 /* 2.3 */
+#define GE_STYLE_GOODHEAD 7 /* 2.4 */
+#define GE_STYLE_CINEMA 8
 
 #define GE_STYLE_IS_TWO_PAD(s) ((s) >= GE_STYLE_PLENTY && (s) <= GE_STYLE_GOODHEAD)
 
@@ -95,8 +95,8 @@ static int ge_clampi(int v, int lo, int hi)
  *
  * Which physical bit fires depends on the slot's control style. bondview2.c:5546-5558:
  *
- *     KISSY / GOODNIGHT : shoot = A_BUTTON, aim = Z_TRIG,      inventory = L_TRIG|R_TRIG
- *     everything else   : shoot = Z_TRIG,   aim = L_TRIG|R_TRIG, inventory = A_BUTTON
+ *  KISSY / GOODNIGHT : shoot = A_BUTTON, aim = Z_TRIG, inventory = L_TRIG|R_TRIG
+ *  everything else : shoot = Z_TRIG, aim = L_TRIG|R_TRIG, inventory = A_BUTTON
  *
  * A caller that spoke in N64 bits would therefore be silently wrong for half the styles, and it
  * would present as "the bot cannot shoot" rather than as a mapping error. Hence GE_IN_* naming
@@ -137,8 +137,8 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
      * them into two separate locals (bondview2.c:5345-5359); sp104 becomes insightaimmode at 5365,
      * sp10C becomes triggerOn at 5535:
      *
-     *     Plenty 2.1 / galore 2.2  : pad1 Z_TRIG = shoot, pad2 Z_TRIG = aim
-     *     Domino 2.3 / goodhead 2.4: pad1 Z_TRIG = aim,   pad2 Z_TRIG = shoot
+     *  Plenty 2.1 / galore 2.2 : pad1 Z_TRIG = shoot, pad2 Z_TRIG = aim
+     *  Domino 2.3 / goodhead 2.4: pad1 Z_TRIG = aim, pad2 Z_TRIG = shoot
      *
      * So on Domino and Goodhead the plain mapping sends FIRE to pad 1's Z_TRIG and the game reads
      * AIM: insightaimmode goes true and canNaturalTurn = !insightaimmode (5385) goes false, which
@@ -192,7 +192,7 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
     if (want & GE_IN_DPAD_LEFT)   { b |= L_JPAD; }
     if (want & GE_IN_DPAD_RIGHT)  { b |= R_JPAD; }
 
-    /* Crouch is deliberately absent and that is a property of the game, not an omission. In the
+    /* Crouch is absent and that is a property of the game, not an omission. In the
      * two-controller styles crouch is not a button at all: it is controller 2's stick Y crossing
      * +-30 while aiming (bondview2.c:5027-5085). Binding a button to it would mean synthesising
      * a stick deflection that fights the move stick. */

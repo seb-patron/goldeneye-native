@@ -134,7 +134,7 @@ def main():
     print('%d members are correct at 32-bit and WRONG at 64-bit -> real port hazards'
           % len(hazards))
 
-    # clang prints:  error: static assertion failed due to requirement '...': Name.field moved
+    # clang prints: error: static assertion failed due to requirement '...': Name.field moved
     # The message comes after the final colon and is NOT quoted.
     moved, unknown = [], 0
     for line in errs:

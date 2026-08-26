@@ -58,9 +58,9 @@ struct Case {
 int main(void)
 {
     /* Expectations come from bondview2.c, not from the implementation:
-     *   1.x  5546-5558 : Kissy/Goodnight swap shoot and aim; everyone else shoot = Z_TRIG
-     *   2.x  5345-5359 : Plenty/Galore put SHOOT on pad 1, Domino/Goodhead put AIM on pad 1,
-     *                    and whichever is on pad 2 is unreachable through this one-pad API. */
+     *  1.x 5546-5558 : Kissy/Goodnight swap shoot and aim; everyone else shoot = Z_TRIG
+     *  2.x 5345-5359 : Plenty/Galore put SHOOT on pad 1, Domino/Goodhead put AIM on pad 1,
+     *  and whichever is on pad 2 is unreachable through this one-pad API. */
     struct Case cases[] = {
         { GE_STYLE_HONEY,     "1.1 Honey",     Z_TRIG,          L_TRIG | R_TRIG, 1 },
         { GE_STYLE_SOLITARE,  "1.2 Solitare",  Z_TRIG,          L_TRIG | R_TRIG, 1 },

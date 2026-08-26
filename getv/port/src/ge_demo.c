@@ -6,22 +6,22 @@
  *
  * FILE FORMAT, from ramromreplay.c rather than guessed:
  *
- *   header   0xF0 bytes (romCopyAligned(..., 0xf0) at :146)
- *            size_cmds at +24 is the CONTROLLER COUNT, not a byte size (:444 sets it from
- *            joyGetControllerCount) -- Train records TWO, because it was played on a 2.x
- *            twin-stick style, which is the same two-pad layout this port defaults to
- *   body     repeating: [ramrom_seed 4 bytes][seed.count * size_cmds * 4 bytes of input]
- *            (:344 reads the seed, :352 reads that many input bytes, :363 advances)
+ *  header 0xF0 bytes (romCopyAligned(..., 0xf0) at :146)
+ *  size_cmds at +24 is the CONTROLLER COUNT, not a byte size (:444 sets it from
+ *  joyGetControllerCount) -- Train records TWO, because it was played on a 2.x
+ *  twin-stick style, which is the same two-pad layout this port defaults to
+ *  body repeating: [ramrom_seed 4 bytes][seed.count * size_cmds * 4 bytes of input]
+ *  (:344 reads the seed, :352 reads that many input bytes, :363 advances)
  *
- *   ramrom_seed     { u8 speedframes, count, randseed, check }
- *   ramrom_blockbuf { s8 stick_x, s8 stick_y, u8 button_low, u8 button_high }
+ *  ramrom_seed { u8 speedframes, count, randseed, check }
+ *  ramrom_blockbuf { s8 stick_x, s8 stick_y, u8 button_low, u8 button_high }
  *
  * Pads are INTERLEAVED per frame -- [f0p0][f0p1][f1p0][f1p1] -- not stored one pad after the
  * other. Determined by measuring smoothness rather than by reading: human input changes by about
  * 1 unit per frame, and the wrong interleave shuffles two streams together and reports 15.
  *
- *   GETV_DEMO=<path>    replay this file
- *   GETV_DEMO_TRACE=1   report progress and the seed check
+ *  GETV_DEMO=<path> replay this file
+ *  GETV_DEMO_TRACE=1 report progress and the seed check
  */
 #include <stdio.h>
 #include <stdlib.h>

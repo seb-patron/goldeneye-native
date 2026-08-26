@@ -19,12 +19,12 @@
 #
 # What it does
 # ------------
-#   1. Obtains sm64ex at the pinned commit (reusing vendor/sm64ex if it already has it,
-#      otherwise making a bare depth-1 clone in vendor/sm64ex-cache.git).
-#   2. Copies the files listed in getv/patches/thirdparty/MANIFEST into place, reading
-#      them out of git rather than a working tree so a dirty checkout cannot leak in.
-#   3. Applies getv/patches/thirdparty/0001-getv-port-layer.patch, which carries every
-#      Goldeneye-Native change to those files.
+#  1. Obtains sm64ex at the pinned commit (reusing vendor/sm64ex if it already has it,
+#  otherwise making a bare depth-1 clone in vendor/sm64ex-cache.git).
+#  2. Copies the files listed in getv/patches/thirdparty/MANIFEST into place, reading
+#  them out of git rather than a working tree so a dirty checkout cannot leak in.
+#  3. Applies getv/patches/thirdparty/0001-getv-port-layer.patch, which carries every
+#  Goldeneye-Native change to those files.
 #
 # After it finishes, ./getv/build_mac.sh all builds exactly as it did before the files
 # were removed. Nothing here is optional and nothing here is stubbed: the patch is a
@@ -33,13 +33,13 @@
 #
 # usage: tools/fetch-thirdparty.sh {fetch|verify|regen|clean|status}
 #
-#   fetch   (default) fetch, copy and patch. Refuses to clobber locally modified files
-#           unless --force is given.
-#   verify  check that the files currently on disk are exactly pristine + patch.
-#   regen   regenerate the patch from the current working tree. Run this after editing
-#           any file listed in the MANIFEST, or the change is not recorded anywhere.
-#   clean   remove the fetched files again (returns the tree to its published state).
-#   status  print the pin, the manifest and which files are present.
+#  fetch (default) fetch, copy and patch. Refuses to clobber locally modified files
+#  unless --force is given.
+#  verify check that the files currently on disk are exactly pristine + patch.
+#  regen regenerate the patch from the current working tree. Run this after editing
+#  any file listed in the MANIFEST, or the change is not recorded anywhere.
+#  clean remove the fetched files again (returns the tree to its published state).
+#  status print the pin, the manifest and which files are present.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

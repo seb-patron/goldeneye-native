@@ -6,38 +6,38 @@
  * problem by construction. The non-portable half was four hand-rolled Apple assumptions
  * scattered across three files:
  *
- *   port_save.c:101-109   getenv("HOME") + "/Library/Application Support/Goldeneye-Native"
- *   ge_config.c:893-897   getenv("HOME") + "/Library/Application Support/GoldenEye"
- *   ge_config.c:1131-1139 the same again, plus system("/bin/mkdir -p '...'")
- *   port_save.c:118       mkdir(base, 0755), which is <sys/stat.h> and POSIX-only
+ *  port_save.c:101-109 getenv("HOME") + "/Library/Application Support/Goldeneye-Native"
+ *  ge_config.c:893-897 getenv("HOME") + "/Library/Application Support/GoldenEye"
+ *  ge_config.c:1131-1139 the same again, plus system("/bin/mkdir -p '...'")
+ *  port_save.c:118 mkdir(base, 0755), which is <sys/stat.h> and POSIX-only
  *
  * None of them is hard to port; the problem was that there were four of them and no
  * single place to change. There is now one.
  *
  * The platform matrix:
  *
- *   macOS       $HOME/Library/Application Support/<app>
- *               Hand-built rather than delegated to SDL_GetPrefPath. SDL would in
- *               fact return the same directory here, but going through it would make
- *               the Mac path depend on tvOS's choice -- see the note in port_save.c.
- *               This branch is byte-for-byte the code that used to be inline. It is the
- *               shipping target and does not change.
+ *  macOS $HOME/Library/Application Support/<app>
+ *  Hand-built rather than delegated to SDL_GetPrefPath. SDL would in
+ *  fact return the same directory here, but going through it would make
+ *  the Mac path depend on tvOS's choice -- see the note in port_save.c.
+ *  This branch is byte-for-byte the code that used to be inline. It is the
+ *  shipping target and does not change.
  *
- *   everything  SDL_GetPrefPath(org, app).
- *   else        On Windows that is %APPDATA%\<org>\<app>\ via SHGetFolderPath, which
- *               is the correct answer and is why no _WIN32 branch is needed here.
- *               On Linux it is $XDG_DATA_HOME/<app>/ (or ~/.local/share/<app>/),
- *               also correct.
- *               On tvOS this lands in Library/Caches, which the OS is free to purge, so
- *               saves do not survive. That is a real tvOS bug; it predates this file and
- *               is left visible rather than papered over. See the header comment in
- *               port_save.c.
+ *  everything SDL_GetPrefPath(org, app).
+ *  else On Windows that is %APPDATA%\<org>\<app>\ via SHGetFolderPath, which
+ *  is the correct answer and is why no _WIN32 branch is needed here.
+ *  On Linux it is $XDG_DATA_HOME/<app>/ (or ~/.local/share/<app>/),
+ *  also correct.
+ *  On tvOS this lands in Library/Caches, which the OS is free to purge, so
+ *  saves do not survive. That is a real tvOS bug; it predates this file and
+ *  is left visible rather than papered over. See the header comment in
+ *  port_save.c.
  *
  * Note the trailing-separator asymmetry. The macOS branch returns a path with no trailing
  * separator, while SDL_GetPrefPath always appends one. Both existing callers then append
  * "/<filename>" unconditionally, so the non-Mac path picks up a doubled slash. Every POSIX
  * and Win32 filesystem collapses that, the behaviour predates this file, and normalising it
- * here would change the tvOS build for no gain, so it is preserved on purpose.
+ * here would change the tvOS build for no gain, so it is preserved.
  */
 #include <errno.h>
 
@@ -62,13 +62,13 @@
 #ifdef _WIN32
 /* Untested: no Windows host has ever built this tree. See docs/PORTING.md. */
 # include <direct.h>
-# define GE_MKDIR(p, m)  (_mkdir(p))
-# define GE_PATHSEP(c)   ((c) == '/' || (c) == '\\')
+# define GE_MKDIR(p, m) (_mkdir(p))
+# define GE_PATHSEP(c) ((c) == '/' || (c) == '\\')
 #else
 # include <sys/stat.h>
 # include <sys/types.h>
-# define GE_MKDIR(p, m)  (mkdir((p), (mode_t)(m)))
-# define GE_PATHSEP(c)   ((c) == '/')
+# define GE_MKDIR(p, m) (mkdir((p), (mode_t)(m)))
+# define GE_PATHSEP(c) ((c) == '/')
 #endif
 
 int gePortUserDataDir(const char *org, const char *app, char *out, size_t outsz)

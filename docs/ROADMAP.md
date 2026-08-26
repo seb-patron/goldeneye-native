@@ -15,8 +15,8 @@ the API is complete and the rest is policy. Today a person gets the objective fr
 
 ```
 == 1:1 CHECK ==
-  commits   mac=cb0d534e0f  surface=cb0d534e0f  OK
-  decomp    mac=5f4c9f41fee5  surface=5f4c9f41fee5  OK
+  commits mac=cb0d534e0f surface=cb0d534e0f OK
+  decomp mac=5f4c9f41fee5 surface=5f4c9f41fee5 OK
 ```
 
 Being in sync has **two independent parts and only one travels in a bundle**:
@@ -60,18 +60,18 @@ neither existed.
 
 ## S1. Prop extents: DONE, end to end
 
-**Shipped in `b5d694e`.** `extrascale` was in the setup data all along --  `propobj.c:78`,
+**Shipped in `b5d694e`.** `extrascale` was in the setup data all along -- `propobj.c:78`,
 `scale = extrascale * (1/256)`, per *placement* rather than per model, and `parse_props` was
 already matching that word in its regex and discarding it. 4,207 of 4,871 props across 20 levels
 carry `hx`/`hz`/`radius`; the 664 without are Guards, every one, because they have no model box.
 Pack bumped to v3, `GeWorldProp` and the CLI carry it. Verified by decoding `train.gew` at the C
-loader's own byte offsets --  5 of 5 records match.
+loader's own byte offsets -- 5 of 5 records match.
 
 **`0` means unknown, not point-sized**, at every layer. The CLI prints `radius ?` rather than
 `radius 0`, because a caller reading a Guard's 0 as zero-sized walks straight through people.
 
 **One outlier, not smoothed:** `hatchbolt` as a Collectable gives radius 2236 runtime in a
-carriage ~739 wide. The pipeline is right --  the same model as a StandardProp comes out 28 --  so that
+carriage ~739 wide. The pipeline is right -- the same model as a StandardProp comes out 28 -- so that
 model's own box is simply large. 37 instances on Train. Do not trust that one.
 
 The original statement of the item follows, for the reasoning behind it.
@@ -123,10 +123,10 @@ and that is fine, but it must be stated rather than assumed. `runtime = asset / 
 ** Passed.** `tools/route_doors.py` routes the TILE graph from the measured spawn:
 
 ```
-level      reachable   ratio    monotonic
-train           100%   53.4:1        100%     <- 117 of 117 steps advancing along X
-facility         85%    5.6:1         90%
-bunker1          84%    0.8:1         69%
+level reachable ratio monotonic
+train 100% 53.4:1 100% <- 117 of 117 steps advancing along X
+facility 85% 5.6:1 90%
+bunker1 84% 0.8:1 69%
 ```
 
 30 distinct rooms, zero revisited, 682 tiles reachable. The graph reproduces the linear chain of
@@ -172,12 +172,12 @@ They proved the convention from `chraction.c:9629` rather than assuming it: the 
 
 **`a44c500`.** Audited every caller in the Windows build lane. The split was clean: sites that *list*
 every bit set (`mod.lua` 107-110, `ge_cli.c` 187-189, `ge_bot_route.c` 550-552) are honest
-reporting and stay. Only sites that **act** on one bit were wrong --  the atlas printed "that is a
+reporting and stay. Only sites that **act** on one bit were wrong -- the atlas printed "that is a
 DOOR, an opportunity to a bot" from the single bit, so a mod trusting the atlas would have believed
 it. It now claims a door only when the bit arrives *alone* and reports door-plus-wall as a grazed
 edge in those words.
 
-`geSenseAheadForBody` also stopped sampling three parallel lines --  the withdrawn 1c approach --  and
+`geSenseAheadForBody` also stopped sampling three parallel lines -- the withdrawn 1c approach -- and
 now steps `gePortCanStandAt` along the heading. I wrote its forward vector as `-sin` and the unit
 test caught it: the sweep walked *away* from the obstacle and reported clear every time. Fourth
 inverted direction sign on this project, so the vector is now copied from `geSenseAhead` rather
@@ -194,7 +194,7 @@ Fixed in the router and the CLI. **Check your own callers for the same substitut
 version is still right for questions genuinely about a line, whether a shot or a sightline
 reaches.
 
-## S5. Netplay determinism: DONE --  3,000 frames, identical
+## S5. Netplay determinism: DONE -- 3,000 frames, identical
 
 **`22a825e`.** `GETV_FPTRACE=1` emits the per-frame simulation fingerprint;
 `tools/audit_lockstep.ps1` runs the binary twice and compares. **3,000 frames identical, 3,000 of
@@ -204,7 +204,7 @@ The long-run test needs no second machine: two peers fed identical inputs are, f
 question, one binary run twice. Delivery is `netsim.py`'s half; reproducibility *given* the inputs
 was untested until now.
 
-**Necessary, not sufficient** --  it cannot see a divergence only a different CPU or compiler
+**Necessary, not sufficient** -- it cannot see a divergence only a different CPU or compiler
 would produce. A failure would have been decisive.
 
 **The pass is guarded against being vacuous.** A fingerprint that never moved would make two
@@ -214,7 +214,7 @@ distinct-value count is now reported for that reason.
 
 ## S6. Node table: DONE
 
-**`2df5236`.** `build/levels/<level>.nodes.json` --  27 levels, 34,967 nodes: engine waypoints, tiles
+**`2df5236`.** `build/levels/<level>.nodes.json` -- 27 levels, 34,967 nodes: engine waypoints, tiles
 and doors, each with position, kind, room and links.
 
 **A bare node id is ambiguous.** Train has 104 engine waypoints numbered from 0 *and* 682 tiles
@@ -222,7 +222,7 @@ numbered from 0; a route's `path: [74, 75]` means waypoint 74. Every node theref
 namespace and a `uid` = base + id, bases a million apart.
 
 **`pathwaypoints` is `-1` terminated and the terminator was being emitted as a waypoint on every
-level** --  Train 105 against the engine's 104, Dam 206 against 205. Caught because two independent
+level** -- Train 105 against the engine's 104, Dam 206 against 205. Caught because two independent
 counts differed by exactly one on *every* level. The field is `u32`, so `-1` arrives as
 4294967295; testing only for `-1` would have left it everywhere.
 
@@ -230,15 +230,15 @@ counts differed by exactly one on *every* level. The field is `u32`, so `-1` arr
 waypoints to our nearest tile centre: **5.7 units**, 90th percentile 19.8, one beyond 60. Zero
 rooms hold engine waypoints our mesh lacks tiles for.
 
-## S7. Wall-set validation: RESOLVED --  the premise was wrong, not the walls
+## S7. Wall-set validation: RESOLVED -- the premise was wrong, not the walls
 
 **A waypoint link promises REACHABILITY, not a clear straight line.** Traced through the
 decompilation rather than waiting for an answer:
 
-- `padhalllv.c` --  `waypointFindNextStepToward` returns a **neighbour** of the current waypoint
+- `padhalllv.c` -- `waypointFindNextStepToward` returns a **neighbour** of the current waypoint
   (`waypointFindRandomByDist(pointa->neighbours, ...)`), not a bearing to the goal.
-- `chraction.c:10495` --  the caller stores it as `self->padpreset1`, a **target pad**.
-- `chr.c:1468` --  the guard then moves toward that pad through a collision-tested step:
+- `chraction.c:10495` -- the caller stores it as `self->padpreset1`, a **target pad**.
+- `chr.c:1468` -- the guard then moves toward that pad through a collision-tested step:
   `stanTestLineUnobstructed` **and** `stanTestVolume`, before every move it commits to.
 
 **If an edge guaranteed a clear straight line, that per-step collision test would be pointless.**
@@ -247,8 +247,8 @@ The engine tests because it does not assume, and the guard plots a course around
 So the **76.5%** measured below is real but does not mean what it appears to: straight segments
 between graph nodes clipping interior geometry is *expected*, and `gen_level_walls.py` is not
 indicted by it. `tools/audit_wall_routes.py` remains the right instrument for a different question
- --  which links have obstructions between their endpoints, useful for a follower that *does* move in
-straight lines --  but the figure is not a wall-set defect rate.
+ -- which links have obstructions between their endpoints, useful for a follower that *does* move in
+straight lines -- but the figure is not a wall-set defect rate.
 
 **The one genuine defect stands:** the wall set contains **duplicate segments**, a shared tile
 edge emitted once from each side. Dam's `(3772,4481)-(3922,4481)` appears twice in a single hit
@@ -257,7 +257,7 @@ list, so the reported segment counts are inflated.
 The measurement and its three refuted hypotheses follow.
 
 **`4e00ba7`.** `tools/audit_wall_routes.py` scores `gen_level_walls.py`'s segments against every
-link in `g_CurrentSetup.pathwaypoints`. **3,198 of 4,180 engine links crossed by a wall --  76.5%.**
+link in `g_CurrentSetup.pathwaypoints`. **3,198 of 4,180 engine links crossed by a wall -- 76.5%.**
 
 **That number is too large to believe and I have not established whose fault it is.** Three
 hypotheses killed with measurements: 2D-versus-3D (fixed the height filter; 76.51% → 76.0%, not the
@@ -265,13 +265,13 @@ cause), room boundaries (same-room links block at 96.4% against 98.6% across roo
 indistinguishable), and space mismatch (ranges agree on every level).
 
 **The open question is the premise: does a `padhalllv.c` waypoint link promise a clear STRAIGHT
-line, or only reachability?** Dam's wp0→wp5 is crossed by fragments of 45, 15 and 9 units --  the
+line, or only reachability?** Dam's wp0→wp5 is crossed by fragments of 45, 15 and 9 units -- the
 mesh boundary around a pillar. If guards follow the mesh and steer around interior obstacles, a
 straight segment clipping a pillar is expected and this audit measures something the engine never
 claimed.
 
 **One defect regardless: the wall set contains duplicates.** Dam's `(3772,4481)-(3922,4481)`
-appears twice in one hit list --  a per-tile-edge derivation emits a shared edge once from each side.
+appears twice in one hit list -- a per-tile-edge derivation emits a shared edge once from each side.
 
 ## S8. Engine facts: DONE
 
@@ -287,7 +287,7 @@ did not.
 35,786 runtime units → 149.73 units/m, against the engine's own 102.78 (`chrheight` 185 at
 `chr.c:1936`, a person ≈1.8 m). **Use its topology and tactics, never its distances.**
 
-**32 facts from 240 KB, and the low yield *is* the finding** --  1,084 numeric tokens in 11,170
+**32 facts from 240 KB, and the low yield *is* the finding** -- 1,084 numeric tokens in 11,170
 lines, the commonest units being `fps`, `ms`, `kbps`. These are prose narratives, not parameter
 tables.
 
@@ -334,10 +334,10 @@ two of them:
 ```c
 (door->flags & PROPFLAG_CANNOT_ACTIVATE) == 0
 && door->maxFrac > 0
-&& (prop->flags & PROPFLAG_ONSCREEN)        // must be LOOKING at it
+&& (prop->flags & PROPFLAG_ONSCREEN) // must be LOOKING at it
 ...
-xdiff*xdiff + zdiff*zdiff < 40000.0f        // 200 units, not 278
-&& ydiff < 200.0f && ydiff > -200.0f        // and within 200 vertically
+xdiff*xdiff + zdiff*zdiff < 40000.0f // 200 units, not 278
+&& ydiff < 200.0f && ydiff > -200.0f // and within 200 vertically
 ```
 
 **The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
@@ -453,7 +453,7 @@ Evan asked whether the title-screen gameplay is a bot or a video. **Neither: it 
 recorded input streams**, in `assets/ramrom/`, decoded by `tools/decode_ramrom.py`:
 
 ```
-bunker1 x2   dam x2   facility x3   frigate x2   runway x2   silo x2   train
+bunker1 x2 dam x2 facility x3 frigate x2 runway x2 silo x2 train
 32,469 input records across 6,695 blocks, one demo on 00 Agent
 ```
 

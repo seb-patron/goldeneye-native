@@ -17,20 +17,20 @@
 
 /* What a line ran into. A bitmask, not a verdict -- a door is an obstacle to a route planner and
  * an opportunity to a bot with a hand, and only the caller knows which it is. */
-#define GE_SENSE_CLEAR   0u
-#define GE_SENSE_WALL    (1u << 0)   /* level geometry: turn, or go around */
-#define GE_SENSE_DOOR    (1u << 1)   /* openable: press the action button */
-#define GE_SENSE_OBJECT  (1u << 2)   /* crate, scenery, path blocker: shoot it or skirt it */
-#define GE_SENSE_BODY    (1u << 3)   /* a character or another player: wait, or shoot */
+#define GE_SENSE_CLEAR 0u
+#define GE_SENSE_WALL (1u << 0) /* level geometry: turn, or go around */
+#define GE_SENSE_DOOR (1u << 1) /* openable: press the action button */
+#define GE_SENSE_OBJECT (1u << 2) /* crate, scenery, path blocker: shoot it or skirt it */
+#define GE_SENSE_BODY (1u << 3) /* a character or another player: wait, or shoot */
 
 /* What actually stops a body and will not move on its own.
  *
- * GE_SENSE_BODY is deliberately NOT in here, and that is not a judgement call about tactics --
+ * GE_SENSE_BODY is NOT in here, and that is not a judgement call about tactics --
  * The line starts at the asking position, so the asker'S own collision sets IT. Every reading
  * came back with BODY, every direction read blocked, and geSenseClearestHeading found nothing
  * open anywhere on the map. Steering decisions must use this mask; deciding whether to shoot
  * something can look at BODY on its own. */
-#define GE_SENSE_SOLID   (GE_SENSE_WALL | GE_SENSE_OBJECT)
+#define GE_SENSE_SOLID (GE_SENSE_WALL | GE_SENSE_OBJECT)
 
 typedef struct GeSenseContact {
     unsigned int what;      /* GE_SENSE_* bitmask; GE_SENSE_CLEAR when nothing blocks */
@@ -73,11 +73,11 @@ int geSenseWatchers(int player_slot);
  * Returns a bitmask so a caller can tell WHICH condition failed: a guard with a line but facing
  * away is one you can walk behind, and one facing you through a wall is one you must not step in
  * front of. A bool throws away the half that decides what to do next. */
-#define GE_NOTICE_NONE     0u
-#define GE_NOTICE_LINE     (1u << 0)   /* unobstructed line of sight                      */
-#define GE_NOTICE_FACING   (1u << 1)   /* the player is inside the enemy's view cone      */
-#define GE_NOTICE_ALERT    (1u << 2)   /* the enemy is alert enough to be watching at all */
-#define GE_NOTICE_SEEN     (GE_NOTICE_LINE | GE_NOTICE_FACING | GE_NOTICE_ALERT)
+#define GE_NOTICE_NONE 0u
+#define GE_NOTICE_LINE (1u << 0) /* unobstructed line of sight */
+#define GE_NOTICE_FACING (1u << 1) /* the player is inside the enemy's view cone */
+#define GE_NOTICE_ALERT (1u << 2) /* the enemy is alert enough to be watching at all */
+#define GE_NOTICE_SEEN (GE_NOTICE_LINE | GE_NOTICE_FACING | GE_NOTICE_ALERT)
 
 /* The facing could not be read AT ALL -- distinct from facing-away, and the distinction is the one
  * that matters. Facing away means you can walk behind it; unknown means you cannot assume that. A
@@ -146,9 +146,9 @@ float geSenseClearestHeadingForBody(float x, float z, float heading_deg, float s
  *
  * The prop data knows where doors, switches and pickups ARE. Nothing said whether a bot standing
  * here can act on one, which is the only form of the question a bot can use. */
-#define GE_USABLE_NONE   0u
-#define GE_USABLE_DOOR   (1u << 0)
-#define GE_USABLE_PICKUP (1u << 1)   /* collectable: a key, a weapon, ammo */
+#define GE_USABLE_NONE 0u
+#define GE_USABLE_DOOR (1u << 0)
+#define GE_USABLE_PICKUP (1u << 1) /* collectable: a key, a weapon, ammo */
 #define GE_USABLE_SWITCH (1u << 2)
 
 /* Reach of the action button. From chraction.c:9138, where a character opens a door by walking

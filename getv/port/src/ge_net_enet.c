@@ -9,7 +9,7 @@
  * machines have diverged is lockstep logic rather than transport, which is why the transport
  * was behind two function pointers from the start.
  *
- * Input IS sent unreliable and unsequenced, deliberately.
+ * Input IS sent unreliable and unsequenced.
  *
  * Reliable delivery is the wrong tool here and actively harmful: it would hold a packet back
  * until an earlier lost one was resent, which is head-of-line blocking on the one thing that
@@ -44,8 +44,8 @@ void geNetEnetPoll(void) { }
 
 #include <enet/enet.h>
 
-#define GE_MSG_PEERS 0x11        /* host -> peer: the table, your slot, and start */
-#define GE_PEER_ENTRY 7          /* slot(1) + host(4) + port(2) */
+#define GE_MSG_PEERS 0x11 /* host -> peer: the table, your slot, and start */
+#define GE_PEER_ENTRY 7 /* slot(1) + host(4) + port(2) */
 #define GE_RX_QUEUE 64
 
 typedef struct GeEnetRx {

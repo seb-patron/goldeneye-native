@@ -6,18 +6,18 @@
  * walked by someone who could see the screen, and a determinism check with fourteen recorded cases
  * to run it against.
  *
- *   GETV_RAMROM=<path>     a demo .bin to replay. Off unless set.
- *   GETV_RAMROM_SLOT=<n>   slot to drive, default 0.
- *   GETV_RAMROM_TRACE=1    log each block boundary and the seed comparison.
+ *  GETV_RAMROM=<path> a demo .bin to replay. Off unless set.
+ *  GETV_RAMROM_SLOT=<n> slot to drive, default 0.
+ *  GETV_RAMROM_TRACE=1 log each block boundary and the seed comparison.
  *
  * FORMAT, derived rather than assumed. tools/audit_ramrom_header.py is the regression check and
  * carries the full derivation; the short version is that ramromreplay.c:453 advances the cursor by
  * sizeof(struct ramromfilestructure), so the header length IS that struct's size:
  *
- *   header   232 bytes. s32 filesize at 128, enum LEVELID stagenum at 16, u32 size_cmds at 24.
- *   stream   repeating: a 4-byte {speedframes, count, randseed, check}, then size_cmds*4*count
- *            bytes of {s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}. Ends on a block
- *            with count and speedframes both zero.
+ *  header 232 bytes. s32 filesize at 128, enum LEVELID stagenum at 16, u32 size_cmds at 24.
+ *  stream repeating: a 4-byte {speedframes, count, randseed, check}, then size_cmds*4*count
+ *  bytes of {s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}. Ends on a block
+ *  with count and speedframes both zero.
  *
  * The file is BIG-ENDIAN and this host is not, so every multi-byte read goes through be32 rather
  * than being cast. The pad word is (button_high << 8) | button_low -- low byte FIRST in memory,
@@ -39,24 +39,24 @@
 
 /* N64 pad bits (PR/os.h). Named here rather than included: this file builds against the port,
  * which does not pull in the ultra64 headers. */
-#define GE_PAD_A        0x8000u
-#define GE_PAD_B        0x4000u
-#define GE_PAD_Z        0x2000u
-#define GE_PAD_START    0x1000u
-#define GE_PAD_DU       0x0800u
-#define GE_PAD_DD       0x0400u
-#define GE_PAD_DL       0x0200u
-#define GE_PAD_DR       0x0100u
-#define GE_PAD_L        0x0020u
-#define GE_PAD_R        0x0010u
-#define GE_PAD_CU       0x0008u
-#define GE_PAD_CD       0x0004u
-#define GE_PAD_CL       0x0002u
-#define GE_PAD_CR       0x0001u
+#define GE_PAD_A 0x8000u
+#define GE_PAD_B 0x4000u
+#define GE_PAD_Z 0x2000u
+#define GE_PAD_START 0x1000u
+#define GE_PAD_DU 0x0800u
+#define GE_PAD_DD 0x0400u
+#define GE_PAD_DL 0x0200u
+#define GE_PAD_DR 0x0100u
+#define GE_PAD_L 0x0020u
+#define GE_PAD_R 0x0010u
+#define GE_PAD_CU 0x0008u
+#define GE_PAD_CD 0x0004u
+#define GE_PAD_CL 0x0002u
+#define GE_PAD_CR 0x0001u
 
-#define GE_RAMROM_HDR   232u
-#define GE_OFF_STAGE     16u
-#define GE_OFF_CMDS      24u
+#define GE_RAMROM_HDR 232u
+#define GE_OFF_STAGE 16u
+#define GE_OFF_CMDS 24u
 #define GE_OFF_FILESIZE 128u
 
 static unsigned char *ge_rr_buf;

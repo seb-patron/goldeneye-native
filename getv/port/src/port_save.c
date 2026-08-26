@@ -9,16 +9,16 @@
  *
  * and `src/game/file2.c` is the only consumer:
  *
- * fileWriteSmallSave  -> joyGamePakLongWrite(0, save, sizeof(smallSave))     32 B
- * fileWriteSave       -> joyGamePakLongWrite(slot*0x60/8 + 4, save, 0x60)    96 B
- * fileValidateSaves   -> joyGamePakLongRead(0, &joyChecksum, sizeof(smallSave))
+ * fileWriteSmallSave -> joyGamePakLongWrite(0, save, sizeof(smallSave)) 32 B
+ * fileWriteSave -> joyGamePakLongWrite(slot*0x60/8 + 4, save, 0x60) 96 B
+ * fileValidateSaves -> joyGamePakLongRead(0, &joyChecksum, sizeof(smallSave))
  * joyGamePakLongRead(4, &saves, sizeof(save_data) * 5)
  *
  * The whole save is 512 bytes, which fits a 4 K EEPROM exactly.
- * smallSave  = 4 + 4 + 24            =  32 B = blocks 0..3
- * save_data  = 0x60 (verified below) =  96 B, five slots = 480 B = blocks 4..63
+ * smallSave = 4 + 4 + 24 = 32 B = blocks 0..3
+ * save_data = 0x60 (verified below) = 96 B, five slots = 480 B = blocks 4..63
  * --------
- *                                            512 B = 64 blocks of 8 = EEP4K
+ *  512 B = 64 blocks of 8 = EEP4K
  * `save_data` contains no pointers (`src/game/file.h:7-21` is all s32/u8/u16 plus a
  * `u8 times[76]`), so it is 0x60 natively too; this is not bug family 1.3. The port layer
  * cannot include the game header to assert that, because PORTFLAGS has no decomp include
@@ -43,7 +43,7 @@
  * never touches the user's real save).
  * GETV_SAVE_DEBUG=1 trace every block read/write and every flush.
  */
-/* Deliberately not <PR/os.h>. That header redeclares bcopy/bcmp/bzero/sprintf with the
+/* Not <PR/os.h>. That header redeclares bcopy/bcmp/bzero/sprintf with the
  * N64's `int`-length signatures, and macOS's _FORTIFY_SOURCE headers define the same names
  * as macros, so <string.h> and <PR/os.h> refuse to coexist in either order: string.h first
  * gives "expected parameter declarator" on bcopy, PR/os.h first gives "conflicting types * for bcmp". This file needs memcpy/memset/
@@ -81,16 +81,16 @@
 #define EEPROM_TYPE_4K 0x01
 
 /* 64 blocks x 8 bytes. */
-#define GE_EEP_BLOCK   8
-#define GE_EEP_BLOCKS  64
-#define GE_EEP_BYTES   (GE_EEP_BLOCK * GE_EEP_BLOCKS)
+#define GE_EEP_BLOCK 8
+#define GE_EEP_BLOCKS 64
+#define GE_EEP_BYTES (GE_EEP_BLOCK * GE_EEP_BLOCKS)
 
 /* 32 B smallSave + 5 x 0x60 save_data == 512 B == the whole 4 K part, to the byte.
  * If a future edit widens either record the game will start writing past block 63 and
  * this assert is the cheapest place to notice. */
 _Static_assert(32 + 5 * 0x60 == GE_EEP_BYTES, "GE save layout no longer fills a 4K EEPROM");
 
-/* Non-static on purpose, all three: these are the runtime discriminators that show a
+/* Non-static, all three: these are the runtime discriminators that show a
  * port-layer rebuild landed and that the save path actually ran. `strings` is not evidence
  * here, because a static helper inlines away at -O1. */
 int ge_eeprom_enabled = -1;   /* -1 = not yet resolved */
@@ -155,7 +155,7 @@ static int geSavePathInit(void)
 
     /* mkdir the leaf only. "~/Library/Application Support" always exists on macOS,
      * and GETV_SAVEDIR is a test knob whose parent the caller owns. EEXIST is success.
-     * Deliberately not gePortMakeDirTree(): a missing parent must stay a visible
+     * Not gePortMakeDirTree(): a missing parent must stay a visible
      * failure, since creating it would paper over a wrong $HOME. */
  if (gePortMakeDir(base, 0755) != 0) {
  printf("[getv][save] cannot create %s: %s -- persistence OFF\n",

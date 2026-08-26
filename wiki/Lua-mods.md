@@ -4,7 +4,7 @@ Drop a directory under `mods/` with a `mod.lua` in it. It loads at startup. No r
 
 ```
 mods/
-  crt_screen/          <- the worked example. Read this one first.
+  crt_screen/ <- the worked example. Read this one first.
     mod.lua
   my_mod/
     mod.lua
@@ -15,7 +15,7 @@ mods/
 `mods/crt_screen` is the example, and it is a real feature rather than a toy: it is what
 draws the scanlines, the aperture mask, the curved tube and the vignette. It ships enabled.
 
-It is a mod on purpose. Untick it on the launcher's Mods page and the scanlines go away --
+It is a mod. Untick it on the launcher's Mods page and the scanlines go away --
 which demonstrates the whole system in one action, in a way that a mod printing a line to a
 log never could. Copy the folder, rename it, and you have a working mod.
 
@@ -28,9 +28,9 @@ All three are optional. A mod that defines none of them still runs its chunk bod
 load, which is enough for one-shot configuration.
 
 ```lua
-function onFrame(frame)          end -- once per rendered frame, after the game has ticked
-function onPlayerSpawn(player)   end
-function onWeaponFire(weapon)    end
+function onFrame(frame) end -- once per rendered frame, after the game has ticked
+function onPlayerSpawn(player) end
+function onWeaponFire(weapon) end
 ```
 
 ## API
@@ -50,13 +50,13 @@ applies to the finished frame, and returns what was actually applied after clamp
 
 ```lua
 local fx = ge.postfx {
-    crt      = true, -- master switch for the four CRT terms
+    crt = true, -- master switch for the four CRT terms
     scanline = 0.28, -- 0..1
-    mask     = 0.18, -- 0..1, aperture grille
-    curve    = 0.025, -- 0..0.1, barrel distortion
+    mask = 0.18, -- 0..1, aperture grille
+    curve = 0.025, -- 0..0.1, barrel distortion
     vignette = 0.22, -- 0..1
-    lines    = 240, -- virtual scanline count, independent of window size
-    fxaa     = false, -- edge antialiasing
+    lines = 240, -- virtual scanline count, independent of window size
+    fxaa = false, -- edge antialiasing
 }
 ```
 
@@ -79,7 +79,7 @@ function onFrame(frame)
     if frame % 60 == 0 then
         local x, y, z = ge.player_pos(0)
         if x then
-            ge.log(string.format("f%d  %.1f,%.1f,%.1f", frame, x, y, z))
+            ge.log(string.format("f%d %.1f,%.1f,%.1f", frame, x, y, z))
         end
     end
 end
@@ -97,7 +97,7 @@ From a shell it is one variable:
 GETV_MODS_OFF=spawn_logger,frame_counter
 ```
 
-A **denylist**, not an allowlist, and deliberately so. The contract at the top of this page is
+A **denylist**, not an allowlist, and so. The contract at the top of this page is
 "drop a directory in and it loads"; an allowlist would quietly break it, because every newly
 added mod would sit there disabled until someone remembered to list it. With a denylist,
 unset means everything loads exactly as before and the only thing recorded is the decision to

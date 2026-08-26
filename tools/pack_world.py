@@ -290,7 +290,7 @@ def main():
 
     # Stage id -> level name, so the runtime can load its own knowledge instead of being told
     # which level it is in. bossGetStageNum() reports the stage; nothing mapped it to the names
-    # the extractor uses, which is why ge_bot_route.c originally demanded an env var and wrongly
+    # the extractor uses, so ge_bot_route.c originally demanded an env var and wrongly
     # claimed the port could not know.
     idx_path = os.path.join(levels_dir, "index.json")
     if os.path.exists(idx_path):

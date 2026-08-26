@@ -13,7 +13,7 @@
  * game shares with SM64, but GoldenEye has commands of its own. Unknown opcodes are the
  * expected failure mode here, not a port bug -- see the ROADMAP.
  */
-#include <stdint.h>   /* gfx_pc.h uses uint32_t but does not include it */
+#include <stdint.h> /* gfx_pc.h uses uint32_t but does not include it */
 #include <stdio.h>
 
 #include <PR/gbi.h>
@@ -25,8 +25,8 @@
 
 #include "gfx_pc.h"
 #include "ge_sky_rdp.h"
-#include "ge_gpu_timer.h"   /* GETV_GPUTIME=1: GPU busy time vs CPU time in the present */
-#include "ge_gl_debug.h"    /* GETV_GLDEBUG=1: who raises the GL_INVALID_OPERATION, and when */
+#include "ge_gpu_timer.h" /* GETV_GPUTIME=1: GPU busy time vs CPU time in the present */
+#include "ge_gl_debug.h" /* GETV_GLDEBUG=1: who raises the GL_INVALID_OPERATION, and when */
 
 /* ---- GETV_SKYDUMP: prove the sky RDP triangles are recoverable -----------------
  *
@@ -35,12 +35,12 @@
  * commands on the frames we ask for, and it lets the decode in ge_sky_rdp.c be
  * validated against the real stream without touching the renderer.
  *
- * Bounded on purpose, in both command count and recursion depth. This walks raw game
+ * Bounded, in both command count and recursion depth. This walks raw game
  * memory; an unrecognised branch target would otherwise run off into the arena and the
  * crash would look like a renderer bug. Off unless GETV_SKYDUMP is set.
  *
  * F3D opcodes, u8-truncated: G_DL = 0x06, G_ENDDL = G_IMMFIRST-7 = 0xB8. */
-#define GE_SKYDUMP_MAX_CMDS  200000
+#define GE_SKYDUMP_MAX_CMDS 200000
 #define GE_SKYDUMP_MAX_DEPTH 12
 
 static int geSkyDumpLevel(void)
@@ -163,7 +163,7 @@ void gePortRenderDisplayList(void *firstGdl)
          * average would produce a figure that describes the loader rather than the game. That is
          * the same trap as reading the stage timings above as if they were representative.
          *
-         * The GPU query closes AFTER gfx_end_frame, deliberately: the swap is inside it, and
+         * The GPU query closes AFTER gfx_end_frame: the swap is inside it, and
          * whether the swap blocks is half of what this is trying to find out. */
         geGpuTimerFrameBegin();
         gfx_start_frame();
@@ -224,10 +224,10 @@ void gePortRenderDisplayList(void *firstGdl)
      * an un-pause.
      *
      * Consumers printed:
-     *   g_GlobalTimer  += g_ClockTimer        (lv.c)             -> world, must stall when paused
-     *   watch_time_0   += speedgraphframes    (bondview2.c:8185) -> presentation, must keep rising
+     *  g_GlobalTimer += g_ClockTimer (lv.c) -> world, must stall when paused
+     *  watch_time_0 += speedgraphframes (bondview2.c:8185) -> presentation, must keep rising
      *
-     * These are read as plain externs from the port layer on purpose: no game file is
+     * These are read as plain externs from the port layer: no game file is
      * touched to obtain the measurement, so the measurement cannot itself be the change. */
     /* ---- GETV_PAUSETEST=<from>:<to>[:lock|paused] --------------------------------
      *
@@ -237,8 +237,8 @@ void gePortRenderDisplayList(void *firstGdl)
      * (`bondviewRenderWatch -> process_02_position`, reproducible at 30 fps and 60 fps
      * alike, so not a pacing regression).
      *
-     *   lock    g_ControlsLockedFlag -- cutscenes and level transitions (lv.c:1036)
-     *   paused  g_pausedFlag -- the watch / MP menu (lv.c:1040 via checkGamePaused)
+     *  lock g_ControlsLockedFlag -- cutscenes and level transitions (lv.c:1036)
+     *  paused g_pausedFlag -- the watch / MP menu (lv.c:1040 via checkGamePaused)
      *
      * Both land in the same `g_ClockTimer = 0` in lvlManageMpGame, which is the whole
      * freeze. Nothing else writes either flag after init (`lvlSetControlsLockedFlag`,
@@ -474,14 +474,14 @@ void gePortRenderDisplayList(void *firstGdl)
      * subsystems. sched.c does not compile (it is the N64 video/audio scheduler), so
      * nothing was calling them, and each failure is silent:
      *
-     *   joyPoll()        the input producer. joy.c's read path is gated on it, and
-     *                    with no caller the linker dead-strips the path entirely --
-     *                    osContGetReadData appears neither defined nor undefined in
-     *                    the binary. Missing input looks exactly like working input.
-     *   musicFadeTick()  the music fade envelope. Without it a fade-in never
-     *                    progresses past its first step and a fade-out never completes.
+     *  joyPoll() the input producer. joy.c's read path is gated on it, and
+     *  with no caller the linker dead-strips the path entirely --
+     *  osContGetReadData appears neither defined nor undefined in
+     *  the binary. Missing input looks exactly like working input.
+     *  musicFadeTick() the music fade envelope. Without it a fade-in never
+     *  progresses past its first step and a fade-out never completes.
      *
-     * Not carried over, deliberately: viVsyncRelated() programs VI registers that no
+     * Not carried over: viVsyncRelated() programs VI registers that no
      * longer exist, and speedgraphMarkerUpdate() is the debug profiler.
      *
      * Audio rides the frame the same way audi.c's amMain() thread woke on the retrace

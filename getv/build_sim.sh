@@ -9,8 +9,8 @@
 # directly measurable.
 #
 # The simulator is a different platform from the device, not a flag on it:
-#   device    -> -target arm64-apple-tvos17.0            -sdk appletvos        (platform 3)
-#   simulator -> -target arm64-apple-tvos17.0-simulator  -sdk appletvsimulator (platform 8)
+#  device -> -target arm64-apple-tvos17.0 -sdk appletvos (platform 3)
+#  simulator -> -target arm64-apple-tvos17.0-simulator -sdk appletvsimulator (platform 8)
 # Linking a device SDL2 into a simulator binary fails at link time with a platform
 # mismatch, which is why deps/sdl2-tvsim exists separately from the device build.
 #
@@ -150,11 +150,11 @@ cmd_lib() {
   # all-levels unlock, and `obj load`/`weapon load`, an asset-presence test that is inert
   # on N64 but useful here.
   #
-  # Opt-in rather than default, deliberately. With DEBUGMENU defined the else-chain in
+  # Opt-in rather than default. With DEBUGMENU defined the else-chain in
   # boss.c routes START into debug_menu_processor, which is disruptive during normal play
   # and would silently change any measurement taken from the build. Turn it on per-run:
   #
-  #     GETV_DEBUGMENU=1 ./build_sim.sh lib
+  #  GETV_DEBUGMENU=1 ./build_sim.sh lib
   #
   # It changes code generation, so toggling it requires a rebuild, and any number
   # measured under it is not comparable to one measured without it.
@@ -174,7 +174,7 @@ cmd_lib() {
   done < <(cd "$DECOMP" && { find src -name '*.c' \
              -not -path 'src/libultra/*' -not -path 'src/libultrare/*' \
              -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
-           # Held back on purpose. usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64
+           # Held back. usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64
            # hardware and dev-host files: compiling them turns logging stubs into code
            # that writes real RCP/PI registers or talks to an SGI host. They used to fail
            # to build, which was the guard. Switching -w -> -Wno-everything (needed
@@ -262,6 +262,6 @@ case "${1:-}" in
   shot) cmd_shot "${2:-}" ;;
   run)  cmd_run ;;
   env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "SLOT=${SLOT:-<none>}"; echo "BUILD=$BUILD"; echo "SIM=$(sim_udid)" ;;
-  *)    echo "usage: $0 {lib|port|app|boot|run|shot [path]|env}"
+  *) echo "usage: $0 {lib|port|app|boot|run|shot [path]|env}"
         echo "  port = recompile getv/port/** only and re-archive (seconds, not ~20 min)" ;;
 esac

@@ -117,7 +117,7 @@ int main(void)
     geEnemySourceInstall(fake_count, NULL);
     check("half install refused",     geEnemySourceInstalled(), 0);
 
-    /*        x      z    dmg  maxdmg  id  alive   belief      mask   */
+    /*  x z dmg maxdmg id alive belief mask */
     add(   100.0f,  0.0f,  20.0f, 100.0f,  11, 1,   0.0f,   0.0f, ALL);  /* near, believes origin */
     add(   300.0f,  0.0f,  90.0f, 100.0f,  12, 1, 900.0f, 900.0f, ALL);  /* hurt, looking away   */
     add(    50.0f,  0.0f,   0.0f, 100.0f,  13, 0,   0.0f,   0.0f, ALL);  /* DEAD, closest        */
@@ -175,11 +175,11 @@ int main(void)
      * near it and exactly one enemy converging on it.
      *
      * NOT counted, and both exclusions are necessary:
-     *   13 believes the origin too, but is dead.
-     *   16 is alive and believes nothing -- it reports GE_EN_POSITION only. An enemy whose belief
-     *      cannot be read must not be counted as holding one. This assertion said 4 when it was
-     *      written, because I counted 16 among the believers; the implementation was right and the
-     *      expectation was wrong, which is the correct way round for a test to fail. */
+     *  13 believes the origin too, but is dead.
+     *  16 is alive and believes nothing -- it reports GE_EN_POSITION only. An enemy whose belief
+     *  cannot be read must not be counted as holding one. This assertion said 4 when it was
+     *  written, because I counted 16 among the believers; the implementation was right and the
+     *  expectation was wrong, which is the correct way round for a test to fail. */
     check("threat at origin",         geEnemyThreatAt(0.0f, 0.0f, 0.0f, 50.0f), 3);
     check("threat at (900,900)",      geEnemyThreatAt(900.0f, 0.0f, 900.0f, 50.0f), 1);
     check("threat somewhere quiet",   geEnemyThreatAt(-5000.0f, 0.0f, -5000.0f, 50.0f), 0);

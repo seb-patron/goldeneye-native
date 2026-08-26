@@ -13,7 +13,7 @@ emulator or a recompilation applies them. Mapping the codes back to symbols was 
 It turned out not to be needed. Twenty-four of the famous codes cluster one byte apart starting at
 `0x80069652`, and
 
-    gameshark_address - 0x80069650  ==  the CHEAT_ID enum ordinal
+    gameshark_address - 0x80069650 == the CHEAT_ID enum ordinal
 
 exactly, gaps included. `0x80069650` is the retail address of the game's own cheat-flag array. The
 skipped addresses land precisely on enum members the published lists never name, which a
@@ -83,15 +83,15 @@ cheat carrying the toggle mask. That is retail lifetime, not a defect.
 Accepted by the `cheats` key:
 
 ```
-extra_mp_chars   invincibility    all_guns          max_ammo
-line_mode        2x_health        2x_armor          invisibility
-infinite_ammo    dk_mode          extra_weapons     tiny_bond
-paintball        10x_health       magnum            laser
-golden_gun       silver_pp7       gold_pp7          bond_phase
-no_radar         turbo_mode       debug_pos         fast_animation
-slow_animation   enemy_rockets    2x_rocket_launcher
-2x_grenade_launcher  2x_rcp90     2x_throwing_knife
-2x_hunting_knife     2x_laser
+extra_mp_chars invincibility all_guns max_ammo
+line_mode 2x_health 2x_armor invisibility
+infinite_ammo dk_mode extra_weapons tiny_bond
+paintball 10x_health magnum laser
+golden_gun silver_pp7 gold_pp7 bond_phase
+no_radar turbo_mode debug_pos fast_animation
+slow_animation enemy_rockets 2x_rocket_launcher
+2x_grenade_launcher 2x_rcp90 2x_throwing_knife
+2x_hunting_knife 2x_laser
 ```
 
 Two names that appear in a naive grep of the source - `CHEAT_MARQUIS` and `CHEAT_ENEMYSHIELDS` -

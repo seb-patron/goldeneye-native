@@ -27,7 +27,7 @@ extern "C" {
  * `org` is used only where the host convention has a vendor level (SDL_GetPrefPath).
  * On macOS the result is `$HOME/Library/Application Support/<app>` with NO trailing
  * separator; everywhere else it is SDL_GetPrefPath's answer, which DOES end in one.
- * That asymmetry predates this file and is preserved deliberately -- both existing
+ * That asymmetry predates this file and is preserved -- both existing
  * callers append "/<name>" unconditionally and tolerate the resulting doubled slash.
  */
 int gePortUserDataDir(const char *org, const char *app, char *out, size_t outsz);

@@ -150,7 +150,7 @@ def main():
                 # running above or below it is not obstructed by it. Without this the audit reports
                 # a multi-storey level as almost entirely walled -- see the note in wall_segments.
                 #
-                # The band is generous on purpose: a waypoint's y is a PAD height and a wall's y is
+                # The band is generous: a waypoint's y is a PAD height and a wall's y is
                 # a FLOOR height, and those differ by the body-to-floor offset, which this project
                 # has already measured at 12-202 units depending on the level. A tight band would
                 # reject real crossings; this only has to separate DECKS, which are much further

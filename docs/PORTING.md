@@ -49,7 +49,7 @@ structure - compile the decomp into `libge.a`, keep the two harness objects outs
 the archive as link roots, link - is not Apple-specific and should be reproduced
 rather than redesigned.
 
-**No CMake or MSBuild file is provided here on purpose.** A build system that nobody
+**No CMake or MSBuild file is provided here.** A build system that nobody
 in this repo can execute rots within a week, and this document is more useful than a
 green-looking file that has never run.
 
@@ -62,7 +62,7 @@ This is a recommendation with reasons, not a preference:
   those files silently compile the *non*-Windows branch: `FOR_WINDOWS` is 0, GLEW is
   never included, and `glewInit()` at `gfx_opengl.c:784-788` never runs. The build
   succeeds and then dies at the first GL 1.2+ entry point. Both files are owned by
-  other work in progress and were deliberately not edited; if you want an MSVC build, widening
+  other work in progress and were not edited; if you want an MSVC build, widening
   those two gates to `defined(_WIN32)` is the first change to make.
 - `vendor/ge-decomp/include/PR/ultratypes.h:83-84` needs `__UINTPTR_TYPE__` and
   `__INTPTR_TYPE__`. MSVC does not define them; clang and GCC do.
@@ -137,7 +137,7 @@ it is the only speculative Windows code in the tree.
 
 macOS behaviour is unchanged; the proof is recorded in section 9.
 
-**Still outstanding, deliberately not changed:** `getv/port/src/port_audio.c:389-394`
+**Still outstanding, not changed:** `getv/port/src/port_audio.c:389-394`
 writes the `GETV_AUDIO_WAV` debug dump to `$HOME/Documents/getv_audio.wav` and decides
 whether a supplied path is absolute with `e[0] == '/'`. It is a debug-only gate in a
 file that was being changed concurrently. One line of work whenever it is next touched.
@@ -242,10 +242,10 @@ Measured on 2026-08-22 by linking the current archive without `-dead_strip`. The
 complete list is four symbols:
 
 ```
-__efontchardataSegmentRomStart   referenced from langGetJpnCharPixels  (src/game/language.o)
-__jfontchardataSegmentRomStart   referenced from langGetJpnCharPixels  (src/game/language.o)
-_osPiReadIo                      referenced from tokenReadIo           (src/token.o)
-_osViSetMode                     referenced from viVsyncRelated        (src/fr.o)
+__efontchardataSegmentRomStart referenced from langGetJpnCharPixels (src/game/language.o)
+__jfontchardataSegmentRomStart referenced from langGetJpnCharPixels (src/game/language.o)
+_osPiReadIo referenced from tokenReadIo (src/token.o)
+_osViSetMode referenced from viVsyncRelated (src/fr.o)
 ```
 
 Every one is reachable only from a function this port never calls: the Japanese font,
@@ -272,8 +272,8 @@ it makes the macOS link less fragile as a side effect.
 directory:
 
 ```
-getv/port/include/PR               -> <repo>/vendor/ge-decomp/include/PR
-getv/port/include/platform_info.h  -> <repo>/vendor/ge-decomp/include/platform_info.h
+getv/port/include/PR -> <repo>/vendor/ge-decomp/include/PR
+getv/port/include/platform_info.h -> <repo>/vendor/ge-decomp/include/platform_info.h
 ```
 
 These break on any other machine, on any operating system, and Windows additionally
@@ -341,7 +341,7 @@ setup and stan.
    was hiding and that step 2 did not predict, because the reachable set differs once
    the compiler and its inlining decisions change.
 8. Crash handler on `SetUnhandledExceptionFilter` + DbgHelp. 2-3 days.
-9. Debugging the first run. **Unbounded and deliberately not estimated.**
+9. Debugging the first run. **Unbounded and not estimated.**
 
 Steps 1-4 are worth doing regardless of whether anyone builds for Windows: they are all
 verifiable on macOS today and every one of them makes the macOS build more robust.
@@ -402,10 +402,10 @@ Any change made for portability must leave these unchanged
 (`getv/build_mac.sh all`):
 
 ```
-mac game:        167 built, 1 failed     (src/tlb_manage.c is N64 TLB hardware, expected)
-mac assets:      746 built, 0 failed
-mac audio:        40 built, 0 failed
-mac port layer:   23 built, 0 failed
+mac game: 167 built, 1 failed (src/tlb_manage.c is N64 TLB hardware, expected)
+mac assets: 746 built, 0 failed
+mac audio: 40 built, 0 failed
+mac port layer: 23 built, 0 failed
 ```
 
 The port-layer count moved from 22 to 23 on 2026-08-22 with the addition of

@@ -162,10 +162,10 @@ void geGpuTimerFrameEnd(void)
          * is the RELATIONSHIP between them and a reader should not have to remember which way
          * round it goes at 2am:
          *
-         *   gpu high, swap low   -> the GPU is genuinely busy; the work is real
-         *   gpu low,  swap high  -> the GPU is idle and we are being stalled by driver or
-         *                           compositor; look at present path, not at draw calls
-         *   both low             -> the time is somewhere else entirely and neither is the cause
+         *  gpu high, swap low -> the GPU is genuinely busy; the work is real
+         *  gpu low, swap high -> the GPU is idle and we are being stalled by driver or
+         *  compositor; look at present path, not at draw calls
+         *  both low -> the time is somewhere else entirely and neither is the cause
          */
         /* "GPU timeline", not "GPU busy", and the distinction IS not pedantry.
          * GL_TIME_ELAPSED measures wall time between two markers ON THE GPU'S TIMELINE. If the

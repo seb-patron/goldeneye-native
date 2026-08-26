@@ -2,7 +2,7 @@
  *
  * sm64ex supplies these from its own platform/config/filesystem layers.
  * GoldenEye's decomp has none of that, so the port provides the minimum Fast3D
- * actually touches. Kept deliberately small: everything here is host plumbing, not
+ * actually touches. Kept small: everything here is host plumbing, not
  * game behaviour.
  */
 #include <stdarg.h>
@@ -16,7 +16,7 @@
 #include "../configfile.h"
 #include "../fs/fs.h"
 #include "../pc_main.h"
-#include "../fast3d/gfx_window_manager_api.h"   /* WAPI_WIN_CENTERPOS */
+#include "../fast3d/gfx_window_manager_api.h" /* WAPI_WIN_CENTERPOS */
 
 /* ---- platform ---------------------------------------------------------- */
 
@@ -95,7 +95,7 @@ ConfigWindow configWindow = {
     .settings_changed = false,
 };
 
-/* Called from gePortMacWindowConfig() below, before gfx_init(). Deliberately env-driven
+/* Called from gePortMacWindowConfig() below, before gfx_init(). env-driven
  * rather than a config file: this port has no settings UI and every other knob on it is
  * a GETV_* variable. */
 void gePortMacWindowConfig(void)
@@ -120,7 +120,7 @@ void gePortMacWindowConfig(void)
      * the aspect the game was authored for is preserved rather than letterboxed.
      *
      * Only the default is clamped. An explicit GETV_WINDOW is honoured as given:
-     * measurement runs deliberately ask for sizes larger than the panel, and `drawn` is
+     * measurement runs ask for sizes larger than the panel, and `drawn` is
      * resolution-sensitive on Mac (659 at <=1280x960, 672/673 at >=1600x1200), so
      * silently resizing a requested size would corrupt a comparison. */
     if ((w == NULL || *w == '\0') && !configWindow.fullscreen) {
@@ -227,7 +227,7 @@ const char *ge_last_mark = "(none)";
 unsigned long ge_mark_seq = 0;
 
 #define GE_MARK_REPEATS 3
-#define GE_MARK_MAX     512
+#define GE_MARK_MAX 512
 
 static int ge_mark_should_print(const char *what)
 {
@@ -386,7 +386,7 @@ void ge_log_flush_now(void)
  * the log SHORT, which is a readability win; the SPEED came from the buffering above. Presenting
  * a noisy delta as a speedup is how a placebo gets committed.
  *
- * IT deliberately does not cover error paths. osSyncPrintf has 516 call sites and most of them
+ * IT does not cover error paths. osSyncPrintf has 516 call sites and most of them
  * are the decomp reporting that something went wrong; gating those wholesale is how a failure
  * becomes invisible. Only the sites that report SUCCESSFUL, ROUTINE work are wrapped, and each
  * one was picked by reading it rather than by matching a prefix.
@@ -417,7 +417,7 @@ void osSyncPrintf(const char *fmt, ...)
  * call site, the same way the g_ModelHitEntries stride bug was pinned. */
 void gePortCheckItemEntries(const char *where)
 {
-    /* Local mirror of ChrModelFileRecord -- port_support.c deliberately does not pull
+    /* Local mirror of ChrModelFileRecord -- port_support.c does not pull
      * in the game headers. Only the two leading pointers matter here; the trailing
      * floats/flags pad the record to its natural 32-byte 64-bit size. */
     struct ge_item_rec { void *header; char *filename; float scale, pov;

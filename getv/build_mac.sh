@@ -17,13 +17,13 @@
 # No Metal backend. This uses the same renderer the tvOS build uses, so a regression
 # seen here is a regression there. Only the platform bindings differ:
 #
-#            tvOS device / sim            macOS
-#   GL       OpenGL ES 3.0 (EAGL)         OpenGL 2.1 compat (NSOpenGL)
-#   defines  -DUSE_GLES -DTVOS_SUPERSAMPLE  (neither) -DGE_PLATFORM_MAC
-#   shaders  #version 100 ESSL            #version 120 GLSL   (already in gfx_opengl.c)
-#   FBO      SDL's own FBO, blit-resolved framebuffer 0, no supersample
-#   entry    libSDL2main -> UIApplicationMain -> SDL_main   main() -> SDL_main
-#   window   full-screen UIWindow          resizable NSWindow
+#  tvOS device / sim macOS
+#  GL OpenGL ES 3.0 (EAGL) OpenGL 2.1 compat (NSOpenGL)
+#  defines -DUSE_GLES -DTVOS_SUPERSAMPLE (neither) -DGE_PLATFORM_MAC
+#  shaders #version 100 ESSL #version 120 GLSL (already in gfx_opengl.c)
+#  FBO SDL's own FBO, blit-resolved framebuffer 0, no supersample
+#  entry libSDL2main -> UIApplicationMain -> SDL_main main() -> SDL_main
+#  window full-screen UIWindow resizable NSWindow
 #
 # macOS's legacy GL profile is intentional: gfx_opengl.c's shader generator emits
 # `#version 120` with attribute/varying, which a 3.2 core profile rejects outright. Do
@@ -114,13 +114,13 @@ cmd_sdl() {
 # --------------------------------------------------------------------- game objects
 # Identical to build_sim.sh's CFLAGS except for the target triple and sysroot. Every
 # one of these matters and is documented at length in build_sim.sh:
-#   -fms-extensions            anonymous struct/union members the decomp relies on
-#   -include ge_port_decls.h   prototypes; IDO allowed implicit declarations
-#   -Wno-everything -Werror=return-type   not -w. `-w` defeats -Werror in both orders,
-#                              and the accidental-$v0-return family is caught only when
-#                              this flag actually takes effect.
-#   -ferror-limit=0            the default 20 truncates and flatters the count
-#   -fno-strict-aliasing       the decomp punts types through pointers constantly
+#  -fms-extensions anonymous struct/union members the decomp relies on
+#  -include ge_port_decls.h prototypes; IDO allowed implicit declarations
+#  -Wno-everything -Werror=return-type not -w. `-w` defeats -Werror in both orders,
+#  and the accidental-$v0-return family is caught only when
+#  this flag actually takes effect.
+#  -ferror-limit=0 the default 20 truncates and flatters the count
+#  -fno-strict-aliasing the decomp punts types through pointers constantly
 # The port layer's third-party sources (Fast3D, the audio mixer) are not vendored in this
 # repository -- see docs/THIRD_PARTY.md. Without them the compile fails with a long list
 # of missing headers and nothing that points at the cause, so check once and say so.
@@ -253,7 +253,7 @@ GE_JOBS="${GETV_JOBS:-6}"
 # breaks on the spaces in this repo's own path (".../Code Projects/..."). One flag per
 # line, read back into an array, is space-safe and array-safe.
 #
-# The read loop is deliberately not `mapfile`. macOS ships bash 3.2 as /bin/bash and
+# The read loop is not `mapfile`. macOS ships bash 3.2 as /bin/bash and
 # mapfile arrived in bash 4, so on a stock machine every compile in the batch would fail
 # and the build would report "0 built" with no other diagnostic. `while IFS= read -r`
 # is portable to 3.2 and behaves identically here.
@@ -294,7 +294,7 @@ cmd_lib() {
   (cd "$DECOMP" && { find src -name '*.c' \
              -not -path 'src/libultra/*' -not -path 'src/libultrare/*' \
              -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
-           # Held back on purpose; mirrors build_sim.sh and build.sh exactly.
+           # Held back; mirrors build_sim.sh and build.sh exactly.
            # usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64 hardware and dev-host
            # files: compiling them turns logging stubs into code that writes real RCP/PI
            # registers or talks to an SGI host. They used to fail to build, and that
@@ -317,7 +317,7 @@ cmd_lib() {
   # And so on. Compiling all three lets the linker bind Cradle, Silo, destruction, Jungle,
   # Train, Statue and the multiplayer Archives to whichever copy it saw first, which is
   # alphabetically e/, the PAL data, in a VERSION_US build. The same applies to the top-level
-  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is deliberately left
+  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is left
   # unprefixed. Nothing outside those two directories references their symbols and
   # file_resource_table.inc.c asks for the bare name, so a US build simply must not compile
   # them. Namespacing them instead would keep seven dead translation units in the binary.
@@ -326,7 +326,7 @@ cmd_lib() {
     | run_batch "mac assets" "${CFLAGS[@]}"
 
   # -DNDEBUG is passed to the mixer only, exactly as the tvOS builds do. Do not widen it:
-  # SUPPORT_CHECK in gfx_pc.c is an assert() and is deliberately armed.
+  # SUPPORT_CHECK in gfx_pc.c is an assert() and is armed.
   (cd "$DECOMP" && find src/libultra/audio src/libultrare/audio -name '*.c' 2>/dev/null | sort) \
     | run_batch "mac audio" "${CFLAGS[@]}" -DGE_AUDIO_MIXER -DNDEBUG \
         -I src/libultra -I src/libultrare -I "$HERE/port/audio"
@@ -350,12 +350,12 @@ cmd_app() {
   # symbols (`__codeSegmentRomStart`, `___osGetFpcCsr`, `_crashRenderFrame`,
   # `__libm_qnan_f`, ...). Every one of them is an N64 linker-script or hardware symbol
   # referenced only by src/init.c, src/sched.c and src/rmon.c -- files this port compiles
-  # but deliberately never links. A static archive pulls a member only when it resolves
+  # but never links. A static archive pulls a member only when it resolves
   # an undefined symbol, so those three objects are never dragged in; a direct object
   # link has no such filter and drags in everything.
   #
   # This is the arrangement build.sh and build_sim.sh use, and the reason project.yml
-  # says "No -force_load yet: the harness deliberately pulls in only what it calls."
+  # says "No -force_load yet: the harness pulls in only what it calls."
   # Before adding -force_load here, note that assets/obseg/bg/{u,e,j}/ contain colliding
   # bare symbols (`header`, `room_data_table`) which are harmless today only because
   # those objects are never pulled.
@@ -383,7 +383,7 @@ cmd_app() {
   local f orphans=0 manifest="$BUILD/objects.txt"
   if [ -s "$manifest" ]; then
     # Match in one pass. The obvious per-file form,
-    #     printf '%s\n' "$keep" | grep -qxF "$f"
+    #  printf '%s\n' "$keep" | grep -qxF "$f"
     # is wrong under the `set -o pipefail` above: grep -q exits at the first hit, printf
     # dies of SIGPIPE, and the pipeline reports 141 -- a failure -- for exactly the files
     # that DID match. It silently dropped about a third of the archive.
@@ -470,7 +470,7 @@ case "${1:-}" in
   run)  shift; cmd_run "$@" ;;
   env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "BUILD=$BUILD"
         echo "BIN=$BIN" ;;
-  *)    echo "usage: $0 {sdl|lib|port|app|all|run|env}"
+  *) echo "usage: $0 {sdl|lib|port|app|all|run|env}"
         echo "  sdl  = build SDL2 2.30.9 arm64 from deps/ into $SDL (once)"
         echo "  lib  = compile game + assets + audio + port layer for arm64 macOS"
         echo "  port = recompile getv/port/** and the harness only (seconds)"

@@ -4,7 +4,7 @@
  * explosion strength are not properties of any level, model or asset -- they are floats the
  * game reads at load time, and the game already has one function that sets all of them:
  * lvlSetMultipliersForDifficulty() (lv.c:917). A ruleset is that function's output multiplied
- * by a table. No geometry, no setup file and no asset is touched, which is why CLASSIC,
+ * by a table. No geometry, no setup file and no asset is touched, and that is why CLASSIC,
  * HARDCORE and SURVIVAL are a config schema rather than a feature programme.
  *
  * Everything here is neutral by default. With no ruleset selected every accessor returns
@@ -20,15 +20,15 @@
  * Two of these are inverted with respect to the name a player expects, and getting either
  * backwards silently makes HARDCORE easier:
  *
- *   g_AiHealthModifier scales the damage dealt TO a guard (chraction.c:2600,
- *   `damageToCause *= g_AiHealthModifier`). More enemy health therefore means a SMALLER
- *   value, so enemy_health DIVIDES it.
+ *  g_AiHealthModifier scales the damage dealt TO a guard (chraction.c:2600,
+ *  `damageToCause *= g_AiHealthModifier`). More enemy health therefore means a SMALLER
+ *  value, so enemy_health DIVIDES it.
  *
- *   player health is `actual_health`, and bondhealth falls by damage/actual_health
- *   (bondview2.c:9917). More player health means a LARGER value, so it multiplies. The
- *   game's own 10x health cheat sets 10.0f, which is the shape being followed.
+ *  player health is `actual_health`, and bondhealth falls by damage/actual_health
+ *  (bondview2.c:9917). More player health means a LARGER value, so it multiplies. The
+ *  game's own 10x health cheat sets 10.0f, which is the shape being followed.
  *
- * enemy_reaction is deliberately described without a difficulty claim. It scales
+ * enemy_reaction is described without a difficulty claim. It scales
  * g_AiReactionSpeed, which is the upper bound of a randomised AI timer
  * (`randomGetNext() % (333.33f * g_AiReactionSpeed)`, chraction.c:1680). Agent sets 0.2 and
  * 00 Agent sets 1.0, so a larger value lengthens that timer, and what that means for how
@@ -56,12 +56,12 @@ typedef struct {
     const char *blurb;
 } ge_ruleset;
 
-/* CHAOS deliberately does not randomise anything here. Randomisation belongs with the
+/* CHAOS does not randomise anything here. Randomisation belongs with the
  * randomizer work, which needs objectives to declare capabilities first, and a "chaos" that
  * silently reshuffles numbers per launch would make every bug report unreproducible. It is
  * a fixed, lopsided ruleset instead. */
 static const ge_ruleset ge_presets[] = {
-  /* name        eHP  eDMG eACC eRCT pHP  pARM ammo expl turr horde */
+  /* name eHP eDMG eACC eRCT pHP pARM ammo expl turr horde */
   { "classic",   100, 100, 100, 100, 100, 100, 100, 100, 100, 0,
     "the game as shipped" },
   { "hardcore",  200, 150, 130, 100,  50, 100,  50, 100, 100, 0,
@@ -187,7 +187,7 @@ static void ge_rs_resolve(void)
  * Returned as float multipliers. The game-side hooks are one line each and hold no policy,
  * which keeps the decomp edits small enough to read in the patch. */
 
-#define GE_RS_GET(fn, field)                    \
+#define GE_RS_GET(fn, field) \
     float fn(void)                              \
     {                                           \
         ge_rs_resolve();                        \
