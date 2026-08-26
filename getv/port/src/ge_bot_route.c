@@ -1481,10 +1481,18 @@ steer:
      * measures the routing as much as the timestep. This walks in a straight line and lets the
      * distance per wall-clock second be the whole answer. */
     if (getenv("GETV_BOT_WALK") != NULL) {
+        /* g_GlobalTimer accumulates g_ClockTimer, so it IS game time measured in video fields.
+         * Logging it against the wall clock is the cleanest test of whether the simulation
+         * divider preserves time: distance travelled is polluted by whatever the walker bumps
+         * into, and this is not. */
+        extern int g_GlobalTimer;
+        char note[32];
+
         memset(&in, 0, sizeof in);
         in.stick_y = (signed char) GE_BR_WALK;
+        snprintf(note, sizeof note, "gt=%d", (int) g_GlobalTimer);
         ge_br_logf((int) frame, "post", -1, -1, st.x, st.z, ge_br_heading, 0.0f, 0.0f,
-                   0, (int) in.stick_y, "walk");
+                   0, (int) in.stick_y, note);
         gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
         return;
     }

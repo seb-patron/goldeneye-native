@@ -213,12 +213,18 @@ a divider, and not worth blocking on now.
 
 Three measurements, because "it should be fine" is not a claim.
 
-**Game speed.** Train, constant forward input, measured over the steady middle of each run:
+**Game speed.** Train, constant forward input, measured over the steady middle of each run and
+divided by the elapsed time the log actually recorded:
 
 | Configuration | Speed |
 |---|---|
-| 60fps, one tick per frame | 46.3, 46.5 units/s |
-| uncapped at 500+ fps, auto divider | 46.6, 46.6 units/s |
+| 60fps cap, one tick per frame | 151.3, 149.4, 151.5 units/s |
+| uncapped at 500+ fps, auto divider | 164.4, 167.1, 163.4 units/s |
+
+About 9% apart, consistently. An earlier version of this table read 46.4 against 46.6 and was
+wrong: it divided by a hard-coded window rather than by the time the run actually covered.
+Distance is also a noisy instrument here, because the walker eventually meets geometry and where
+it stops varies.
 
 **Fire rate**, which is the clearest frame-quantised system in the game. Two players in
 multiplayer armed with the RC-P90 through `GETV_MP_ARM=14`, trigger held, counted against the
@@ -281,6 +287,33 @@ per tick:  divider 1 = 2.99131   divider 4 = 0.72926
 
 **The tank turret and the autogun beam timer** already multiply by `g_GlobalTimerDelta`, so they
 were never frame-quantised.
+
+## The game clock does not run at real time, and that is not fixed
+
+`g_GlobalTimer` accumulates `g_ClockTimer`, so it is game time counted in video fields. Real time
+is 60 fields a second. Measured on Train with the walker:
+
+| Configuration | Game clock |
+|---|---|
+| default, 60fps cap | 189 fields/s |
+| uncapped, ~940 fps render | 469 fields/s |
+| uncapped with `GETV_REALCLOCK=1`, ~250 fps render | 126 fields/s |
+
+All three are fast, and in every case the game clock is close to half the render rate. The real
+host timebase reduces the error by about four times and does not remove it.
+
+The comment above the clock selection in `frametiming.c` carried an explicit
+"UNVERIFIED ON THIS HARDWARE" warning, written on a 60Hz machine that could not test it. It has
+now been tested on a machine that can, and the warning was right to be there: `GETV_REALCLOCK=1`
+does not decouple game speed from the render rate on its own.
+
+What the divider does deliver is measured and holds: fire rate is invariant, the field integrator
+is exact, and interpolation runs on every frame between ticks. What is not delivered is a game
+clock that ticks at sixty fields a real second, and that is now the top of the list.
+
+One caveat on the above, stated because two measurements in this document have already had to be
+corrected: `g_GlobalTimer` is being read as fields since level start, and if that reading is wrong
+then so are the three numbers.
 
 ## Still open
 
