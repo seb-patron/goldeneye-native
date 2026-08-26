@@ -114,7 +114,7 @@ def globals_of(rel):
 #     StandTile Tbg_sev_all_p_stanZ_tile_0 = { ... };
 #     StandTile Tbg_sev_all_p_stanZ_tile_1 = { ... };
 #
-# and the stan format requires the tiles to be ONE CONTIGUOUS RUN in declaration order -- the
+# And the stan format requires the tiles to be one contiguous run in declaration order -- the
 # engine walks it by adding each tile's byte size and resolves links as base + (link << 3).
 # The tentative definition put tile_0 first and left the 24-byte StandFileHeader sitting
 # between tile_0 and tile_1, breaking the run at the first step.

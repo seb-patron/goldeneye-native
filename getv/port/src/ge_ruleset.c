@@ -238,7 +238,7 @@ int gePortHordePerKillCap(void)   { ge_rs_resolve(); return ge_horde_per_kill_ca
  *
  * -1 means "leave the mission's own choice alone", which is the default.
  *
- * Useful ids: 5 PP7, 12 KF7, 13 ZMG, 15 D5K, 18 KLOBB, 22 AR33, 25 RCP90, 27 SHOTGUN.
+ * Useful ids: 5 PP7, 12 KF7, 13 zmg, 15 D5K, 18 klobb, 22 AR33, 25 RCP90, 27 shotgun.
  * The full list is the ITEM_IDS enum in src/bondconstants.h. An id outside the table is
  * range-checked downstream by get_ptr_item_statistics(), so a wrong number is a wrong gun
  * rather than a crash.

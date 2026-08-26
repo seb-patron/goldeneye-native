@@ -7,14 +7,14 @@ for the secondary (blended) pass. Blended geometry has no depth-buffer answer to
 if the secondary pass is not back to front the result depends on draw order -- and "which surface
 wins varies with view angle" is exactly what that looks like.
 
-WHAT THIS FOUND ON TRAIN: 163 of 699 frames draw the blended pass out of depth order, and
+What this found ON Train: 163 of 699 frames draw the blended pass out of depth order, and
 159 of those inversions are ACROSS buckets rather than within one.
 
     4 rooms visible    0% of frames out of order
     3 rooms visible  100%
     2 rooms visible   47%
 
-THE BUCKETS INTERLEAVE IN DEPTH. Frame 389 draws b1/r1 at z=-127, b1/r3 at z=-114, then b0/r2 at
+The buckets interleave IN depth. Frame 389 draws b1/r1 at z=-127, b1/r3 at z=-114, then b0/r2 at
 z=-122 -- room 2 is depth-wise BETWEEN the two rooms in bucket 1, but the bucket walk must emit all
 of bucket 1 before any of bucket 0. No amount of sorting within a bucket fixes that: `unk1` simply
 does not encode a depth order.
@@ -23,17 +23,17 @@ It reads as correct at the spawn because looking straight down a linear train gi
 whose bucket numbers happen to ascend with distance. Turn far enough that the camera sees rooms
 whose bucket assignment disagrees with their depth, and the order inverts.
 
-I GOT THIS WRONG TWICE BEFORE THE TOOL WAS WRITTEN, WHICH IS WHY IT EXISTS. Reading one frame
+I got this wrong twice before the tool was written, which IS why IT exists. Reading one frame
 suggested the bucket sequence was fine and only intra-bucket ties were unsorted; reading three
 suggested the same. Across 699 frames the split is 159 across-bucket against 4 within. Three frames
 is not a sample, and an eyeballed pattern from a scrolling log is a hypothesis, not a measurement.
 
-THIS DOES NOT BY ITSELF PROVE IT CAUSES THE STEEL-PLATE ARTEFACT. It proves the blended pass is
+This does not BY itself prove IT causes the steel-PLATE artefact. It proves the blended pass is
 depth-inverted on 23% of frames, and that the inversions are INTRA-bucket. Whether the plate is
 blended geometry in a shared bucket is a separate question that needs the asset checked. Reported
 as a mechanism with a measured rate, not as a diagnosis.
 
-AND IT MAY BE FAITHFUL. The buckets come from the game's own data, so hardware had the same
+And IT may BE faithful. The buckets come from the game's own data, so hardware had the same
 intra-bucket ambiguity. Before "fixing" it, establish whether the N64 result differs -- a port that
 sorts more carefully than the original is still a port that renders something the original did not.
 """

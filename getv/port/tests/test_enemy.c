@@ -103,7 +103,7 @@ int main(void)
 
     printf("ge_enemy_api against a fake source\n\n");
 
-    /* WITH NO SOURCE INSTALLED, everything must be safe and report an empty world. A bot written
+    /* With NO source installed, everything must be safe and report an empty world. A bot written
      * against this API has to run unchanged on a build whose game-side shim has not landed. */
     check("no source: installed",     geEnemySourceInstalled(), 0);
     check("no source: count",         geEnemyCount(), 0);
@@ -129,7 +129,7 @@ int main(void)
     check("installed",                geEnemySourceInstalled(), 1);
     check("count",                    geEnemyCount(), 6);
 
-    /* HEALTH IS INVERTED AT THE BOUNDARY. The game stores damage taken; a caller asking how hurt
+    /* Health IS inverted AT the boundary. The game stores damage taken; a caller asking how hurt
      * a guard is must not have to know that, and getting it backwards reads a dying guard as
      * healthy. */
     check("byId(12) found",           geEnemyById(12, &e), 1);
@@ -137,13 +137,13 @@ int main(void)
     checkf("byId(12) max_health",     e.max_health, 100.0f);
     check("byId(99) absent",          geEnemyById(99, &e), 0);
 
-    /* PARTIAL DATA STAYS PARTIAL. Slot 5 provides position only, so health must be reported as
+    /* Partial data stays partial. Slot 5 provides position only, so health must be reported as
      * ABSENT rather than as zero -- a guard whose health cannot be read is not a dead guard. */
     check("byId(16) found",           geEnemyById(16, &e), 1);
     check("byId(16) has position",    (e.fields & GE_EN_POSITION) != 0, 1);
     check("byId(16) health absent",   (e.fields & GE_EN_HEALTH) != 0, 0);
 
-    /* NEAREST FIRST, dead excluded, radius respected. The dead one at 50 is the closest of all and
+    /* Nearest first, dead excluded, radius respected. The dead one at 50 is the closest of all and
      * must not appear; every caller would otherwise have to filter corpses and exactly one would
      * forget. */
     n = geEnemiesNear(0.0f, 0.0f, 0.0f, 1000.0f, near, 4);
@@ -167,7 +167,7 @@ int main(void)
     check("near: max=2 keeps closest", near[0].id, 11);
     check("near: max=2 second",       near[1].id, 16);
 
-    /* THREAT IS ABOUT BELIEF, NOT PROXIMITY. This is the whole point of the API.
+    /* Threat IS about belief, not proximity. This is the whole point of the API.
      *
      * The origin has NO living enemy standing on it, but three living enemies believe their target
      * is there: 11, 14, and 15 -- 15 being 9000 units away, which is precisely the guard that is

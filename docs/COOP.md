@@ -174,7 +174,7 @@ That is the freeze, and it is why retail multiplayer freezes here too.
 Measured:
 
 ```
-solo     INTRO 482 frames, FADESWIRL 60, SWIRL 358      moves 900 units
+Solo     intro 482 frames, fadeswirl 60, swirl 358      moves 900 units
 co-op    MP 113 frames, NONE 787                        moves nothing
 real MP  MP 113 frames, NONE 787                        moves nothing
 ```

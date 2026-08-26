@@ -65,7 +65,7 @@ export SIMCTL_CHILD_GETV_LIGHTTRACE="$LIGHTTRACE"
 # frames below 6 and every 60th thereafter, unlike LIGHTTRACE which prints every frame.
 export SIMCTL_CHILD_GETV_ROOMTRACE="$ROOMTRACE"
 # Six stages are multiplayer-only (GE_GAME_FACTS.md 3): COMPLEX 31, TEMPLE 38,
-# BASEMENT 45, STACK 46, LIBRARY 48, CAVES 50. prop.c synthesises the setup filename as
+# Basement 45, stack 46, library 48, caves 50. prop.c synthesises the setup filename as
 # "Usetup<code>Z" at 1 player and "Ump_setup<code>Z" at 2 or more, and the solo form of
 # those six does not exist -- not on disk, not in the ROM manifest. Run solo they load
 # geometry and no setup at all: no props, no guards, no Bond spawn. The resulting

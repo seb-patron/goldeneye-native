@@ -40,7 +40,7 @@ def spans_minus(full, covered):
 def open_the_doors(segs, doors, half=35.0):
     """Cut a gap in the wall wherever there is a door.
 
-    THIS IS NOT A REFINEMENT, IT IS REQUIRED. Tile neighbour lists do not bridge rooms, so the
+    This IS not A refinement, IT IS required. Tile neighbour lists do not bridge rooms, so the
     one place the mesh is genuinely passable -- the doorway -- has no neighbour covering it and
     falls out of the derivation as solid wall. Measured on Train: all 53 doors came back sealed,
     and a bot handed that set is being told the level has no way through, which is exactly the

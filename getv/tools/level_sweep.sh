@@ -239,7 +239,7 @@ parse_one() {
   # Gated on the app still being on screen, and the gate is not optional. `simctl io
   # screenshot` captures the device, not the app. Once the game has faulted the app is
   # gone and the capture is the tvOS springboard, which is bright chrome on a grey field
-  # and scores 99.91% non-black on every crashed level (DEFAULT, CONTROL, SHO and CRADLE
+  # And scores 99.91% non-black on every crashed level (default, control, sho and Cradle
   # all reported exactly that). Ungated, the one column that exists to catch "counts
   # frames, paints nothing" would award the highest score in the table to levels that
   # never drew a pixel. A crashed level therefore gets "-" (unmeasurable), never a number.
@@ -247,10 +247,10 @@ parse_one() {
   # Three numbers, because coverage alone is not enough. `uniq` is the count of distinct
   # non-black colours. A level can light up 68% of the screen with a handful of untextured
   # quads and no level geometry at all: EGYPT scored 68.42% while painting three nested
-  # rectangles in 16 colours, and TEMPLE, BASEMENT, STACK, LIBRARY, CAVES and COMPLEX
+  # Rectangles in 16 colours, and temple, basement, stack, library, caves and complex
   # painted a byte-identical 3-colour rectangle as each other. Coverage says "not black";
   # uniq says "actually textured geometry". Real frames land in the hundreds to thousands
-  # (DAM 119, JUNGLE 93, SURFACE 2451, CUBA 8608); flat fills land at 3-20. Report both.
+  # (Dam 119, Jungle 93, Surface 2451, Cuba 8608); flat fills land at 3-20. Report both.
   #
   # `top1share` is the percentage of the lit pixels that are a single colour, and it is
   # the sharpest of the three: a legitimate G_CYC_FILL sky or a stuck fade quad drives it

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate the bot archetype definitions against the game's own AI instruction set.
 
-WHY THIS EXISTS
+Why this exists
 
 Perfect Dark's simulants are the reference design for what we are building, and the useful
 discovery is that we do not have to reimplement them. GoldenEye already ships the same machine:
@@ -117,7 +117,7 @@ def check(doc, opcodes, path):
             if op not in opcodes:
                 errs.append("%s: opcode %r is not defined by the game" % (where, op))
 
-        # EVERY ARCHETYPE MUST BE ABLE TO MOVE.
+        # Every archetype must BE able TO move.
         #
         # Eight of eighteen once could not, and it took testing on another machine to notice:
         # they spawned, stood still, and never saw anybody, so they never fired. Every check in

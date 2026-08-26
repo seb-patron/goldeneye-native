@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Executable specification for the route follower.
 
-WHY THIS EXISTS
+Why this exists
 
 The extraction produces routes -- ordered waypoints with distance, heading and turn angle. Nothing
 consumes them. The consumer has to be a steering law: given where the bot is, where it is facing,
@@ -129,7 +129,7 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
         while True:
             # What the follower BELIEVES it is facing. The real bot only has this.
             #
-            # THE FALLBACK MUST NOT BE THE TRUE HEADING. An earlier version assigned `heading`
+            # The fallback must not BE the true heading. An earlier version assigned `heading`
             # here while the comment claimed it kept the last estimate, so a stationary bot was
             # handed ground truth -- and that is exactly the state the real one cannot escape.
             # The model therefore passed dead reckoning 61/61 while the shipped bot deadlocked

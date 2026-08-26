@@ -6,7 +6,7 @@ aggression, speed, accuracy, hearing -- are abstract numbers, and an abstract nu
 wrong. This checks them against MEASURED level structure instead, so a personality's requirements
 either hold on a real level or do not.
 
-THE CHECK THAT MATTERS: A BEHAVIOUR NEEDS SOMEWHERE TO HAPPEN. An archetype that breaks contact
+The check that matters: A behaviour needs somewhere TO happen. An archetype that breaks contact
 and runs needs somewhere to run TO. Train is measured at topology=linear, branching=0,
 lateral_escape=false, and a 53:1 corridor ratio along one axis (docs/PERFORMANCE.md, S2). On that
 level "retreat" is not a strategy, it is walking backwards down a tube. A sniper archetype wants
@@ -15,12 +15,12 @@ long sightlines and gets them there; a flanker wants alternatives and has none.
 That is the difference between a personality and a number: the number is always satisfiable, the
 behaviour is not.
 
-REQUIREMENTS ARE INFERRED FROM THE ARCHETYPE'S OWN FIELDS, not hand-assigned per level. A
+Requirements are inferred from the archetype'S own fields, not hand-assigned per level. A
 `weapon_policy` of disarm_only implies it must reach weapons it does not fight for; high aggression
 with low accuracy implies it must close distance. Inferring them keeps this honest when an
 archetype changes -- a hand-written table would drift silently.
 
-AND A FAILED CHECK IS A FACT ABOUT THE PAIRING, NOT A DEFECT IN EITHER. "PeaceSim is unplayable
+And A failed check IS A fact about the pairing, not A defect IN either. "PeaceSim is unplayable
 on Train" is useful: it says do not evaluate that archetype there and do not conclude the archetype
 is broken when it loses. Nothing here edits an archetype.
 """
@@ -128,7 +128,7 @@ def satisfies(shape, need):
     # cover and long_sightlines are now MEASURED, by ray-casting the derived wall set
     # (tools/gen_level_visibility.py), rather than inferred from a proxy.
     #
-    # THE PROXIES THEY REPLACE WERE MEASURING THE WRONG QUANTITY, which is why they are gone
+    # The proxies they replace were measuring the wrong quantity, which is why they are gone
     # rather than merely tuned. `cover` was mean tile adjacency < 8 -- adjacency is mesh
     # CONNECTIVITY, so a room full of crates scored like an empty one. `long_sightlines` was aspect
     # ratio >= 3 -- ratio is ELONGATION, so a large square hall failed and a narrow corridor

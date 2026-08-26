@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Assemble bot archetypes into GoldenEye AI-list bytecode.
 
-WHAT THIS DOES
+What this does
 
 data/bots/*.json describes what a bot should be -- accuracy, speed, what it wants, how it
 reacts. This turns each archetype into an actual AI list: the bytecode the game already
 interprets for every guard in the campaign.
 
-THE INSTRUCTION SET IS READ, NOT TRANSCRIBED
+The instruction set IS read, not transcribed
 
 Both halves of the encoding come from src/bondaicommands.h at run time:
 
@@ -22,7 +22,7 @@ number or arity changes upstream produces an assembly error here rather than a b
 the wrong instruction. Hand-copying either would repeat the mistake that cost five levels their
 objective text.
 
-LABELS ARE IDS, NOT OFFSETS
+Labels are ids, not offsets
 
 The game's own lists declare targets with a label(n) pseudo-op and jump to n, rather than
 encoding byte offsets, so no address fixups are needed. The assembler still checks that every
@@ -216,7 +216,7 @@ def pick_patrol(level, want):
     waypoints = [w for w in level.get("waypoints", []) if w.get("pos") and "pad" in w]
 
     if not waypoints:
-        # MULTIPLAYER ARENAS HAVE NO NAVIGATION GRAPH -- one waypoint, no edges -- which is
+        # Multiplayer arenas have NO navigation graph -- one waypoint, no edges -- which is
         # awkward, because the arenas are where bots are most wanted. They do have located
         # props, so patrol the PICKUPS instead: armour first, then ammunition.
         #

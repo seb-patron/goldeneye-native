@@ -386,7 +386,7 @@ static int ge_l_waypoint_near(lua_State *L)
 
 /* ge.guards_near(x, y, z, radius) -> array of tables, nearest first.
  *
- * STATIC PLACEMENT, NOT LIVE POSITIONS. This says where guards start and usually are, which is
+ * Static placement, not live positions. This says where guards start and usually are, which is
  * what a route planner wants. It is not who is shooting at you; that needs live character state
  * the port cannot yet read. Naming it guards_near rather than enemies would be a lie in the
  * other direction, so the docstring carries the distinction instead. */
@@ -591,7 +591,7 @@ static int ge_l_clearest_heading(lua_State *L)
  * The one anything steering a body must use. Same outward sweep, so the smallest correction still
  * wins, but every candidate is judged with a body rather than a ray.
  *
- * THIS BINDING WAS THE LAST PLACE THE LYING SENSOR SURVIVED. The router and the CLI were both
+ * This binding was the last place the lying sensor survived. The router and the CLI were both
  * moved onto the body test; Lua was not, so every mod -- including our own atlas -- was still
  * being handed the line answer while the C callers had been corrected. Two callers of one idea
  * with only one fixed is worse than neither being fixed, because the tree looks done.

@@ -60,7 +60,7 @@ int geGpuTimerEnabled(void)
         const char *e = getenv("GETV_GPUTIME");
         ge_gt_on = (e != NULL && *e == '1');
         if (ge_gt_on) {
-            /* CHECK THE EXTENSION RATHER THAN THE GL VERSION. Timer queries are core from GL
+            /* Check the extension rather than the GL version. Timer queries are core from GL
              * 3.3, but a driver may still expose a context that reports 4.3 and refuse the entry
              * points -- and on Windows those resolve through GLEW, where a missing one is a NULL
              * pointer and calling it is a crash, not an error. Intel's 2015-era HD 4400 driver is
@@ -71,7 +71,7 @@ int geGpuTimerEnabled(void)
                 ge_gt_on = 0;
                 return ge_gt_on;
             }
-            /* DRAIN THE ERROR QUEUE FIRST. glGetError reports and clears ONE error per call
+            /* Drain the error queue first. glGetError reports and clears one error per call
              * from a queue that persists until read, so anything earlier in the frame that left
              * an error pending gets attributed to the next call that checks -- which is this one.
              *
@@ -167,7 +167,7 @@ void geGpuTimerFrameEnd(void)
          *                           compositor; look at present path, not at draw calls
          *   both low             -> the time is somewhere else entirely and neither is the cause
          */
-        /* "GPU TIMELINE", NOT "GPU BUSY", AND THE DISTINCTION IS NOT PEDANTRY.
+        /* "GPU timeline", not "GPU busy", and the distinction IS not pedantry.
          * GL_TIME_ELAPSED measures wall time between two markers ON THE GPU'S TIMELINE. If the
          * GPU spends part of that window waiting -- for a buffer to free, for the compositor, for
          * work to arrive -- that waiting is inside the number. So a large value proves the time is

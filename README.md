@@ -148,7 +148,7 @@ that fail to start or end properly.
 The remaining ten ids carry no data in the ROM: Citadel, which has a background file but no
 setup, and nine cut during development. Reaching one now prints which stage it is and what is
 missing, then exits. Previously they were worse than useless: two spun at full CPU while
-ignoring SIGTERM, three crashed, and one of those varied between hanging, SIGBUS and SIGSEGV
+Ignoring sigterm, three crashed, and one of those varied between hanging, sigbus and sigsegv
 depending on what the heap happened to contain. Loading a multiplayer-only stage on its own
 says so and names the flag, rather than reporting it as missing data.
 

@@ -24,7 +24,7 @@ counts/frame     2      6     12     30     63
 before        ~0     ~0     ~0    0.35   3.50   deg/frame
 ```
 
-Magnitude is now remapped from [1, MAX] onto [DEADZONE, MAX], so full scale stays full scale
+Magnitude is now remapped from [1, max] onto [deadzone, max], so full scale stays full scale
 and the smallest real movement produces the smallest real turn. **Applied only to the mouse**;
 a physical stick keeps its deadzone, which it needs.
 

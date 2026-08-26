@@ -4,9 +4,9 @@
 Spawn POINTS are gen_horde_spawns.py. This is the schedule that uses them -- how many arrive, how
 good they are, how long the player gets between waves, and how all three escalate.
 
-EVERY NUMBER IS DERIVED FROM SOMETHING MEASURED, not chosen because it felt right:
+Every number IS derived from something measured, not chosen because it felt right:
 
-  how many      capped by SPAWN POINTS ACTUALLY AVAILABLE on that level. Twelve enemies from four
+  How many      capped by spawn points actually available on that level. Twelve enemies from four
                 hidden arrival points means three materialising on top of each other, which reads
                 as a bug. Small levels get small waves because that is what they can stage.
   how good      walks the REAL skill tiers -- meat(0), easy(1), normal(2), hard(3), perfect(4),
@@ -16,11 +16,11 @@ EVERY NUMBER IS DERIVED FROM SOMETHING MEASURED, not chosen because it felt righ
   how far       arrival points are drawn from across the whole distance band, so waves come from
                 different parts of the level rather than one closet.
 
-RANK IS HELD FOR SEVERAL WAVES BEFORE ADVANCING. Stepping the tier every wave means the player
+Rank IS held for several waves before advancing. Stepping the tier every wave means the player
 never meets the same enemy twice and cannot learn one; six tiers over twenty waves gives roughly
 three waves at each, which is enough to recognise what changed when it does.
 
-AND A LEVEL THAT CANNOT STAGE A HORDE SAYS SO. A level with too few hidden, reachable arrival
+And A level that cannot stage A horde says SO. A level with too few hidden, reachable arrival
 points is reported as unsuitable rather than given a thin schedule -- the same rule the archetype
 audit follows. A wave spawner that quietly degrades is worse than one that refuses.
 """
@@ -98,7 +98,7 @@ def main():
         if w % 5 == 0 and personalities:
             special = personalities[(w // 5 - 1) % len(personalities)]["name"]
 
-        # THE STRIDE MUST BE COPRIME WITH THE POINT COUNT OR WAVES REUSE DOORS ON A SHORT CYCLE.
+        # The stride must BE coprime with the point count OR waves reuse doors ON A short cycle.
         # A fixed stride of 3 into 12 points shares a factor of 3, so it reaches only 4 of the 12
         # starting offsets: waves 1, 5, 9, 13 and 17 all opened at the same tile, and waves 2, 6,
         # 10, 14, 18 at another. That is learnable by the third repeat, which throws away most of

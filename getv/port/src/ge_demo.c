@@ -63,7 +63,7 @@ static int ge_dm_live;
 
 /* Advance one recorded frame. Called from ge_playback, which is where pads are CONSUMED.
  *
- * THIS IS THE WHOLE FIX. It used to advance from the render loop, and the two run at different
+ * This IS the whole fix. It used to advance from the render loop, and the two run at different
  * rates against a 20-deep sample ring, so the pads published were read a tick or more out of
  * step: feeding pad 0 alone walked the player somewhere wrong, and feeding both barely moved it.
  * A replay is a promise that frame N of the recording is frame N of the run, and only the code

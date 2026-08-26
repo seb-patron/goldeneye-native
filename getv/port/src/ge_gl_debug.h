@@ -9,7 +9,7 @@
  * TWO MECHANISMS, because they answer different questions and the cheap one is not always
  * available:
  *
- *   KHR_debug   a callback fired AT THE OFFENDING CALL. With GL_DEBUG_OUTPUT_SYNCHRONOUS the
+ *   KHR_debug   a callback fired AT the offending call. With GL_DEBUG_OUTPUT_SYNCHRONOUS the
  *               callback runs on the calling thread before the call returns, so a breakpoint in
  *               it yields the real stack. This is the one that names the culprit.
  *

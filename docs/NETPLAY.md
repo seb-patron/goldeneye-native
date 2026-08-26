@@ -105,7 +105,7 @@ Item 1 is now the largest, and decides whether this is playable rather than mere
 The "not built" entry above was **stale**, and badly so. Both transports build a full mesh already:
 
 - `ge_net_udp.c` -- `GE_NET_MSG_PEERS`, `ge_udp_send_table`. Its header comment has said
-  **"FULL MESH, NOT A STAR"** the whole time.
+  **"full mesh, not A star"** the whole time.
 - `ge_net_enet.c` -- `GE_MSG_PEERS`, `ge_en_send_table`, `ge_en_handle_peers`, including a
   *"only the lower slot dials"* rule so a pair does not end up with two connections.
 

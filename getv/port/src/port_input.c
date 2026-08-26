@@ -862,7 +862,7 @@ static void geSynthState(int port, struct GePadState *out)
  * A / use E or RETURN        -> A
  * B / aim Q                  -> B
  * crouch/L R Z / X              -> L and R shoulders
- * start RETURN(kp) or TAB  -> START
+ * Start return(kp) or tab  -> start
  * d-pad I J K L
  *
  * GETV_KEYBOARD=0 disables it entirely.
@@ -1072,7 +1072,7 @@ static void geMousePoll(int port, struct GePadState *out)
          * turned 0.3455. Every movement below the threshold did nothing at all, so sweeping
          * further was the only thing that worked.
          *
-         * Remapping magnitude from [1, MAX] onto [DEADZONE, MAX] keeps full scale at full
+         * Remapping magnitude from [1, max] onto [deadzone, max] keeps full scale at full
          * scale and makes the smallest real movement produce the smallest real turn. */
         {
  const long dz = 6553L, mx = 32767L;
@@ -1204,7 +1204,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
      * whatever the user switched to. On DAM with GETV_INPUT_DEBUG=2, two of six
      * identical launches saw phantom presses from the keyboard pad with no gamepad
      * attached and no script running: `btn=2000 Z T(32767,0)` for one frame
-     * (SPACE/LCTRL -> Z) and `btn=1000 St` for four (TAB -> START).
+     * (space/LCTRL -> Z) and `btn=1000 St` for four (tab -> start).
      *
      * The consequence is not cosmetic. bondview2.c's intro-cutscene skip is
      * `buttons & ~oldbuttons & (A|B|Z|START|R|L)`, so one phantom edge aborts the
@@ -1276,7 +1276,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
  if (rx != 0) { out->rx = rx; }
  if (ry != 0) { out->ry = ry; }
 
-    /* SPACE and LCTRL are FIRE, which means the RIGHT trigger.
+    /* Space and lctrl are fire, which means the right trigger.
      *
      * This read `ltrigger` and the banner above has always said "SPACE fire", so intent and
      * wiring disagreed: port_os.c:467 binds GE_ACT_FIRE to GE_SRC_RT and gives AIM the left

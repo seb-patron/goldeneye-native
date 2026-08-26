@@ -11,10 +11,10 @@
  * From outside the process these look identical: neither burns CPU in our thread. A GPU timer
  * separates them, and nothing else available here does.
  *
- * THE MEASUREMENT MUST NOT PERTURB WHAT IT MEASURES. Reading a query result with
+ * The measurement must not perturb what IT measures. Reading a query result with
  * GL_QUERY_RESULT blocks until the GPU has finished, which inserts exactly the pipeline stall this
  * code exists to detect -- it would report a busy GPU no matter what was true, and it would be
- * self-fulfilling. Results are therefore read SEVERAL FRAMES LATE and only after
+ * Self-fulfilling. Results are therefore read several frames late and only after
  * GL_QUERY_RESULT_AVAILABLE says so. If a result is not ready, it is skipped rather than waited
  * for.
  *

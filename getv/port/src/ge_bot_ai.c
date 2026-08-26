@@ -1,6 +1,6 @@
 /* Attach compiled bot AI lists to characters in a running stage.
  *
- * THIS IS THE NPC PATH, AND IT IS NOT THE SAME THING AS ge_bot.c.
+ * This IS the npc path, and IT IS not the same thing AS ge_bot.c.
  *
  * ge_bot.c drives a PLAYER SLOT by injecting controller input, which is deliberate: a bot, a
  * network peer and an RL agent then all share one path into the game, and its own comment

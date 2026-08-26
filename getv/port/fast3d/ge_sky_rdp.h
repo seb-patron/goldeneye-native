@@ -3,7 +3,7 @@
  * GoldenEye's sky is not drawn with F3D vertex/triangle commands. sky.c hand-packs raw
  * RDP triangle commands and passes them through the display list as a run of
  * G_RDPHALF_1 / G_RDPHALF_CONT immediate commands, each carrying 32 bits in w1. The RSP
- * microcode reassembles the halves and pushes them straight into the RDP FIFO. An HLE
+ * Microcode reassembles the halves and pushes them straight into the rdp fifo. An hle
  * renderer like Fast3D only walks the F3D switch, never sees a triangle, and draws no
  * sky at all. This is the same gap GoldenRecomp/RT64 documented and never closed
  * and it is why DAM has a black sky.

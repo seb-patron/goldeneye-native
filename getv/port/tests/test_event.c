@@ -151,7 +151,7 @@ int main(void)
     tick();
     check("steady state is silent",      cap_n, 0);
 
-    /* THE CONTACT DETECTOR IS FED. It shipped with storage, a query and no source, so is_stuck
+    /* The contact detector IS fed. It shipped with storage, a query and no source, so is_stuck
      * answered false forever and read as a measurement. This asserts the source exists, carries
      * the right slot and position, and passes the commanded flag through -- all four, because a
      * call with the wrong slot or a dropped flag would still make the linker happy. */
@@ -183,7 +183,7 @@ int main(void)
     tick();
     check("still near: no repeat",       count_of(GE_EV_GUARD_NEAR), 0);
 
-    /* ---------------- THE HYSTERESIS BAND ----------------
+    /* ---------------- the hysteresis band ----------------
      *
      * 780 is outside NEAR (700) and inside CLEAR (850). The guard has left the near set but has
      * NOT left the band, so nothing should fire. Collapse the two radii and this is where the

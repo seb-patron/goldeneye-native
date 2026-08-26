@@ -6,12 +6,12 @@ The documents' distances are already known wrong -- gen_level_facts.py measured 
 is checkable exactly: "three guards" either matches the Guard records in that level's setup file or
 it does not. This is the pass that decides whether the corpus is trustworthy on anything numeric.
 
-A CLAIM ON `_engine` OR `_mp` IS NOT CHECKABLE AND IS NOT COUNTED AGAINST THE DOCUMENTS. Those
+A claim ON `_engine` OR `_mp` IS not checkable and IS not counted against the documents. Those
 buckets are engine-wide and multiplayer-wide prose; "twenty guards" there is not a statement about
 any particular level's setup file, so scoring it would be inventing a disagreement. Reported
 separately rather than dropped, because how many claims are unanchored is itself worth knowing.
 
-AND THE NOUN MAP IS DELIBERATELY NARROW. guard, door, room, alarm, camera and objective have
+And the noun map IS deliberately narrow. guard, door, room, alarm, camera and objective have
 exact counterparts in data we extract. `car`, `tank`, `brake`, `floor` and `level` do not -- a
 Train carriage is not a record type -- so they are reported UNMAPPED rather than approximated. A
 wrong mapping would manufacture agreement or disagreement out of nothing, which is worse than
@@ -124,7 +124,7 @@ def main():
             if have is None:
                 nodata.append(claim)
                 continue
-            # SCOPE FIRST. A bare "two guards" in prose is almost always a LOCAL observation --
+            # Scope first. A bare "two guards" in prose is almost always a local observation --
             # "there are two guards positioned inside" -- not a census of the level. Comparing it
             # against a level-wide total is a category error, and it is MY error, not the
             # document's.
@@ -163,7 +163,7 @@ def main():
 
     if checked:
         pct = 100.0 * len(agree) / checked
-        # A PERCENTAGE OF ONE IS NOT A RATE. "100% agree" reads as vindication and would be
+        # A percentage OF one IS not A rate. "100% agree" reads as vindication and would be
         # quoted as one; with a single sample it says only that the single sample matched. The
         # sample size travels with the figure so it cannot be separated from it.
         if checked < 5:

@@ -316,7 +316,7 @@ void gePortBootMark(const char *what)
 int ge_log_flush_each = 0;
 void ge_log_flush_now(void);
 
-/* THE fflush HERE WAS THE FRAME RATE, and gating the callers would have been the wrong fix.
+/* The fflush here was the frame rate, and gating the callers would have been the wrong fix.
  *
  * 516 decomp call sites funnel through this function and every one of them forced a flush.
  * Measured on this box a flushed stdout line costs about 24 ms when stdout is redirected to a
@@ -331,7 +331,7 @@ void ge_log_flush_now(void);
  * stdout is given a real buffer and flushed at exit instead. Output still arrives, still in
  * order, and a normal run pays for a handful of writes rather than sixteen hundred.
  *
- * THE FLUSH EXISTED FOR A REASON, so it is still available. A hard crash can lose whatever sits
+ * The flush existed for A reason, so it is still available. A hard crash can lose whatever sits
  * in the buffer, which is exactly when a debug channel matters most -- GETV_LOGFLUSH=1 restores
  * per-line flushing for chasing a hang or a fault. Defaulting it OFF is the right way round
  * because an unreproducible crash is rare and a 7x slowdown is every single run, but the choice
@@ -386,7 +386,7 @@ void ge_log_flush_now(void)
  * the log SHORT, which is a readability win; the SPEED came from the buffering above. Presenting
  * a noisy delta as a speedup is how a placebo gets committed.
  *
- * IT DELIBERATELY DOES NOT COVER ERROR PATHS. osSyncPrintf has 516 call sites and most of them
+ * IT deliberately does not cover error paths. osSyncPrintf has 516 call sites and most of them
  * are the decomp reporting that something went wrong; gating those wholesale is how a failure
  * becomes invisible. Only the sites that report SUCCESSFUL, ROUTINE work are wrapped, and each
  * one was picked by reading it rather than by matching a prefix.

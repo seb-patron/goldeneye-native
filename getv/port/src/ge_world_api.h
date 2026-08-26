@@ -10,7 +10,7 @@
  * flat fixed-width file per level. Twenty levels come to about 80KB in total, so a level's
  * knowledge is loaded once and held for the session.
  *
- * NOTHING HERE ALLOCATES AFTER LOAD and no call parses anything. Every query is a bounds check
+ * Nothing here allocates after load and no call parses anything. Every query is a bounds check
  * and an indexed read, so it is safe to call from a per-tick bot policy.
  */
 #ifndef GE_WORLD_API_H
@@ -129,7 +129,7 @@ typedef struct GeWorldProp {
     int   nav_node;             /* nearest waypoint, or -1 */
     float x, y, z;
 
-    /* HOW BIG IT IS, not just where. A prop reported "278 away" is 278 to its CENTRE, and a bot
+    /* How big IT IS, not just where. A prop reported "278 away" is 278 to its centre, and a bot
      * that still sees room has already walked into the corner of it.
      *
      * hx/hz are half-extents in the model's own frame and are UNROTATED: a long crate at forty-five
@@ -137,7 +137,7 @@ typedef struct GeWorldProp {
      * one of the three safe to use without knowing the prop's orientation. Both are carried so the
      * caller chooses knowingly instead of the pack silently picking one.
      *
-     * 0 MEANS NOT KNOWN, NOT POINT-SIZED. Guards have no model box -- 40 of Train's 342 props --
+     * 0 means not known, not point-SIZED. Guards have no model box -- 40 of Train's 342 props --
      * and a caller reading 0 as "zero-sized" would walk straight into every one of them. Treat 0 as
      * "no extent information" and fall back to the centre, which is what every caller did before
      * these fields existed. */

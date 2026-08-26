@@ -12,10 +12,10 @@
  * then irrelevant. If the lobby server dies mid-match the match carries on, because nothing in a
  * running session depends on it. Any future call from the tick path into this file is a bug.
  *
- * WHAT THIS DELIBERATELY DOES NOT DO
+ * What this deliberately does not DO
  *
  * It does not build the mesh. Both transports already do that themselves and have all along --
- * `ge_net_udp.c` says "FULL MESH, NOT A STAR" at the top of the file, and `ge_net_enet.c` relays
+ * `ge_net_udp.c` says "full mesh, not A star" at the top of the file, and `ge_net_enet.c` relays
  * per-recipient peer tables including an "only the lower slot dials" rule so a pair does not end
  * up with two connections. An earlier version of this work added a second, session-level mesh
  * because NETPLAY.md claimed there was none. There was. It has been removed.
@@ -24,7 +24,7 @@
  * caller can act on -- typically by handing the host's endpoint to whichever transport is being
  * set up, which then does what it already knew how to do.
  *
- * WHY A SOURCE SEAM RATHER THAN A NAKAMA CLIENT
+ * Why A source seam rather than A nakama client
  *
  * Nakama is the adopted answer for lobbies, matchmaking and presence (Apache 2.0, self-hosted, and
  * a large amount of unglamorous work nobody here should be writing). Binding this file to it would

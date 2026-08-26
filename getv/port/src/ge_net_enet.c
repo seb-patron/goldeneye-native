@@ -9,7 +9,7 @@
  * machines have diverged is lockstep logic rather than transport, which is why the transport
  * was behind two function pointers from the start.
  *
- * INPUT IS SENT UNRELIABLE AND UNSEQUENCED, DELIBERATELY.
+ * Input IS sent unreliable and unsequenced, deliberately.
  *
  * Reliable delivery is the wrong tool here and actively harmful: it would hold a packet back
  * until an earlier lost one was resent, which is head-of-line blocking on the one thing that
@@ -18,7 +18,7 @@
  * with no round trip. Asking ENet for reliability on top would add latency to fix a problem
  * that is already fixed.
  *
- * ONLY THE LOWER SLOT DIALS.
+ * Only the lower slot dials.
  *
  * Every machine learns about every other, so without a rule both ends of each pair would call
  * connect and the mesh would carry two connections per pair -- every input arriving twice, and

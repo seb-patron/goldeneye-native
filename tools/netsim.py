@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Executable specification for the lockstep session in getv/port/src/ge_net.c.
 
-WHY THIS EXISTS
+Why this exists
 
 Lockstep has exactly one correctness property: every machine must apply the SAME inputs for the
 same tick. If that holds, the simulations agree. If it does not, they diverge silently -- players
@@ -51,7 +51,7 @@ class Machine:
         self.dups = 0                     # redundant copies of inputs already held
         self.published = {}               # our own slot: tick -> value, for redundant resends
 
-        # PRIME THE PIPELINE. Input is only ever published for tick+delay, so the first `delay`
+        # Prime the pipeline. Input is only ever published for tick+delay, so the first `delay`
         # ticks would never receive input from anybody -- including from this machine itself --
         # and the session would deadlock before it started. Those ticks are seeded with neutral
         # input on every machine, which is safe precisely because every machine seeds them
@@ -149,7 +149,7 @@ def run(n_players, delay, latency, jitter, loss, steps, seed, bots=(),
             # real disagreement rather than two machines rolling different dice.
             local_input = (i * 7919 + m.tick * 104729) & 0xFFFF
             ok, future = m.begin(local_input)
-            # Publish EVEN WHEN STALLED. ge_net.c stores and sends the local input before it
+            # Publish even when stalled. ge_net.c stores and sends the local input before it
             # checks readiness, and that ordering matters: if a stalled machine stopped
             # publishing, every machine waiting on a peer would go quiet and the session would
             # deadlock permanently the first time anything arrived late.
@@ -433,7 +433,7 @@ def run_drop(mode, n_players=3, dead=2, die_at=40, detect_after=(6, 20), steps=2
                     continue
                 if j == dead and step >= die_at:
                     continue        # it is gone; nobody can reach it any more
-                # THE ASYMMETRY THAT CAUSES THE DIVERGENCE. A departing machine's final packets
+                # The asymmetry that causes the divergence. A departing machine's final packets
                 # do not stop everywhere at once: they reach some survivors and not others. So
                 # one survivor holds the dead peer's input for a few more ticks than the other
                 # does, and if each drops the slot when IT notices, they simulate those ticks

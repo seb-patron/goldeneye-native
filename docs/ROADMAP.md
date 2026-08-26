@@ -141,7 +141,7 @@ Two spaces reconciled explicitly on the way: the JSONs are asset space and the m
 is runtime, so Train's spawn reads x=779 where the tile map ends at x=213. `asset = runtime *
 levelscale`.
 
-**Now the bot must ROUTE ON THIS GRAPH** rather than the pad graph. That is M1's real content and
+**Now the bot must route ON this graph** rather than the pad graph. That is M1's real content and
 it is unblocked.
 
 ## S3. Enemy facing: DONE
@@ -159,7 +159,7 @@ questions: "could see me if it turned" is different from "is looking at me", and
 
 ** Done.** The heading is `getsubroty(chr->model)` (model.c:698), **not** `chr->aimsideback`,
 which was my hint and was wrong. aimsideback is an AIM OFFSET applied to a body part while the
-model is drawn, so a cone built on it swings with where a guard POINTS ITS GUN rather than which
+Model is drawn, so a cone built on it swings with where a guard points its gun rather than which
 way it faces, and would have read as roughly right most of the time.
 
 Same shape as `prop->pos` versus `player->pos`, which has now caught us three times: **the
@@ -447,7 +447,7 @@ Ordered by dependency, not appetite. Nothing in a later phase should start while
 is blocking, because every one of them is easier once a bot can be pointed at a level and left
 to run.
 
-## M0. THE ATTRACT-MODE DEMOS: recorded human play, already in the ROM
+## M0. the attract-MODE demos: recorded human play, already in the ROM
 
 Evan asked whether the title-screen gameplay is a bot or a video. **Neither: it is fourteen
 recorded input streams**, in `assets/ramrom/`, decoded by `tools/decode_ramrom.py`:

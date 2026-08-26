@@ -10,11 +10,11 @@ The fix is to put a body at every node and test from there, which needs a runnin
 the other half: given a capture, decide whether to believe it -- offline, before anyone routes on
 it.
 
-WHY THIS EXISTS AT ALL. A percentage is not a verdict. A run that seeds badly still completes and
+Why this exists AT all. A percentage is not a verdict. A run that seeds badly still completes and
 still prints a number, and 98% looks better than 73% while being the more wrong of the two. Every
 check below is a way for a capture to fail LOUDLY that it would otherwise pass quietly.
 
-THE FINISH CONDITION IS ENCODED, NOT DESCRIBED. The queue says Bunker 1's spawn must have no
+The finish condition IS encoded, not described. The queue says Bunker 1's spawn must have no
 walkable edge to the portal at ~1109 units and must have one along the corridor toward the door.
 Written down, that is prose someone has to check by eye; written here, it is a test that fails.
 

@@ -314,8 +314,8 @@ cmd_lib() {
   # setup/e and setup/j are the PAL and Japanese setup tables. They hold the same eight
   # filenames as setup/u, and uniquify_asset_symbols.py namespaces by file stem, so seven of
   # the eight end up defining identical globals in all three directories -- UsetupcradZ_padlist
-  # and so on. Compiling all three lets the linker bind CRADLE, SILO, DESTRUCTION, JUNGLE,
-  # TRAIN, STATUE and the multiplayer ARCHIVES to whichever copy it saw first, which is
+  # And so on. Compiling all three lets the linker bind Cradle, Silo, destruction, Jungle,
+  # Train, Statue and the multiplayer Archives to whichever copy it saw first, which is
   # alphabetically e/, the PAL data, in a VERSION_US build. The same applies to the top-level
   # `stagesetup UsetuplenZ`, which the engine looks up by name and so is deliberately left
   # unprefixed. Nothing outside those two directories references their symbols and

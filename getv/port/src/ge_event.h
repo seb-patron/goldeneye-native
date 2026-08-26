@@ -6,7 +6,7 @@
  * player died, when the level changed -- and those are exactly the transitions polling is worst
  * at: sample on the wrong frame and the boundary is silently missed.
  *
- * DERIVED EVENTS AND AUTHORITATIVE ONES ARE NOT THE SAME THING, and this header says which is
+ * Derived events and authoritative ones are not the same thing, and this header says which is
  * which rather than blurring them.
  *
  * Everything here is DERIVED: the port polls what it can already read -- stage number, player

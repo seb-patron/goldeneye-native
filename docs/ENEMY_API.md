@@ -96,7 +96,7 @@ static int gePortEnemyAt(int index, f32 *out, int count)
     out[12] = (f32) chr->chrnum;
     out[13] = (chr->actiontype != ACT_DEAD) ? 1.0f : 0.0f;    /* per chr.c:202 */
 
-    return 1 | 2 | 4 | 8;   /* POSITION | HEALTH | ALERT | BELIEF */
+    Return 1 | 2 | 4 | 8;   /* position | health | alert | belief */
 }
 ```
 

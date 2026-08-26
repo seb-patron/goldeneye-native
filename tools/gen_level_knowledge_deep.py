@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 """Mine the FULL structure of the per-level walkthrough documents, not just their JSON blocks.
 
-WHAT WAS LEFT ON THE FLOOR. ingest_walkthroughs.py recovers embedded JSON blocks -- 199 of them --
+What was left ON the floor. ingest_walkthroughs.py recovers embedded JSON blocks -- 199 of them --
 and gen_level_facts.py consolidated those. But the blocks are a small part of the material: Train's
 document is 43,831 characters of which the JSON is a fraction. The rest is STRUCTURED PROSE, and
 the structure is machine-readable if you look at it:
 
-    109  ALLCAPS labels          FORWARD, IN COVER, ENTER CAR, LOCATE BRAKE, DESTROY BRAKE
-     59  numbered items          "4. CAR 1 - REAR CARGO CAR", "5. CARGO CRATES ARE NOT DECORATION"
+    109  allcaps labels          forward, IN cover, enter car, locate brake, destroy brake
+     59  numbered items          "4. car 1 - rear cargo car", "5. cargo crates are not decoration"
      44  bullets
      13  embedded JSON blocks
      10  key: value attributes   "LENGTH: ~29 m"
 
-THE LABEL SEQUENCE IS A PROCEDURE. Train's runs ENTER CAR -> CLEAR COMBAT SPACE -> LOCATE BRAKE
--> DESTROY BRAKE -> PROGRESS. That is a bot's objective loop for the level, written down, and
+The label sequence IS A procedure. Train's runs enter car -> clear combat space -> locate brake
+-> destroy brake -> progress. That is a bot's objective loop for the level, written down, and
 nothing was reading it. The numbered items are the level's own outline. Together they give a
 per-level index of what the document knows and where to find it.
 
-THIS EMITS AN INDEX, NOT A COPY. Sections carry a title, a line range and a size; labels carry
+This emits AN index, not A copy. Sections carry a title, a line range and a size; labels carry
 their text and how often they occur; attributes carry a name and a value. The prose stays in the
 source document -- the point is to make it addressable, so a later tool or a person can go to
 train.walkthrough.json line 412 rather than re-read 43,831 characters.
 
-AND NOTHING HERE IS GROUND TRUTH. Same rule as the rest of this pipeline: these are a
+And nothing here IS ground truth. Same rule as the rest of this pipeline: these are a
 document's assertions. gen_level_facts.py already established that its metres are 1.46x the
 engine's, so its topology and vocabulary are usable and its distances are not.
 
-OUTPUT STAYS OUT OF GIT -- build/ is ignored and .gitignore names the intent.
+Output stays out OF git -- build/ is ignored and .gitignore names the intent.
 """
 import argparse
 import collections
@@ -69,7 +69,7 @@ def mine(text):
 
         if RE_CAPS.match(line):
             t = line.strip()
-            # ASCII diagram rows ("CAR A       CAR B") collapse runs of spaces so the label reads
+            # Ascii diagram rows ("car A       car B") collapse runs of spaces so the label reads
             # as one token rather than as accidental whitespace structure.
             t = re.sub(r"\s{2,}", " | ", t)
             caps[t] += 1

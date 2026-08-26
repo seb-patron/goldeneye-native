@@ -74,7 +74,7 @@ ST_FMT  = "<HHffffH2x"                # from_node, to_node, dist, heading, turn,
 
 # ---- level scale: the reason nothing lined up -------------------------------------------------
 #
-# THE ASSETS AND THE RUNNING GAME ARE IN DIFFERENT COORDINATE SPACES, and everything packed
+# The assets and the running game are IN different coordinate spaces, and everything packed
 # before this was in the wrong one.
 #
 # bg.c's levelinfotable carries a per-level `levelscale`, applied at load by setLevelScale, and

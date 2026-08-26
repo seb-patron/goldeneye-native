@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """S7: does the derived wall set block a step the ENGINE considers walkable?
 
-ANSWERED, AND THE ANSWER INVALIDATES THIS TOOL'S PREMISE. READ THIS BEFORE QUOTING ITS NUMBER.
+Answered, and the answer invalidates this tool'S premise. read this before quoting its number.
 
 A waypoint link does NOT promise a clear straight line. It promises REACHABILITY. Traced through
 the decompilation rather than guessed:
@@ -12,7 +12,7 @@ the decompilation rather than guessed:
   chr.c:1468    the guard then moves toward that pad through a collision-tested step:
                 stanTestLineUnobstructed AND stanTestVolume, before every move it commits to.
 
-That last one settles it. IF AN EDGE GUARANTEED A CLEAR STRAIGHT LINE, THE PER-STEP COLLISION TEST
+That last one settles it. IF AN edge guaranteed A clear straight line, the per-STEP collision test
 WOULD BE POINTLESS. The engine tests because it does not assume, and a guard plots a course around
 what it finds.
 
@@ -27,18 +27,18 @@ The one genuine defect it found stands: the wall set contains DUPLICATE segments
 edge emitted once from each side.
 
 
-WHY THE ENGINE'S LINKS ARE THE RIGHT TEST. Validating walls against OUR generated routes only asks
+Why the engine'S links are the right test. Validating walls against our generated routes only asks
 whether two of our own derivations agree -- if the tile graph and the wall set share a mistake, they
 agree loudly and prove nothing. g_CurrentSetup.pathwaypoints is different in kind: each link is a
 hand-authored assertion by people who could playtest that a guard walks from this node to that one.
 A wall crossing one of those is either a flaw in the wall derivation or a doorway the gap-cutting
 missed, and both are worth knowing.
 
-THIS MEASURES; IT DOES NOT FIX. tools/gen_level_walls.py is the and is deliberately not
+This measures; IT does not fix. tools/gen_level_walls.py is the and is deliberately not
 touched. A number and the worst offenders are more use to its author than a patch from someone who
 did not write it.
 
-SHARED ENDPOINTS ARE NOT CROSSINGS. Waypoint links very often begin or end ON a wall -- a node
+Shared endpoints are not crossings. Waypoint links very often begin or end ON a wall -- a node
 against a corridor wall is normal, not a fault -- so an intersection within EPS of either segment's
 endpoint is ignored. Counting those would report most links as blocked and the number would be
 about the geometry convention rather than about the walls.
@@ -89,7 +89,7 @@ def wall_segments(w):
                 if isinstance(p, (list, tuple)) and isinstance(q, (list, tuple)):
                     segs.append((float(p[0]), float(p[-1]), float(q[0]), float(q[-1]), yv))
         elif isinstance(s, (list, tuple)) and len(s) >= 4:
-            # THE FIFTH ELEMENT IS THE FLOOR HEIGHT, AND DROPPING IT MAKES THIS AUDIT MEANINGLESS.
+            # The fifth element IS the floor height, and dropping IT makes this audit meaningless.
             #
             # gen_level_walls.py emits [x1, z1, x2, z2, y]. The first version of this file sliced
             # s[:4] and tested in plan view, which lets a wall on one deck block a link on another.

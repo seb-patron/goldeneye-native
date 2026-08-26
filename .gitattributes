@@ -1,0 +1,25 @@
+# Normalise line endings in the repository. The port is developed on macOS and Windows at once,
+# and without this a file that crosses between them shows up as a whole-file diff with no content
+# change, which buries real edits and has already caused work to look reverted when it was not.
+* text=auto eol=lf
+
+# Windows-native script hosts want CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary, so git leaves them alone.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ttf binary
+*.otf binary
+*.z64 binary
+*.n64 binary
+*.v64 binary
+*.bin binary
+*.wav binary
+
+# Generated patches carry their own exact bytes; re-ending them would stop them applying.
+*.patch -text

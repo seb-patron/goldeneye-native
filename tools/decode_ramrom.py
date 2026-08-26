@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """Decode GoldenEye's own attract-mode demos: recorded HUMAN input, with the RNG seed.
 
-WHAT THESE ARE
+What these are
 
 The title screen plays real gameplay when left alone, and it is not a video. `assets/ramrom/`
 holds fourteen recorded input streams -- Dam, Facility x3, Runway x2, Bunker 1 x2, Silo x2,
 Frigate x2 and Train -- each a `ramromfilestructure` header followed by per-frame controller
 records.
 
-WHY THIS MATTERS MORE THAN IT SOUNDS, twice over:
+Why this matters more than IT sounds, twice over:
 
-1. GROUND TRUTH FOR NAVIGATION. A person walked these levels correctly and the game kept the
+1. ground truth for navigation. A person walked these levels correctly and the game kept the
    inputs. Every path question we have been guessing at -- which way out of the first carriage,
    how close you stand to a door, when to fight rather than walk -- is answered here by someone
    who could see the screen.
 
-2. A DETERMINISM TEST WE DID NOT HAVE TO BUILD. The stream interleaves seed records
+2. A determinism test WE did not have TO build. The stream interleaves seed records
    {speedframes, count, randseed, check}, and ramromreplay aborts playback when the running RNG
    disagrees. That is exactly the check netplay needs, already written, with fourteen recorded
    cases to run it against -- and `gePlayerSeedFingerprint` already exposes our side of it.

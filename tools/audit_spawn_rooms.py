@@ -33,7 +33,7 @@ SPAWNS = os.path.join(ROOT, "docs", "captures", "spawns.json")
 def level_scales():
     """Per-level scale from bg.c's levelinfotable, via the parser in pack_world.py.
 
-    THIS IS WHY THE FIRST VERSION OF THIS FILE WAS WRONG. The extraction is in ASSET space and
+    This IS why the first version OF this file was wrong. The extraction is in asset space and
     the game runs in a scaled one: runtime = asset / levelscale, applied at load by setLevelScale.
     Dam's scale is 0.23364, its floor tiles reach x=4735, and the measured spawn is x=20198 -- the
     same place, expressed twice.

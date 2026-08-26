@@ -6,11 +6,11 @@
  * room it is not looking at.
  *
  * This is the other half: who is actually here right now, how hurt they are, whether they have
- * noticed anyone, and -- the part that matters most for deciding to retreat -- WHERE THEY THINK
+ * Noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
  * THEIR TARGET IS. The game already tracks all of it per character; none of it was reachable from
  * a bot or a mod.
  *
- * WHY THE BELIEF FIELDS ARE THE INTERESTING ONES
+ * Why the belief fields are the interesting ones
  *
  * `believed_*` is the enemy's own record of where it last knew its target to be, and `saw_*_ago`
  * says how stale that is. The gap between what an enemy believes and what is true is the entire
@@ -26,7 +26,7 @@
  * A bot that only knows enemy POSITIONS can fight. A bot that knows what enemies believe can
  * disengage, flank, and bait -- and those are the behaviours that read as intelligent.
  *
- * THE SOURCE IS INSTALLED, NOT LINKED
+ * The source IS installed, not linked
  *
  * The live data lives in ChrRecord (bondtypes.h:2454-2591), and the port layer is compiled
  * without the decomp's include path, so it cannot name that type. The established bridge in this

@@ -125,7 +125,7 @@ class Player:
             self.queue.append("d 26")
             return "s 40"
 
-        # AVOID THE FURNITURE. The nearest-of-each-kind lines say where to GO; they never mention
+        # Avoid the furniture. The nearest-of-each-kind lines say where to GO; they never mention
         # the crate two metres ahead, because a crate is nobody's landmark. The near list does,
         # and steering round it is the difference between walking the carriage and standing in
         # it. Anything solid within a body's stopping distance and roughly ahead gets stepped

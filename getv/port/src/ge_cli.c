@@ -1,6 +1,6 @@
 /* Play GoldenEye from a terminal, through the API alone.
  *
- * WHY THIS IS THE REAL TEST OF THE API
+ * Why this IS the real test OF the API
  *
  * A bot that walks into a wall tells you very little: the policy might be poor, or the policy
  * might be fine and unable to perceive the wall. Those need different fixes and the bot cannot
@@ -148,7 +148,7 @@ static void ge_cli_report(int frame)
     if (!gePlayerStateGet(ge_cli_slot, &st) || !st.present) { return; }
 
     printf("\n--- f%d ---\n", frame);
-    /* WHERE IN THE MAP, not just what is in front.
+    /* Where IN the map, not just what is in front.
      *
      * Every other line here is relative to facing, which is the right form for acting on one
      * thing and the wrong form for holding a picture. A reader given only bearings has to
@@ -237,7 +237,7 @@ static void ge_cli_report(int frame)
         }
     }
 
-    /* EVERYTHING NEARBY, not just the landmarks worth walking to.
+    /* Everything nearby, not just the landmarks worth walking to.
      *
      * The nearest-of-each-kind lines answer "where should I go". They do not answer "what am I
      * about to walk into", and those are different questions: a crate two metres ahead never
@@ -283,7 +283,7 @@ static void ge_cli_report(int frame)
             }
         }
         for (i = 0; i < count; i++) {
-            /* THE RADIUS TURNS A DISTANCE INTO A SURFACE. "crate 278 away" is 278 to its CENTRE,
+            /* The radius turns A distance into A Surface. "crate 278 away" is 278 to its centre,
              * so a reader with room to spare has already walked into the corner of it; with
              * "radius 120" the same line says the surface is at 158.
              *

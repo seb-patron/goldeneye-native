@@ -10,7 +10,7 @@ Written 2026-08-19 by `getv-assets`. All paths relative to repo root unless abso
 ## 0. The headline
 
 > **Almost every FUNCTION on the level-load path is already real code. The holes are
-> DATA and TWO NON-COMPILING TRANSLATION UNITS, not missing logic.**
+> data and two non-COMPILING translation units, not missing logic.**
 
 32 functions on the path were checked against `getv/port/src/ge_link_stubs.c`. **Zero of
 them are stubs.** The only stubbed symbols on the path are data:
@@ -64,7 +64,7 @@ lv.c:341  lvlStageLoad(stage)
    |     |                    romCopy(target, &fileentry->hw_address[offset], len)
    |     |                    port_assets.c:123 romCopy = memcpy + range guard
    |     |      GUARDED BY  `if (rom_size != 0)` -- rom_size is 0 for every bg
-   |     |                  file (see §3.2), so THIS CALL IS A SILENT NO-OP
+   |     |                  file (see §3.2), so this call is a silent no-op
    |     |
    |     +-- bg.c:829  ptr_bgdata_room_fileposition_list =
    |     |                 BG_SEG_TO_PTR(ptr_bg_data, ((s32*)ptr_bg_data)[1])
@@ -278,7 +278,7 @@ Both compiled natively by the same compiler → offset 8 on both. Consistent.
 `tile_0` sits at 0x14 = 20 bytes in, which matches `8 + 8 + 4`. Confirms the header
 layout too.
 
-### 4.2 `stagesetup` and the setup record structs - asset layout, but ALSO SAFE. VERIFIED.
+### 4.2 `stagesetup` and the setup record structs - asset layout, but also safe. verified.
 
 `stagesetup` (bondtypes.h:3997) is 10 pointers. On the N64 the file stored 10 × `u32`
 offsets. In this build `assets/obseg/setup/UsetupdamZ.c` is:

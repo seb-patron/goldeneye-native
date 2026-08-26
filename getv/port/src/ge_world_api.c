@@ -1,6 +1,6 @@
 /* World knowledge at runtime. See ge_world_api.h for what this is for.
  *
- * READ BY EXPLICIT OFFSET, NEVER BY CASTING TO A STRUCT.
+ * Read BY explicit offset, never BY casting TO A struct.
  *
  * The file is written by tools/pack_world.py with fixed field widths and no padding. Casting a
  * byte pointer to a C struct would work on the compilers this happens to build with and break

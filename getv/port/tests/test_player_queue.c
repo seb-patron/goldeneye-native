@@ -7,14 +7,14 @@
  *
  * Three properties matter more than the rest, and all three fail quietly:
  *
- *   A LATE POST IS REFUSED, NOT DROPPED. In netplay a post for a tick that has already run IS the
+ *   A late post IS refused, not dropped. In netplay a post for a tick that has already run IS the
  *   desync. A caller that cannot tell "applied" from "too late" has no way to notice one.
  *
- *   AN EXPIRED HOLD GOES NEUTRAL, NOT "the last thing forever". A button left down indefinitely
+ *   AN expired hold goes neutral, not "the last thing forever". A button left down indefinitely
  *   produces exactly one press and then blocks the idle timers several screens rely on, so a bot
  *   that stopped posting would wedge the front end rather than idle.
  *
- *   A FULL QUEUE IS ALSO A REFUSAL. Silently overwriting the oldest entry would make a bot that
+ *   A full queue IS also A refusal. Silently overwriting the oldest entry would make a bot that
  *   over-posts look like a bot with a planning bug.
  *
  * The real playback hook is driven here rather than the pieces, so tick advance, queue promotion,
@@ -69,7 +69,7 @@ static void check(const char *what, int got, int want)
 
 /* One frame of the real hook.
  *
- * THE ARGUMENT IS joy.c's 20-DEEP SAMPLE RING, NOT ONE SAMPLE. ge_playback computes
+ * The argument IS joy.c's 20-DEEP sample ring, not one sample. ge_playback computes
  * `index = (curlast + 1) % 20` and writes samples[index], so handing it a single struct puts a
  * whole contsample past the end of the buffer.
  *
@@ -134,7 +134,7 @@ int main(void)
     check("hold tick 1",                  run_frame(0), 55);
     check("hold tick 2",                  run_frame(0), 55);
     check("hold tick 3",                  run_frame(0), 55);
-    /* THE ONE THAT MATTERS: not "the last thing forever". */
+    /* The one that matters: not "the last thing forever". */
     check("expired hold goes NEUTRAL",    run_frame(0), 0);
     check("  and stays neutral",          run_frame(0), 0);
 

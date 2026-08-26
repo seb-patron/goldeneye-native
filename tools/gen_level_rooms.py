@@ -14,7 +14,7 @@ neighbours. Same room means a clear line far more often than not; different, unl
 a wall. It is the game's own occlusion structure, sitting in assets/obseg/stan, and nothing has
 been reading it.
 
-WHAT THIS PRODUCES
+What this produces
 
   - room id per waypoint and per prop, by nearest tile
   - a room adjacency graph, built from tile links that cross a room boundary
@@ -251,7 +251,7 @@ STAN_STEM = {
 def floor_under(tiles, pos):
     """Height of the floor a body at `pos` would stand on, or None if nothing is beneath it.
 
-    WHY THIS IS EMITTED AT ALL: the runtime edge validator has to seed each line-of-sight
+    Why this IS emitted AT all: the runtime edge validator has to seed each line-of-sight
     test from a stan tile, and the engine's own lookup SNAPS to the nearest standable tile -- which
     can be on the far side of a wall. Seeded three different ways, the same 2926 Bunker 1 pairs
     came out 98%, 73% and 0% walkable. Those are not three estimates; they are one measurement and
@@ -262,7 +262,7 @@ def floor_under(tiles, pos):
     node's surface -- detectable per edge, offline, before spending a run on it. It cannot prove an
     edge walkable; it says which seeds to distrust.
 
-    HIGHEST CONTAINED TILE AT OR BELOW THE POINT. Not the lowest, and the distinction is the whole
+    Highest contained tile AT OR below the point. Not the lowest, and the distinction is the whole
     function. Taking the lowest reports a pad on cradle's antenna platform as standing 2078 units
     above its floor, because the tile under it in plan view is the ground far below. Real
     containment, wrong question. See tools/audit_route_heights.py, where that cost two corrections.
@@ -592,7 +592,7 @@ def main():
             if t["is_floor"]:
                 floor_by_room.setdefault(t["room"], []).append(t)
 
-        # WHICH COMPONENT EACH TILE IS IN, so a portal can bridge to a room's MAIN BODY rather
+        # Which component each tile IS IN, so a portal can bridge to a room's main body rather
         # than to whatever tile happens to sit nearest its opening.
         #
         # Bunker 1 is why. Room 30 has 226 tiles and exactly one portal, and the nearest tile to
@@ -688,7 +688,7 @@ def main():
                                 min(p[2] for p in t["poly3"]), max(p[0] for p in t["poly3"]),
                                 max(p[1] for p in t["poly3"]), max(p[2] for p in t["poly3"])]}
                       for t in tiles if not t["is_floor"]],
-            # THE FLOOR TILES, WITH THEIR HEIGHTS. These were classified here and then thrown
+            # The floor tiles, with their heights. These were classified here and then thrown
             # away, which is how a navigation mesh derived from stan reached the router as a flat
             # drawing: every node carried a y and nothing could route on it.
             #
@@ -708,11 +708,11 @@ def main():
             #   bb XZ footprint, [minx, minz, maxx, maxz] -- adjacency and containment in plan
             #      view, which is what a walking body meets
             #
-            # NOTE FOR CONSUMERS: this y is the FLOOR, not a body position. On Bunker 1 they
+            # Note for consumers: this y is the floor, not a body position. On Bunker 1 they
             # differ by 157 units (pos.y=329 against a floor at 172), so comparing a player
             # position to one of these directly reports a phantom cliff in every direction at
             # once. Measured by the Mac build, who lost a test cycle to it.
-            # THE LINKS ARE THE NAVIGATION MESH AND THEY WERE BEING THROWN AWAY.
+            # The links are the navigation mesh and they were being thrown away.
             #
             # parse_stan has always read each tile's links to its neighbours; they were used to
             # derive ROOM adjacency and then discarded. That is the game's own account of where a

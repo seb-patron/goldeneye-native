@@ -70,6 +70,6 @@ The port exposes seams so the game can be driven, observed and extended from out
 ## Research
 
 [`research/`](research/) holds ten documents on the N64 hardware, GoldenEye's own systems and
-the wider decomp ecosystem. Every claim in them is tagged VERIFIED, CONTESTED or FOLKLORE, and
+The wider decomp ecosystem. Every claim in them is tagged verified, contested or folklore, and
 each carries an explicit note on what could not be established. They exist so nobody has to
 rediscover this the expensive way.

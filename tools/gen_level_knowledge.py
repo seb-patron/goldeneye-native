@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extract per-level knowledge from the setup assets into machine-readable JSON.
 
-WHY THIS AND NOT A WALKTHROUGH
+Why this and not A walkthrough
 ------------------------------
 The obvious way to give a bot level knowledge is to scrape FAQs. That is the wrong source
 twice over.
@@ -17,7 +17,7 @@ setup files carry the real thing:
     padlist            named positions with world coordinates, e.g. "p256d2"
     pad3dlist          bounded pads (volumes rather than points)
     pathwaypoints      waypoint -> pad, i.e. where each navigation node actually is
-    path_table_N       per-waypoint neighbours: THE NAVIGATION GRAPH
+    Path_table_N       per-waypoint neighbours: the navigation graph
     pathsets           a much coarser REGION graph over waygroups -- NOT navigation
     patrolpaths        authored guard routes
     propDefs           every object placed in the level, doors included
@@ -177,7 +177,7 @@ def parse_waypoints(text, stem):
     for i, mm in enumerate(re.finditer(r"\{\s*(0x[0-9a-fA-F]+|-?\d+)\s*,", body)):
         tok = mm.group(1)
         pad = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
-        # STOP AT THE -1 TERMINATOR. bondtypes.h documents pathwaypoints as a -1 terminated
+        # Stop AT the -1 terminator. bondtypes.h documents pathwaypoints as a -1 terminated
         # array, and the terminator was being emitted as a real waypoint on EVERY level: Train
         # reported 105 nodes where the engine has 104, Dam 206 against 205, and so on. It survived
         # because it looks like a plain data hole -- one waypoint whose pad will not resolve --
@@ -268,7 +268,7 @@ def parse_props(text):
     pat = re.compile(
         r"/\*\s*Type\s*=\s*(\w+)\s*;\s*index\s*=\s*(\d+)\s*\*/[^\n]*\n"
         r"(\s*[^\n]*?\)\))\s*,\s*_mkword\(\s*(\d+)\s*,\s*(\d+)\s*\)")
-    # EXTRASCALE IS THE PROP'S SCALE, AND IT IS IN THE SETUP FILE ALL ALONG.
+    # Extrascale IS the prop'S scale, and IT IS IN the setup file all along.
     #
     # propobj.c:78 records that sub_GAME_7F051F30 computes `scale = extrascale * (1/256)`, so 256
     # means 1.0. The model bounding boxes in assets/obseg/prop are MODEL space and are useless as
@@ -697,7 +697,7 @@ def build(name, stem, stage_id, mission, path):
     #                 Collectable and 28 as a StandardProp; without this they would be identical.
     #   levelscale    model boxes are runtime-proportioned and this file is ASSET space.
     #
-    # EMITTED IN ASSET SPACE, like every other length here. pack_world.py applies
+    # Emitted IN asset space, like every other length here. pack_world.py applies
     # runtime = asset / levelscale to every position it packs, and these ride the same conversion.
     # Emitting runtime lengths beside asset positions is the "half in one space" failure its own
     # comment warns about.

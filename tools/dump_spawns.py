@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Record where each level ACTUALLY puts the player, by booting it and asking the game.
 
-WHY THIS EXISTS
+Why this exists
 
 gen_level_routes.py has to pick a start node for every route, and it has no way to know where
 the player spawns -- the setup's start pads are inside the ROM data the extractor reads, but
@@ -16,7 +16,7 @@ units from anything on its path. Measured before this tool existed:
     bunker2   assumed (-1293, 100, 1557)  actual (-3404, 167, 4539)     off by ~3,600
     dam       assumed (-1393, -5, -689)   actual (20198, 60, 16902)     off by ~26,000
 
-DAM IS THE INTERESTING ONE. 26,000 units is not a wrong pad in the right level, it is a
+Dam IS the interesting one. 26,000 units is not a wrong pad in the right level, it is a
 different coordinate space -- the graph's extent is nowhere near those numbers. Fixing the spawn
 alone will not fix Dam; its whole waypoint set needs checking against world coordinates first.
 

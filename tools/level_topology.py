@@ -10,7 +10,7 @@ cheap to measure, and nothing in the pack said it.
 
 It came out of a human reconstruction of Train that Evan supplied, which described the level as
 six cars on one axis with no branching. Our own extraction agrees to within wall thickness -- 53
-doors spanning 22,244 units on X against 752 on Z -- which makes the document a CHECK ON OUR DATA
+Doors spanning 22,244 units on X against 752 on Z -- which makes the document a check ON our data
 as much as a source, and it is the third independent confirmation of the levelscale fix.
 
 WHAT IT MEASURES

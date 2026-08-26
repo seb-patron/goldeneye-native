@@ -77,7 +77,7 @@ UDID="$(sim_udid)"
 APP="$GETV/build-sim-$SLOT-dd/Build/Products/Release-appletvsimulator/Goldeneye-Native.app"
 [ -d "$APP" ] || { echo "no app at $APP"; exit 1; }
 
-# This must be an export, not a `${VAR:+NAME=VAL}` command prefix. Bash recognises
+# This must be an export, not a `${var:+name=val}` command prefix. Bash recognises
 # assignment prefixes before parameter expansion, so the expanded string is treated as a
 # command: an MP run then dies with "SIMCTL_CHILD_GETV_MP=2: command not found" and an
 # 85-byte log that the parser scores as SILENT-HANG, making the six MP-only arenas look

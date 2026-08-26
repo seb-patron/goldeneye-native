@@ -147,7 +147,7 @@ cmd_lib() {
   done < <(audio_sources)
   printf 'libultra audio: %d built, %d failed\n' "$uok" "$ufail"
 
-  # The software RSP. Deliberately NOT built with CFLAGS: it is port code, it wants
+  # The software rsp. Deliberately not built with cflags: it is port code, it wants
   # the system <string.h>/<stdint.h>, and the decomp's include/ shadows those.
   if clang -target arm64-apple-tvos17.0 -isysroot "$SDK" \
        -I "$HERE/port/include" -I "$HERE/port/audio" \

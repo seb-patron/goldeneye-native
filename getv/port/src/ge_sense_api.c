@@ -38,7 +38,7 @@ int geSenseAhead(float x, float z, float heading_deg, float reach, GeSenseContac
     /* Sampled outward rather than one test to the far end, because "blocked somewhere along
      * here" is not actionable and "blocked in 60 units" is. The first blocked sample also gives
      * the last CLEAR point, which is where a body would actually come to rest. */
-    /* Each segment is tested from the LAST CLEAR POINT, not from the origin.
+    /* Each segment is tested from the last clear point, not from the origin.
      *
      * Testing every sample from the start point makes anything near the body block the whole ray,
      * in every direction at once -- a bot pressed against a crate reported OBJECT at 50 units on
@@ -117,7 +117,7 @@ int geSenseWatchers(int player_slot)
 
 /* ---------------------------------------------------------------- 1a: attention
  *
- * REQUIRED GAME-SIDE ACCESSOR. A view cone needs the character's facing, and nothing exposes it.
+ * Required game-SIDE accessor. A view cone needs the character's facing, and nothing exposes it.
  * Declared here the same way gePortSenseLine is, so the shape is agreed before the shim exists:
  *
  *     int gePortEnemyFacing(int chr_index, float *out_deg);
@@ -154,7 +154,7 @@ unsigned int geSenseNoticedBy(int enemy_index, int player_slot)
      * would make a bot confident in front of someone who is halfway to shooting it. */
     if ((e.fields & GE_EN_ALERT) && e.alertness > 0) { bits |= GE_NOTICE_ALERT; }
 
-    /* THE CONE. Absent facing is reported as UNKNOWN rather than as facing-away, because those
+    /* The cone. Absent facing is reported as unknown rather than as facing-away, because those
      * lead to opposite behaviour: one means walk behind it, the other means do not assume you
      * can. A build without the shim must not read as "nobody is looking". */
     if (gePortEnemyFacing(enemy_index, &facing)) {
@@ -288,7 +288,7 @@ int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSens
 
 /* ---------------------------------------------------------------- 1d: what can I act on
  *
- * REQUIRED GAME-SIDE ACCESSOR, same arrangement as the facing one above:
+ * Required game-SIDE accessor, same arrangement as the facing one above:
  *
  *     int gePortUsableAt(int index, float *out);   out[0..2] xyz, out[3] kind, out[4] prop id
  *     int gePortUsableCount(void);
@@ -300,7 +300,7 @@ int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSens
 extern int gePortUsableCount(void);
 extern int gePortUsableAt(int index, float *out);
 
-/* WEAK FALLBACKS so the port links before the game side exists.
+/* Weak fallbacks so the port links before the game side exists.
  *
  * These are the ONLY two accessors it is safe to default, and the distinction matters. A
  * placeholder gePortPlayerMovePad would have silently disabled the two-pad movement fix while the

@@ -1,6 +1,6 @@
 /* Deterministic lockstep over the player-input seam.
  *
- * WHY THIS SHAPE
+ * Why this shape
  *
  * ge_player_api already posts input per slot per tick and refuses a post for a tick that has
  * already run. That refusal is not a bot concern -- it is precisely the netplay failure it
@@ -17,7 +17,7 @@
  * time to deliver it. Rollback hides more latency and would need full save/restore of game
  * state, which is a far larger change and not worth reaching for before measuring.
  *
- * THE TRANSPORT IS NOT HERE ON PURPOSE. Knowing when a tick is ready, when to stall and when
+ * The transport IS not here ON purpose. Knowing when a tick is ready, when to stall and when
  * the machines have diverged is not a socket concern, and keeping it separate means the hard
  * part can be tested with no I/O at all.
  */
@@ -57,7 +57,7 @@ static struct {
     unsigned long last_sync_tick;
     unsigned int  last_local_fp;
 
-    /* SESSION-RELATIVE TICK NUMBERING.
+    /* Session-RELATIVE tick numbering.
      *
      * Everything on the wire is numbered from zero at session open, not by gePlayerTick().
      * The game tick is per-machine: two players who joined a minute apart are thousands of
@@ -124,7 +124,7 @@ int geNetOpen(GeNetTransport *transport, int local_slot, int delay_ticks)
 
     gePlayerApiInit();
 
-    /* PRIME THE PIPELINE, or the session deadlocks before it starts.
+    /* Prime the pipeline, or the session deadlocks before it starts.
      *
      * Input is only ever published for tick+delay, so the first `delay` ticks would never
      * receive input from anybody -- including from this machine itself -- and every slot would
@@ -471,7 +471,7 @@ int geNetTickBegin(const GePlayerInput *local_input)
     /* Publish ours for the delayed tick, and keep a local copy: we are a peer to ourselves and
      * must not depend on the network echoing our own input back.
      *
-     * THIS HAPPENS BEFORE THE READINESS CHECK AND MUST STAY THERE. A stalled machine still has
+     * This happens before the readiness check and must stay there. A stalled machine still has
      * to publish; if it went quiet while waiting, then the moment anything arrived late every
      * machine would be waiting on a peer that had stopped talking, and the session would
      * deadlock permanently rather than recover. tools/netsim.py reproduces exactly that when

@@ -5,7 +5,7 @@
  * anything about GoldenEye's internals -- it reads knowledge, reads state, posts input -- which
  * is the same shape a network peer or a learning agent has.
  *
- * THE STEERING LAW IS THE ONE VALIDATED IN tools/routesim.py, constants included.
+ * The steering law IS the one validated IN tools/routesim.py, constants included.
  *
  * Turn and walk at once, with forward speed scaled DOWN by heading error. That scaling is
  * essential rather than a refinement: turning radius is speed over turn rate, about 114 units
@@ -13,7 +13,7 @@
  * radius and orbits its own waypoint instead. The model measures that as 29 of 61 routes failed
  * with the scaling removed. Do not "simplify" it away.
  *
- * HEADING COMES FROM THE GAME.
+ * Heading comes from the game.
  *
  * gePortPlayerAngle (objective_status.c, where `struct player` is visible) returns the collision
  * record's forward vector as degrees -- the same vector the walk code builds its move offset
@@ -156,7 +156,7 @@ static float ge_br_norm180(float a)
 
 /* Is there really a door in front of us, or did the ray just clip a door frame?
  *
- * geSenseLine reports WALL|DOOR|OBJECT together whenever the ray grazes a doorway edge, and
+ * GeSenseLine reports wall|door|object together whenever the ray grazes a doorway edge, and
  * taking the DOOR bit from that made the bot drive into a wall with the action button held --
  * for an entire run, while its actual target sat at a bearing of -60. The bitmask says what the
  * line touched, not what is in front of you.
@@ -179,7 +179,7 @@ static int ge_br_door_ahead(const GePlayerState *st, float to_target_bearing)
     off_heading = ge_br_norm180(bearing - st->angle);
     if ((float) fabs((double) off_heading) > 45.0f) { return 0; }
 
-    /* AND IT HAS TO BE ON THE WAY.
+    /* And IT has TO BE ON the way.
      *
      * A door within 200 units and in front of the bot is not automatically the route: Train's
      * carriages have doors down both sides, so the bot stood pressing USE on a side door while
@@ -255,7 +255,7 @@ static void ge_br_nav_build(void)
     fflush(stdout);
 }
 
-/* AIM AT AN EDGE OF THE OBSTACLE, NOT AT "SOMEWHERE OPEN".
+/* Aim AT AN edge OF the obstacle, not AT "somewhere open".
  *
  * Ported from Perfect Dark's chrNavTryObstacle. PD does not sweep for a clear heading: it takes
  * the two ends of the thing that blocked it and goes round one of them, pushed outward by a
@@ -309,7 +309,7 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
     return found;
 }
 
-/* THE FLIGHT RECORDER.
+/* The flight recorder.
  *
  * The trace prints every sixtieth frame, which is fine for watching and useless for answering
  * "it turned right there and it should have turned left". That question needs every decision, in
@@ -359,7 +359,7 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
     fprintf(ge_br_log, "%d\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
             frame, event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
-    /* NOT FLUSHED PER ROW. Measured on Windows, a flushed line at ~24 ms there -- 516
+    /* Not flushed per row. Measured on Windows, a flushed line at ~24 ms there -- 516
      * osSyncPrintf sites were costing it seven times its frame rate -- and this recorder writes
      * a row on EVERY tick. Flushing each one does not just run slow, it changes the thing being
      * measured: two runs of the same build logged 1,539 and 9,521 frames in the same wall clock,
@@ -368,7 +368,7 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
     if ((++ge_br_log_rows & 511) == 0) { fflush(ge_br_log); }
 }
 
-/* THE HEADING THE GAME ITSELF PERMITS.
+/* The heading the game itself permits.
  *
  * gePortPathClear is the engine's own answer -- stanTestLineUnobstructed for the run, then
  * stanTestVolume at the far end for the body's width -- and it is a better authority than either
@@ -484,7 +484,7 @@ void gePortBotRouteInit(void)
     }
     ge_br_recentre = (getenv("GETV_BOT_NEWSWEEP") != NULL);
     ge_br_use_nav  = (getenv("GETV_BOT_NAV") != NULL);
-    /* OFF UNTIL IT WINS. The edge model is the right idea and it now genuinely fires -- 173
+    /* Off until IT wins. The edge model is the right idea and it now genuinely fires -- 173
      * blocking props reported against 4 misses, where the first version using the stan mesh
      * reported 114 misses out of 114 because stan is the FLOOR and crates are not in it. But
      * measured on Train it reaches step 7 where the sweep it replaces reaches 11.
@@ -499,7 +499,7 @@ void gePortBotRouteInit(void)
     ge_br_log_open(e);
     ge_br_load_brief(e);
 
-    /* WHAT THE ENGINE ITSELF THINKS THE NAV GRAPH IS.
+    /* What the engine itself thinks the nav graph IS.
      *
      * Reported once at init because it settles a question our own routing has been guessing at:
      * GoldenEye ships a waypoint graph in the level setup and the guards route on it. If it is
@@ -914,7 +914,7 @@ steer:
     if (align < 0.0f) { align = 0.0f; }
     in.stick_y = (signed char) (GE_BR_WALK * align);
 
-    /* LOOK BEFORE WALKING.
+    /* Look before walking.
      *
      * Everything below this used to be reactive: walk at the waypoint, notice after thirty ticks
      * that nothing moved, then guess. That is why the bot walked into a crate, turned, and walked
@@ -934,7 +934,7 @@ steer:
         if (geSenseAheadForBody(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
             && ((c.what & GE_SENSE_SOLID) || (c.what & GE_SENSE_DOOR))) {
 
-            /* COMMIT TO A RESPONSE AND HOLD IT.
+            /* Commit TO A response and hold IT.
              *
              * Deciding afresh every tick is what pinned the bot: 53 units from a doorway the
              * sensor alternated DOOR and OBJECT, so it alternated "walk through" and "steer
@@ -1075,7 +1075,7 @@ steer:
             in.stick_y = (signed char) GE_BR_WALK;
         } else if (in.stick_y > 0 && moved < (GE_BR_MOVE_EPSILON * GE_BR_MOVE_EPSILON)) {
             ge_br_stuck++;
-            /* TRY THE DOOR FIRST. Turning away from a closed door is the wrong move and it looks
+            /* Try the door first. Turning away from a closed door is the wrong move and it looks
              * exactly like the right one -- the bot makes progress along a wall and comes back.
              * Trying the button costs 45 ticks and settles it. */
             if (ge_br_stuck == GE_BR_STUCK_TICKS / 2) {
@@ -1102,7 +1102,7 @@ steer:
                                                 float *out_y, int *out_room);
                 extern int gePortProbeWalkable(float from_x, float from_z,
                                                float to_x, float to_z);
-                /* THE FULL CIRCLE, not a forward cone.
+                /* The full circle, not a forward cone.
                  *
                  * A cone of +/-110 degrees cannot consider retreating, and a bot pressed into a
                  * corner has its heading pointed at the wall by definition -- so every direction
@@ -1227,7 +1227,7 @@ steer:
         }
     }
 
-    /* ASK THE DOOR, THE WAY THE GUARDS DO -- ON A TIMER, NOT ON A SENSOR VERDICT.
+    /* Ask the door, the way the guards DO -- ON A timer, not ON A sensor verdict.
      *
      * First attempt put this inside the branch that fires when the sensor says DOOR, and it never
      * ran once in a whole Train run: at the place the bot actually stops, the sensor says OBJECT.
@@ -1259,7 +1259,7 @@ steer:
         }
     }
 
-    /* GROUND TRUTH, LOGGED WHERE THE INPUT ACTUALLY LEAVES.
+    /* Ground truth, logged where the input actually leaves.
      *
      * The steer row above records what the steering block WANTED, and several branches below it
      * overwrite stick_x afterwards -- so reading the steer rows alone tells you the bot asked for

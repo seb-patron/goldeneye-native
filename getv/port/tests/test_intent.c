@@ -66,7 +66,7 @@ int main(void)
         { GE_STYLE_SOLITARE,  "1.2 Solitare",  Z_TRIG,          L_TRIG | R_TRIG, 1 },
         { GE_STYLE_KISSY,     "1.3 Kissy",     A_BUTTON,        Z_TRIG,          1 },
         { GE_STYLE_GOODNIGHT, "1.4 Goodnight", A_BUTTON,        Z_TRIG,          1 },
-        /* EVERY STYLE IS DRIVABLE, INCLUDING THE TWO-PAD ONES.
+        /* Every style IS drivable, including the two-PAD ones.
          *
          * This column said 0 for 2.x when the file was written, on the theory that a slot whose
          * movement axis lives on a second pad cannot be driven. That was wrong and it was the
@@ -101,7 +101,7 @@ int main(void)
         check(buf, gePlayerSlotIsDrivable(0), cases[i].drivable);
     }
 
-    /* THE REGRESSION THIS FILE EXISTS FOR. On Domino, FIRE must not become Z_TRIG: the game reads
+    /* The regression this file exists for. On Domino, fire must not become Z_TRIG: the game reads
      * pad 1's Z_TRIG as AIM there (5365), insightaimmode goes true, and canNaturalTurn goes false
      * at 5385 -- which switches off yaw at 6394 while strafe at 6069 keeps running. The old code
      * returned Z_TRIG here and that is precisely how a firing bot lost its steering. */

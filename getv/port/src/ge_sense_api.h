@@ -1,6 +1,6 @@
 /* What is around a player, and who can see them.
  *
- * The knowledge APIs answer where things ARE. This answers what is IN THE WAY and who is looking
+ * The knowledge APIs answer where things are. This answers what is IN the way and who is looking
  * -- the questions a bot has to ask every tick and could not ask at all until now.
  *
  * The distinction matters more than it sounds. gePortProbeWalkable returns yes or no, so a policy
@@ -26,7 +26,7 @@
 /* What actually stops a body and will not move on its own.
  *
  * GE_SENSE_BODY is deliberately NOT in here, and that is not a judgement call about tactics --
- * the line starts at the asking position, so THE ASKER'S OWN COLLISION SETS IT. Every reading
+ * The line starts at the asking position, so the asker'S own collision sets IT. Every reading
  * came back with BODY, every direction read blocked, and geSenseClearestHeading found nothing
  * open anywhere on the map. Steering decisions must use this mask; deciding whether to shoot
  * something can look at BODY on its own. */
