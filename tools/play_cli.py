@@ -81,6 +81,8 @@ class Player:
         self.shots = {}
         self.aimed = {}
         self.grabs = {}
+        self.no_path = False
+        self.tried_use = 0
         self.path_fine = False
 
     transcript = None
@@ -238,15 +240,26 @@ class Player:
             if tdist < 500 and self.shots.get(tag, 0) < 24:
                 if abs(tturn) > 12:
                     return self.why("shoot-target", self.turn_cmd(max(-60, min(60, tturn))))
-                # AIM DOWN FIRST. The brake unit is mounted low on the wall beside the door --
-                # the walkthrough is explicit and a screenshot of the crosshair confirms it:
-                # firing level puts the rounds in the panel above the box. The pitch is spent
-                # once per target rather than every shot, since it holds between rounds.
-                if not self.aimed.get(tag):
-                    self.aimed[tag] = True
-                    return self.why("aim-down", "down 14")
-                self.shots[tag] = self.shots.get(tag, 0) + 1
-                return self.why("shoot-target", "fire")
+                # AIM DOWN, EVERY SHOT, AND KEEP GOING DOWN UNTIL IT COUNTS.
+                #
+                # The brake unit is mounted low on the wall beside the door, and firing level
+                # puts every round in the panel above it -- the walkthrough says so and two
+                # screenshots of the crosshair show it. Pitching once per target was not enough:
+                # the view recentres, so one "down" early in a volley is spent long before the
+                # rounds that matter.
+                #
+                # The pitch escalates because the right angle depends on how close we are, and
+                # nothing in the report gives the target's height. Start shallow, deepen every
+                # few shots, and let the damage reading say when it is right.
+                # AIM MODE, NOT A GLANCE DOWN. The C-button look tilts a few degrees and
+                # recentres; against a box mounted at knee height eighty units away it never got
+                # the crosshair onto the target -- measured, with the object's own damage
+                # counter: 559 readings, damage taken zero, across a run that fired two dozen
+                # times. "snipe" holds the aim button with the stick down and fires, which is
+                # what a person does for a small low target.
+                n = self.shots.get(tag, 0)
+                self.shots[tag] = n + 1
+                return self.why("snipe", "snipe %d" % (10 + (n % 4) * 6))
 
         # WHAT THE DEAD WERE CARRYING. Guards drop what they hold, and on Train that includes the
         # key a locked door wants. Collecting it is only sensible once nothing is shooting, which
@@ -355,6 +368,23 @@ class Player:
             if abs(wturn) > 25:
                 return self.why("follow-path", self.turn_cmd(max(-60, min(60, wturn))))
             return self.why("follow-path", "w %d" % max(30, min(90, int(wd // 12))))
+
+        # WHEN THE FLOOR SEARCH GIVES UP, TRY THE HANDLE.
+        #
+        # "nothing reachable gets any nearer" is a statement about standable ground, and a closed
+        # door has none behind it -- so a carriage divider looks exactly like a dead end to the
+        # search. The report's Door line does not help here either: the world pack lists one door
+        # on the whole level, 3,825 units away, while the thing 339 units ahead is reported only
+        # as "object".
+        #
+        # Pressing the action button costs a keypress and is what a person does when they walk
+        # into something that ought to open. Bounded, because if it were a door it would have
+        # opened, and standing at a wall pressing use is the failure this whole file exists to
+        # avoid repeating.
+        if self.no_path and ahead_d < 420 and self.tried_use < 30:
+            self.tried_use += 1
+            self.no_path = False
+            return self.why("try-door", "use 40")
 
         # BLOCKED IN FRONT IS NOT THE SAME AS BLOCKED ON THE WAY.
         #
@@ -465,6 +495,7 @@ class Player:
         if RE_NOPATH.match(line):
             self.state["path"] = []
             self.path_asked = False
+            self.no_path = True
             return
         m = RE_OBJ.match(line)
         if m:

@@ -68,6 +68,13 @@ static float ge_cli_map_cell;
 static int   ge_cli_path_now;
 static float ge_cli_path_cell;
 
+/* Where the mission actually wants us next: the nearest target still standing. The objective's
+ * own point is the LAST of its targets, which on Train is at the far end of the train, so routing
+ * to it walks past five brake units on the way to the sixth. */
+static float ge_cli_goal_x, ge_cli_goal_z;
+static int   ge_cli_goal_ok;
+static const char *ge_cli_move[8];
+
 static float ge_cli_norm180(float a)
 {
     while (a > 180.0f)  { a -= 360.0f; }
@@ -114,7 +121,7 @@ static void ge_cli_setup(void)
                           == GE_CLI_FILE_TYPE_PIPE);
 #endif
     gePlayerClaim(ge_cli_slot, GE_SLOT_INJECTED);
-    printf("[cli] playing slot %d. commands: w/s/a/d/up/down <ticks>, use, fire, crouch, stand, look, map, path, stop, quit\n",
+    printf("[cli] playing slot %d. commands: w/s/a/d/up/down <ticks>, use, fire, snipe, aimdown, aimup, crouch, stand, look, map, path, tags, stop, quit\n",
            ge_cli_slot);
     fflush(stdout);
 }
@@ -149,6 +156,14 @@ static void ge_cli_command(const char *line)
      * Train's brake units are mounted low on the wall beside each door, and a player firing
      * straight ahead at one puts every round in the panel above it. */
     else if (strcmp(verb, "down") == 0) { ge_cli_buttons = GE_IN_LOOK_DOWN; }
+    /* AIM MODE, pointed down, firing. The C-button look tilts the view a little and recentres;
+     * aim mode is what a player uses for a small target, and it is the only way to put the
+     * crosshair on something mounted at knee height. stick_y is the aim axis while GE_IN_AIM is
+     * held, and the deadzone in aim mode is 60 counts -- which is why this is -80 and not -20. */
+    else if (strcmp(verb, "snipe") == 0) { ge_cli_buttons = GE_IN_AIM | GE_IN_FIRE;
+                                           ge_cli_sy = -80; }
+    else if (strcmp(verb, "aimdown") == 0) { ge_cli_buttons = GE_IN_AIM; ge_cli_sy = -80; }
+    else if (strcmp(verb, "aimup") == 0)   { ge_cli_buttons = GE_IN_AIM; ge_cli_sy =  80; }
     else if (strcmp(verb, "up") == 0)   { ge_cli_buttons = GE_IN_LOOK_UP; }
     else if (strcmp(verb, "crouch") == 0) { ge_cli_buttons = GE_IN_CROUCH_DOWN; }
     else if (strcmp(verb, "stand") == 0)  { ge_cli_buttons = GE_IN_CROUCH_UP; }
@@ -156,6 +171,24 @@ static void ge_cli_command(const char *line)
     else if (strcmp(verb, "map") == 0)  { ge_cli_hold = 0; ge_cli_map_now = 1;
                                           ge_cli_report_now = 1;
                                           ge_cli_map_cell = given ? (float) n : 0.0f; }
+    else if (strcmp(verb, "tags") == 0) {
+        /* Which setup tags actually resolve to a live object. The world pack's tags come from the
+         * extractor; objFindByTagId works off the setup's own tag records, and if the two number
+         * things differently then every live-state question asked by tag silently answers "no
+         * such object" -- which is indistinguishable from "not destroyed" unless you look. */
+        extern int gePortTargetState(int tag, int *destroyed, float *dmg, float *maxdmg);
+        int t, found = 0;
+        printf("tags   resolving:");
+        for (t = 0; t < 256; t++) {
+            int dead = 0; float dmg = 0.0f, maxd = 0.0f;
+            if (gePortTargetState(t, &dead, &dmg, &maxd)) {
+                printf(" %d%s", t, dead ? "(dead)" : "");
+                found++;
+            }
+        }
+        printf("%s\n", found ? "" : " none");
+        ge_cli_hold = 0;
+    }
     else if (strcmp(verb, "path") == 0) { ge_cli_hold = 0; ge_cli_path_now = 1;
                                           ge_cli_report_now = 1;
                                           ge_cli_path_cell = given ? (float) n : 0.0f; }
@@ -178,6 +211,13 @@ static int ge_cli_objective_point(float *out_x, float *out_z)
 {
     GeWorldObjective ob;
 
+    /* The nearest live target wins when there is one: it is the next thing to do, and the
+     * objective's point is only the last of them. */
+    if (ge_cli_goal_ok) {
+        if (out_x != NULL) { *out_x = ge_cli_goal_x; }
+        if (out_z != NULL) { *out_z = ge_cli_goal_z; }
+        return 1;
+    }
     if (!geWorldObjective(0, &ob)) { return 0; }
     if (out_x != NULL) { *out_x = ob.tx; }
     if (out_z != NULL) { *out_z = ob.tz; }
@@ -504,20 +544,45 @@ static void ge_cli_report(int frame)
 
         n = geWorldPropCount();
         for (i = 0; i < n; i++) {
+            extern int gePortTargetState(int tag, int *destroyed, float *dmg, float *maxdmg);
             float dx, dz, d;
+            int dead = 0;
+
             if (!geWorldProp(i, &tp)) { continue; }
             if (tp.tag < 0) { continue; }
             if (tp.kind == GE_PROP_DOOR || tp.kind == GE_PROP_KEY
                 || tp.kind == GE_PROP_COLLECTABLE) { continue; }
+            /* A destroyed target is not a target. The pack lists it forever, so without this the
+             * nearest one stays nearest for the rest of the level and a player keeps firing into
+             * the wreck of the thing it already killed. */
+            if (gePortTargetState(tp.tag, &dead, NULL, NULL) && dead) { continue; }
             dx = tp.x - st.x;
             dz = tp.z - st.z;
             d = (float) sqrt((double) (dx * dx + dz * dz));
             if (best < 0 || d < best_d) { best_d = d; best = i; }
         }
         if (best >= 0 && geWorldProp(best, &tp)) {
-            printf("target tag %-4d #%-4d %5.0f away, turn %+.0f, room %d\n",
+            extern int gePortTargetState(int tag, int *destroyed, float *dmg, float *maxdmg);
+            ge_cli_goal_x = tp.x;
+            ge_cli_goal_z = tp.z;
+            ge_cli_goal_ok = 1;
+            int dead = 0;
+            float dmg = 0.0f, maxd = 0.0f;
+
+            printf("target tag %-4d #%-4d %5.0f away, turn %+.0f, room %d",
                    tp.tag, best, (double) best_d,
                    (double) ge_cli_rel(st.x, st.z, tp.x, tp.z, st.angle), tp.room);
+            /* Live, not from the pack. The pack will report this prop forever; only the object
+             * knows whether it is still there to shoot. */
+            if (gePortTargetState(tp.tag, &dead, &dmg, &maxd)) {
+                /* Both numbers, always, and unlabelled beyond their field names. The two are
+                 * not what they sound like: propobj.c accumulates damage taken INTO maxdamage
+                 * for this object type, so guessing which is the threshold is how a reader
+                 * decides a healthy object is nearly dead. Print what is there. */
+                if (dead) { printf("  DESTROYED"); }
+                printf(", damage=%.0f maxdamage=%.0f", (double) dmg, (double) maxd);
+            }
+            printf("\n");
         }
     }
 
@@ -623,6 +688,37 @@ static void ge_cli_report(int frame)
             if ((e.fields & GE_EN_HEALTH) && e.health <= 0.0f) { state = "  DYING"; }
             else if (geSenseVisibleTo(i, ge_cli_slot))         { state = "  SEES YOU"; }
 
+            /* BOND HAS A CONE TOO, and it is not a guess: chrpropScoreAutoAimTarget works in
+             * SCREEN SPACE, from 25% to 75% of the frame's width, which at the game's field of
+             * view is about 30 degrees either side of centre. Inside that box the game will help
+             * you aim; outside it, a shot is your own problem. A report that says a guard is
+             * "SEES YOU" without saying whether you can see IT describes half a fight.
+             *
+             * And whether it is closing. One report says where a guard is; two say what it is
+             * doing, and walking into a room where two of four are already advancing is a
+             * different situation from one where they are holding. */
+            {
+                static struct { int id; float d; } last[24];
+                static int last_n;
+                int k, seen_before = -1;
+                const char *move = "";
+
+                for (k = 0; k < last_n; k++) {
+                    if (last[k].id == e.id) { seen_before = k; break; }
+                }
+                if (seen_before >= 0) {
+                    float delta = d - last[seen_before].d;
+                    if (delta < -40.0f)     { move = ", CLOSING"; }
+                    else if (delta > 40.0f) { move = ", backing off"; }
+                    else                    { move = ", holding"; }
+                    last[seen_before].d = d;
+                } else if (last_n < 24) {
+                    last[last_n].id = e.id;
+                    last[last_n].d = d;
+                    last_n++;
+                }
+                ge_cli_move[shown] = move;
+            }
             printf("enemy  #%-3d %4.0f away, turn %+.0f", e.id, (double) d,
                    (double) ge_cli_rel(st.x, st.z, e.x, e.z, st.angle));
             /* Remaining over threshold, not a percentage. Guards on Train report more remaining
@@ -632,7 +728,12 @@ static void ge_cli_report(int frame)
             if (e.fields & GE_EN_HEALTH) { printf(", hp %.0f/%.0f", (double) e.health,
                                                   (double) e.max_health); }
             if (e.fields & GE_EN_ALERT)  { printf(", alert %d", e.alertness); }
-            printf("%s\n", state);
+            {
+                float b = ge_cli_rel(st.x, st.z, e.x, e.z, st.angle);
+                if (b < 0.0f) { b = -b; }
+                printf("%s%s%s\n", (b <= 30.0f) ? ", IN YOUR SIGHTS" : ", outside your view",
+                       ge_cli_move[shown], state);
+            }
         }
         shown++;
     }
