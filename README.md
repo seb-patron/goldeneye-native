@@ -178,6 +178,20 @@ The full list is [`docs/ROADMAP.md`](docs/ROADMAP.md). The headline items:
 
 - **True widescreen, 16:9 and 21:9 ultrawide.** Aspect-aware projection rather than fitting the
   4:3 view into a wider window, with the HUD and watch laid out for the real aspect.
+- **HD fonts.** The HUD, the watch and the menus draw from font tables the decompilation names,
+  so the glyphs are addressable rather than baked into a screenshot. Higher resolution faces are a
+  matter of supplying them and letting the existing text path scale.
+
+- **VR.** The groundwork is already here and is the unusual part: the camera is a position and a
+  pair of vectors this port already substitutes at render time for interpolation, so injecting a
+  per-eye view transform is the same seam. What VR needs beyond that is stereo rendering, a head
+  pose source, and a control scheme that does not assume a fixed body direction. Listed because
+  the hooks exist, not because it works.
+
+- **Android.** SDL2 underneath, a platform layer already separated from the game, and a GLES path
+  in the renderer. The missing pieces are the toolchain, a touch or gamepad input map, and the
+  asset pipeline running on device.
+
 - **HD texture packs.** The Perfect Dark port loads replacement textures from an `ext_tex` folder
   beside the game data, and the same approach fits here: the renderer already knows every texture
   by name because the decompilation names them.

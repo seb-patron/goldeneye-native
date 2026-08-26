@@ -633,3 +633,27 @@ decomp team.
 - Run the control. Never sample a trace with `tail -1`.
 - **A third writer edits this repo** under the same git identity. Check `git log` before
   assuming your tree is yours.
+
+## Presentation and platform targets
+
+**HD fonts.** The HUD, watch and menus draw from font tables the decompilation names
+(`assets/font/fontBankGothic.c`, `fontZurichBold.c`), so glyphs are addressable rather than baked
+into an image. Supplying higher resolution faces and letting the existing text path scale is the
+work. Done when one replaced face renders at a higher resolution with layout unchanged.
+
+**VR hooks.** The camera is already substituted at render time for interpolation
+(`gePortCamInterp` in bondview2.c), which is exactly the seam a per-eye view transform needs. What
+is missing is stereo rendering, a head pose source and a control scheme that does not assume the
+body faces where the view does. Done when the same frame renders twice from two eye transforms.
+
+**Android.** SDL2 is already underneath, the platform layer is already separated from the game,
+and the renderer has a GLES path. Missing: the toolchain, a touch or gamepad input map, and the
+asset pipeline running on device. Done when a stage boots and is playable on hardware.
+
+**HD texture packs.** The Perfect Dark port loads replacements from an `ext_tex` folder
+(`vendor/pd-ext/port/src/video.c:98`). The decompilation names every texture, so the same approach
+fits. Done when one replaced texture renders from a folder with the original intact on disk.
+
+**True widescreen, 16:9 and 21:9.** The renderer fits the 4:3 view to the window, so a wider
+window does not show more of the level. Done when it does, with the HUD and watch placed for the
+real aspect.
