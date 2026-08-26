@@ -342,6 +342,13 @@ void gePortRenderDisplayList(void *firstGdl)
             extern void gePortCliFrame(int frame);
             gePortCliFrame(rendered);
         }
+
+        /* Says which route steps the engine considers impossible, before any policy is blamed
+         * for failing them. Inert unless GETV_ROUTE_AUDIT is set. */
+        {
+            extern void gePortRouteAuditFrame(int frame);
+            gePortRouteAuditFrame(rendered);
+        }
     }
 
     /* Recorded human play from the ROM's attract-mode demos, fed through the same seam as the
