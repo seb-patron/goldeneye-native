@@ -4,7 +4,7 @@
  * can already answer honestly, and none of them guesses at something only the game knows. A
  * derived "player gone" is the slot no longer reporting a position -- that covers death, but it
  * also covers a level transition and a frame where the pointer is momentarily unset, so it is
- * Named gone rather than died. Naming it died would be a claim the data does not support, and a
+ * named gone rather than died. Naming it died would be a claim the data does not support, and a
  * learning agent scoring deaths off it would be scoring level loads too.
  *
  *   GETV_EVENT_TRACE=1   log every event as it fires

@@ -6,7 +6,7 @@
  * room it is not looking at.
  *
  * This is the other half: who is actually here right now, how hurt they are, whether they have
- * Noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
+ * noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
  * THEIR TARGET is. The game already tracks all of it per character; none of it was reachable from
  * a bot or a mod.
  *

@@ -14,7 +14,7 @@
  * The measurement must not perturb what it measures. Reading a query result with
  * GL_QUERY_RESULT blocks until the GPU has finished, which inserts exactly the pipeline stall this
  * code exists to detect -- it would report a busy GPU no matter what was true, and it would be
- * Self-fulfilling. Results are therefore read several frames late and only after
+ * self-fulfilling. Results are therefore read several frames late and only after
  * GL_QUERY_RESULT_AVAILABLE says so. If a result is not ready, it is skipped rather than waited
  * for.
  *

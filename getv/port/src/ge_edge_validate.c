@@ -5,7 +5,7 @@
  * Every graph edge in this project has been an assumption. The waypoint links come from pad
  * adjacency, the spawn and door and portal links come from proximity, and the only walkability
  * test available offline is triangle intersection against exported wall polygons. That test
- * Disagrees with the game: it passes the Bunker 1 spawn-to-portal line that
+ * disagrees with the game: it passes the Bunker 1 spawn-to-portal line that
  * bondviewTestLineUnobstructed refuses, so the router kept choosing a 1136-unit leap through a
  * wall over the 555-unit walk to the door, and the bot pressed into that wall every run.
  *

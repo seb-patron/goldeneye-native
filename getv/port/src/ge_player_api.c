@@ -47,7 +47,7 @@ extern int  gePortPlayerPos(int idx, f32 *out);
  * This list used to stop at GOODNIGHT, reasoning that the two-controller styles are forced back to
  * HONEY at three or more players (front.c:4800-4803). The rule is real; the conclusion was wrong
  * in the case that matters. The guard is `numplayers >= 3`, so at one or two players a 2.x style
- * Survives untouched -- and this port defaults to 2.2 galore, so in practice every slot is on one.
+ * survives untouched -- and this port defaults to 2.2 galore, so in practice every slot is on one.
  *
  * Naming all nine is not enough on its own: see gePlayerSlotIsDrivable, where treating "two pad"
  * as "cannot be driven" disabled every bot on every level. Two-pad is a routing fact, not a

@@ -17,7 +17,7 @@
  * The platform matrix:
  *
  *   macOS       $HOME/Library/Application Support/<app>
- *               Hand-built rather than delegated to SDL_GetPrefPath. SDL would in
+ *               hand-built rather than delegated to SDL_GetPrefPath. SDL would in
  *               fact return the same directory here, but going through it would make
  *               the Mac path depend on tvOS's choice -- see the note in port_save.c.
  *               This branch is byte-for-byte the code that used to be inline. It is the
