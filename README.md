@@ -44,9 +44,11 @@ and change.
 internal resolution, and a real CRT treatment with scanlines, aperture mask, barrel curve and
 vignette as four independent terms rather than a preset. All off until you turn them on.
 
-**A programmable game.** The port exposes seams the original never had: read player and enemy
-state, post input per slot per tick, query the level's geometry and objectives. Bots are built on
-those seams, and so is anything else you want to build.
+**A complete game API.** This is the part nothing else has. Read player state, enemy state and
+belief, every prop, door, objective and collectable in the level, and the engine's own navigation
+graph. Post input per player, per tick, with frame accuracy. It is enough to play GoldenEye from
+outside the game: `tools/play_cli.py` drives a mission from a terminal through the API alone, and
+the bots are wiring on top of the same seam. Anything that can read a socket can play this.
 
 **A crouch key.** The original makes you hold aim and push down.
 
@@ -97,11 +99,16 @@ is what this is. You supply your own ROM dump and the build reads the assets out
 **Is there co-op in the single-player missions?** Yes, two to four players in split screen, and
 it is alpha. See the state section below.
 
-**Does it run at 60fps? Can it run higher?** It renders at 60 by default and 30 is the more
-faithful setting. Above 60 is refused on purpose, and the reason is interesting rather than
-lazy: GoldenEye's timestep is whole video frames, so rendering faster without telling the game
-runs guards, rate of fire and ammunition drain at double speed. Uncapping it properly needs a
-fixed simulation tick with interpolated presentation, which is a roadmap item.
+**How fast does it run?** Uncapped with `GETV_VSYNC=0 GETV_FPS=0`, this machine measures 354 to
+562 fps on an M-series Mac and a Surface Pro 3 manages 100 to 138. The renderer is not the
+limit.
+
+Gameplay is a different question, and the honest answer is the interesting one. GoldenEye's
+timestep is whole video frames, so rendering faster also runs guards, rate of fire and ammunition
+drain faster. `framerate=30` already pairs with `GETV_TICKFIELDS=2` to tick the simulation at 30 Hz
+while game time runs at real speed, which is most of the accounting problem solved. What remains
+is rendering several frames per tick with interpolation between them, and that is the roadmap item
+that turns 500 fps of renderer into 500 fps of game.
 
 **Is there widescreen?** Resolution is fully configurable, but changing the window aspect does not
 widen the field of view: the renderer fits the 4:3 view to whatever shape the window is. True
@@ -113,8 +120,12 @@ aspect-aware widescreen and ultrawide are roadmap items, listed below.
 the source itself.
 
 **Does it run on Steam Deck, Raspberry Pi, Android or iPhone?** Linux builds run where Linux runs,
-so a Deck is a Linux build. An Apple TV target exists in the tree. Android and iOS are not
-supported and are not claimed.
+so a Deck is a Linux build. An Apple TV target builds from this tree today.
+
+iOS and Android are coming and are not here yet. The groundwork is: SDL2 underneath, a platform
+layer already split from the game, an Apple TV target proving the ARM and touch-free path, and a
+renderer that already targets GLES. What is missing is the shipping work, not the architecture.
+Nothing mobile is distributed and nothing mobile is claimed as working.
 
 **Do I need the ROM?** Yes, your own copy. Nothing in this repository contains game data and
 nothing ever will.
@@ -141,9 +152,14 @@ driven slot travels 1,779 units with input and 0 without, while the other is una
 not adapted is everything the campaign authors around a single Bond, which is objectives, AI and
 cutscenes. Two wrong conclusions on the way there are written up in [`docs/COOP.md`](docs/COOP.md).
 
-**Frame timing is fixed at the source rather than patched from outside.** The bug that has broken
-every previous attempt to run this game above 30fps is understood and documented in
+**Frame timing is fixed at the source rather than patched from outside**, and half the decoupling
+work is done: `framerate=30` ticks the simulation at 30 Hz while game time runs at real speed, so
+the frame-counted systems run at the cadence they were tuned for. The bug that has broken every
+previous attempt to run this game above 30fps is documented in
 [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
+
+**Uncapped, this machine renders at 354 to 562 fps** with `GETV_VSYNC=0 GETV_FPS=0`, and a Surface
+Pro 3 manages 100 to 138. [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) has the Windows table.
 
 **Bots are two separate things.** Eighteen archetypes compile into the game's own AI bytecode, 596
 bytes for all of them, in the instruction set the campaign already runs. Separately, a
@@ -155,21 +171,25 @@ seam. [`docs/NETPLAY.md`](docs/NETPLAY.md) argues for lockstep and
 [`docs/PLAYER_API.md`](docs/PLAYER_API.md) argues against it from measurements. Streets is verified
 nondeterministic across processes. Both documents are kept and both say so.
 
-**Windows performance went from 2.99 to 100-138 fps** on a Surface Pro 3, and almost none of that
-came from rendering. [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) has the table.
-
 ## Roadmap
 
 The full list is [`docs/ROADMAP.md`](docs/ROADMAP.md). The headline items:
 
 - **True widescreen, 16:9 and 21:9 ultrawide.** Aspect-aware projection rather than fitting the
   4:3 view into a wider window, with the HUD and watch laid out for the real aspect.
-- **A fixed simulation tick with interpolated presentation**, which is what uncapping the frame
-  rate above 60 actually requires.
+- **Rendering several frames per simulation tick, with interpolation.** The field accounting is
+  already done: `framerate=30` ticks the simulation at 30 Hz while game time runs at real speed.
+  This is the other half, and it is what turns a 500 fps renderer into a 500 fps game.
+- **HD texture packs.** The Perfect Dark port loads replacement textures from an `ext_tex` folder
+  beside the game data, and the same approach fits here: the renderer already knows every texture
+  by name because the decompilation names them.
 - **Online play**, once the determinism audit settles the lockstep question.
+- **iOS and Android.** SDL2, a platform layer already separated from the game, an Apple TV target
+  that builds today, and a GLES path in the renderer. The architecture is there; the shipping is
+  not.
 - **Co-op the campaign was never written for**: objectives, AI and cutscenes adapted for more
   than one Bond.
-- **A Metal backend** for macOS, and mobile targets after that.
+- **A Metal backend** for macOS.
 
 ## Bring your own ROM
 

@@ -136,6 +136,16 @@ Neither value is correct for everything. Sixty renders smoothly and runs frame-c
 fast; thirty runs gameplay at the right cadence and renders less smoothly. Having both right at
 once needs a fixed simulation tick with interpolated presentation, which this build does not have.
 
+### Vsync
+
+`GETV_VSYNC=0` releases the swap interval. Vsync is on by default and there was previously no way
+to turn it off, which pinned the frame rate to the display no matter what `framerate` said: an
+uncapped build measured 55 fps on a 60 Hz panel. With it released the same build measures 354 to
+562 fps.
+
+Gameplay is still coupled to the render rate, so this makes the game run faster as well as look
+smoother. It is for benchmarking and for high-refresh displays, not a free win.
+
 The rejection lives in the configuration layer only. `GETV_FPS=120` in the environment still
 reaches the pacing code untouched, as does `GETV_TICKFIELDS`, which overrides the pairing above.
 
