@@ -1442,6 +1442,21 @@ steer:
      * (botactGetShootInterval60 paces every weapon). A held trigger empties the clip during a
      * turn and leaves nothing for the guard behind it.
      */
+    /* GETV_BOT_WALK=1: hold full forward and nothing else.
+     *
+     * A timing benchmark needs the physics without the policy. The follower's own decisions vary
+     * run to run, so comparing distance travelled across simulation dividers with routing enabled
+     * measures the routing as much as the timestep. This walks in a straight line and lets the
+     * distance per wall-clock second be the whole answer. */
+    if (getenv("GETV_BOT_WALK") != NULL) {
+        memset(&in, 0, sizeof in);
+        in.stick_y = (signed char) GE_BR_WALK;
+        ge_br_logf((int) frame, "post", -1, -1, st.x, st.z, ge_br_heading, 0.0f, 0.0f,
+                   0, (int) in.stick_y, "walk");
+        gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
+        return;
+    }
+
     if (ge_br_fight) {
         GeEnemy tgt;
         int idx = ge_br_pick_target(st.x, st.y, st.z, &tgt);
