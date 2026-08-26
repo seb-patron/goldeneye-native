@@ -46,11 +46,11 @@ static int ge_lane_trace(void)
 
 /* Rewrites (*tx, *tz) to a reachable aim point and returns the offset applied, or 0 when the
  * target needed no help -- which is the common case and costs exactly one query. */
-float gePortRouteLane(float px, float pz, float *tx, float *tz)
+float gePortLaneOffset(float px, float pz, float *tx, float *tz)
 {
     float dx, dz, len, nx, nz, mag;
 
-    if (!ge_lane_on() || tx == NULL || tz == NULL) { return 0.0f; }
+    if (tx == NULL || tz == NULL) { return 0.0f; }
 
     if (gePortPathClear(px, pz, *tx, *tz) == 1) { return 0.0f; }
 
@@ -92,4 +92,17 @@ float gePortRouteLane(float px, float pz, float *tx, float *tz)
         fflush(stdout);
     }
     return 0.0f;
+}
+
+
+/* The same answer, but only when the route bot has been told to use it.
+ *
+ * The report always wants to know the way past -- that is what a report is for -- while changing
+ * how the bot steers is a behaviour change that has to be switchable to be measurable. Same
+ * computation, two callers, one of them gated.
+ */
+float gePortRouteLane(float px, float pz, float *tx, float *tz)
+{
+    if (!ge_lane_on()) { return 0.0f; }
+    return gePortLaneOffset(px, pz, tx, tz);
 }

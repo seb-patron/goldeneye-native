@@ -64,6 +64,9 @@ static int   ge_cli_sx, ge_cli_sy;
 static unsigned int ge_cli_buttons;
 static int   ge_cli_report_now;
 static int   ge_cli_map_now;
+static float ge_cli_map_cell;
+static int   ge_cli_path_now;
+static float ge_cli_path_cell;
 
 static float ge_cli_norm180(float a)
 {
@@ -120,8 +123,15 @@ static void ge_cli_command(const char *line)
 {
     char verb[32];
     int n = 0;
+    int given;
 
-    if (sscanf(line, "%31s %d", verb, &n) < 1) { return; }
+    /* Whether a number was TYPED, not just what it ended up as. The default of 30 is a sensible
+     * tick count for a movement command and a bad cell size for a search, and conflating "no
+     * argument" with "30" made a bare "path" search a third of its intended range -- which
+     * looked exactly like the pathfinder getting worse. */
+    given = sscanf(line, "%31s %d", verb, &n);
+    if (given < 1) { return; }
+    given = (given >= 2 && n > 0);
     if (n <= 0) { n = 30; }
 
     ge_cli_sx = ge_cli_sy = 0;
@@ -136,7 +146,11 @@ static void ge_cli_command(const char *line)
     else if (strcmp(verb, "fire") == 0) { ge_cli_buttons = GE_IN_FIRE; ge_cli_hold = 6; }
     else if (strcmp(verb, "look") == 0) { ge_cli_hold = 0; ge_cli_report_now = 1; }
     else if (strcmp(verb, "map") == 0)  { ge_cli_hold = 0; ge_cli_map_now = 1;
-                                          ge_cli_report_now = 1; }
+                                          ge_cli_report_now = 1;
+                                          ge_cli_map_cell = given ? (float) n : 0.0f; }
+    else if (strcmp(verb, "path") == 0) { ge_cli_hold = 0; ge_cli_path_now = 1;
+                                          ge_cli_report_now = 1;
+                                          ge_cli_path_cell = given ? (float) n : 0.0f; }
     else if (strcmp(verb, "stop") == 0) { ge_cli_hold = 0; }
     else if (strcmp(verb, "quit") == 0) { printf("[cli] bye\n"); fflush(stdout); exit(0); }
     else {
@@ -148,6 +162,21 @@ static void ge_cli_command(const char *line)
     fflush(stdout);
 }
 
+/* Where we are trying to get to, if anywhere.
+ *
+ * The objective line already computes this; the detour probe needs the same point, and two
+ * places deriving "the objective" separately is how they end up disagreeing. */
+static int ge_cli_objective_point(float *out_x, float *out_z)
+{
+    GeWorldObjective ob;
+
+    if (!geWorldObjective(0, &ob)) { return 0; }
+    if (out_x != NULL) { *out_x = ob.tx; }
+    if (out_z != NULL) { *out_z = ob.tz; }
+    return 1;
+}
+
+
 /* The floor around you, as a picture.
  *
  * Every other line in this report is a bearing and a range, which tells you about one thing at a
@@ -158,12 +187,16 @@ static void ge_cli_command(const char *line)
  * North is up, matching the compass line: -z is up, +x is right. The cells are 60 units, about a
  * third of a metre, which is fine enough to show a doorway and coarse enough to fit on a screen.
  */
-static void ge_cli_print_map(const GePlayerState *st)
+static void ge_cli_print_map(const GePlayerState *st, float cell)
 {
     extern int gePortCanStandAt(float x, float z);
     extern int gePortTileAt(float x, float z, int *out_id, int *out_room);
-    const float cell = 60.0f;
     const int half = 10;
+
+    /* A cell is a body-ish 60 units by default, fine enough to show a doorway. Pass a bigger one
+     * to see a whole carriage at once: the answer to "how do I get round this" is often outside
+     * the twelve metres a body-scale map covers. */
+    if (cell < 10.0f) { cell = 60.0f; }
     int gz, gx;
 
     printf("map    %d cells of %.0f units, north up, @ is you\n", half * 2 + 1, (double) cell);
@@ -381,6 +414,40 @@ static void ge_cli_report(int frame)
             }
             printf("ahead  %-16s %4.0f away   clearest turn %+.0f (%.0f room)\n",
                    what, (double) ahead.distance, (double) best_turn, (double) best_room);
+
+            /* AND THE WAY PAST IT, as a sideways step rather than a new heading.
+             *
+             * "clearest turn" answers which way is open, which is not the same question as how
+             * to get where you were going. On Train the carriage is blocked by a row of crates
+             * with a gap between them: the clearest turn points at the open half of the room,
+             * and following it walks you into the corner of the room instead of through the
+             * gap. A step of sixty units to one side threads it and leaves you still pointed
+             * down the carriage.
+             *
+             * Probed along the route rather than along the facing, because the question is how
+             * to reach the objective, not what happens to be in front of the body.
+             */
+            if (ahead.distance < 500.0f) {
+                extern float gePortLaneOffset(float px, float pz, float *tx, float *tz);
+                float ob_x, ob_z, ax, az, off;
+
+                if (ge_cli_objective_point(&ob_x, &ob_z)) {
+                    float ddx = ob_x - st.x, ddz = ob_z - st.z;
+                    float dl = (float) sqrt((double) (ddx * ddx + ddz * ddz));
+                    if (dl > 1.0f) {
+                        ax = st.x + ddx / dl * 600.0f;
+                        az = st.z + ddz / dl * 600.0f;
+                        off = gePortLaneOffset(st.x, st.z, &ax, &az);
+                        if (off != 0.0f) {
+                            printf("detour step %.0f to the %s, then straight on\n",
+                                   (double) (off < 0.0f ? -off : off),
+                                   (off > 0.0f) ? "left" : "right");
+                        } else {
+                            printf("detour none within 240 units either side\n");
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -542,9 +609,40 @@ static void ge_cli_report(int frame)
         }
     }
 
+    if (ge_cli_path_now) {
+        /* A route over ground the body fits on, rather than over the level's pad graph. See
+         * ge_local_path.c -- this is the answer to "how do I get round the thing in front of
+         * me", which no bearing-and-range line in this report can give. */
+        extern int gePortLocalPath(float px, float pz, float tx, float tz, float cell,
+                                   float *out_x, float *out_z, int max);
+        float ob_x, ob_z, wx[12], wz[12];
+        int k, got;
+
+        ge_cli_path_now = 0;
+        if (ge_cli_objective_point(&ob_x, &ob_z)) {
+            /* A finer grid finds a way through a pinch that a coarse one steps over: the
+             * search only knows a cell is passable if its centre is, and Train's carriages have
+             * places where the body fits on one line and not on the line sixty units beside it. */
+            got = gePortLocalPath(st.x, st.z, ob_x, ob_z,
+                                  (ge_cli_path_cell >= 10.0f) ? ge_cli_path_cell : 60.0f,
+                                  wx, wz, 12);
+            if (got <= 0) {
+                printf("path   nothing reachable from here gets any nearer\n");
+            } else {
+                for (k = 0; k < got; k++) {
+                    printf("path   %d: (%.0f %.0f)  %.0f away, turn %+.0f\n", k + 1,
+                           (double) wx[k], (double) wz[k],
+                           (double) sqrt((double) ((wx[k] - st.x) * (wx[k] - st.x)
+                                                 + (wz[k] - st.z) * (wz[k] - st.z))),
+                           (double) ge_cli_rel(st.x, st.z, wx[k], wz[k], st.angle));
+                }
+            }
+        }
+    }
+
     if (ge_cli_map_now) {
         ge_cli_map_now = 0;
-        ge_cli_print_map(&st);
+        ge_cli_print_map(&st, ge_cli_map_cell);
     }
 
     printf("> ");

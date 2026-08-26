@@ -255,10 +255,10 @@
 +    }
 +    if (out_y != NULL)    { *out_y = py; }
 +    if (out_room != NULL) { *out_room = (tile->room == 0xff) ? -1 : (s32) tile->room; }
-+    return 1;
-+}
-+
-+
+     return 1;
+ }
+ 
+ 
 +/* Can a body actually WALK from here to there? The engine's own line test.
 + *
 + * gePortProbeStandable is not this, and mistaking the two wasted a long pass. That query SNAPS
@@ -442,10 +442,10 @@
 +    if (out_x != NULL) { *out_x = p->field_488.collision_position.f[0]; }
 +    if (out_y != NULL) { *out_y = p->field_488.collision_position.f[1]; }
 +    if (out_z != NULL) { *out_z = p->field_488.collision_position.f[2]; }
-     return 1;
- }
- 
- 
++    return 1;
++}
++
++
 +/* WHAT is in the way, not merely whether something is. The sensing primitive.
 + *
 + * gePortProbeWalkable answers yes or no, and a bot that only knows "blocked" behaves the same
@@ -799,11 +799,10 @@
  void gePortStateDump(int frame)
  {
      s32 i;
-@@ -780,5 +1554,502 @@
-     }
+@@ -781,4 +1555,539 @@
      printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
      fflush(stdout);
-+}
+ }
 +
 +/* ===================================================================== CLEARANCE
 + *
@@ -852,9 +851,47 @@
 +extern s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z,
 +                                    s32 cdtypes, f32 height, f32 a, f32 b, f32 c);
 +
-+#define GE_STAND_WIDTH   20.0f   /* ChrRecord.chrwidth, chr.c:1936 -- so a gap wants ~40 clear */
-+#define GE_STAND_HEIGHT 165.0f   /* chrheight 185 minus the 20 chrGetChrWidthHeight subtracts */
-+#define GE_STAND_FOOT    20.0f   /* the "always_20" third out-param, which really is always 20 */
++/* Overridable so the three of them can be tested against the level rather than argued about.
++ * More than half of Train's floor answers "no room to stand" at the shipped values, which is
++ * either true of the level or true of these numbers.
++ *
++ * MEASURED, AND THE ANSWER IS NEITHER. Varying the width from 20 to 4 and the height from 165 to
++ * 30 -- a fivefold change in both -- moves the count by exactly zero cells. Whatever this test is
++ * answering, it is not "does a body of this size fit here", so the shipped constants are not the
++ * reason two thirds of the carriage reads as impassable. See gePortCanStandAt.
++ *
++ * Cached: the local path search asks this a few thousand times per call, and getenv is not free. */
++static f32 ge_stand_f32(const char *name, f32 dflt)
++{
++    const char *e = getenv(name);
++    return (e != NULL && *e != '\0') ? (f32) atof(e) : dflt;
++}
++
++static f32 ge_stand_w = -1.0f, ge_stand_h = -1.0f, ge_stand_ft = -1.0f;
++
++static f32 ge_stand_width(void)
++{
++    if (ge_stand_w < 0.0f) { ge_stand_w = ge_stand_f32("GETV_STAND_WIDTH", 20.0f); }
++    return ge_stand_w;
++}
++
++static f32 ge_stand_height(void)
++{
++    if (ge_stand_h < 0.0f) { ge_stand_h = ge_stand_f32("GETV_STAND_HEIGHT", 165.0f); }
++    return ge_stand_h;
++}
++
++static f32 ge_stand_foot(void)
++{
++    if (ge_stand_ft < 0.0f) { ge_stand_ft = ge_stand_f32("GETV_STAND_FOOT", 20.0f); }
++    return ge_stand_ft;
++}
++
++#define GE_STAND_WIDTH   ge_stand_width()
++#define GE_STAND_HEIGHT  ge_stand_height()
++#define GE_STAND_FOOT    ge_stand_foot()
++
++#define GE_STAND_WIDTH_DEFAULT   20.0f
 +
 +static s32 ge_stand_mask(void)
 +{
@@ -1000,7 +1037,7 @@
 +     * piece of state the pairing depends on. */
 +    return (stanTestVolume(&tile, x1, z1, GE_STAND_WIDTH, mask,
 +                           GE_STAND_HEIGHT, GE_STAND_FOOT) < 0) ? 1 : 0;
- }
++}
 +
 +
 +/* ---------------------------------------------------------------------------------------------

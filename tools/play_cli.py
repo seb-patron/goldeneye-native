@@ -16,6 +16,7 @@ Turn rate is 3.5 degrees per tick at full stick (bondview2.c:7312), so a turn of
 about N/3.5 ticks. Deriving it rather than tuning it is why the first turn lands.
 """
 import argparse
+import math
 import os
 import re
 import subprocess
@@ -35,6 +36,8 @@ RE_YOU = re.compile(r"^you\s+\(" + NUM + r"\s+" + NUM + r"\s+" + NUM + r"\)\s+fa
                     + r"(?:\s+weapon\s+" + NUM + r"\s+ammo\s+" + NUM + r"/" + NUM + r")?")
 RE_AHEAD = re.compile(r"^ahead\s+(\S.*?)\s{2,}(\d+)\s+away\s+clearest turn\s+([+-]?\d+)\s*\((\d+) room\)")
 RE_OBJ = re.compile(r"^obj\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
+RE_PATH = re.compile(r"^path\s+(\d+):\s+\((-?\d+)\s+(-?\d+)\)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
+RE_NOPATH = re.compile(r"^path\s+nothing reachable")
 RE_DOOR = re.compile(r"^Door\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 # ge_cli.c reports the nearest Door, Key AND Collectable this way (ge_cli.c:230-237, all three
 # kinds through the same printf), but only Door was ever parsed here -- the other two landmarks
@@ -48,7 +51,7 @@ RE_NEAR = re.compile(r"^near\s+(\S+)\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)")
 # dropped in silence. DYING is the game's death animation already running: the character is still
 # in the world and still reported, and firing into it is the commonest way an automated player
 # wastes a magazine and its attention.
-RE_ENEMY = re.compile(r"^enemy\s+(\d+)\s+away,\s+turn\s+([+-]?\d+)"
+RE_ENEMY = re.compile(r"^enemy\s+(?:#(\d+)\s+)?(\d+)\s+away,\s+turn\s+([+-]?\d+)"
                       r"(?:,\s+hp\s+(-?\d+)/(-?\d+))?"
                       r"(?:,\s+alert\s+(\d+))?"
                       r"(\s+SEES YOU|\s+DYING)?")
@@ -69,6 +72,11 @@ class Player:
         self.enemy_fresh = True
         self.reports = 0
         self.hurt_at = -999
+        self.path_asked = False
+        self.path_age = 0
+        self.stalled = 0
+        self.mapped = False
+        self.path_fine = False
 
     transcript = None
 
@@ -113,6 +121,18 @@ class Player:
         obj_d, obj_turn = s["obj"]
         if self.best_obj is None or obj_d < self.best_obj:
             self.best_obj = obj_d
+            self.stalled = 0
+        else:
+            self.stalled += 1
+
+        # DRAW THE PLACE WHERE IT STOPS. A run that stalls is the only run worth looking at, and
+        # the interesting report is the one at the wall rather than the one at the spawn --
+        # which is the only one you get by driving there by hand, because driving there by hand
+        # means walking into the same obstacle that stopped the player. Once, so the transcript
+        # gets a picture instead of ten thousand identical lines.
+        if self.stalled == 60 and not self.mapped:
+            self.mapped = True
+            return "map 90"
 
         # WHO CAN SEE US, AND ARE WE BEING HIT.
         #
@@ -159,8 +179,11 @@ class Player:
                 self.queue.append("w 60")
                 return self.turn_cmd(150 if b >= 0 else -150)
 
+            # Ninety, not forty-five. A guard behind you is at a bearing near 180, and turning
+            # in forty-five degree steps spends four reports with your back to the thing that is
+            # shooting -- which is precisely the case where the seconds count.
             if abs(b) > 12:
-                return self.turn_cmd(max(-45, min(45, b)))
+                return self.turn_cmd(max(-90, min(90, b)))
             return "fire"
 
         # WHAT THE DEAD WERE CARRYING. Guards drop what they hold, and on Train that includes the
@@ -216,6 +239,52 @@ class Player:
                     return self.turn_cmd(max(-45, min(45, bear)))
                 return "fire"
             return "use 40"
+
+        # FOLLOW GROUND, NOT A BEARING.
+        #
+        # The objective bearing points through whatever is between here and there, and on Train
+        # what is between is a row of crates across the first carriage that no route line
+        # mentions, because a crate is scenery rather than a navigation feature. The "path"
+        # command searches actual standable ground and hands back the corners; steering at its
+        # first corner is the difference between walking round the crates and walking into them.
+        #
+        # Asked for sparingly. The search is a few thousand standability queries, so it is worth
+        # a fresh one when the current route is spent or something is in the way, and not worth
+        # one every report.
+        path = s.get("path") or []
+        self.path_age += 1
+        want_path = (not path) or path[0][2] < 140 or self.path_age > 25
+        if not path and not self.path_asked:
+            self.path_asked = True
+            self.path_age = 0
+            return "path"
+
+        if path:
+            # RECOMPUTED, NOT REMEMBERED. The waypoints are absolute coordinates; the range and
+            # bearing that came with them were true at the moment of the search and are wrong the
+            # instant the body moves or turns. Steering on the stored bearing makes the same turn
+            # every report and never arrives -- measured: "a 15" forty times in a row, the player
+            # rotating past the waypoint and back.
+            wx, wz = path[0][0], path[0][1]
+            px, _, pz = s.get("pos", (0, 0, 0))
+            wd = math.hypot(wx - px, wz - pz)
+            bearing = math.degrees(math.atan2(wx - px, wz - pz))
+            wturn = (bearing - s.get("facing", 0) + 540) % 360 - 180
+            if wd < 140:
+                # Reached this corner. Drop it, and ask for a fresh search once they run out.
+                s["path"] = path[1:]
+                if not s["path"] and not self.path_asked:
+                    self.path_asked = True
+                    self.path_age = 0
+                    return "path"
+                return None
+            if want_path and not self.path_asked:
+                self.path_asked = True
+                self.path_age = 0
+                return "path"
+            if abs(wturn) > 25:
+                return self.turn_cmd(max(-60, min(60, wturn)))
+            return "w %d" % max(30, min(90, int(wd // 12)))
 
         # BLOCKED IN FRONT IS NOT THE SAME AS BLOCKED ON THE WAY.
         #
@@ -278,7 +347,7 @@ class Player:
         # reads as absent rather than as unchanged.
         if line.startswith("--- f"):
             for k in ("ahead_what", "ahead_dist", "clearest", "near", "enemies",
-                      "door", "Key", "Collectable"):
+                      "door", "Key", "Collectable"):   # "path" survives: it is a plan, not an observation
                 self.state.pop(k, None)
             self.near_fresh = True
             self.enemy_fresh = True
@@ -305,6 +374,18 @@ class Player:
             self.state["clearest"] = int(m.group(3))
             self.state["room"] = int(m.group(4))
             return
+        m = RE_PATH.match(line)
+        if m:
+            if int(m.group(1)) == 1:
+                self.state["path"] = []
+            self.state.setdefault("path", []).append(
+                (int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))))
+            self.path_asked = False
+            return
+        if RE_NOPATH.match(line):
+            self.state["path"] = []
+            self.path_asked = False
+            return
         m = RE_OBJ.match(line)
         if m:
             self.state["obj"] = (int(m.group(1)), int(m.group(2)))
@@ -320,12 +401,13 @@ class Player:
             if self.enemy_fresh:
                 self.state["enemies"] = []
                 self.enemy_fresh = False
-            tail = (m.group(6) or "").strip()
+            tail = (m.group(7) or "").strip()
             self.state.setdefault("enemies", []).append({
-                "dist":  int(m.group(1)),
-                "turn":  int(m.group(2)),
-                "hp":    int(m.group(3)) if m.group(3) is not None else None,
-                "alert": int(m.group(5)) if m.group(5) is not None else None,
+                "id":    int(m.group(1)) if m.group(1) is not None else -1,
+                "dist":  int(m.group(2)),
+                "turn":  int(m.group(3)),
+                "hp":    int(m.group(4)) if m.group(4) is not None else None,
+                "alert": int(m.group(6)) if m.group(6) is not None else None,
                 "sees":  tail == "SEES YOU",
                 "dying": tail == "DYING",
             })
