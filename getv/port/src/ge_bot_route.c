@@ -465,6 +465,8 @@ static int ge_br_pick_target(float x, float y, float z, GeEnemy *out)
  * GETV_BOT_LOG names the file; unset writes build/botlog-<level>.tsv.
  */
 
+extern unsigned int gePortHostMillis(void);
+
 static FILE *ge_br_log = NULL;
 static unsigned ge_br_log_rows = 0;
 static int ge_br_locked_seen = 0;
@@ -500,9 +502,15 @@ static void ge_br_logf(int frame, const char *event, int node, int pad,
     if (ge_br_log == NULL) { return; }
     /* Wall-clock milliseconds, because a frame number is not a time: a run at 500 fps and one at
      * 60 reach frame 600 ten seconds apart, and any rate computed from frames compares the two
-     * against different amounts of reality. */
+     * against different amounts of reality.
+     *
+     * gePortHostMillis rather than clock(). clock() reports PROCESSOR time, which on a build with
+     * an audio thread and a render thread runs at some multiple of the wall clock that depends on
+     * how busy the machine is. Every rate this log was used to compute came out wrong in a way
+     * that changed run to run, including a game-clock reading that disagreed with the engine's
+     * own trace by a factor of five. */
     fprintf(ge_br_log, "%d\t%lu\t%s\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.0f\t%.0f\t%d\t%d\t%s\n",
-            frame, (unsigned long) (clock() * 1000ul / CLOCKS_PER_SEC),
+            frame, (unsigned long) gePortHostMillis(),
             event, node, pad, (double) x, (double) z,
             (double) heading, (double) bearing, (double) err, sx, sy, note ? note : "");
     /* Not flushed per row. Measured on Windows, a flushed line at ~24 ms there -- 516

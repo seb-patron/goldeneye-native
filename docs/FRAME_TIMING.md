@@ -216,15 +216,14 @@ Three measurements, because "it should be fine" is not a claim.
 **Game speed.** Train, constant forward input, measured over the steady middle of each run and
 divided by the elapsed time the log actually recorded:
 
-| Configuration | Speed |
-|---|---|
-| 60fps cap, one tick per frame | 151.3, 149.4, 151.5 units/s |
-| uncapped at 500+ fps, auto divider | 164.4, 167.1, 163.4 units/s |
+| Configuration | Walking speed | Game clock |
+|---|---|---|
+| 60fps cap, real clock | 43.4, 43.3, 43.4 units/s | 60.0, 59.9, 59.9 fields/s |
+| uncapped with the real clock | 43.2, 43.5, 43.0 units/s | 60.0, 59.8, 60.0 fields/s |
 
-About 9% apart, consistently. An earlier version of this table read 46.4 against 46.6 and was
-wrong: it divided by a hard-coded window rather than by the time the run actually covered.
-Distance is also a noisy instrument here, because the walker eventually meets geometry and where
-it stops varies.
+Within 0.7% on speed, and the game clock is at real time in both. Two earlier versions of this
+table were wrong, once for dividing by a hard-coded window instead of the elapsed time recorded,
+and once for timestamping with `clock()`, which is processor time rather than wall time.
 
 **Fire rate**, which is the clearest frame-quantised system in the game. Two players in
 multiplayer armed with the RC-P90 through `GETV_MP_ARM=14`, trigger held, counted against the
@@ -319,11 +318,20 @@ With both fixed, uncapped and with `GETV_REALCLOCK=1`:
 A thousand frames a second of rendering, sixty fields a second of game time. That is the thing
 this port set out to do.
 
-**One instrument still disagrees and it has not been reconciled.** Sampling `g_GlobalTimer` from
-outside, through the bot harness, reports 60 to 65 fields a second in some runs and 290 to 357 in
-others under what should be the same configuration. The in-engine trace above is measured at the
-source and is the one to trust, but until the two agree this fix should be read as proven for the
-wait loop rather than proven end to end. `GETV_CLOCKTRACE=1` prints the trace.
+**Reconciled.** The wait loop, `speedgraphframes` and `g_GlobalTimer` were printed together from
+one place, once per real second, and they agree exactly:
+
+```
+[getv][clock]  618 fps | waitloop 60 fields/s | speedgraph 60/s | g_GlobalTimer 60/s | simdiv 4
+[getv][clock]  790 fps | waitloop 60 fields/s | speedgraph 60/s | g_GlobalTimer 60/s | simdiv 4
+```
+
+An earlier reading through the bot harness disagreed with this by a factor of five, and the fault
+was in the harness rather than the engine: it timestamped with `clock()`, which reports PROCESSOR
+time. On a build with an audio thread and a render thread that runs at some multiple of the wall
+clock depending on how busy the machine is, so every rate derived from that log was wrong by a
+factor that changed run to run. It uses a host wall clock now. `GETV_CLOCKTRACE=1` prints the
+trace above.
 
 ## Still open
 

@@ -154,9 +154,9 @@ cutscenes. Two wrong conclusions on the way there are written up in [`docs/COOP.
 
 **Simulation and rendering are separated, which is the thing that has broken every previous
 attempt to run this game fast.** The renderer runs free while the simulation holds its authored
-cadence, and the camera, props and characters are interpolated between ticks. Fire rate is measured invariant
-across the divider and walking speed holds within about 9% from a 60fps cap to 500+ fps. What is
-not yet right is the game clock itself, which still tracks the render rate rather than real time.
+cadence, and the camera, props and characters are interpolated between ticks. Measured with the game's own clock: 60.0 fields per second of game time whether the renderer runs
+at 60 or at a thousand, with walking speed within 0.7% and fire rate invariant across the
+simulation divider.
 [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md) has the measurements.
 
 **Uncapped, this machine renders at 354 to 562 fps** with `GETV_VSYNC=0 GETV_FPS=0`, and a Surface
