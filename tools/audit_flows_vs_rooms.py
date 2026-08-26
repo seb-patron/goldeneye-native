@@ -49,7 +49,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LEVELS = os.path.join(ROOT, "build", "levels")
 
-# Labels naming a KIND OF SPACE. Everything mapping to the same kind is one concept.
+# Labels naming a KIND of SPACE. Everything mapping to the same kind is one concept.
 NODE_KINDS = {
     "room": "room", "small room": "room", "large room": "chamber", "chamber": "chamber",
     "hall": "chamber", "large": "chamber", "open": "chamber", "courtyard": "chamber",
@@ -61,7 +61,7 @@ NODE_KINDS = {
     "elevator": "stairs", "stair": "stairs",
     # Size and shape words used as space kinds. Added after measuring which labels blocked the most
     # chains; these four are unambiguously about the shape of a space. The rest of the blocking
-    # vocabulary is NOT added, and that is the point of the list below.
+    # vocabulary is not added, and that is the point of the list below.
     "wide": "chamber", "small": "room", "tight": "corridor", "narrow passage": "corridor",
 }
 
@@ -148,7 +148,7 @@ def normalise(stages):
     """Chain labels to (kinds, edges) tokens, or None when the chain is not spatial."""
     seq = []
     for s in stages:
-        # A parallel group is satisfied if ANY of its branches is; take the spatial ones.
+        # A parallel group is satisfied if any of its branches is; take the spatial ones.
         opts = s if isinstance(s, list) else [s]
         toks = set()
         for o in opts:
@@ -214,7 +214,7 @@ def main():
     fl = json.load(open(os.path.join(LEVELS, "_walkthrough.flows.json"), encoding="utf-8"))
 
     if a.sweep:
-        # I chose these thresholds, SO the result has TO survive changing them. A rate that moves
+        # I chose these thresholds, so the result has to survive changing them. A rate that moves
         # with the threshold is a property of the classifier rather than of the documents.
         print("SENSITIVITY SWEEP")
         print("%-8s %-8s %8s %10s %7s" % ("aspect", "chamber", "checked", "satisfied", "rate"))

@@ -23,15 +23,15 @@
  *
  * Layout, matching the structure requested in the design notes:
  *
- *  mods/
- *  goldeneye_camera/
- *  mod.lua
+ *     mods/
+ *       goldeneye_camera/
+ *         mod.lua
  *
  * Each mod.lua is loaded in its own right and may define any of the hooks:
  *
- *  function onFrame(frame) end
- *  function onPlayerSpawn(player) end
- *  function onWeaponFire(weapon) end
+ *     function onFrame(frame)          end
+ *     function onPlayerSpawn(player)   end
+ *     function onWeaponFire(weapon)    end
  *
  * A mod that defines none of them is still useful: the chunk body itself runs once at
  * load, which is enough for one-shot configuration.
@@ -87,7 +87,7 @@ extern int bossGetStageNum(void);
 #include "ge_player_api.h"
 #include "ge_world_api.h"
 #include "ge_enemy_api.h"
-#include "ge_world_levels.h" /* generated: stage number -> extractor level name */
+#include "ge_world_levels.h"    /* generated: stage number -> extractor level name */
 #include "ge_event.h"
 #include "ge_sense_api.h"
 
@@ -110,7 +110,7 @@ static int ge_l_player_count(lua_State *L)
     return 1;
 }
 
-/* ge.player_pos(i) -> x, y, z (nil when that player does not exist)
+/* ge.player_pos(i) -> x, y, z   (nil when that player does not exist)
  *
  * g_playerPointers is the stable array; g_CurrentPlayer is not usable here because it is
  * swapped as each viewport is drawn, so in split screen it names whichever player was
@@ -155,7 +155,7 @@ static int ge_l_postfx(lua_State *L)
     if (lua_gettop(L) >= 1 && lua_istable(L, 1)) {
         /* A flag accepts a boolean or a number, because `crt = 1` is what someone coming
          * from goldeneye.cfg will write and refusing it would be pedantry. */
-#define GE_FX_FLAG(name, dst) \
+#define GE_FX_FLAG(name, dst)                                                       \
         do {                                                                        \
             lua_getfield(L, 1, name);                                               \
             if (!lua_isnil(L, -1)) {                                                \
@@ -164,7 +164,7 @@ static int ge_l_postfx(lua_State *L)
             }                                                                       \
             lua_pop(L, 1);                                                          \
         } while (0)
-#define GE_FX_NUM(name, dst) \
+#define GE_FX_NUM(name, dst)                                                        \
         do {                                                                        \
             lua_getfield(L, 1, name);                                               \
             if (!lua_isnil(L, -1)) { (dst) = (float) lua_tonumber(L, -1); }         \
@@ -504,7 +504,7 @@ static int ge_l_enemy_count(lua_State *L)
 
 /* ge.threat_at(x, y, z [, radius]) -> how many living enemies believe their target is here.
  *
- * NOT the same question as enemies_near, and the difference is the point: a spot can be crowded
+ * not the same question as enemies_near, and the difference is the point: a spot can be crowded
  * and safe if nobody is looking at it, or empty and lethal because several guards are converging
  * on it. This scores a DESTINATION -- which is what to ask before committing to a waypoint. */
 static int ge_l_threat_at(lua_State *L)
@@ -523,7 +523,7 @@ static int ge_l_threat_at(lua_State *L)
  * contain", these answer "what is against me, and who is looking" -- which is what a bot needs to
  * decide anything.
  *
- * Contacts are returned with the raw bitmask AND named booleans. The mask is what a mod tests
+ * Contacts are returned with the raw bitmask and named booleans. The mask is what a mod tests
  * cheaply; the booleans are what makes a printed line readable, and this API exists to be read.
  */
 static void ge_l_push_contact(lua_State *L, const GeSenseContact *c)
@@ -572,7 +572,7 @@ static int ge_l_sense_ahead_body(lua_State *L)
 /* ge.clearest_heading(x, z, heading [, span] [, reach]) -> degrees.
  *
  * A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
- * reaches. Do NOT steer a body on it: a line has no width, so a gap narrower than the player
+ * reaches. Do not steer a body on it: a line has no width, so a gap narrower than the player
  * passes cleanly and the sweep then returns that gap as the best way out. Use
  * ge.clearest_heading_body below for anything that moves. */
 static int ge_l_clearest_heading(lua_State *L)
@@ -596,7 +596,7 @@ static int ge_l_clearest_heading(lua_State *L)
  * being handed the line answer while the C callers had been corrected. Two callers of one idea
  * with only one fixed is worse than neither being fixed, because the tree looks done.
  *
- * Returns TWO values. The second is how far the chosen heading is actually clear for, so a caller
+ * Returns two values. The second is how far the chosen heading is actually clear for, so a caller
  * squeezing through a tight place knows how little it bought; discarding it is fine and is what a
  * caller that only wants a direction will do. */
 static int ge_l_clearest_heading_body(lua_State *L)
@@ -973,7 +973,7 @@ static void ge_load_mod(const char *dir, const char *name)
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* GETV_MODS_OFF -- a comma-separated list of mod directory names NOT to load.
+/* GETV_MODS_OFF -- a comma-separated list of mod directory names not to load.
  *
  * A DENYLIST rather than an allowlist. The documented contract (wiki/Lua-mods.md)
  * is "drop a directory under mods/ with a mod.lua in it and it loads at startup", and an
@@ -1196,7 +1196,7 @@ void gePortLuaWeaponFire(int weapon)
     }
 }
 
-#else /* !GE_WITH_LUA */
+#else  /* !GE_WITH_LUA */
 
 /* Built without Lua. The hook points stay in the game and the port layer unconditionally,
  * so that enabling scripting is a build flag rather than a source change, and so the call

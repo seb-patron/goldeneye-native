@@ -19,11 +19,11 @@
  * are standalone commands (w0 = 0xB4000000 - opcode in the top byte, rest zero).
  *
  * The packing is the stock RDP layout:
- *  word0 = [63:56]=cmd [55]=dir [53:51]=level [50:48]=tile [47:32]=YL
- *  [31:16]=YM [15:0]=YH (YL/YM/YH are s11.2 screen y)
- *  word1 = XL(s15.16) DxLDy(s15.16)
- *  word2 = XH DxHDy
- *  word3 = XM DxMDy
+ *   word0 = [63:56]=cmd  [55]=dir  [53:51]=level  [50:48]=tile  [47:32]=YL
+ *           [31:16]=YM   [15:0]=YH                       (YL/YM/YH are s11.2 screen y)
+ *   word1 = XL(s15.16)   DxLDy(s15.16)
+ *   word2 = XH           DxHDy
+ *   word3 = XM           DxMDy
  * then, in this order, 8 shade words if cmd bit2, then 8 texture words if cmd bit1.
  *
  * A run is not terminated by G_RDPHALF_2. The microcode gives _2 no terminating
@@ -34,23 +34,23 @@
  * An RDP "triangle" command does not describe a triangle. It describes a span-fill
  * bounded by three independent edges, and GoldenEye uses it to fill a rectangle.
  *
- *  major edge x = XH + DxHDy*(y-YH), spans YH -> YL
- *  minor edge 1 x = XM + DxMDy*(y-YH), spans YH -> YM
- *  minor edge 2 x = XL + DxLDy*(y-YM), spans YM -> YL
+ *   major edge   x = XH + DxHDy*(y-YH),   spans YH -> YL
+ *   minor edge 1 x = XM + DxMDy*(y-YH),   spans YH -> YM
+ *   minor edge 2 x = XL + DxLDy*(y-YM),   spans YM -> YL
  *
  * The RDP fills between the major edge and whichever minor edge is live at that
  * scanline. Only when XH == XM (the two edges start at the same point) and the minor
  * edges meet the major edge at YL is the result a triangle.
  *
  * On DAM, frame 1, the single command skyRenderFull() emits:
- *  YH=10.00 YM=YL=212.75 XH=319.75 DxHDy=0 XM=0 DxMDy=0 XL=0
+ *   YH=10.00  YM=YL=212.75   XH=319.75 DxHDy=0   XM=0 DxMDy=0   XL=0
  * The major edge is the vertical line x=319.75; minor edge 1 is the vertical line x=0;
  * minor edge 2 has zero height (YM==YL). Every scanline from y=10 to y=212.75 is filled
  * from x=0 to x=319.75 - a full-width rectangle, which matches the full gradient across
  * the upper frame that the retail screenshot shows.
  *
  * An earlier decoder reconstructed three vertices from those edges -
- *  (XH,YH), (XL,YM), (XH+DxHDy*(YL-YH),YL)
+ *   (XH,YH), (XL,YM), (XH+DxHDy*(YL-YH),YL)
  * - which for this command is (319.75,10) (0,212.75) (319.75,212.75), exactly half the
  * rectangle. That, and not any missing second mechanism, is why DAM rendered one flat
  * triangle where retail has a full sky. The 65 Gfx commands the cloud path emits are 25
@@ -58,8 +58,8 @@
  *
  * The fix is to reconstruct the real region as a polygon. Its corners are the endpoints
  * of the three edges:
- *  A = major @ YH B = minor1 @ YH C = minor1 @ YM
- *  D = minor2 @ YM E = minor2 @ YL F = major @ YL
+ *   A = major  @ YH   B = minor1 @ YH   C = minor1 @ YM
+ *   D = minor2 @ YM   E = minor2 @ YL   F = major  @ YL
  * walked A->B->C->D->E->F (down the minor side, back up the major side), then
  * fan-triangulated from A. Degenerate corners collapse automatically, so a genuine
  * triangle still decodes to exactly one triangle and nothing regresses.

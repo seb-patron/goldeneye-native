@@ -61,7 +61,7 @@ fi
 # it the build omits -DGE_WITH_IMGUI and getv/port/src/ge_imgui.cpp compiles to empty entry
 # points, so gfx_sdl2.c needs no #ifdef and nothing else in the tree knows.
 #
-# The overlay is additionally OFF at runtime unless GETV_IMGUI=1, so having the library
+# The overlay is additionally off at runtime unless GETV_IMGUI=1, so having the library
 # installed does not change how the game behaves.
 IMGUI="$HOME/.n64tvos/imgui-mac"
 IMGUIFLAGS=(); IMGUILIBS=()

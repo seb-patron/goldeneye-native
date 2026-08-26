@@ -11,9 +11,9 @@
 /* The F3D immediate opcodes, AFTER u8 truncation of G_IMMFIRST-11/-12/-13.
  * Written as literals with the derivation spelled out, because these values cannot be
  * found by grepping gbi.h -- they exist there only as negative expressions. */
-#define GE_RDPHALF_1 0xB4u /* G_IMMFIRST-11 */
-#define GE_RDPHALF_2 0xB3u /* G_IMMFIRST-12 */
-#define GE_RDPHALF_CONT 0xB2u /* G_IMMFIRST-13 */
+#define GE_RDPHALF_1     0xB4u   /* G_IMMFIRST-11 */
+#define GE_RDPHALF_2     0xB3u   /* G_IMMFIRST-12 */
+#define GE_RDPHALF_CONT  0xB2u   /* G_IMMFIRST-13 */
 
 /* 4 edge + 8 shade + 8 texture + 2 zbuf = 22 words = 44 halves, worst case. */
 #define GE_SKY_MAX_HALVES 64
@@ -106,10 +106,10 @@ static float ge_s15_16(uint32_t v)
  * sits in one word and the unsigned fractional half in the word 4 later. That is why the
  * coefficient block is 8 words rather than 4 -- ints first, then fracs.
  *
- *  shade w4 = R.i G.i B.i A.i w6 = R.f G.f B.f A.f
- *  W5 = DRDX.i ... DADX.i w7 = DRDX.f ...
- *  w8 = DRDE.i ... w10 = DRDE.f ...
- *  w9 = DRDY.i ... w11 = DRDY.f ...
+ *   shade   w4 = R.i G.i B.i A.i        w6  = R.f G.f B.f A.f
+ *           W5 = DRDX.i ... DADX.i      w7  = DRDX.f ...
+ *           w8 = DRDE.i ...             w10 = DRDE.f ...
+ *           w9 = DRDY.i ...             w11 = DRDY.f ...
  *
  * This is checked against the emitter, not only against RDP documentation. sky.c's
  * skyRenderFull() builds exactly this: `sp160 = arg1->r * 65536.0f` is R (the colour at
@@ -134,7 +134,7 @@ struct GeSkyPt { float x, y, r, g, b, a, s, t; };
  * The RDP span walker starts each scanline at the major edge holding
  * `C + DcDe*(y-YH)`, then adds DcDx once per pixel as it crosses the span. So the
  * value anywhere is
- *  c(x,y) = C + DcDe*(y - YH) + DcDx*(x - x_major(y))
+ *      c(x,y) = C + DcDe*(y - YH) + DcDx*(x - x_major(y))
  * and sky.c confirms the reference point: it stores R as `arg1->r`, YH as `arg1->unk2c`
  * and XH as arg1's x in both winding branches of skyRenderFull().
  *
@@ -241,9 +241,9 @@ static int ge_decode(struct GeSkyTri *out)
          * later silently pairs S's integer with DSDX's fraction, and the resulting values
          * stay plausibly small, so this has to be cross-checked against the emitter rather
          * than eyeballed. sky.c emits
-         *  H0 S.i T.i | h1 W.i | h2 DSDX.i DTDX.i | h3 DWDX.i
-         *  H4 S.f T.f | h5 W.f | h6 DSDX.f DTDX.f | h7 DWDX.f
-         *  H8 DSDE.i | h9 DWDE.i | h10 DSDY.i | h11 DWDY.i | h12..15 their fracs
+         *   H0 S.i T.i | h1 W.i | h2 DSDX.i DTDX.i | h3 DWDX.i
+         *   H4 S.f T.f | h5 W.f | h6 DSDX.f DTDX.f | h7 DWDX.f
+         *   H8 DSDE.i  | h9 DWDE.i | h10 DSDY.i | h11 DWDY.i | h12..15 their fracs
          * The texture group carries four values per word pair (sp254[0..3]), not three:
          * S, T, W and a fourth the sky never uses. */
         sh.s    = ge_attr(ge_halves, tbase + 0, tbase +  4, 1);
@@ -282,7 +282,7 @@ static int ge_decode(struct GeSkyTri *out)
     ge_eval(&pt[npt++], &sh, xh + dxhdy * (yl - yh),   yl);              /* F major@YL  */
 
     /* Fan from A. Zero-area fans are the normal case, not an error: a genuine triangle
-     * has A==B and E==F and collapses to exactly one output triangle, which is why this
+     * has A==B and E==F and collapses to exactly one output triangle, and that is why this
      * cannot regress the shapes that already worked. */
     for (i = 1; i + 1 < npt && ntri < GE_SKY_MAX_TRIS; i++) {
         if (ge_area2(&pt[0], &pt[i], &pt[i + 1]) < 0.01f) {
@@ -331,10 +331,10 @@ static int ge_decode(struct GeSkyTri *out)
  *
  * Derived from the microcode. vendor/pd-port/src/rsp/gsp.s is an annotated copy of the
  * same microcode GoldenEye runs:
- *  imm_rdphalf_1: sw t8, sp_n04(sp) -- stash one word, back to main_loop
- *  imm_rdphalf_cont: li v0, 0 -- falls through to:
- *  imm_rdphalf_2: lw t9, sp_n04(sp) -> dispatch_rdp_novirtaddr
- *  dispatch_rdp_novirtaddr: sw t9,0(s7); sw t8,4(s7); s7 += 8
+ *     imm_rdphalf_1:     sw t8, sp_n04(sp) -- stash one word, back to main_loop
+ *     imm_rdphalf_cont:  li v0, 0 -- falls through to:
+ *     imm_rdphalf_2:     lw t9, sp_n04(sp)  ->  dispatch_rdp_novirtaddr
+ *     dispatch_rdp_novirtaddr:  sw t9,0(s7); sw t8,4(s7); s7 += 8
  * So a RDPHALF_1 + (RDPHALF_CONT | RDPHALF_2) pair emits exactly one 64-bit RDP word,
  * and _2 has no terminating semantics. The length comes from the command byte:
  * bit0 = z-buffer, bit1 = texture, bit2 = shade.

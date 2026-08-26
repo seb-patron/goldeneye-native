@@ -10,7 +10,7 @@
 
 #include "ge_player_api.h"
 
-#define GE_NET_MAX_PEERS GE_MAX_SLOTS
+#define GE_NET_MAX_PEERS   GE_MAX_SLOTS
 
 /* Ticks of input delay. Every machine acts on input captured this many ticks ago, which is what
  * buys the network time to deliver it before the tick it belongs to is simulated. Higher hides
@@ -102,7 +102,7 @@ void geNetDeliver(const void *data, int len);
 /* Report that a peer has gone. The transport detects this (ENet reports it; the raw socket
  * version would need a timeout), but handling it is a session concern, not a socket one.
  *
- * Do NOT simply free the slot on noticing. Survivors notice at different moments, and a
+ * Do not simply free the slot on noticing. Survivors notice at different moments, and a
  * departing machine's last packets reach one and not another, so dropping on local detection
  * makes the SURVIVORS diverge from each other -- the exact failure the handling exists to
  * prevent. This starts the agreed procedure instead: relay what we hold for that slot, then

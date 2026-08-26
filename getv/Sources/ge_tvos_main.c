@@ -27,12 +27,12 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
-#include <process.h> /* _exit */
+#include <process.h>   /* _exit */
 #else
 #include <execinfo.h>
 #include <sys/ucontext.h>
 #include <dlfcn.h>
-#include <unistd.h> /* _exit */
+#include <unistd.h>   /* _exit */
 #endif
 #include <signal.h>
 #include <stdio.h>
@@ -226,7 +226,7 @@ static void ge_crash_handler(int sig, siginfo_t *info, void *uctx)
     fflush(stdout);
     _exit(128 + sig);
 }
-#else /* _WIN32 */
+#else  /* _WIN32 */
 
 /* The Windows equivalent. A fault here is a structured exception rather than a signal, so
  * the entry point is an unhandled-exception filter and the register file arrives in a

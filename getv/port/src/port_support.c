@@ -16,7 +16,7 @@
 #include "../configfile.h"
 #include "../fs/fs.h"
 #include "../pc_main.h"
-#include "../fast3d/gfx_window_manager_api.h" /* WAPI_WIN_CENTERPOS */
+#include "../fast3d/gfx_window_manager_api.h"   /* WAPI_WIN_CENTERPOS */
 
 /* ---- platform ---------------------------------------------------------- */
 
@@ -227,7 +227,7 @@ const char *ge_last_mark = "(none)";
 unsigned long ge_mark_seq = 0;
 
 #define GE_MARK_REPEATS 3
-#define GE_MARK_MAX 512
+#define GE_MARK_MAX     512
 
 static int ge_mark_should_print(const char *what)
 {
@@ -333,7 +333,7 @@ void ge_log_flush_now(void);
  *
  * The flush existed for A reason, so it is still available. A hard crash can lose whatever sits
  * in the buffer, which is exactly when a debug channel matters most -- GETV_LOGFLUSH=1 restores
- * per-line flushing for chasing a hang or a fault. Defaulting it OFF is the right way round
+ * per-line flushing for chasing a hang or a fault. Defaulting it off is the right way round
  * because an unreproducible crash is rare and a 7x slowdown is every single run, but the choice
  * has to stay available or this becomes a fix that costs someone a day later.
  */
@@ -380,13 +380,13 @@ void ge_log_flush_now(void)
  * periodic runtime censuses, each a handful of lines from a different place, with no single
  * category left worth gating.
  *
- * The frame-rate effect is NOT measurable on this box and no figure is claimed for it. With
+ * The frame-rate effect is not measurable on this box and no figure is claimed for it. With
  * stdout already buffered these lines cost almost nothing, and the run-to-run spread here is
  * larger than any gain -- two identical configurations measured 63 and 95 fps. This gate makes
  * the log SHORT, which is a readability win; the SPEED came from the buffering above. Presenting
  * a noisy delta as a speedup is how a placebo gets committed.
  *
- * IT does not cover error paths. osSyncPrintf has 516 call sites and most of them
+ * it does not cover error paths. osSyncPrintf has 516 call sites and most of them
  * are the decomp reporting that something went wrong; gating those wholesale is how a failure
  * becomes invisible. Only the sites that report SUCCESSFUL, ROUTINE work are wrapped, and each
  * one was picked by reading it rather than by matching a prefix.

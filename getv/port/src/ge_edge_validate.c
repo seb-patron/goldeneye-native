@@ -21,10 +21,10 @@
  * exactly the one-way cases -- a ledge you can drop off but not climb -- that matter most.
  * Disagreements are reported rather than averaged away.
  *
- *  GETV_EDGEVALIDATE=1 run it, then exit
- *  GETV_EDGEVALIDATE_OUT=<path> where to write (default build/levels/<level>.edges.txt)
- *  GETV_EDGEVALIDATE_MAX=<units> cutoff, default 1600
- *  GETV_EDGEVALIDATE_FRAME=<n> which frame to run on, default 601
+ *   GETV_EDGEVALIDATE=1              run it, then exit
+ *   GETV_EDGEVALIDATE_OUT=<path>     where to write (default build/levels/<level>.edges.txt)
+ *   GETV_EDGEVALIDATE_MAX=<units>    cutoff, default 1600
+ *   GETV_EDGEVALIDATE_FRAME=<n>      which frame to run on, default 601
  *
  * It must run LATE ENOUGH that the level is fully placed. The stan tiles the test seeds from
  * are not ready at frame 1, and a run against a half-built level reports a wall everywhere --
@@ -109,7 +109,7 @@ void gePortEdgeValidateFrame(int frame)
 
         if (!geWorldWaypoint(i, &a)) { continue; }
 
-        /* stand AT this node before measuring its edges.
+        /* stand at this node before measuring its edges.
          *
          * The line test is seeded from a stan tile and the seed decides the answer -- the same
          * 2926 Bunker 1 pairs came back 98%, 73% or 0% walkable depending only on where the test

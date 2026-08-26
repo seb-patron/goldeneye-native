@@ -22,10 +22,10 @@
 #  GETV_SWEEP_TIMEOUT=60 getv/tools/level_sweep.sh
 #
 # OUTPUT
-#  $OUT/<id>-<name>.log full console capture
-#  $OUT/<id>-<name>.png screenshot taken just before the process is killed
-#  $OUT/results.tsv one row per level, tab-separated
-#  $OUT/summary.md the same thing grouped by failure signature
+#  $out/<id>-<name>.log full console capture
+#  $out/<id>-<name>.png screenshot taken just before the process is killed
+#  $out/results.tsv one row per level, tab-separated
+#  $out/summary.md the same thing grouped by failure signature
 #
 # The LEVELID enum is sparse; it is not 0..19. BUNKER1=9, SILO=20, then a contiguous run
 # 22..57, plus TITLE=90. A bogus stage number does not error -- it silently falls back to
@@ -141,7 +141,7 @@ coverage_of() {
 }
 
 # Which levels to do: args if given, else all.
-# `reparse` re-derives results.tsv and summary.md from the .log files already in $OUT
+# `reparse` re-derives results.tsv and summary.md from the .log files already in $out
 # without launching anything. A full set costs ~45 minutes, so a parser bug must not mean
 # re-running everything: the logs are the raw data and they are kept.
 SELECT=("$@")

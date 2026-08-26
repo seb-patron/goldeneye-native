@@ -7,19 +7,19 @@
  * at here. Both are silent failures - the app runs perfectly and no button does
  * anything - so they are worth stating plainly:
  *
- *  1. The Siri Remote enumerates as a joystick, and it tends to appear BEFORE the
+ *   1. The Siri Remote enumerates as a joystick, and it tends to appear BEFORE the
  * real gamepad. Whatever takes index 0 becomes player 1, so the remote wins and
  * the actual pad is assigned to player 2. SDL_HINT_TV_REMOTE_AS_JOYSTICK must be
  * cleared BEFORE SDL_INIT_GAMECONTROLLER. The remote is useless for an FPS anyway.
  *
- * The hint is necessary but not sufficient, so there is a second layer
+ * The hint is necessary but not sufficient, which is why there is a second layer
  * here. The hint is a request; whether the remote enumerates anyway depends on the
  * SDL build, and any future controller-like accessory (a remote in a game case, a
  * phone acting as a controller) hits the same "index 0 wins" trap. So selection
  * ranks candidates instead of taking the first one, and will upgrade from a
  * stickless device to a real pad whenever one shows up.
  *
- *  2. tvOS enumerates gamepads asynchronously. SDL_NumJoysticks() is 0 while the game
+ *   2. tvOS enumerates gamepads asynchronously. SDL_NumJoysticks() is 0 while the game
  * is still running its own osContInit(), and pads only arrive some frames later.
  * Anything that decides "is there a controller?" once, at init, decides "no"* forever. Hence the rescan on every poll.
  *
@@ -32,11 +32,11 @@
  * The single pad is now `gePads[GE_PORT_MAX_PADS]`, and every rule the one-pad path had
  * earned is preserved:
  *
- *  - Ranking, not index 0. Real gamepads are taken first; a stickless device is only
+ *   - Ranking, not index 0. Real gamepads are taken first; a stickless device is only
  * ever accepted when nothing else is present, and only into port 0.
- *  - Upgrade. A stickless device holding port 0 is evicted the moment a real pad
+ *   - Upgrade. A stickless device holding port 0 is evicted the moment a real pad
  * enumerates.
- *  - Classification by capability (HasAxis/HasButton), never by product name.
+ *   - Classification by capability (HasAxis/HasButton), never by product name.
  *
  * With four ports there is one further rule: a stickless device is never assigned to
  * ports 1-3. Accepting a Siri Remote into port 2 would make joyGetControllerCount()
@@ -96,9 +96,9 @@ static int geSynthFrame = 0;
  *
  * Syntax GETV_SCRIPT="<frame>:<keys>[:<hold>][,...]"* frame the poll tick to fire on (geSynthFrame; one tick per osContGetReadData,
  * i.e. per game frame -- the same clock GETV_EXIT_FRAME counts)
- * keys '+'-joined, case-insensitive:
+ * keys   '+'-joined, case-insensitive:
  * A B X Y START BACK Z L R DU DD DL DR CU CD CL CR
- * LT RT the analogue triggers. Z is the same as RT, because that is
+ * LT RT   the analogue triggers. Z is the same as RT, because that is
  * where FIRE is bound by default; L and R are the shoulder buttons.
  * SX=<n> SY=<n> N64 stick counts, -80..80 (SY+ = up, as the game reads it)
  * hold frames to hold, default 4
@@ -108,7 +108,7 @@ static int geSynthFrame = 0;
  * proof the entry fired, and it is a handful of lines a run)
  *
  * A live script forces port 0 present, so it works with no hardware and no GETV_PADS.
- * Overlapping entries OR together, so a stick can be held across several taps.
+ * Overlapping entries or together, so a stick can be held across several taps.
  *
  * Diagnostic only: with GETV_SCRIPT unset nothing in this file changes behaviour.
  * =========================================================================== */
@@ -147,8 +147,8 @@ static int geScriptTrace  = 1;
  * without the deadzone term a requested 70 would arrive as 62 and every "is the stick * past the rail" test in front.c would be answered about a different number than the
  * one written in the script. */
 #define GE_SCRIPT_DEADZONE 3200
-#define GE_SCRIPT_AXISMAX 32767
-#define GE_SCRIPT_N64MAX 80
+#define GE_SCRIPT_AXISMAX  32767
+#define GE_SCRIPT_N64MAX   80
 
 static int geScriptAxis(int n64)
 {
@@ -269,7 +269,7 @@ static int geScriptActive(void)
  return geScriptCount > 0;
 }
 
-/* Overlay every entry live on `frame` onto `out`. OR semantics, so a held stick and a
+/* Overlay every entry live on `frame` onto `out`. or semantics, so a held stick and a
  * tapped button can overlap. */
 static void geScriptApply(int port, int frame, struct GePadState *out)
 {
@@ -326,7 +326,7 @@ static void geScriptApply(int port, int frame, struct GePadState *out)
  if (keys & GE_SK_DR)    { out->dright = 1; }
 
     /* C buttons ride the right stick, which port_os.c puts through a Schmitt trigger
-     * (on above 12000, off below 8000). Park well past the ON threshold. */
+     * (on above 12000, off below 8000). Park well past the on threshold. */
  if (keys & GE_SK_CU) { out->ry = -30000; }
  if (keys & GE_SK_CD) { out->ry =  30000; }
  if (keys & GE_SK_CL) { out->rx = -30000; }
@@ -609,10 +609,10 @@ int gePortPadProfile(int port)
 /* Indexed [profile][glyph]. GENERIC uses positional names because inventing labels for
  * an unknown pad is how a prompt ends up lying. */
 static const char *const GE_GLYPHS[4][GE_GLYPH_MAX] = {
-    /* GE_PAD_GENERIC */
+    /* GE_PAD_GENERIC     */
     { "Down", "Right", "Left", "Up", "L1", "R1", "L2", "R2",
  "Start", "Select", "L3", "R3" },
-    /* GE_PAD_XBOX */
+    /* GE_PAD_XBOX        */
     { "A", "B", "X", "Y", "LB", "RB", "LT", "RT",
  "Menu", "View", "LS", "RS" },
     /* GE_PAD_PLAYSTATION */
@@ -853,16 +853,16 @@ static void geSynthState(int port, struct GePadState *out)
  * thumb on a stick, so nothing observed through the keyboard exercises a different code
  * path than a gamepad would.
  *
- * OR semantics, never clearing. A gamepad and the keyboard can both be live; whichever
+ * or semantics, never clearing. A gamepad and the keyboard can both be live; whichever
  * is held wins. That also means a real pad on port 0 is never degraded by this.
  *
- * move W A S D -> left stick
- * look arrow keys -> right stick (port_os.c turns it into C-buttons)
+ * move W A S D            -> left stick
+ * look arrow keys         -> right stick (port_os.c turns it into C-buttons)
  * fire SPACE or LEFT-CTRL -> Z trigger
- * A / use E or RETURN -> A
- * B / aim Q -> B
- * crouch/L R Z / X -> L and R shoulders
- * Start return(kp) or tab -> start
+ * A / use E or RETURN        -> A
+ * B / aim Q                  -> B
+ * crouch/L R Z / X              -> L and R shoulders
+ * Start return(kp) or tab  -> start
  * d-pad I J K L
  *
  * GETV_KEYBOARD=0 disables it entirely.
@@ -897,7 +897,7 @@ static int geMouseEnabled(void)
  static int on = -1;
  if (on < 0) {
  const char *s = getenv("GETV_MOUSE");
-        /* Default ON. Nearly everyone has a keyboard and mouse; a gamepad is the minority
+        /* Default on. Nearly everyone has a keyboard and mouse; a gamepad is the minority
          * case, so the majority should not have to find a setting before the game is
          * playable. GETV_MOUSE=0 turns it off, and a connected pad keeps working either way
          * -- the two are ORed, not exclusive. */
@@ -1269,7 +1269,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
  if (k[SDL_SCANCODE_LEFT])  { rx -= GE_KB_FULL; }
  if (k[SDL_SCANCODE_RIGHT]) { rx += GE_KB_FULL; }
 
-    /* OR against whatever a real pad reported: a held stick must not be zeroed by an
+    /* or against whatever a real pad reported: a held stick must not be zeroed by an
      * unpressed key. Only overwrite an axis the keyboard is actually driving. */
  if (lx != 0) { out->lx = lx; }
  if (ly != 0) { out->ly = ly; }
@@ -1325,7 +1325,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
 
 /* ---- a real crouch button -------------------------------------------------------
  *
- * Retail crouch is gated behind aim mode: `bondview2.c:5484` requires `insightaimmode` AND
+ * Retail crouch is gated behind aim mode: `bondview2.c:5484` requires `insightaimmode` and
  * stick-down before it will lower Bond, so crouching means holding aim, pushing down, and
  * then releasing aim while staying low. That is faithful and it is genuinely awkward, and
  * it is the sort of thing a native port is for.
@@ -1335,7 +1335,7 @@ static void geKeyboardApply(int port, struct GePadState *out)
  * did, and the keys are simply another way in. Off unless GETV_CROUCH_KEY is 1, which it is
  * by default; set it to 0 for faithful-only behaviour.
  *
- * NOT routed through port_os.c's action table. That table is the Windows build's
+ * not routed through port_os.c's action table. That table is the Windows build's
  * lane and is being edited there for the per-player bindings; a second author adding rows
  * to it mid-flight is how the last collision happened. When the binding work lands these
  * should move onto it as GE_ACT_CROUCH / GE_ACT_STAND.

@@ -57,9 +57,9 @@ int gePortInputPadCount(void);
 void gePortInputPollPort(int port, struct GePadState *out);
 
 /* GETV_INPUT_DEBUG, read once and cached.
- *  0 = silent (default)
- *  1 = one line whenever the decoded N64 pad changes, plus a heartbeat
- *  2 = one line every frame the game reads the pad
+ *   0 = silent (default)
+ *   1 = one line whenever the decoded N64 pad changes, plus a heartbeat
+ *   2 = one line every frame the game reads the pad
  * Lives here rather than in port_os.c only because port_os.c cannot include a system
  * <stdlib.h> safely next to <PR/os.h>. */
 int gePortInputDebugLevel(void);

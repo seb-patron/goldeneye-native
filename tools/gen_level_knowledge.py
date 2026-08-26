@@ -177,7 +177,7 @@ def parse_waypoints(text, stem):
     for i, mm in enumerate(re.finditer(r"\{\s*(0x[0-9a-fA-F]+|-?\d+)\s*,", body)):
         tok = mm.group(1)
         pad = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
-        # stop AT the -1 terminator. bondtypes.h documents pathwaypoints as a -1 terminated
+        # stop at the -1 terminator. bondtypes.h documents pathwaypoints as a -1 terminated
         # array, and the terminator was being emitted as a real waypoint on EVERY level: Train
         # reported 105 nodes where the engine has 104, Dam 206 against 205, and so on. It survived
         # because it looks like a plain data hole -- one waypoint whose pad will not resolve --
@@ -268,7 +268,7 @@ def parse_props(text):
     pat = re.compile(
         r"/\*\s*Type\s*=\s*(\w+)\s*;\s*index\s*=\s*(\d+)\s*\*/[^\n]*\n"
         r"(\s*[^\n]*?\)\))\s*,\s*_mkword\(\s*(\d+)\s*,\s*(\d+)\s*\)")
-    # extrascale IS the prop'S scale, and IT IS IN the SETUP file all along.
+    # extrascale is the prop'S scale, and it is in the SETUP file all along.
     #
     # propobj.c:78 records that sub_GAME_7F051F30 computes `scale = extrascale * (1/256)`, so 256
     # means 1.0. The model bounding boxes in assets/obseg/prop are MODEL space and are useless as
@@ -277,7 +277,7 @@ def parse_props(text):
     # rather than per model, so it has to come from here and not from the model file.
     #
     # Captured as None when the header is not in the _mkword(n, _mkshort(...)) form rather than
-    # defaulting to 256. A record whose scale could not be read is NOT a record scaled by 1.0, and
+    # defaulting to 256. A record whose scale could not be read is not a record scaled by 1.0, and
     # writing 256 there would silently hand every unreadable prop a plausible wrong size -- the
     # same absent-is-not-zero rule the rest of this pipeline follows.
     hdr_pat = re.compile(r"\s*_mkword\(\s*(\d+)\s*,\s*_mkshort\(")
@@ -458,7 +458,7 @@ def parse_props_raw(text, stem):
         name, size = entry
         if name == "EndProps":
             # Landing on the terminator is not enough on its own -- a drifted walk can hit one
-            # early. It has to land on the terminator AT THE END, with nothing after it but the
+            # early. It has to land on the terminator at the END, with nothing after it but the
             # array's sentinel word. That is what makes a clean walk mean something.
             clean = len(words) - i <= 2
             break
@@ -697,17 +697,17 @@ def build(name, stem, stage_id, mission, path):
     #  Collectable and 28 as a StandardProp; without this they would be identical.
     #  levelscale model boxes are runtime-proportioned and this file is ASSET space.
     #
-    # emitted IN asset space, like every other length here. pack_world.py applies
+    # emitted in asset space, like every other length here. pack_world.py applies
     # runtime = asset / levelscale to every position it packs, and these ride the same conversion.
     # Emitting runtime lengths beside asset positions is the "half in one space" failure its own
     # comment warns about.
     #
-    # hx/hz ARE UNROTATED half-extents in the model's own frame; `radius` is the XZ circumradius
+    # hx/hz are UNROTATED half-extents in the model's own frame; `radius` is the XZ circumradius
     # and is the only one safe to use without knowing the prop's orientation. Both are emitted and
     # named rather than silently picking one, because a long crate at 45 degrees occupies more
     # width than its half-extent suggests.
     #
-    # A prop with no model box or no readable extrascale gets NO extent fields at all rather than
+    # A prop with no model box or no readable extrascale gets no extent fields at all rather than
     # zeros: absent and zero-sized lead to opposite behaviour, and only one of them is true.
     _apply_prop_extents(props, name)
 
@@ -741,7 +741,7 @@ def build(name, stem, stage_id, mission, path):
             "tags_resolved": tagged,
         },
         # "unreadable" means the file exports raw records that could not be walked cleanly, so
-        # this stage has reliable pads and geometry but NO prop or pickup census. Stated rather
+        # this stage has reliable pads and geometry but no prop or pickup census. Stated rather
         # than left as a zero, because a zero reads as "this arena has no armour".
         "prop_export": ("raw" if raw_used
                         else "annotated" if props

@@ -4,7 +4,7 @@
  *
  * ge_player_api already posts input per slot per tick and refuses a post for a tick that has
  * already run. That refusal is not a bot concern -- it is precisely the netplay failure it
- * looks like, so bots, remote players and RL agents can all ride one path. This file
+ * looks like, which is why bots, remote players and RL agents can all ride one path. This file
  * is the part that makes several machines agree on which tick they are on.
  *
  * Lockstep rather than state replication: only inputs travel, and every machine simulates the
@@ -17,7 +17,7 @@
  * time to deliver it. Rollback hides more latency and would need full save/restore of game
  * state, which is a far larger change and not worth reaching for before measuring.
  *
- * The transport IS not here ON purpose. Knowing when a tick is ready, when to stall and when
+ * The transport is not here on purpose. Knowing when a tick is ready, when to stall and when
  * the machines have diverged is not a socket concern, and keeping it separate means the hard
  * part can be tested with no I/O at all.
  */
@@ -26,13 +26,13 @@
 
 #include "ge_net.h"
 
-#define GE_NET_RING 64 /* per-slot ring of pending inputs; power of two */
+#define GE_NET_RING 64          /* per-slot ring of pending inputs; power of two */
 #define GE_NET_RING_MASK (GE_NET_RING - 1)
 
 #define GE_NET_MSG_INPUT 1
-#define GE_NET_MSG_SYNC 2
-#define GE_NET_MSG_RELAY 3 /* a departed peer's inputs, pooled among survivors */
-#define GE_NET_MSG_DROP 4 /* slot N stops existing at tick T, on every machine */
+#define GE_NET_MSG_SYNC  2
+#define GE_NET_MSG_RELAY 3      /* a departed peer's inputs, pooled among survivors */
+#define GE_NET_MSG_DROP  4      /* slot N stops existing at tick T, on every machine */
 
 /* Ticks to wait after a departure before naming the drop tick, so relays from every survivor
  * have landed first. Naming it early means naming it from an incomplete pool. */
@@ -210,7 +210,7 @@ void geNetDeliver(const void *data, int len)
                 continue;
             }
 
-        /* Strictly less than. Input for the tick ABOUT TO RUN is still usable -- that tick has
+        /* Strictly less than. Input for the tick ABOUT to RUN is still usable -- that tick has
          * not been simulated yet. Testing <= throws away every input that arrives exactly on
          * time, which caps the session at its primed window and then stalls forever on any link
          * where latency reaches the delay. Found by tools/netsim.py, which models this
@@ -433,7 +433,7 @@ int geNetTickBegin(const GePlayerInput *local_input)
     now    = ge_net_now();
     future = now + ge_net.delay;
 
-    /* A scheduled drop takes effect at ITS tick, identically on every machine. This is checked
+    /* A scheduled drop takes effect at its tick, identically on every machine. This is checked
      * before readiness, because the whole point is to stop waiting on a slot that is gone. */
     if (ge_net.drop_slot >= 0 && now >= ge_net.drop_at) {
         geNetSetSlotKind(ge_net.drop_slot, GE_NET_SLOT_EMPTY);

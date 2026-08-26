@@ -74,11 +74,11 @@ ST_FMT  = "<HHffffH2x"                # from_node, to_node, dist, heading, turn,
 
 # ---- level scale: the reason nothing lined up -------------------------------------------------
 #
-# the assets and the running game are IN different coordinate spaces, and everything packed
+# the assets and the running game are in different coordinate spaces, and everything packed
 # before this was in the wrong one.
 #
 # bg.c's levelinfotable carries a per-level `levelscale`, applied at load by setLevelScale, and
-# stan.c multiplies every coordinate by it. So the numbers in the assets are NOT the numbers the
+# stan.c multiplies every coordinate by it. So the numbers in the assets are not the numbers the
 # game reports: runtime = asset / levelscale. Dam's scale is 0.23364, its floor tiles reach
 # x=4735, and the player spawns at x=20198 -- which is 4719 once scaled. They were the same place
 # all along.
@@ -191,13 +191,13 @@ def pack_level(level, levels_dir):
                       int(tag) if tag is not None else -1,
                       (nav if nav is not None else 0xFFFF) & 0xFFFF,
                       p["pos"][0] * inv, p["pos"][1] * inv, p["pos"][2] * inv,
-                      # SCALED BY inv, exactly like the positions above. These are asset-space
+                      # SCALED by inv, exactly like the positions above. These are asset-space
                       # LENGTHS in the knowledge file, so they take the same runtime = asset /
                       # levelscale conversion -- a pack carrying runtime positions beside asset
                       # extents would report a crate in the right place at 6.7x the wrong size,
                       # which is the "half in one space" failure this function already warns about.
                       #
-                      # 0 means NOT KNOWN, not "a point-sized prop". 40 of Train's 342 props are
+                      # 0 means not KNOWN, not "a point-sized prop". 40 of Train's 342 props are
                       # Guards, which have no model box at all; a consumer must read 0 as "no
                       # extent information" and fall back to the centre -- which is precisely the
                       # behaviour every caller had before this field existed.

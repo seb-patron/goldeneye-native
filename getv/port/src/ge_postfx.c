@@ -10,10 +10,10 @@
  * driving the game from a shell or a config file, and a gate whose defaults differ from the
  * mod's would produce two different "CRT modes". */
 #define GE_CRT_SCANLINE 0.28f
-#define GE_CRT_MASK 0.18f
-#define GE_CRT_CURVE 0.025f
+#define GE_CRT_MASK     0.18f
+#define GE_CRT_CURVE    0.025f
 #define GE_CRT_VIGNETTE 0.22f
-#define GE_CRT_LINES 240.0f
+#define GE_CRT_LINES    240.0f
 
 static GePostfx ge_fx;
 static int      ge_fx_ready;

@@ -7,12 +7,12 @@
  *
  * What is left for the port is the two ends of that library:
  *
- *  below it - the RSP that executed the command list. That is getv/port/audio/
- *  ge_mixer.c, wired in by <PR/abi.h> under -DGE_AUDIO_MIXER.
- *  above it - src/audi.c, the audio manager. That file is pure N64: an audio
- *  thread, OSScTask scheduling, AI double-buffering, and a 64-entry DMA
- *  cache that streamed sample bytes off the cartridge. None of it
- *  survives a port, so audi.c is not compiled and this file replaces it.
+ *   below it - the RSP that executed the command list. That is getv/port/audio/
+ *              ge_mixer.c, wired in by <PR/abi.h> under -DGE_AUDIO_MIXER.
+ *   above it - src/audi.c, the audio manager. That file is pure N64: an audio
+ *              thread, OSScTask scheduling, AI double-buffering, and a 64-entry DMA
+ *              cache that streamed sample bytes off the cartridge. None of it
+ *              survives a port, so audi.c is not compiled and this file replaces it.
  *
  * The replacement is much smaller than the original for one reason: with the mixer
  * in place, alAudioFrame() no longer builds a command list for someone else to run
@@ -34,27 +34,27 @@
 /* audi.c: OUTPUT_RATE 0x5622. The N64 could only approximate this (osAiSetFrequency
  * returned what the AI hardware actually managed and the game used that); SDL gives
  * us the exact rate, which is strictly better. */
-#define GE_OUTPUT_RATE 22050
+#define GE_OUTPUT_RATE      22050
 
 /* audi.c sized a frame as (outputRate << FRAMES_PER_FIELD_AS_POW2) / MAYBE_FRAME_RATE
  * rounded up to 16 - i.e. two fields' worth at 60 Hz. Same arithmetic here. */
-#define GE_FRAME_SAMPLES (((GE_OUTPUT_RATE * 2 / 60) + 15) & ~15) /* 736 */
-#define GE_MIN_FRAME (GE_FRAME_SAMPLES - 16)
-#define GE_MAX_FRAME (GE_FRAME_SAMPLES + 0x25 + 16) /* + EXTRA_SAMPLES */
+#define GE_FRAME_SAMPLES    (((GE_OUTPUT_RATE * 2 / 60) + 15) & ~15)   /* 736 */
+#define GE_MIN_FRAME        (GE_FRAME_SAMPLES - 16)
+#define GE_MAX_FRAME        (GE_FRAME_SAMPLES + 0x25 + 16)             /* + EXTRA_SAMPLES */
 
 /* audi.c: NUMBER_ACMD_LISTS 2, MAX_ACMD_SIZE 3000. Only one list is needed now (the
  * commands are executed as they are "written", so no list is ever in flight), but
  * the AL library still walks a write cursor across it, so it must be real storage of
  * the right size. */
-#define GE_ACMD_SIZE 3000
+#define GE_ACMD_SIZE        3000
 
 /* How much audio to keep queued on the device, in stereo frames. Two video frames'
  * worth is enough to ride out a slow frame without adding audible latency; the game
  * pushes ~736 samples per frame at 60 Hz. */
-#define GE_QUEUE_TARGET (GE_FRAME_SAMPLES * 4)
+#define GE_QUEUE_TARGET     (GE_FRAME_SAMPLES * 4)
 
 /* Mirrors GE_DMEM_SIZE in port/audio/ge_mixer.c -- reporting only. */
-#define GE_DMEM_REPORT 4096
+#define GE_DMEM_REPORT      4096
 
 /* --------------------------------------------------------------------- state */
 
@@ -81,7 +81,7 @@ static Uint32 geClockStart = 0;
 static s32 geCustomFxParams[6 * 8 + 2] = {
     /* sections, length */
     6, GE_MS(160),
-    /* input output fbcoef ffcoef gain chorus rate chorus depth filter */
+    /* input      output     fbcoef  ffcoef    gain   chorus rate chorus depth  filter */
     0,           GE_MS(4),     9830,  -9830,        0,      0,     0,  0x0000,
     GE_MS(4),    GE_MS(8),     9830,  -9830,   0x2B84,      0,     0,  0x2500,
     GE_MS(20),   GE_MS(64),   16384, -16384,   0x11EB,      0,     0,  0x3000,
@@ -97,8 +97,8 @@ static s32 geCustomFxParams[6 * 8 + 2] = {
  * measurement. This block is that measurement: it reports, per frame, exactly what was
  * handed to SDL and what the engine's own state was when it was produced.
  *
- *  GETV_AUDIO_DEBUG=N report every N audio frames. 1 = every frame, 60 ~= once
- *  per two seconds of video. Any other non-zero value works.
+ *   GETV_AUDIO_DEBUG=N    report every N audio frames. 1 = every frame, 60 ~= once
+ *                         per two seconds of video. Any other non-zero value works.
  *
  * The necessary numbers are rmsL/rmsR and pk. RMS is computed over the same buffer
  * that is passed to SDL_QueueAudio, after the mixer has run, so a non-zero RMS is
@@ -121,7 +121,7 @@ static unsigned long geSavesBefore = 0;
 
 /* music.c's own state. Declared here rather than included because music.h is not on the
  * port layer's include path (the decomp ships headers that shadow the system ones -- see
- * docs/ROADMAP.md). Types are from <PR/libaudio.h>, which IS included above. */
+ * docs/ROADMAP.md). Types are from <PR/libaudio.h>, which is included above. */
 extern ALCSPlayer *g_musicXTrack1SeqPlayer;
 extern ALCSPlayer *g_musicXTrack2SeqPlayer;
 extern ALCSPlayer *g_musicXTrack3SeqPlayer;
@@ -176,9 +176,9 @@ static int geDbgVoices(ALCSPlayer *p)
 /* __vsVol (libultra/audio/seqplayer.c) is the only producer of the voice volume that
  * reaches ALStartParamAlt.volume, and it is a product of six factors:
  *
- *  t1 = (tremelo * velocity * envGain) >> 6
- *  t2 = (sound->sampleVolume * seqp->vol * chanState[channel].vol) >> 14
- *  vol = (t1 * t2) >> 15
+ *     t1 = (tremelo * velocity * envGain) >> 6
+ *     t2 = (sound->sampleVolume * seqp->vol * chanState[channel].vol) >> 14
+ *     vol = (t1 * t2) >> 15
  *
  * A single zero factor zeroes the whole thing, so when the envelope target arrives as 0
  * with a full-scale input, one of these six is zero. Print all six per live voice
@@ -209,13 +209,13 @@ static void geDbgVoiceVols(ALCSPlayer *p, int which)
  * simply booting. This drives the game's own entry point, the exact call the weapon
  * code makes:
  *
- *  sndPlaySfx(g_musicSfxBufferPtr, <id>, NULL)
+ *     sndPlaySfx(g_musicSfxBufferPtr, <id>, NULL)
  *
  * so it exercises the real sfx bank, sndSetupSound, voice allocation and the same
  * synth path as music -- no shortcut, nothing invented.
  *
- *  GETV_AUDIO_TESTSFX=<id> fire sound <id> every 60 audio frames
- *  107 = GUN_B2_HEAVY_SFX (the PPK), 109 = AK47
+ *   GETV_AUDIO_TESTSFX=<id>   fire sound <id> every 60 audio frames
+ *                             107 = GUN_B2_HEAVY_SFX (the PPK), 109 = AK47
  *
  * A non-NULL return means the player allocated an ALSoundState and started it; NULL
  * means it refused (no free voice, or the sound index is empty). Both are reported --
@@ -352,11 +352,11 @@ static void geDbgFrame(const s16 *buf, s32 frames, s32 queued, s32 cmdLen)
  * RMS proves "not silence"; it cannot tell music from noise. So write the exact bytes
  * handed to SDL to a .wav inside the app sandbox, which can be pulled off the simulator
  * with
- *  xcrun simctl get_app_container <udid> org.goldeneyenative.getv data
+ *   xcrun simctl get_app_container <udid> org.goldeneyenative.getv data
  * and listened to, or analysed offline, without anyone sitting in front of the TV.
  *
- *  GETV_AUDIO_WAV=1 dump to $HOME/Documents/getv_audio.wav
- *  GETV_AUDIO_WAV=<path> dump there instead
+ *   GETV_AUDIO_WAV=1        dump to $HOME/Documents/getv_audio.wav
+ *   GETV_AUDIO_WAV=<path>   dump there instead
  *
  * The header is written with a placeholder length and patched on every flush, so the
  * file is playable even if the process is killed mid-run.

@@ -983,7 +983,7 @@ On startup the input layer reports what it found:
 
 ```
 [getv] input: poll live @513ms -- joysticks=0 gamecontrollers=0 ports=0 [none|none|none|none] forced=0 synth=0
-[getv] input: dual-analog ON -- one pad presented as N64 ports 0+1 (port 0 = right stick/look, port 1 = left stick/move). GETV_DUALANALOG=0 to disable.
+[getv] input: dual-analog on -- one pad presented as N64 ports 0+1 (port 0 = right stick/look, port 1 = left stick/move). GETV_DUALANALOG=0 to disable.
 [getv] input: N64 ports connected = 2 (bitpattern 0x3)
 ```
 
@@ -1374,7 +1374,7 @@ corrupted fetch.
 
 ```
 [getv][config] no $HOME
-[getv][save] no $HOME and no GETV_SAVEDIR -- persistence OFF
+[getv][save] no $HOME and no GETV_SAVEDIR -- persistence off
 ```
 
 **Cause** - `HOME` is unset or empty. `gePortUserDataDir()`'s macOS branch is a literal
@@ -1403,7 +1403,7 @@ they never touch a real save.
 **Symptom A - saves.**
 
 ```
-[getv][save] cannot create /Users/you/Library/Application Support/Goldeneye-Native: Read-only file system -- persistence OFF
+[getv][save] cannot create /Users/you/Library/Application Support/Goldeneye-Native: Read-only file system -- persistence off
 ```
 
 or, if the directory exists but the file cannot be written:

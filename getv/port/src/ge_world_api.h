@@ -16,7 +16,7 @@
 #ifndef GE_WORLD_API_H
 #define GE_WORLD_API_H
 
-#define GE_WORLD_MAGIC 0x44574547u /* 'GEWD' little-endian */
+#define GE_WORLD_MAGIC   0x44574547u      /* 'GEWD' little-endian */
 /* v3 added hx/hz/radius to the prop record. Bumped rather than tolerated: the record is read
  * POSITIONALLY, so a v2 pack fed to a v3 loader would not fail, it would read the next prop's
  * fields as this one's extents and report confident nonsense. A refusal to load is the only
@@ -129,7 +129,7 @@ typedef struct GeWorldProp {
     int   nav_node;             /* nearest waypoint, or -1 */
     float x, y, z;
 
-    /* how big IT IS, not just where. A prop reported "278 away" is 278 to its centre, and a bot
+    /* how big it is, not just where. A prop reported "278 away" is 278 to its centre, and a bot
      * that still sees room has already walked into the corner of it.
      *
      * hx/hz are half-extents in the model's own frame and are UNROTATED: a long crate at forty-five

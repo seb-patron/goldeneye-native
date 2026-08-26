@@ -1,6 +1,6 @@
 /* Play GoldenEye from a terminal, through the API alone.
  *
- * Why this IS the real test OF the API
+ * Why this is the real test of the API
  *
  * A bot that walks into a wall tells you very little: the policy might be poor, or the policy
  * might be fine and unable to perceive the wall. Those need different fixes and the bot cannot
@@ -12,14 +12,14 @@
  * weapon, what is ahead and how far, the clearest way out, doors and keys and objectives with
  * bearings, and every enemy with range, bearing and whether it can see you. No screen.
  *
- *  GETV_CLI=1 turn it on; reads commands from stdin
- *  GETV_CLI_SLOT=<n> which player, default 0
- *  GETV_CLI_EVERY=<n> frames between reports, default 60
+ *   GETV_CLI=1              turn it on; reads commands from stdin
+ *   GETV_CLI_SLOT=<n>       which player, default 0
+ *   GETV_CLI_EVERY=<n>      frames between reports, default 60
  *
- * COMMANDS w <n> walk n ticks a/d <n> turn left/right n ticks
- *  s <n> back use open a door / act
- *  fire shoot look report now
- *  stop neutral quit end the run
+ * COMMANDS   w <n>  walk n ticks        a/d <n>  turn left/right n ticks
+ *            s <n>  back                use      open a door / act
+ *            fire   shoot               look     report now
+ *            stop   neutral             quit     end the run
  *
  * stdin is read NON-BLOCKING. Blocking would stall the game loop, and a frozen game with a
  * prompt looks exactly like a crash -- which is how the first version presented.
@@ -148,7 +148,7 @@ static void ge_cli_report(int frame)
     if (!gePlayerStateGet(ge_cli_slot, &st) || !st.present) { return; }
 
     printf("\n--- f%d ---\n", frame);
-    /* where IN the map, not just what is in front.
+    /* where in the map, not just what is in front.
      *
      * Every other line here is relative to facing, which is the right form for acting on one
      * thing and the wrong form for holding a picture. A reader given only bearings has to

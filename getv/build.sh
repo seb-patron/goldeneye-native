@@ -52,7 +52,7 @@ CFLAGS=(
 # port/audio/ge_mixer.c is the RSP, port_audio.c is the audio manager, port_audio_bank.c
 # converts the banks, and assets/music/ge_audio_segment.c carries the five ROM segments
 # that were previously a zeroed 5x1024 stub. musicSeqPlayerInit() is called from the
-# harness again. If audio ever has to be disabled, put both files back here AND re-skip
+# harness again. If audio ever has to be disabled, put both files back here and re-skip
 # musicSeqPlayerInit(); doing only half of that reintroduces exactly the half-real state
 # the rule warns about.
 #
@@ -177,7 +177,7 @@ cmd_lib() {
     echo "failing list -> $BUILD/failing.txt"
   fi
 
-  # The port layer: Fast3D (from sm64ex -- NOT Perfect Dark, whose Fast3D was
+  # The port layer: Fast3D (from sm64ex -- not Perfect Dark, whose Fast3D was
   # rewritten for PD's custom 12-byte vertex; GoldenEye uses the standard N64 Vtx,
   # same as SM64) plus the host shims it needs.
   # NOTE: GE's include/ is absent here. The decomp ships its own

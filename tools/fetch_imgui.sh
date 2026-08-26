@@ -25,7 +25,7 @@
 # imgui_impl_sdl2.cpp is the obvious platform backend: the port already creates its window
 # and pumps its events through SDL2.
 #
-# The renderer backend is imgui_impl_opengl2.cpp, which is NOT the usual choice and is not
+# The renderer backend is imgui_impl_opengl2.cpp, which is not the usual choice and is not
 # an accident. build_mac.sh requests no GL profile, so macOS hands back a legacy 2.1
 # context -- deliberately, because gfx_opengl.c's shader generator emits `#version 120`
 # with attribute/varying, which a 3.2 core profile rejects outright (see the header comment

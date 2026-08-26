@@ -175,14 +175,14 @@ cmd_regen() {
   # needed to place the hunks, and omitting it keeps unmodified upstream lines out of a
   # file this repository does distribute.
   #
-  # write TO A temporary and move only ON success. This used to redirect straight into
+  # write to A temporary and move only on success. This used to redirect straight into
   # $patchfile, and `>` truncates before the subshell runs -- so any failure inside destroyed the
   # single file carrying every change this project has made to the fifteen third-party sources.
   #
   # Not hypothetical: it happened here. Under MSYS the mkdir/cp forks above died with cygheap
   # `child_copy` errors, so $tmp/b was empty, diff had nothing to compare, and a 363,467-byte
   # patch became 0 bytes. The sources themselves survived only because they are gitignored and
-  # sat untouched in the working tree; the patch came back only because it IS tracked. Had both
+  # sat untouched in the working tree; the patch came back only because it is tracked. Had both
   # been regenerated together the project would have lost the lot.
   #
   # cmd_verify below did report DIFFERS on every file -- the signal existed, but it arrived after
@@ -194,7 +194,7 @@ cmd_regen() {
     [ $? -gt 1 ] && die "diff failed; $PATCHFILE left untouched"
   fi
 
-  # refuse AN empty OR implausibly small result. Fifteen heavily modified files cannot diff to
+  # refuse an empty or implausibly small result. Fifteen heavily modified files cannot diff to
   # nothing, so an empty patch means the comparison did not happen -- not that the changes went
   # away. Overwriting a good patch with that is the failure this whole block exists to prevent.
   local newsz oldsz

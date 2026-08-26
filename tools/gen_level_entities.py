@@ -104,8 +104,8 @@ def mine_text(text):
                 ent_line.setdefault(t, i)
 
         # relations must not require MY vocabulary. The first version demanded a direction word
-        # AND two nouns from the KINDS list, and kept 20 relations out of 43,731 lines. Measured:
-        # 724 lines carry a direction word, but only 102 contain even ONE noun I had listed. The
+        # and two nouns from the KINDS list, and kept 20 relations out of 43,731 lines. Measured:
+        # 724 lines carry a direction word, but only 102 contain even one noun I had listed. The
         # documents describe these levels in their own words; a miner that only sees terms it
         # already knew is measuring its own word list.
         #
@@ -154,7 +154,7 @@ def mine_text(text):
     entities = [{"name": t, "kind": ent_kind[t], "count": c, "line": ent_line[t]}
                 for t, c in ent.most_common()]
 
-    # and what the documents name that I did not think TO list. The kinds vocabulary was written
+    # and what the documents name that I did not think to list. The kinds vocabulary was written
     # by guessing which nouns a GoldenEye level guide would use, and a miner limited to it reports
     # its author's imagination rather than the source. Same failure the relations had.
     #

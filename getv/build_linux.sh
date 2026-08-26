@@ -4,7 +4,7 @@
 # arbitrary, because most of it is explained there and not repeated.
 #
 # ############################################################################
-# # Untested. NO linux machine has ever run this script OR compiled this tree.
+# # Untested. no linux machine has ever run this script or compiled this tree.
 # ############################################################################
 #
 # It was written on macOS from docs/PORTING.md sections 9 and 11 and checked only with
@@ -14,7 +14,7 @@
 #  1. getv/Sources/ge_tvos_main.c:88-107 -- the crash handler reads the faulting PC out of
 #  a Darwin arm64 ucontext (`_STRUCT_ARM_THREAD_STATE64`, `uc->uc_mcontext->__ss`,
 #  `__darwin_arm_thread_state64_get_pc`). Those identifiers do not exist on glibc, and
-#  The block is not behind any #ifdef. the harness will not compile until this IS
+#  The block is not behind any #ifdef. the harness will not compile until this is
 #  BRANCHED. PORTING.md section 6 sizes it at half a day: backtrace(), dladdr() and
 #  sigaction() are all present on glibc, so only the register dump needs the branch
 #  (`uc->uc_mcontext.gregs[REG_RIP]` on x86_64, `uc->uc_mcontext.pc` on aarch64).

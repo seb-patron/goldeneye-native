@@ -68,7 +68,7 @@ class Player:
         if "obj" not in s:
             return "look"
 
-        # COMMIT TO A MANOEUVRE. Deciding afresh on every report makes the player alternate
+        # COMMIT to A MANOEUVRE. Deciding afresh on every report makes the player alternate
         # between "the objective is left" and "something is ahead, turn right", and it spends the
         # run swinging between the two -- measured: the objective bearing flipped -151 / -91 /
         # -151 for a hundred reports while the distance never moved. Same failure the in-game
@@ -111,7 +111,7 @@ class Player:
             return "use 40"
 
         # Something solid close enough to walk into: take the turn the report worked out, and
-        # then WALK IT. A turn on its own leaves the player pointing at open ground and standing
+        # then WALK it. A turn on its own leaves the player pointing at open ground and standing
         # still, so the next report sees the same obstacle and turns again -- which is how it
         # spent a whole run rotating beside one crate. Turn and go, as one plan.
         if ("wall" in what or "object" in what) and ahead_d < 250:

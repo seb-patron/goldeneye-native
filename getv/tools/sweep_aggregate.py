@@ -93,7 +93,7 @@ RE_ROOMS  = re.compile(r"maxrooms=(\d+)")
 # Counters armed elsewhere in the port that did not fire on the levels available at the
 # time. A whole-game sweep is the cheapest way to learn whether they are live anywhere,
 # so they are harvested here rather than needing their own run.
-#  geTexSelCiNoLut -- a CI texture whose lutmode hit no case, so NO combiner was
+#  geTexSelCiNoLut -- a CI texture whose lutmode hit no case, so no combiner was
 #  emitted and the PREVIOUS draw call's combiner stayed in force.
 #  GoldenEye is CI-heavy; if this prints it is a real render bug.
 #  [getv][hitidx] -- propobjFindHit() is the only writer of mtxindex/dlnode and runs

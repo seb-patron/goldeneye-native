@@ -85,7 +85,7 @@ def main():
             # prefer A total, and never just the first match. Train carries both
             # `approx_total_train_length_m` (239, the whole level) and `car_length_m` (29, one
             # carriage), and both end in _length_m. Taking the first key the dict happened to
-            # yield compared ONE CARRIAGE against the level's full extent and reported a 12x
+            # yield compared one CARRIAGE against the level's full extent and reported a 12x
             # disagreement that was entirely my own doing. A key whose name says "total" wins;
             # failing that, the largest candidate, since a part cannot exceed the whole.
             cands = [float(v) for k, v in c.items()
@@ -110,7 +110,7 @@ def main():
     # calibrate against the engine, not against cross-LEVEL agreement.
     #
     # The original plan was to compare metres-per-unit across levels and call a tight spread a
-    # conversion. That is not available: exactly ONE level in the whole corpus carries a
+    # conversion. That is not available: exactly one level in the whole corpus carries a
     # metre-denominated total (Train). Every other numeric key here -- visibility, cover, choke,
     # soundTransmission -- is a 0-1 tactical rating, not a measurement, and treating them as
     # lengths would have manufactured agreement out of unrelated numbers.

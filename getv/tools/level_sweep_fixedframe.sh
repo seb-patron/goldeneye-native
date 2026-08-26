@@ -208,7 +208,7 @@ parse_one() {
     "$([ "$fault_pc" != - ] && echo "@ $fault_pc" || echo "mark=$last_mark")"
 }
 
-# `reparse` rebuilds results.tsv from the .log/.png files already in $OUT without
+# `reparse` rebuilds results.tsv from the .log/.png files already in $out without
 # launching anything.
 # This is not optional polish. results.tsv is truncated at the top of every invocation,
 # so re-running one level into an existing output directory silently destroys every other

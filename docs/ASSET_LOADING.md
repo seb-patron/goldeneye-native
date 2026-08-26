@@ -30,7 +30,7 @@ the single most important thing to internalise:
 |---|---|---|---|
 | **stan** (collision tiles) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/stan/*.c`, 29 files, all compile, all link | effectively ready |
 | **setup** (objects/AI/pads) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/setup/*.c` (+ `e/ j/ u/` variants), 50 objects built, 2 TUs fail | nearly ready, 2 gaps + a variant-selection hazard |
-| **bg** (room geometry) | raw segment dma'd + per-room 1172 chunks | **decompiled C with real pointers, not linked AT all, and structurally incompatible with the loader** | the real work |
+| **bg** (room geometry) | raw segment dma'd + per-room 1172 chunks | **decompiled C with real pointers, not linked at all, and structurally incompatible with the loader** | the real work |
 
 The 1172 decompressor is **not on the stan or setup path at all** in this build, and is
 only on the bg path for per-room chunks (§3.4).
@@ -64,7 +64,7 @@ lv.c:341 lvlStageLoad(stage)
    | | romCopy(target, &fileentry->hw_address[offset], len)
    | | port_assets.c:123 romCopy = memcpy + range guard
    | | GUARDED BY `if (rom_size != 0)` -- rom_size is 0 for every bg
-   | | file (see §3.2), so this call IS A silent NO-OP
+   | | file (see §3.2), so this call is A silent NO-OP
    | |
    | +-- bg.c:829 ptr_bgdata_room_fileposition_list =
    | | BG_SEG_TO_PTR(ptr_bg_data, ((s32*)ptr_bg_data)[1])

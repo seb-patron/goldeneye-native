@@ -6,7 +6,7 @@
  *
  * What this is and is not. It is a small set of POSIX names that MinGW does not provide but
  * has exact Win32 or MSVCRT equivalents for -- a spelling difference, nothing more. It is
- * NOT the place for anything that needs real behaviour: the crash handler's
+ * not the place for anything that needs real behaviour: the crash handler's
  * backtrace has no equivalent spelling and is branched properly in ge_tvos_main.c, and the
  * launcher's process replacement is branched in ge_launcher.cpp, because on Windows it is a
  * genuinely different operation rather than a renamed one.
@@ -21,7 +21,7 @@
 
 #if defined(_WIN32)
 
-/* NOT <windows.h>. Everything below needs only stdlib and string, and this
+/* not <windows.h>. Everything below needs only stdlib and string, and this
  * header is force-included into the GAME batch as well as the port layer -- where windows.h
  * would be actively dangerous, because it defines `near`, `far` and `BOOL` as macros and the
  * decomp uses all three as ordinary identifiers. Keeping this header free of it is what
@@ -74,7 +74,7 @@ static inline int ge_win_unsetenv(const char *name)
 }
 
 #define setenv(n, v, o) ge_win_setenv((n), (v), (o))
-#define unsetenv(n) ge_win_unsetenv((n))
+#define unsetenv(n)     ge_win_unsetenv((n))
 
 /* usleep is NOT shimmed here.
  *
@@ -89,7 +89,7 @@ static inline int ge_win_unsetenv(const char *name)
  * header that happens to declare the same name.
  */
 
-/* bcopy and bzero are NOT shimmed here, and the reason is the same one that removed the
+/* bcopy and bzero are not shimmed here, and the reason is the same one that removed the
  * usleep macro: the decomp declares both itself -- include/bstring.h:28 and PR/os.h:1003,
  * as `void bcopy(const void *, void *, int)` -- so a function-like macro of that name
  * expands inside those declarations and the file fails to parse.

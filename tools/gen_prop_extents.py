@@ -135,7 +135,7 @@ def extents_from_box(b):
         "hx": round(hx, 2),
         "hz": round(hz, 2),
         "hy": round(abs(ymax - ymin) / 2.0, 2),
-        # XZ circumradius: the smallest circle containing the footprint at ANY rotation. This is
+        # XZ circumradius: the smallest circle containing the footprint at any rotation. This is
         # the number to use when the prop's orientation is unknown, and it is
         # conservative -- it over-reserves for a square box by ~41%.
         "radius": round((hx * hx + hz * hz) ** 0.5, 2),
@@ -177,7 +177,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     dest = os.path.join(out, "_prop_extents.json")
     with open(dest, "w", encoding="utf-8") as fh:
-        # The caveat travels IN the data, not only in this file. A consumer reads the JSON and
+        # The caveat travels in the data, not only in this file. A consumer reads the JSON and
         # never opens the script, and the one thing they must not do is treat these as world
         # lengths -- so "unusable" is a field, not a comment.
         json.dump({"space": "model",

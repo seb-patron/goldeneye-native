@@ -154,7 +154,7 @@ GETV_SCRIPT="<frame>:<keys>[:<hold>][,<frame>:<keys>[:<hold>]...]"
 - `hold` is how many frames to hold, defaulting to 4.
 
 A button must be held for at least two frames to register, because the press edge is derived from
-consecutive samples. Overlapping entries OR together, so a stick can be held across several taps.
+consecutive samples. Overlapping entries or together, so a stick can be held across several taps.
 A live script forces port 0 present, so it works with no hardware attached.
 
 `GETV_SCRIPT_PORT=<n>` selects which N64 port the script drives (default 0). `GETV_SCRIPT_TRACE=0`

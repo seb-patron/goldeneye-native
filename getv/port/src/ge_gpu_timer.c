@@ -33,7 +33,7 @@
 #include "ge_gpu_timer.h"
 
 /* Ring depth. Three is the smallest that reliably has a finished result to collect while two are
- * still in flight; four gives a frame of slack on a driver that runs further ahead. It is NOT a
+ * still in flight; four gives a frame of slack on a driver that runs further ahead. It is not a
  * count of simultaneously active queries -- GL permits exactly one GL_TIME_ELAPSED query at a
  * time, so the ring exists purely so a FINISHED result can be read without waiting on a live one. */
 #define GE_GT_RING 4
@@ -162,16 +162,16 @@ void geGpuTimerFrameEnd(void)
          * is the RELATIONSHIP between them and a reader should not have to remember which way
          * round it goes at 2am:
          *
-         *  gpu high, swap low -> the GPU is genuinely busy; the work is real
-         *  gpu low, swap high -> the GPU is idle and we are being stalled by driver or
-         *  compositor; look at present path, not at draw calls
-         *  both low -> the time is somewhere else entirely and neither is the cause
+         *   gpu high, swap low   -> the GPU is genuinely busy; the work is real
+         *   gpu low,  swap high  -> the GPU is idle and we are being stalled by driver or
+         *                           compositor; look at present path, not at draw calls
+         *   both low             -> the time is somewhere else entirely and neither is the cause
          */
-        /* "GPU timeline", not "GPU busy", and the distinction IS not pedantry.
-         * GL_TIME_ELAPSED measures wall time between two markers ON THE GPU'S TIMELINE. If the
+        /* "GPU timeline", not "GPU busy", and the distinction is not pedantry.
+         * GL_TIME_ELAPSED measures wall time between two markers on the GPU'S TIMELINE. If the
          * GPU spends part of that window waiting -- for a buffer to free, for the compositor, for
          * work to arrive -- that waiting is inside the number. So a large value proves the time is
-         * spent GPU-SIDE rather than in our thread; it does NOT prove the hardware is saturated.
+         * spent GPU-SIDE rather than in our thread; it does not prove the hardware is saturated.
          *
          * Measured here: 6 ms at 1280x960 and 6 ms at 320x240, twelve times fewer pixels. A
          * genuinely fill-rate-saturated GPU cannot be indifferent to that, so on this machine the

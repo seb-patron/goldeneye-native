@@ -153,7 +153,7 @@ def main():
     for name, i, dp in on:
         print("   %-10s at tile %3d/%d   x=%7.0f" % (name, i, len(path), dp[0]))
 
-    # the room chain -- the acceptance test that has NO tuning parameter.
+    # the room chain -- the acceptance test that has no tuning parameter.
     #
     # Counting "doors crossed" turned out to be the wrong measure, and the way it failed is worth
     # keeping. Door PROPS are leaves, not openings: a double door is two props at the same spot, so
@@ -164,10 +164,10 @@ def main():
     # Rooms are discrete and already assigned, so the chain they form needs no threshold. "A linear
     # chain of carriages" means exactly: every room entered once, none revisited.
     #
-    # and IT turns out TO prove almost nothing -- reported anyway, with this warning attached,
+    # and it turns out to prove almost nothing -- reported anyway, with this warning attached,
     # because deleting a check that failed is how the same idea gets tried again in a fortnight.
     #
-    # Measured across levels: Train, Bunker 1, Dam, Facility and Archives ALL come back
+    # Measured across levels: Train, Bunker 1, Dam, Facility and Archives all come back
     # "linear chain: yes", including Bunker 1 at a 0.8:1 aspect ratio and Archives at 1.1:1, which
     # are open levels and nothing like a chain of carriages. The cause is structural rather than
     # geometric: a SHORTEST PATH has very little reason to re-enter a room it has left, so the
@@ -175,7 +175,7 @@ def main():
     # wrong.
     #
     # A test that passes everywhere cannot distinguish a good navmesh from a bad one. The measures
-    # below DO discriminate -- Train 100% monotonic at 53:1 against Bunker 1's 69% at 0.8:1 -- so
+    # below do discriminate -- Train 100% monotonic at 53:1 against Bunker 1's 69% at 0.8:1 -- so
     # those are the ones to read.
     room_of = {f["t"]: f["r"] for f in rooms["floors"]}
     seq = []

@@ -4,8 +4,8 @@
  * microcode) with four changes, all noted inline. It drops in unmodified in every
  * other respect because GoldenEye's audio ABI is the same one:
  *
- *  diff <(grep -oE '^#define\s+a[A-Za-z0-9_]+\([^)]*\)' ge-decomp/include/PR/abi.h) \
- *  <(grep -oE '^#define\s+a[A-Za-z0-9_]+\([^)]*\)' sm64ex/include/PR/abi.h)
+ *   diff <(grep -oE '^#define\s+a[A-Za-z0-9_]+\([^)]*\)' ge-decomp/include/PR/abi.h) \
+ *        <(grep -oE '^#define\s+a[A-Za-z0-9_]+\([^)]*\)' sm64ex/include/PR/abi.h)
  *
  * is empty apart from sm64's extra aSetVolume32. Both games drive stock libultra
  * `aspMain`, so the command set, its argument order and its DMEM semantics match.
@@ -14,11 +14,11 @@
  * variant would not fit here.)
  *
  * Changes from sm64ex:
- *  1. Headers: the decomp's include/ is not on the port include path (it shadows
- *  the system headers), so pull the types from <PR/ultratypes.h> + <PR/abi.h>.
- *  2. The DMEM buffer is grown -- see GE_DMEM_SIZE below.
- *  3. aPoleFilterImpl added: GoldenEye's reverb uses A_POLEF, SM64 never did.
- *  4. aSetVolume32 is dropped (sm64-only, and nothing here emits it).
+ *   1. Headers: the decomp's include/ is not on the port include path (it shadows
+ *      the system headers), so pull the types from <PR/ultratypes.h> + <PR/abi.h>.
+ *   2. The DMEM buffer is grown -- see GE_DMEM_SIZE below.
+ *   3. aPoleFilterImpl added: GoldenEye's reverb uses A_POLEF, SM64 never did.
+ *   4. aSetVolume32 is dropped (sm64-only, and nothing here emits it).
  */
 #include <stdbool.h>
 #include <stdint.h>
@@ -684,8 +684,8 @@ void aResampleImpl(uint8_t flags, uint16_t pitch, RESAMPLE_STATE state) {
  * `src/libultrare/audio/` where stock libultra has 43 -- and `env.c` computes the
  * `(ratem, ratel)` pair completely differently from stock:
  *
- *  env.c:_getRate() tempf2 = ((tgt - vol) / count) * 8.0; <- linear delta
- *  env.c:_getVol() ivol += (rate * samples) * 0.125; <- linear accumulate
+ *     env.c:_getRate()  tempf2 = ((tgt - vol) / count) * 8.0;     <- linear delta
+ *     env.c:_getVol()   ivol  += (rate * samples) * 0.125;        <- linear accumulate
  *
  * Stock libultra instead computes a ratio `(tgt/vol)^(1/count)` and the RSP multiplies
  * by it. Both laws are packed into the same 32-bit `(ratem << 16) | ratel` field, so
@@ -1087,17 +1087,17 @@ void aMixImpl(int16_t gain, uint16_t in_addr, uint16_t out_addr) {
  * The implementation is not a guessed filter: it is pinned by GoldenEye's own source,
  * `src/libultrare/audio/drvrNew.c init_lpfilter()`:
  *
- *  temp = lp->fc * SCALE; fc = temp >> 15; SCALE = 16384
- *  lp->fgain = SCALE - fc;
- *  fccoef[0..7] = 0; fccoef[8] = fc;
- *  fcoef = ffc = fc/SCALE; for (i=9..15) { fcoef *= ffc; fccoef[i] = fcoef*SCALE; }
+ *     temp = lp->fc * SCALE;  fc = temp >> 15;      SCALE = 16384
+ *     lp->fgain = SCALE - fc;
+ *     fccoef[0..7] = 0;  fccoef[8] = fc;
+ *     fcoef = ffc = fc/SCALE;  for (i=9..15) { fcoef *= ffc; fccoef[i] = fcoef*SCALE; }
  *
  * That is a ONE-pole lowpass whose coefficients have been pre-expanded into the
  * geometric series a^1..a^8 so the RSP can evaluate eight samples in parallel. The
  * first eight coefficients are all zero, so the second pole is disabled outright:
  * whatever aspMain's general two-pole kernel does, on GoldenEye's data it reduces to
  *
- *  y[n] = (fgain * x[n] + a * y[n-1]) >> 14 a = fccoef[8]
+ *     y[n] = (fgain * x[n] + a * y[n-1]) >> 14        a = fccoef[8]
  *
  * The shift is forced rather than chosen. A lowpass must have unity DC gain, i.e.
  * fgain / (SCALE - a) == 1, and `init_lpfilter` sets fgain = SCALE - fc with a == fc
@@ -1180,7 +1180,7 @@ void aPoleFilterImpl(uint8_t flags, int16_t gain, void *state) {
 }
 
 /* ---------------------------------------------------------- env.c guards --
- * See ge_mixer.h for why these exist: Rare's build kept asserts ON in env.c and
+ * See ge_mixer.h for why these exist: Rare's build kept asserts on in env.c and
  * only env.c, this build compiles them out, and restoring them literally would
  * trade a silent corruption for a silent hang (assert -> abort -> SIGABRT).
  *

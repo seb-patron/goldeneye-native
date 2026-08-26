@@ -7,7 +7,7 @@
  *
  * This is the other half: who is actually here right now, how hurt they are, whether they have
  * Noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
- * THEIR TARGET IS. The game already tracks all of it per character; none of it was reachable from
+ * THEIR TARGET is. The game already tracks all of it per character; none of it was reachable from
  * a bot or a mod.
  *
  * Why the belief fields are the interesting ones
@@ -16,17 +16,17 @@
  * says how stale that is. The gap between what an enemy believes and what is true is the entire
  * basis for deciding whether to break contact:
  *
- *  - belief close to your real position, seen recently -> you are being tracked; retreating in a
- *  straight line away from the enemy is the worst option, because that is where it is aiming
- *  - belief far from you, or badly stale -> you have broken contact and any move
- *  that does not re-enter its view keeps it broken
- *  - several enemies believing the same wrong place -> that place is where the fight is; it
- *  is a location to avoid, not an enemy to fight
+ *   - belief close to your real position, seen recently  -> you are being tracked; retreating in a
+ *     straight line away from the enemy is the worst option, because that is where it is aiming
+ *   - belief far from you, or badly stale                -> you have broken contact and any move
+ *     that does not re-enter its view keeps it broken
+ *   - several enemies believing the same wrong place     -> that place is where the fight is; it
+ *     is a location to avoid, not an enemy to fight
  *
  * A bot that only knows enemy POSITIONS can fight. A bot that knows what enemies believe can
  * disengage, flank, and bait -- and those are the behaviours that read as intelligent.
  *
- * The source IS installed, not linked
+ * The source is installed, not linked
  *
  * The live data lives in ChrRecord (bondtypes.h:2454-2591), and the port layer is compiled
  * without the decomp's include path, so it cannot name that type. The established bridge in this
@@ -55,29 +55,29 @@ extern "C" {
  * every reader by one slot. That failure mode is quiet and total: every field reads as its
  * neighbour and nothing errors.
  */
-#define GE_ENEMY_F_X 0 /* prop->pos.x */
-#define GE_ENEMY_F_Y 1
-#define GE_ENEMY_F_Z 2
-#define GE_ENEMY_F_DAMAGE 3 /* chr->damage -- accumulated, NOT remaining health */
-#define GE_ENEMY_F_MAXDAMAGE 4 /* chr->maxdamage -- what it takes to kill them */
-#define GE_ENEMY_F_ALERTNESS 5 /* chr->alertness, 0..255 */
-#define GE_ENEMY_F_HEARING 6 /* chr->hearingscale -- rises when shot at */
-#define GE_ENEMY_F_BELIEF_X 7 /* chr->lastknowntargetpos */
-#define GE_ENEMY_F_BELIEF_Y 8
-#define GE_ENEMY_F_BELIEF_Z 9
-#define GE_ENEMY_F_SAW_AGO 10 /* chr->lastseetarget60 */
-#define GE_ENEMY_F_HEARD_AGO 11 /* chr->lastheartarget60 */
-#define GE_ENEMY_F_ID 12 /* chr->chrnum */
-#define GE_ENEMY_F_ALIVE 13 /* chr->actiontype != ACT_DEAD */
+#define GE_ENEMY_F_X          0   /* prop->pos.x                                          */
+#define GE_ENEMY_F_Y          1
+#define GE_ENEMY_F_Z          2
+#define GE_ENEMY_F_DAMAGE     3   /* chr->damage -- accumulated, NOT remaining health   */
+#define GE_ENEMY_F_MAXDAMAGE  4   /* chr->maxdamage -- what it takes to kill them          */
+#define GE_ENEMY_F_ALERTNESS  5   /* chr->alertness, 0..255                                */
+#define GE_ENEMY_F_HEARING    6   /* chr->hearingscale -- rises when shot at               */
+#define GE_ENEMY_F_BELIEF_X   7   /* chr->lastknowntargetpos                               */
+#define GE_ENEMY_F_BELIEF_Y   8
+#define GE_ENEMY_F_BELIEF_Z   9
+#define GE_ENEMY_F_SAW_AGO   10   /* chr->lastseetarget60                                  */
+#define GE_ENEMY_F_HEARD_AGO 11   /* chr->lastheartarget60                                 */
+#define GE_ENEMY_F_ID        12   /* chr->chrnum                                           */
+#define GE_ENEMY_F_ALIVE     13   /* chr->actiontype != ACT_DEAD                           */
 #define GE_ENEMY_FIELD_COUNT 14
 
 /* Which fields the source actually filled. Absent is not zero: an enemy at full health and an
  * enemy whose health could not be read are different facts, and a bot that treats the second as
  * the first will walk into it. Same reasoning as GePlayerState.fields. */
-#define GE_EN_POSITION (1u << 0)
-#define GE_EN_HEALTH (1u << 1)
-#define GE_EN_ALERT (1u << 2)
-#define GE_EN_BELIEF (1u << 3)
+#define GE_EN_POSITION  (1u << 0)
+#define GE_EN_HEALTH    (1u << 1)
+#define GE_EN_ALERT     (1u << 2)
+#define GE_EN_BELIEF    (1u << 3)
 
 typedef struct GeEnemy {
     int      id;              /* chrnum; stable for the life of the character              */
@@ -136,7 +136,7 @@ int  geEnemySourceInstalled(void);
 
 int geEnemyCount(void);
 
-/* By slot index, 0..geEnemyCount()-1. Returns 0 for an empty or invalid slot. Index is NOT stable
+/* By slot index, 0..geEnemyCount()-1. Returns 0 for an empty or invalid slot. Index is not stable
  * across frames as characters die and slots are reused -- use geEnemyById to follow one enemy. */
 int geEnemy(int index, GeEnemy *out);
 

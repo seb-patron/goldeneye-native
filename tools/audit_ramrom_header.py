@@ -35,7 +35,7 @@ import sys
 DEMOS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      "vendor", "ge-decomp", "assets", "ramrom")
 
-# From the LEVELID enum in bondconstants.h, NOT the LEVEL_SOLO_SEQUENCE enum.
+# From the LEVELID enum in bondconstants.h, not the LEVEL_SOLO_SEQUENCE enum.
 #
 # This distinction is the whole reason the first run of this audit failed. Both enums exist, both
 # name every level, and SP_LEVEL_TRAIN is 13 while LEVELID_TRAIN is 25. The header field is

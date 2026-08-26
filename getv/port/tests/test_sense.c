@@ -7,10 +7,10 @@
  *
  * The cases that matter are the ones where a plausible implementation is wrong:
  *
- *  a body is not a ray -- the CENTRE line being clear is not enough
- *  sight is not attention -- a line to a guard facing away is not being seen
- *  absent facing is not facing-away -- they lead to opposite behaviour
- *  standing still is not being stuck
+ *   a body is not a ray -- the CENTRE line being clear is not enough
+ *   sight is not attention -- a line to a guard facing away is not being seen
+ *   absent facing is not facing-away -- they lead to opposite behaviour
+ *   standing still is not being stuck
  */
 
 #include <stdio.h>
@@ -55,7 +55,7 @@ int gePortSenseLine(float fx, float fz, float tx, float tz)
 }
 
 /* The engine's volume test, which geSenseAheadForBody now consumes instead of sampling parallel
- * lines. Driven from THE SAME blocker geometry as fake_line_hits.
+ * lines. Driven from the SAME blocker geometry as fake_line_hits.
  *
  * A second, independent fake world would let the ray and the body disagree for reasons that are
  * about the test rather than about the code -- and the whole point of this pair of functions is
@@ -293,7 +293,7 @@ int main(void)
     check("moving freely: not stuck",          geSenseIsStuck(0, 8), 0);
     check("recent travel is nonzero",          geSenseRecentTravel(0) > 0.0f, 1);
 
-    /* Standing still ON PURPOSE is not stuck. This is the half a naive implementation drops, and
+    /* Standing still on PURPOSE is not stuck. This is the half a naive implementation drops, and
      * dropping it makes every idle bot report itself jammed. */
     for (i = 0; i < 10; i++) { geSenseContactUpdate(0, 9.0f, 9.0f, 0); }
     check("still on purpose: not stuck",       geSenseIsStuck(0, 8), 0);

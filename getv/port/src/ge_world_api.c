@@ -1,6 +1,6 @@
 /* World knowledge at runtime. See ge_world_api.h for what this is for.
  *
- * Read BY explicit offset, never BY casting TO A struct.
+ * Read by explicit offset, never by casting to A struct.
  *
  * The file is written by tools/pack_world.py with fixed field widths and no padding. Casting a
  * byte pointer to a C struct would work on the compilers this happens to build with and break
@@ -14,7 +14,7 @@
  * and this does not, the arithmetic stops matching and the level refuses to load rather than
  * serving quiet nonsense.
  *
- *  GETV_WORLD_DIR=<path> where the .gew files live (default: build/world beside the exe)
+ *   GETV_WORLD_DIR=<path>   where the .gew files live (default: build/world beside the exe)
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,25 +24,25 @@
 
 /* Layout, mirroring pack_world.py. Changing either without the other is what the size check
  * exists to catch. */
-#define HDR_SIZE 44 /* v2: one more count */
-#define HDR_MAGIC 0
+#define HDR_SIZE   44          /* v2: one more count */
+#define HDR_MAGIC   0
 #define HDR_VERSION 4
-#define HDR_NAME 8
-#define HDR_NWP 24
-#define HDR_NGD 28
-#define HDR_NOB 32
-#define HDR_NST 36
-#define HDR_NPR 40
+#define HDR_NAME    8
+#define HDR_NWP    24
+#define HDR_NGD    28
+#define HDR_NOB    32
+#define HDR_NST    36
+#define HDR_NPR    40
 
-#define WP_SIZE 16 /* id u16, room u16, x f32, y f32, z f32 */
-#define GD_SIZE 16 /* chrnum u16, room u16, x f32, y f32, z f32 */
-#define OB_SIZE 24 /* idx u16, diff u16, targets u16, steps u16, first u32, x y z f32 */
-#define ST_SIZE 24 /* from u16, to u16, dist f32, heading f32, turn f32, pad f32,
+#define WP_SIZE 16          /* id u16, room u16, x f32, y f32, z f32 */
+#define GD_SIZE 16          /* chrnum u16, room u16, x f32, y f32, z f32 */
+#define OB_SIZE 24          /* idx u16, diff u16, targets u16, steps u16, first u32, x y z f32 */
+#define ST_SIZE 24          /* from u16, to u16, dist f32, heading f32, turn f32, pad f32,
                                threats u16, 2 pad */
 /* v3. The comment is the record layout and must be edited WITH the number above it -- this is
  * read positionally, so a stale comment beside a changed size is how the next reader computes an
  * offset from the wrong field list. */
-#define PR_SIZE 32 /* kind u16, room u16, tag s16, nav u16, x f32, y f32, z f32,
+#define PR_SIZE 32          /* kind u16, room u16, tag s16, nav u16, x f32, y f32, z f32,
                                hx f32, hz f32, radius f32 */
 
 static struct {

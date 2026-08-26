@@ -9,16 +9,16 @@
  *
  * and `src/game/file2.c` is the only consumer:
  *
- * fileWriteSmallSave -> joyGamePakLongWrite(0, save, sizeof(smallSave)) 32 B
- * fileWriteSave -> joyGamePakLongWrite(slot*0x60/8 + 4, save, 0x60) 96 B
- * fileValidateSaves -> joyGamePakLongRead(0, &joyChecksum, sizeof(smallSave))
+ * fileWriteSmallSave  -> joyGamePakLongWrite(0, save, sizeof(smallSave))     32 B
+ * fileWriteSave       -> joyGamePakLongWrite(slot*0x60/8 + 4, save, 0x60)    96 B
+ * fileValidateSaves   -> joyGamePakLongRead(0, &joyChecksum, sizeof(smallSave))
  * joyGamePakLongRead(4, &saves, sizeof(save_data) * 5)
  *
  * The whole save is 512 bytes, which fits a 4 K EEPROM exactly.
- * smallSave = 4 + 4 + 24 = 32 B = blocks 0..3
- * save_data = 0x60 (verified below) = 96 B, five slots = 480 B = blocks 4..63
+ * smallSave  = 4 + 4 + 24            =  32 B = blocks 0..3
+ * save_data  = 0x60 (verified below) =  96 B, five slots = 480 B = blocks 4..63
  * --------
- *  512 B = 64 blocks of 8 = EEP4K
+ *                                            512 B = 64 blocks of 8 = EEP4K
  * `save_data` contains no pointers (`src/game/file.h:7-21` is all s32/u8/u16 plus a
  * `u8 times[76]`), so it is 0x60 natively too; this is not bug family 1.3. The port layer
  * cannot include the game header to assert that, because PORTFLAGS has no decomp include
@@ -81,9 +81,9 @@
 #define EEPROM_TYPE_4K 0x01
 
 /* 64 blocks x 8 bytes. */
-#define GE_EEP_BLOCK 8
-#define GE_EEP_BLOCKS 64
-#define GE_EEP_BYTES (GE_EEP_BLOCK * GE_EEP_BLOCKS)
+#define GE_EEP_BLOCK   8
+#define GE_EEP_BLOCKS  64
+#define GE_EEP_BYTES   (GE_EEP_BLOCK * GE_EEP_BLOCKS)
 
 /* 32 B smallSave + 5 x 0x60 save_data == 512 B == the whole 4 K part, to the byte.
  * If a future edit widens either record the game will start writing past block 63 and
@@ -217,7 +217,7 @@ static void geSaveFlush(void)
     }
  fflush(f);
  fclose(f);
- /* the save has never worked ON Windows, and IT failed silently.
+ /* the save has never worked on Windows, and it failed silently.
   *
   * Posix rename() atomically replaces the destination. Windows rename() refuses when the
   * destination exists, with EEXIST -- so every flush after the file first appeared failed.

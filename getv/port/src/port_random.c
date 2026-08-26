@@ -9,21 +9,21 @@
  * a different generator would silently change how the game plays.
  *
  * The original (src/random.s, randomGetNext):
- *  ld a0, g_randomSeed ; 64-bit seed
- *  dsll32 a2, a0, 0x1f ; a2 = s << 63 (dsll32 shifts by sa+32)
- *  dsll a1, a0, 0x1f ; a1 = s << 31
- *  dsrl a2, a2, 0x1f ; a2 = (s << 63) >> 31
- *  dsrl32 a1, a1, 0 ; a1 = (s << 31) >> 32
- *  dsll32 a0, a0, 0xc ; a0 = s << 44
- *  or a2, a2, a1
- *  dsrl32 a0, a0, 0 ; a0 = (s << 44) >> 32
- *  xor a2, a2, a0
- *  dsrl a0, a2, 0x14 ; a0 = a2 >> 20
- *  andi a0, a0, 0xfff
- *  xor a0, a0, a2
- *  dsll32 v0, a0, 0 ; v0 = new << 32
- *  sd a0, g_randomSeed
- *  dsra32 v0, v0, 0 ; return sign-extended low 32 bits
+ *     ld     a0, g_randomSeed      ; 64-bit seed
+ *     dsll32 a2, a0, 0x1f          ; a2 = s << 63       (dsll32 shifts by sa+32)
+ *     dsll   a1, a0, 0x1f          ; a1 = s << 31
+ *     dsrl   a2, a2, 0x1f          ; a2 = (s << 63) >> 31
+ *     dsrl32 a1, a1, 0             ; a1 = (s << 31) >> 32
+ *     dsll32 a0, a0, 0xc           ; a0 = s << 44
+ *     or     a2, a2, a1
+ *     dsrl32 a0, a0, 0             ; a0 = (s << 44) >> 32
+ *     xor    a2, a2, a0
+ *     dsrl   a0, a2, 0x14          ; a0 = a2 >> 20
+ *     andi   a0, a0, 0xfff
+ *     xor    a0, a0, a2
+ *     dsll32 v0, a0, 0             ; v0 = new << 32
+ *     sd     a0, g_randomSeed
+ *     dsra32 v0, v0, 0             ; return sign-extended low 32 bits
  *
  * Every shift is 64-bit (dsll/dsrl), so the state must be u64. Doing this in 32 bits
  * would produce a completely different sequence.
@@ -64,7 +64,7 @@ u32 randomGetNextFrom(u64 *seed)
  * boss.c:402 does `randomSetSeed(osGetCount())`. On the N64 osGetCount() is a real
  * hardware counter, so the seed genuinely varied per boot. In this port osGetCount()
  * (getv/port/src/port_os.c:164) is
- *  static u32 count; return count += 1000;
+ *     static u32 count; return count += 1000;
  * a plain non-atomic static that is also called from the audio thread
  * (src/libultra/audio/synthesizer.c:170,186). So the seed at boss.c:402 is 1000 times
  * the number of osGetCount calls that happened first, which depends on how many audio
@@ -76,9 +76,9 @@ u32 randomGetNextFrom(u64 *seed)
  * first ~300 frames of every solo level are rendered from that camera. A different
  * camera is a different view, therefore a different triangle count.
  *
- *  GETV_SEED=<n> force randomSetSeed to use n (decimal or 0x hex) instead of
- *  whatever boss.c passes. Makes a run reproducible.
- *  GETV_SEEDTRACE=1 print every randomSetSeed call and the resulting state.
+ *   GETV_SEED=<n>   force randomSetSeed to use n (decimal or 0x hex) instead of
+ *                   whatever boss.c passes. Makes a run reproducible.
+ *   GETV_SEEDTRACE=1 print every randomSetSeed call and the resulting state.
  * ------------------------------------------------------------------------- */
 #include <stdio.h>
 #include <stdlib.h>

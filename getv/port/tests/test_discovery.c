@@ -75,7 +75,7 @@ int main(void)
     check("trailing comma tolerated",    p[1].is_bot, 1);
     check("  and the space was trimmed", strcmp(p[0].endpoint, "10.0.0.1:5000") == 0, 1);
 
-    /* THE strtol TRAP. "3x" parses as 3 if you only check the return value, so a typo silently
+    /* the strtol TRAP. "3x" parses as 3 if you only check the return value, so a typo silently
      * becomes a valid slot and a player ends up in someone else's seat. */
     check("non-numeric slot rejected",   geDiscoveryParse("3x@10.0.0.1:5000", p, 4), -1);
     check("  and it says so",            strstr(geDiscoveryError(), "non-numeric") != NULL, 1);

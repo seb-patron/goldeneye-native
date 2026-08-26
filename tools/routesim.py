@@ -129,7 +129,7 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
         while True:
             # What the follower BELIEVES it is facing. The real bot only has this.
             #
-            # the fallback must not BE the true heading. An earlier version assigned `heading`
+            # the fallback must not be the true heading. An earlier version assigned `heading`
             # here while the comment claimed it kept the last estimate, so a stationary bot was
             # handed ground truth -- and that is exactly the state the real one cannot escape.
             # The model therefore passed dead reckoning 61/61 while the shipped bot deadlocked

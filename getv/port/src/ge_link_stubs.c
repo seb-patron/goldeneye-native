@@ -17,10 +17,10 @@
  * too SMALL corrupts whatever global follows it (this is exactly how g_Props
  * ate the memory-pool table). Uninitialised, so it lives in BSS and the
  * generous size costs nothing in the binary. */
-#define GE_STUB_BYTES (256 * 1024)
+#define GE_STUB_BYTES  (256 * 1024)
 #define GE_STUB_POISON 4096
 #define GE_STUB_CANARY 16
-#define GE_STUB_MAGIC "GETVcanary_v1!!"
+#define GE_STUB_MAGIC  "GETVcanary_v1!!"
 
 static void ge_stub_hit(const char *name)
 {

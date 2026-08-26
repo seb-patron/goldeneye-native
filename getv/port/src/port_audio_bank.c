@@ -6,14 +6,14 @@
  * ALWaveTable / ALEnvelope / ALKeyMap / ALADPCMloop / ALADPCMBook records in which
  * every pointer field is stored as a 32-bit BIG-ENDIAN offset from the start of the
  * file. On the N64 the structs overlay the file bytes exactly, so alBnkfNew() just
- * walks the tree adding the load address to each slot IN PLACE.
+ * walks the tree adding the load address to each slot in PLACE.
  *
  * Neither half of that survives at 64-bit little-endian:
- *  - the slots are 4 bytes and a native pointer is 8, so an in-place patch writes
+ *   - the slots are 4 bytes and a native pointer is 8, so an in-place patch writes
  * over the following field. This is the same mistake PROMOTE() makes on model
  * blobs, and the rule from that work applies here too: converting an asset means
  * allocating new storage, never widening in place.
- *  - every scalar is byte-swapped.
+ *   - every scalar is byte-swapped.
  *
  * So this walks the file view and BUILDS a native tree beside it. Structure and
  * naming follow Perfect Dark's port/src/preprocess/segaudio.c, which solves exactly
@@ -47,33 +47,33 @@ static u32 geBeU32(const u8 *p)
 /* Offsets of the file-view fields. Written out rather than derived from a mirror
  * struct because the file layout is fixed by the ROM and must not track whatever the
  * native structs happen to be. These match PD's n64_* structs in segaudio.c. */
-#define F_BANKFILE_BANKARRAY 4 /* after s16 revision, s16 bankCount */
+#define F_BANKFILE_BANKARRAY    4       /* after s16 revision, s16 bankCount */
 
-#define F_BANK_INSTCOUNT 0
-#define F_BANK_FLAGS 2
-#define F_BANK_PAD 3
-#define F_BANK_SAMPLERATE 4
-#define F_BANK_PERCUSSION 8
-#define F_BANK_INSTARRAY 12
+#define F_BANK_INSTCOUNT        0
+#define F_BANK_FLAGS            2
+#define F_BANK_PAD              3
+#define F_BANK_SAMPLERATE       4
+#define F_BANK_PERCUSSION       8
+#define F_BANK_INSTARRAY        12
 
-#define F_INST_BENDRANGE 12
-#define F_INST_SOUNDCOUNT 14
-#define F_INST_SOUNDARRAY 16
+#define F_INST_BENDRANGE        12
+#define F_INST_SOUNDCOUNT       14
+#define F_INST_SOUNDARRAY       16
 
-#define F_SOUND_ENVELOPE 0
-#define F_SOUND_KEYMAP 4
-#define F_SOUND_WAVETABLE 8
-#define F_SOUND_SAMPLEPAN 12
-#define F_SOUND_SAMPLEVOLUME 13
-#define F_SOUND_FLAGS 14
+#define F_SOUND_ENVELOPE        0
+#define F_SOUND_KEYMAP          4
+#define F_SOUND_WAVETABLE       8
+#define F_SOUND_SAMPLEPAN       12
+#define F_SOUND_SAMPLEVOLUME    13
+#define F_SOUND_FLAGS           14
 
-#define F_WAVE_BASE 0
-#define F_WAVE_LEN 4
-#define F_WAVE_TYPE 8
-#define F_WAVE_FLAGS 9
-#define F_WAVE_ADPCM_LOOP 12
-#define F_WAVE_ADPCM_BOOK 16
-#define F_WAVE_RAW_LOOP 12
+#define F_WAVE_BASE             0
+#define F_WAVE_LEN              4
+#define F_WAVE_TYPE             8
+#define F_WAVE_FLAGS            9
+#define F_WAVE_ADPCM_LOOP       12
+#define F_WAVE_ADPCM_BOOK       16
+#define F_WAVE_RAW_LOOP         12
 
 /* ---------------------------------------------------------- offset safety net --
  * Every F_* constant above is hand-derived from include/PR/libaudio.h under a 32-bit

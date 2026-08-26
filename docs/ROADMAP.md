@@ -25,7 +25,7 @@ Being in sync has **two independent parts and only one travels in a bundle**:
    length per repo, so the two sides can abbreviate the same commit differently and a naive
    compare reports
    a tree mismatching itself. A check that cries wolf gets ignored.
-2. **`vendor/**`.** **Gitignored, so decomp symbols do NOT travel.** The Surface lost a day to a
+2. **`vendor/**`.** **Gitignored, so decomp symbols do not travel.** The Surface lost a day to a
    build that compiled and would not link for exactly this. Compared by SHA-1 of
    `objective_status.c`, because a name check proves one symbol arrived and a hash proves the
    whole file did.
@@ -141,7 +141,7 @@ Two spaces reconciled explicitly on the way: the JSONs are asset space and the m
 is runtime, so Train's spawn reads x=779 where the tile map ends at x=213. `asset = runtime *
 levelscale`.
 
-**Now the bot must route ON this graph** rather than the pad graph. That is M1's real content and
+**Now the bot must route on this graph** rather than the pad graph. That is M1's real content and
 it is unblocked.
 
 ## S3. Enemy facing: DONE
@@ -340,7 +340,7 @@ xdiff*xdiff + zdiff*zdiff < 40000.0f // 200 units, not 278
 && ydiff < 200.0f && ydiff > -200.0f // and within 200 vertically
 ```
 
-**The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
+**The door must be on SCREEN.** Walking past with use held does nothing however close you are;
 the bot has to square up to it. That is why 96 units still failed. The bot now turns onto a door
 before pressing, and only marks it used once it has actually faced it, since otherwise it
 marks doors used that it never opened and walks away from every one.
@@ -462,7 +462,7 @@ we cannot finish**. The earlier 3,957 was a ceiling: it divided the file by 4, w
 the interleaved seed records as input. Same correction applies to the totals above.
 
 **The input record is `{s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}`.** It is
-**NOT** the same shape as `GePlayerInput` and does **not** feed straight through
+**not** the same shape as `GePlayerInput` and does **not** feed straight through
 `gePlayerPost`. `GePlayerInput` is `{unsigned int buttons; int stick_x; int stick_y}` -- 12
 bytes carrying a `GE_IN_*` bitmask, against the record's 4 bytes of raw N64 pad bits. The
 sticks do carry over directly; the buttons need translating.
@@ -507,7 +507,7 @@ Train through the player API; compare our seed fingerprint against the recorded 
 **Header and stream structure: resolved.** `tools/audit_ramrom_header.py` is the regression check.
 
 `ramromreplay.c:453` advances the cursor by `sizeof(struct ramromfilestructure)`, so the header
-length IS that struct's size: 228 padded to **232** under MIPS alignment, with `s32 filesize` at
+length is that struct's size: 228 padded to **232** under MIPS alignment, with `s32 filesize` at
 offset 128 and `enum LEVELID stagenum` at 16. Hand arithmetic over twenty fields and a nested
 `save_data` is not evidence, so both offsets were tested against the data instead of asserted:
 
@@ -535,7 +535,7 @@ rather than merely fitting it.
 recorded `randseed` each block.
 
 **Done when:** `ramrom_Train.bin` replays and the player follows the recorded path, at which
-point we have a working reference route AND a determinism check in one artefact.
+point we have a working reference route and a determinism check in one artefact.
 
 ROM-derived. Decoded output stays out of git like every other asset.
 

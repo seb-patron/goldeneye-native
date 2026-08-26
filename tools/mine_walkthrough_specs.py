@@ -211,7 +211,7 @@ def main():
         print("   %-10s %3d spec(s), %4d fields" % (lv, n, fields))
 
     # The field vocabulary is the interesting part: fields shared across many levels are the
-    # author's model of what a GoldenEye level HAS, stated the same way every time.
+    # author's model of what a GoldenEye level has, stated the same way every time.
     # Schema sketches carry field_names and no flat map; JSON specs carry flat and no field_names.
     # Both contribute field names to the vocabulary, so both are read, each by its own key.
     keys = collections.Counter()

@@ -10,23 +10,23 @@
  * Through GoldenEye's own demo-playback hook, joySetPlaybackFunc() (src/joy.c:360), not through
  * the port's device layer. That choice is necessary:
  *
- *  - it runs ON the game thread, exactly once per frame, from joyConsumeSamplesWrapper()
- *  (joy.c:412 <- boss.c:594). The port's own GETV_SCRIPT path injects into GePadState, which
- *  is filled by osContGetReadData on the RETRACE thread at field rate -- the wrong clock for
- *  one action per simulation step.
- *  - it fills ALL FOUR pads in a single call, which is the "one tick authority" multiplayer
- *  needs: every slot is decided together or not at all.
- *  - it bypasses the connected-controller check entirely. Every joy.c accessor guards on
- *  `(playbackcontcount < 0) && !(g_ConnectedControllers >> n & 1)`; with playback active the
- *  hardware check is skipped, so injected pads work with NO controllers attached.
- *  - joyGetControllerCount() then returns the injected count (joy.c:277-280), which is what
- *  front.c:4842 uses to default the player count, so the rest of the game agrees.
- *  - rumble is a no-op while playback is installed (joy.c:819-833), so injection cannot trip
- *  hardware side effects.
- *  - menus, pause, character select and gameplay all read through g_ContDataPtr, so there is
- *  no path that sees a different pad.
+ *   - it runs on the game thread, exactly once per frame, from joyConsumeSamplesWrapper()
+ *     (joy.c:412 <- boss.c:594). The port's own GETV_SCRIPT path injects into GePadState, which
+ *     is filled by osContGetReadData on the RETRACE thread at field rate -- the wrong clock for
+ *     one action per simulation step.
+ *   - it fills all FOUR pads in a single call, which is the "one tick authority" multiplayer
+ *     needs: every slot is decided together or not at all.
+ *   - it bypasses the connected-controller check entirely. Every joy.c accessor guards on
+ *     `(playbackcontcount < 0) && !(g_ConnectedControllers >> n & 1)`; with playback active the
+ *     hardware check is skipped, so injected pads work with no controllers attached.
+ *   - joyGetControllerCount() then returns the injected count (joy.c:277-280), which is what
+ *     front.c:4842 uses to default the player count, so the rest of the game agrees.
+ *   - rumble is a no-op while playback is installed (joy.c:819-833), so injection cannot trip
+ *     hardware side effects.
+ *   - menus, pause, character select and gameplay all read through g_ContDataPtr, so there is
+ *     no path that sees a different pad.
  *
- * And it needs NO change to the decompilation: joySetPlaybackFunc is a public function and this
+ * And it needs no change to the decompilation: joySetPlaybackFunc is a public function and this
  * file simply calls it.
  *
  * ---------------------------------------------------------------- mixing
@@ -71,27 +71,27 @@ extern "C" {
  * the styles, which is a bug that looks like the bot cannot shoot.
  *
  * These are resolved to bits at injection time against the slot's own configured style. */
-#define GE_IN_FIRE (1u << 0)
-#define GE_IN_AIM (1u << 1)
-#define GE_IN_USE (1u << 2)
+#define GE_IN_FIRE        (1u << 0)
+#define GE_IN_AIM         (1u << 1)
+#define GE_IN_USE         (1u << 2)
 #define GE_IN_WEAPON_NEXT (1u << 3)
 #define GE_IN_WEAPON_PREV (1u << 4)
-#define GE_IN_PAUSE (1u << 5)
-#define GE_IN_CROUCH_UP (1u << 6)
+#define GE_IN_PAUSE       (1u << 5)
+#define GE_IN_CROUCH_UP   (1u << 6)
 #define GE_IN_CROUCH_DOWN (1u << 7)
-#define GE_IN_LOOK_UP (1u << 8) /* C-buttons: the look/step cluster */
-#define GE_IN_LOOK_DOWN (1u << 9)
-#define GE_IN_STEP_LEFT (1u << 10)
-#define GE_IN_STEP_RIGHT (1u << 11)
-#define GE_IN_DPAD_UP (1u << 12)
-#define GE_IN_DPAD_DOWN (1u << 13)
-#define GE_IN_DPAD_LEFT (1u << 14)
-#define GE_IN_DPAD_RIGHT (1u << 15)
-#define GE_IN_START (1u << 16)
+#define GE_IN_LOOK_UP     (1u << 8)     /* C-buttons: the look/step cluster */
+#define GE_IN_LOOK_DOWN   (1u << 9)
+#define GE_IN_STEP_LEFT   (1u << 10)
+#define GE_IN_STEP_RIGHT  (1u << 11)
+#define GE_IN_DPAD_UP     (1u << 12)
+#define GE_IN_DPAD_DOWN   (1u << 13)
+#define GE_IN_DPAD_LEFT   (1u << 14)
+#define GE_IN_DPAD_RIGHT  (1u << 15)
+#define GE_IN_START       (1u << 16)
 
 typedef struct GePlayerInput {
     unsigned int buttons;   /* GE_IN_* */
-    /* N64 stick counts, -80..80. NOT SDL units: full SDL deflection is about +-127 against the
+    /* N64 stick counts, -80..80. not SDL units: full SDL deflection is about +-127 against the
      * N64's practical +-84, and the game's deadzones are SUBTRACTED rather than clamped (walk
      * and turn +-5, aim mode +-60), so a caller writing raw SDL magnitudes is outside the range
      * every tuned constant assumes. Values are clamped here. */
@@ -157,12 +157,12 @@ unsigned int gePlayerSeedFingerprint(void);
  * a caller must be able to tell "this field is not available in this build" from "this field is
  * genuinely zero". Returning 0 for an unavailable health would be a silent lie and would train
  * an agent on it. */
-#define GE_ST_POSITION (1u << 0)
-#define GE_ST_ROOM (1u << 1)
-#define GE_ST_ANGLE (1u << 2)
-#define GE_ST_HEALTH (1u << 3)
-#define GE_ST_WEAPON (1u << 4)
-#define GE_ST_SCORE (1u << 5)
+#define GE_ST_POSITION  (1u << 0)
+#define GE_ST_ROOM      (1u << 1)
+#define GE_ST_ANGLE     (1u << 2)
+#define GE_ST_HEALTH    (1u << 3)
+#define GE_ST_WEAPON    (1u << 4)
+#define GE_ST_SCORE     (1u << 5)
 
 typedef struct GePlayerState {
     unsigned int fields;    /* which of the below are actually populated */
@@ -225,7 +225,7 @@ int gePlayerSlotIsDrivable(int slot);
  *
  * Exists for the contact detector: "stuck" means told to move and did not, and without the first
  * half an idle bot reports itself jammed. The port knows this and nothing else does -- a mod can
- * see where a player IS but not what was asked of it. */
+ * see where a player is but not what was asked of it. */
 int gePlayerCommandedMove(int slot);
 
 /* ---------------------------------------------------------------- lifecycle */

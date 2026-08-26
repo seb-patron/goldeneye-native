@@ -14,7 +14,7 @@
 # Linking a device SDL2 into a simulator binary fails at link time with a platform
 # mismatch, and that is why deps/sdl2-tvsim exists separately from the device build.
 #
-# Kept OUT of build.sh deliberately: several agents share that script, and the device
+# Kept out of build.sh deliberately: several agents share that script, and the device
 # path is the one that ships. This is an additive diagnostic tool.
 set -uo pipefail
 
@@ -134,7 +134,7 @@ cmd_lib() {
     -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM
     -DBUGFIX_R0 -DTARGET_N64 -DGE_PORT_NATIVE
     -DNON_MATCHING=1 -DAVOID_UB=1 -D_LANGUAGE_C=1
-    # -Wno-everything, NOT -w. -w defeats -Werror=return-type in
+    # -Wno-everything, not -w. -w defeats -Werror=return-type in
     # BOTH orders (rc=0, no diagnostic); -Wno-everything lets it through. The old comment
     # here claimed order mattered -- it does not, and the guard was a no-op all along.
     # A non-void function that falls off the end "worked" on MIPS/IDO: the callee's result
@@ -167,7 +167,7 @@ cmd_lib() {
   #
   # It changes code generation, so a slot must REBUILD when toggling it, and any number
   # measured under it is not comparable to one measured without it.
-  # There is NO working level select in there -- DEB_LEVEL/REGION/SCALE are gutted no-ops
+  # There is no working level select in there -- DEB_LEVEL/REGION/SCALE are gutted no-ops
   # at debugmenu_handler.c:511-521. `GETV_STAGE` remains the only stage selector.
   # Cheaper for a headless harness: `set_debug_testingmanpos_flag(1)` is an exported
   # one-liner giving room number + XYZ + facing with no menu at all.
@@ -240,7 +240,7 @@ cmd_app() {
   # no device signing -- the simulator does not need a provisioning profile.
   # Generate into a SEPARATE directory rather than swapping project.yml in place -- the
   # device project is shared and a failed run must not leave it half-substituted.
-  # Generate IN $HERE under a different project name, so $(SRCROOT) still resolves to
+  # Generate in $HERE under a different project name, so $(SRCROOT) still resolves to
   # the real source tree (Sources/, port/ are all SRCROOT-relative in project.yml).
   sed -e "s|${N64TVOS_PREFIX:-$HOME/.n64tvos}/sdl2-tvos|$SDL|g" \
       -e "s|\$(SRCROOT)/build/libge.a|\$(SRCROOT)/$(basename "$BUILD")/libge.a|" \

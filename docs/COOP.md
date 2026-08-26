@@ -213,7 +213,7 @@ That is the intro swirl camera animating and dragging the players, not input mov
 Falling through the level is worse to ship than standing still, so it stays off. The campaign
 intro path assumes a single player somewhere inside it.
 
-**What it proves is the useful part: the freeze IS the camera mode.** Whatever fixes co-op has
+**What it proves is the useful part: the freeze is the camera mode.** Whatever fixes co-op has
 to get the mode to FP without running the single-player swirl.
 
 ## Still open: nobody moves

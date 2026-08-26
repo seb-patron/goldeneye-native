@@ -7,10 +7,10 @@
  * from an unreachable function is not an error. Four references rely on that today.
  * Linking the archive without -dead_strip produces exactly:
  *
- *  __efontchardataSegmentRomStart from langGetJpnCharPixels (src/game/language.o)
- *  __jfontchardataSegmentRomStart from langGetJpnCharPixels (src/game/language.o)
- *  _osPiReadIo from tokenReadIo (src/token.o)
- *  _osViSetMode from viVsyncRelated (src/fr.o)
+ *     __efontchardataSegmentRomStart   from langGetJpnCharPixels  (src/game/language.o)
+ *     __jfontchardataSegmentRomStart   from langGetJpnCharPixels  (src/game/language.o)
+ *     _osPiReadIo                      from tokenReadIo           (src/token.o)
+ *     _osViSetMode                     from viVsyncRelated        (src/fr.o)
  *
  * Every one is reachable only from a function this port never calls: the Japanese font
  * path, a PI register read, and a VI mode set. On macOS that is invisible. It will not

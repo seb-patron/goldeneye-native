@@ -97,7 +97,7 @@ def main():
     if not entries:
         print('no documented offsets parsed'); return 1
 
-    # NOT offsetof(): the decomp ships its own include/stddef.h, and by the time this
+    # not offsetof(): the decomp ships its own include/stddef.h, and by the time this
     # TU is compiled the system headers pulled in by ge_port_decls.h have already
     # tripped the include guard, so NEITHER definition lands and every assertion
     # silently fails to parse instead of evaluating. __builtin_offsetof needs no header.
@@ -135,7 +135,7 @@ def main():
           % len(hazards))
 
     # clang prints: error: static assertion failed due to requirement '...': Name.field moved
-    # The message comes after the final colon and is NOT quoted.
+    # The message comes after the final colon and is not quoted.
     moved, unknown = [], 0
     for line in errs:
         if 'static assertion failed' in line or 'static_assert failed' in line:

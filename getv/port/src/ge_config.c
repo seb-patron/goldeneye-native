@@ -12,8 +12,8 @@
  *
  * POSIX setenv's third argument is "overwrite". Passing 0 means "set this only if it is * not already set". So:
  *
- * config file -> setenv(..., 0) loses to anything already in the environment
- * CLI flag -> setenv(..., 1) overwrites, so it beats the environment
+ * config file  -> setenv(..., 0) loses to anything already in the environment
+ * CLI flag     -> setenv(..., 1) overwrites, so it beats the environment
  *
  * which is the required precedence, CLI > env > config file > default, with no changes
  * to any consumer. Every existing `getenv("GETV_...")` call site in port_render.c,
@@ -28,10 +28,10 @@
  *
  * Where the file is looked for (first hit wins, all others ignored)
  * -----------------------------------------------------------------
- *  1. $GETV_CONFIG (explicit override)
- *  2. --config=<path> (explicit override)
- *  3. <dir of argv[0]>/goldeneye.cfg (beside the binary)
- *  4. ~/Library/Application Support/GoldenEye/goldeneye.cfg (macOS user config)
+ *   1. $GETV_CONFIG                                    (explicit override)
+ *   2. --config=<path>                                 (explicit override)
+ *   3. <dir of argv[0]>/goldeneye.cfg                  (beside the binary)
+ *   4. ~/Library/Application Support/GoldenEye/goldeneye.cfg   (macOS user config)
  *
  * argv[0] is used rather than _NSGetExecutablePath() deliberately: this file is globbed
  * into the port layer too (build_sim.sh / build.sh compile port/src/*.c), and
@@ -39,9 +39,9 @@
  *
  * File format
  * -----------
- *  # comment ; also a comment
- * key = value (whitespace around either side is trimmed)
- * GETV_ANYTHING = value (raw escape hatch - sets that gate directly)
+ *   # comment              ; also a comment
+ * key = value            (whitespace around either side is trimmed)
+ * GETV_ANYTHING = value  (raw escape hatch - sets that gate directly)
  *
  * No sections, no quoting, no line continuation. A config file that users hand-edit
  * should be hard to get subtly wrong; an unknown key is reported on stdout rather than
@@ -92,7 +92,7 @@ extern void set_debug_testingmanpos_flag(int flag);
  * The well-known codes do not need it. Twenty-four of them cluster one byte apart
  * starting at 0x80069652, and
  *
- * gameshark_address - 0x80069650 == the CHEAT_ID enum ordinal
+ * gameshark_address - 0x80069650  == the CHEAT_ID enum ordinal
  *
  * exactly, gaps included: 0x80069650 is the retail base of `g_CheatPlayerTextRelated[]`
  * (src/game/cheat.c:26). This checks out against src/bondconstants.h:1249 on nine values
@@ -124,7 +124,7 @@ extern void set_debug_testingmanpos_flag(int flag);
  * which returns exactly five:
  *
  * CHEAT_DK_MODE chr.c:2188,2208,2825 chr_b.c:41,43
- * CHEAT_INFINITE_AMMO lv.c (x2)
+ * CHEAT_INFINITE_AMMO lv.c  (x2)
  * CHEAT_PAINTBALL explosion.c:2025
  * CHEAT_NO_RADAR_MP radar.c
  * CHEAT_ENEMY_ROCKETS prop.c
@@ -156,7 +156,7 @@ extern void set_debug_testingmanpos_flag(int flag);
 extern unsigned char g_CheatPlayerTextRelated[];  /* cheat.c:26, u8[CHEAT_INVALID+1] */
 extern int num_chars_selectable_mp;               /* front.c:573, s32, initialised to 8 */
 
-#define GE_CHEAT_MAX_ID 34 /* CHEAT_2X_LASER - the last gameplay cheat we expose */
+#define GE_CHEAT_MAX_ID 34   /* CHEAT_2X_LASER - the last gameplay cheat we expose */
 
 static const struct { const char *name; unsigned char id; unsigned char live; }
 GE_CHEATS[] = {
@@ -398,7 +398,7 @@ static void key_supersample(const char *v, int over)
 static void key_filtering(const char *v, int over)
 {
     /* Two independent mechanisms exist and they do not mean the same thing:
-     * configFiltering (port_support.c:107) 0=nearest 1=bilinear 2=three-point,
+     * configFiltering (port_support.c:107)  0=nearest 1=bilinear 2=three-point,
      * read by gfx_opengl.c:391 / gfx_pc.c:1966
      * GETV_POINT_FILTER (gfx_pc.c:1963) forces the literal N64 point-sample
      * We set both consistently so they cannot disagree. */
@@ -479,7 +479,7 @@ static void key_invert_look(const char *v, int over)
 {
     /* Absent must mean "no override", not "off". apply() is only ever called for a key
      * actually present in the file or on the CLI, so never writing an `invert_look`
-     * line already leaves GETV_INVERTLOOK unset, and file2.c:1413 treats unset as "the * save file's own Look Up/Down option wins", which is retail behaviour. Setting
+     * line already leaves GETV_INVERTLOOK unset, and file2.c:1413 treats unset as "the     * save file's own Look Up/Down option wins", which is retail behaviour. Setting
      * invert_look=0 here is therefore an explicit override to non-inverted, not a
      * no-op. Do not fold this into key_bool_gate()'s pattern: that would make 0 and
      * unset indistinguishable and silently break the in-game watch option. */
@@ -617,11 +617,11 @@ static void key_bool_gate(const char *gate, const char *key, const char *v, int 
  * foreclosed by accident.
  *
  * Every one defaults off / faithful:
- *  1. the N64 look is the product -- an option is a feature, a changed default is a
+ *   1. the N64 look is the product -- an option is a feature, a changed default is a
  * different game;
- *  2. QA here is comparison against real N64 captures, and anything that silently
+ *   2. QA here is comparison against real N64 captures, and anything that silently
  * alters output removes the ability to check correctness;
- *  3. `getv/port/fast3d/` is licence-contested (see PROVENANCE.md), so prefer new
+ *   3. `getv/port/fast3d/` is licence-contested (see PROVENANCE.md), so prefer new
  * passes in our own files over edits to inherited Fast3D internals.
  *
  * Enabling one prints a not-yet-implemented notice rather than silently doing nothing.

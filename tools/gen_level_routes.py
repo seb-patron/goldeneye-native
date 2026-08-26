@@ -198,7 +198,7 @@ EYE_HEIGHT = 150.0
 # the model was the mistake, not the model. Depot is 108/46/30, Egypt 16/1/0, Caverns
 # 246/388/374.
 #
-# What it is NOT is true line of sight. Two points in one large room can still have a pillar
+# What it is not is true line of sight. Two points in one large room can still have a pillar
 # between them and this calls that visible. It is a good approximation, cheap, and derived from
 # the game's own structure rather than invented.
 
@@ -649,7 +649,7 @@ def level_scales():
     return out
 
 
-# Prop kinds that stop a body. Doors are NOT here: a door is a passage, and removing its tile
+# Prop kinds that stop a body. Doors are not here: a door is a passage, and removing its tile
 # would seal every room the route needs to cross. Collectables, ammo and hats are walk-through
 # pickups. Guards move and are the follower's problem, not the graph's.
 BLOCKING_PROPS = ("StandardProp", "Glass", "TintedGlass", "Alarm", "Cctv",
@@ -766,7 +766,7 @@ def tile_graph_as_waypoints(know, rooms):
             # at its own boundary, so these stay in asset space to match what pack_world expects.
             "pos": [float(c[0]), float(c[1]), float(c[2])],
             "pad_name": "tile_%d" % tid,
-            # NOT marked synthetic. That flag means "rebuilt from scratch each run" and the strip
+            # not marked synthetic. That flag means "rebuilt from scratch each run" and the strip
             # pass deletes everything carrying it -- which silently removed all 682 tiles a moment
             # after they were added, leaving no graph and no spawn, and printing nothing.
             "tile": True,
@@ -1107,14 +1107,14 @@ def main():
             rooms = dict(rooms)
             rooms["room_graph"] = {k: sorted(v) for k, v in rg.items()}
         props_by_tag = {p["tag"]: p for p in know.get("props", []) if p.get("tag") is not None}
-        # Prefer a real node AT the spawn over the nearest node to it: starting the route where
+        # Prefer a real node at the spawn over the nearest node to it: starting the route where
         # the bot actually is removes the unmapped first leg entirely.
         # Positions for the weighted search, rebuilt AFTER every synthetic node is added --
         # a table built earlier would silently price the new nodes at the no-geometry penalty and
         # the router would avoid exactly the doorways this pass exists to add.
         # (assigned below, once the graph is final)
 
-        # route ON tiles, not pads, when the extractor has given us a mesh. Everything downstream
+        # route on tiles, not pads, when the extractor has given us a mesh. Everything downstream
         # -- spawn injection, doors, portals, the height gate, the engine verdicts -- works on
         # whatever graph it is handed, so this is a swap rather than a rewrite.
         # Convert the measured spawn into ASSET space before it meets any JSON geometry.

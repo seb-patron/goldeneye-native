@@ -45,7 +45,7 @@ NOUN_MAP = {
 # a false disagreement and impugns the source.
 SCOPE_CUES = re.compile(
     # `the (\w+ ){1,3}(are|is):` allows one to three words, not one. Written with a single \w+
-    # it failed on "The four alarms are:" -- two words, "four" and "alarms" -- which is the ONE
+    # it failed on "The four alarms are:" -- two words, "four" and "alarms" -- which is the one
     # level-wide claim in the whole corpus that had already been shown to be correct. A scope
     # filter that rejects the only true positive is worse than no filter, and it reported a
     # confident zero.
@@ -163,7 +163,7 @@ def main():
 
     if checked:
         pct = 100.0 * len(agree) / checked
-        # A percentage OF one IS not A rate. "100% agree" reads as vindication and would be
+        # A percentage of one is not A rate. "100% agree" reads as vindication and would be
         # quoted as one; with a single sample it says only that the single sample matched. The
         # sample size travels with the figure so it cannot be separated from it.
         if checked < 5:

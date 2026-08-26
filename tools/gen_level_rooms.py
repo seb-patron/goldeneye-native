@@ -366,7 +366,7 @@ def main():
 
         # ---------------------------------------------------------------- the navigation mesh
         #
-        # Two floor tiles are neighbours if they SHARE AN EDGE. Derived from the geometry rather
+        # Two floor tiles are neighbours if they SHARE an EDGE. Derived from the geometry rather
         # than read from the format, and that is deliberate.
         #
         # The obvious route was the per-point field parse_stan calls "links". It is not a tile
@@ -402,7 +402,7 @@ def main():
 
         # ---------------------------------------------------------------- steps and stairways
         #
-        # Shared vertices join tiles that were authored as one surface. They do NOT join a stair
+        # Shared vertices join tiles that were authored as one surface. They do not join a stair
         # tread to the landing above it, or two floors of the same room: those abut in plan view
         # and are separated in height, sharing no vertex at all.
         #
@@ -519,7 +519,7 @@ def main():
         #
         # This is emitted rather than left for a consumer to rediscover because "where are the
         # stairs" is a question a bot asks constantly and the answer is expensive to derive at
-        # runtime. It also names the direction: a route that has to go UP wants a different tile
+        # runtime. It also names the direction: a route that has to go up wants a different tile
         # than one going down, and the mesh alone does not say which end is which.
         #
         # MIN_RISE excludes the merely uneven. Floors are not perfectly flat and a 1-2 unit
@@ -592,7 +592,7 @@ def main():
             if t["is_floor"]:
                 floor_by_room.setdefault(t["room"], []).append(t)
 
-        # which component each tile IS IN, so a portal can bridge to a room's main body rather
+        # which component each tile is in, so a portal can bridge to a room's main body rather
         # than to whatever tile happens to sit nearest its opening.
         #
         # Bunker 1 is why. Room 30 has 226 tiles and exactly one portal, and the nearest tile to

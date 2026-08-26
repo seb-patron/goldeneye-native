@@ -41,7 +41,7 @@ FIELDS_LEN = struct.calcsize(HDR)
 # tools/audit_ramrom_header.py, which is the regression check for this number.
 #
 # ramromreplay.c:453 advances the read cursor by sizeof(struct ramromfilestructure), so the header
-# length IS that struct's size. Computing it by hand from ramromreplay.h under MIPS alignment gives
+# length is that struct's size. Computing it by hand from ramromreplay.h under MIPS alignment gives
 # 228 padded to 232, with s32 filesize at offset 128 and enum LEVELID stagenum at 16. Hand
 # arithmetic over twenty fields and a nested struct is not evidence, so both offsets were then
 # searched for across all fourteen demos: 128 holds the filesize in every one, 16 holds the correct
@@ -96,7 +96,7 @@ def decode(path):
 # N64 pad bits (PR/os.h) -> GE_IN_* (ge_player_api.h), obtained by INVERTING the forward mapping
 # the port already uses in ge_player_api.c rather than by inventing one.
 #
-# byte order IS derived, not assumed. The record is {s8 stick_x, s8 stick_y, u8 button_low,
+# byte order is derived, not assumed. The record is {s8 stick_x, s8 stick_y, u8 button_low,
 # u8 button_high} and the u16 is (button_high << 8) | button_low -- low byte FIRST in memory, which
 # is not what a big-endian target would lead you to expect. Two independent checks settle it:
 #  * bits 0x0040 and 0x0080 are assigned to no button on a real N64 pad, so they must never be set
@@ -119,7 +119,7 @@ N64_TO_GE = [
     (0x0100, "GE_IN_DPAD_RIGHT"),   # R_JPAD
 ]
 
-# L_TRIG IS the aim button IN these demos, and that is settled by the decomp, not inferred from
+# L_TRIG is the aim button in these demos, and that is settled by the decomp, not inferred from
 # frequency alone. bondview2.c:5546-5558 assigns the single-controller styles two ways:
 #
 #  KISSY / GOODNIGHT shoot = A_BUTTON, aim = Z_TRIG, inv = L_TRIG | R_TRIG

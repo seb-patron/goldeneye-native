@@ -25,14 +25,14 @@ extern "C" {
  * business choosing between them.
  *
  * `org` is used only where the host convention has a vendor level (SDL_GetPrefPath).
- * On macOS the result is `$HOME/Library/Application Support/<app>` with NO trailing
+ * On macOS the result is `$HOME/Library/Application Support/<app>` with no trailing
  * separator; everywhere else it is SDL_GetPrefPath's answer, which DOES end in one.
  * That asymmetry predates this file and is preserved -- both existing
  * callers append "/<name>" unconditionally and tolerate the resulting doubled slash.
  */
 int gePortUserDataDir(const char *org, const char *app, char *out, size_t outsz);
 
-/* Create one directory level. Returns 0 if the directory was created OR already
+/* Create one directory level. Returns 0 if the directory was created or already
  * existed, -1 otherwise with errno set for strerror(). `mode` is the POSIX
  * permission bits and is ignored on hosts that have no such concept. */
 int gePortMakeDir(const char *path, unsigned mode);
