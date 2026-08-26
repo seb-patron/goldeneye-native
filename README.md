@@ -152,10 +152,11 @@ driven slot travels 1,779 units with input and 0 without, while the other is una
 not adapted is everything the campaign authors around a single Bond, which is objectives, AI and
 cutscenes. Two wrong conclusions on the way there are written up in [`docs/COOP.md`](docs/COOP.md).
 
-**Frame timing is fixed at the source rather than patched from outside**, and half the decoupling
-work is done: `framerate=30` ticks the simulation at 30 Hz while game time runs at real speed, so
-the frame-counted systems run at the cadence they were tuned for. The bug that has broken every
-previous attempt to run this game above 30fps is documented in
+**Simulation and rendering are separated, which is the thing that has broken every previous
+attempt to run this game fast.** The renderer runs free while the simulation holds its authored
+cadence, and the camera, props and characters are interpolated between ticks. Measured on Train
+with constant input: 46.4 units per second at 60fps against 46.6 uncapped at over 500 fps.
+What is still open is per-system verification against retail, in
 [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
 
 **Uncapped, this machine renders at 354 to 562 fps** with `GETV_VSYNC=0 GETV_FPS=0`, and a Surface
@@ -177,9 +178,6 @@ The full list is [`docs/ROADMAP.md`](docs/ROADMAP.md). The headline items:
 
 - **True widescreen, 16:9 and 21:9 ultrawide.** Aspect-aware projection rather than fitting the
   4:3 view into a wider window, with the HUD and watch laid out for the real aspect.
-- **Rendering several frames per simulation tick, with interpolation.** The field accounting is
-  already done: `framerate=30` ticks the simulation at 30 Hz while game time runs at real speed.
-  This is the other half, and it is what turns a 500 fps renderer into a 500 fps game.
 - **HD texture packs.** The Perfect Dark port loads replacement textures from an `ext_tex` folder
   beside the game data, and the same approach fits here: the renderer already knows every texture
   by name because the decompilation names them.

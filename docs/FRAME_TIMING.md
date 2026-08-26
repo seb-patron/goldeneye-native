@@ -1,11 +1,10 @@
 # Frame timing
 
-The most-cited problem with running GoldenEye above its original frame rate, what actually
-causes it, what this port does about it today, and what a complete fix requires.
+GoldenEye runs its gameplay off frame counts rather than off the clock, which is why every
+attempt to run it above 30fps has made the game itself run fast. This is what causes it, what
+this port does about it, and where it stands now.
 
-Credit where it is due: **Graslu** raised this publicly and was right to. It is the first
-thing a knowledgeable player checks, and a port that waves it away has not understood its
-own subject.
+Graslu flagged this publicly and it is the first thing anyone who knows the game checks.
 
 ## What people mean by "it breaks above 60Hz"
 
@@ -126,16 +125,28 @@ This is the piece with no natural end. Every converted system needs checking aga
 behaviour, and `docs/research/GE_RETAIL_BEHAVIOUR.md` exists precisely because "what does
 the real game do" is a question with 173 numbered answers rather than one.
 
-## Position
+## Where this stands
 
-Until step 1 lands, **60fps is the honest ceiling and anything above it changes the game.**
-`GETV_TICKFIELDS=2` with `framerate = 30` is the configuration that matches the cadence the
-game was authored against.
+The split is in. `GETV_SIMDIV` renders every frame while the simulation ticks once every n, and
+the divider is now chosen from the frame cap rather than left to the user: 60 or below keeps the
+old behaviour of one tick per frame, and anything faster holds the simulation near 30Hz.
+`GETV_SIMDIV` overrides it, `GETV_SIMDIV=auto` derives it from the display.
 
-Step 1 is the next piece of work on this and is worth doing on its own, because it converts
-"do not run this above 60" into "run it at whatever your display does, and the simulation is
-unaffected". That is the outcome people actually want, and the decompilation is what makes
-it reachable.
+Game speed survives it. Walking Train with constant forward input, measured over the steady
+middle of the run:
+
+| Configuration | Speed |
+|---|---|
+| 60fps, one tick per frame | 46.3, 46.5 units/s |
+| uncapped at 500+ fps, divider chosen automatically | 46.6, 46.6 units/s |
+
+Within one percent, which is the whole point: the renderer runs as fast as the machine allows and
+the game does not notice.
+
+Both halves of the presentation are interpolated. The camera landed on 2026-08-24 and props and
+characters on 2026-08-26; before the second one the view glided while everything in it moved in
+steps, which looked worse than no divider at all. Measured over an eight thousand frame run at
+divider 2: 82,176 props interpolated, none skipped.
 
 ## Step 2: interpolation -- landed 2026-08-24
 
@@ -200,6 +211,15 @@ a divider, and not worth blocking on now.
 
 ## Still open
 
-**Step 3, the frame-quantised systems.** Fire rates, reload timing, turret delay and reaction
-stepping still count iterations rather than time. This is the remaining piece and each
-conversion needs checking against retail behaviour.
+**Per-system verification against retail.** Fire rates, reload timing, turret delay and reaction
+stepping count iterations rather than seconds. They now tick at the simulation rate rather than
+the render rate, which puts them at roughly the cadence the game was authored for, but each one
+has been checked by argument rather than against the real thing.
+
+**The 30Hz floor is real.** A weapon cannot fire more often than the simulation ticks, and the
+fastest in the game wants 29.2 rounds a second. Holding the simulation below about 30Hz clips it
+no matter how correct the time base is, so the auto divider targets 30 and will not go under.
+
+**Rotation is not interpolated, only position.** A prop that spins fast between ticks still steps.
+Nothing in the campaign spins fast enough for it to show, which is why it has not been done, not
+because it would be hard.
