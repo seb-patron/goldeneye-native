@@ -446,6 +446,7 @@ void gePortCliFrame(int frame)
 
     ge_cli_poll_stdin();
 
+
     if (ge_cli_report_now || (frame % ge_cli_every) == 0) {
         ge_cli_report_now = 0;
         ge_cli_report(frame);

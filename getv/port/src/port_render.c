@@ -334,6 +334,14 @@ void gePortRenderDisplayList(void *firstGdl)
         extern void gePortTimingProbeFrame(int frame);
         gePortBotRouteFrame(rendered);
         gePortTimingProbeFrame(rendered);
+
+        /* The CLI reads commands and prints its report from here. It was written, documented and
+         * never called: gePortCliFrame had exactly one reference in the tree, its own definition,
+         * so GETV_CLI=1 has done nothing on any platform since it was added. */
+        {
+            extern void gePortCliFrame(int frame);
+            gePortCliFrame(rendered);
+        }
     }
 
     /* Recorded human play from the ROM's attract-mode demos, fed through the same seam as the
