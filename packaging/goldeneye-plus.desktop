@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=GoldenEye Plus
+Comment=GoldenEye 007, running natively
+Exec=goldeneye
+Icon=goldeneye-plus
+Terminal=false
+Categories=Game;ActionGame;

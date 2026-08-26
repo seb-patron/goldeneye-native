@@ -71,6 +71,9 @@
 #include <process.h>   /* _execv */
 #else
 #include <unistd.h>
+
+/* Same icon as the game window, from the same pixels. See ge_icon_apply.c. */
+extern "C" void gePortSetWindowIcon(SDL_Window *w);
 #endif
 
 /* Windows needs an extension loader before any GL header. opengl32.dll exports GL 1.1 and
@@ -1146,6 +1149,11 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                                        winw, winh,
                                        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI |
                                        SDL_WINDOW_RESIZABLE);
+    if (win != NULL) {
+        /* Same icon as the game window, from the same pixels. See ge_icon_apply.c. */
+        gePortSetWindowIcon(win);
+    }
+
     /* The mission list needs vertical room and the two-column pages need width; below this
      * the layout starts overlapping rather than reflowing. */
     if (win != NULL) SDL_SetWindowMinimumSize(win, 900, 620);
