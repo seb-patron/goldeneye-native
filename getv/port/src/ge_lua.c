@@ -868,6 +868,29 @@ static int ge_l_props_in_room(lua_State *L)
     return 1;
 }
 
+/* ge.route_lane(px, pz, tx, tz) -> x, z, offset
+ *
+ * The reachable aim point for a route target. Route waypoints are the game's own nav pads, and
+ * those do not always sit on ground a body fits through -- on Train they run about 70 units off
+ * the walkable centre, which is enough for the engine's own walkability test to refuse 18 of the
+ * level's 46 route steps. See ge_route_lane.c. Returns the target unchanged, with an offset of
+ * zero, when it needed no help.
+ */
+static int ge_l_route_lane(lua_State *L)
+{
+    extern float gePortRouteLane(float px, float pz, float *tx, float *tz);
+    float px = (float) luaL_checknumber(L, 1);
+    float pz = (float) luaL_checknumber(L, 2);
+    float tx = (float) luaL_checknumber(L, 3);
+    float tz = (float) luaL_checknumber(L, 4);
+    float off = gePortRouteLane(px, pz, &tx, &tz);
+
+    lua_pushnumber(L, (lua_Number) tx);
+    lua_pushnumber(L, (lua_Number) tz);
+    lua_pushnumber(L, (lua_Number) off);
+    return 3;
+}
+
 static const luaL_Reg ge_api[] = {
     { "log",          ge_l_log },
     { "stage",        ge_l_stage },
@@ -879,6 +902,7 @@ static const luaL_Reg ge_api[] = {
     { "objectives",    ge_l_objectives },
     { "objective",     ge_l_objective },
     { "route_step",    ge_l_route_step },
+    { "route_lane",    ge_l_route_lane },
     { "waypoint",      ge_l_waypoint },
     { "waypoint_near", ge_l_waypoint_near },
     { "guards_near",   ge_l_guards_near },

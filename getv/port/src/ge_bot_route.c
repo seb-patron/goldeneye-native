@@ -977,6 +977,17 @@ have_target:
         ge_br_held = 0;
     }
 
+    /* The pad is where the route says to go; it is not always ground a body can walk. See
+     * ge_route_lane.c -- on Train the pads run 70-odd units off the walkable centre. Inert
+     * unless GETV_ROUTE_LANE is set. */
+    {
+        extern float gePortRouteLane(float px, float pz, float *tx, float *tz);
+        float ax = wp.x, az = wp.z;
+        if (gePortRouteLane(st.x, st.z, &ax, &az) != 0.0f) {
+            wp.x = ax;
+            wp.z = az;
+        }
+    }
     dx = wp.x - st.x;
     dz = wp.z - st.z;
     dist = (float) sqrt((double) (dx * dx + dz * dz));

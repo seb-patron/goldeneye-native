@@ -117,6 +117,16 @@ function onFrame(frame)
     local wp = ge.waypoint(s.to)
     if not wp then return end
 
+ -- AIM AT GROUND A BODY FITS ON, WHICH IS NOT ALWAYS THE PAD.
+ --
+ -- The route's waypoints are the game's own nav pads. On Train they run about 70 units off the
+ -- walkable centre, and the engine's own walkability test refuses 18 of the level's 46 steps as
+ -- a result -- yet the same steps are clear a little to one side. ge.route_lane finds the
+ -- smallest sideways correction that opens the step, so the bot walks the floor rather than the
+ -- pad line. Inert unless GETV_ROUTE_LANE is set, in which case it returns the pad unchanged.
+    local ax, az, off = ge.route_lane(st.x, st.z, wp.x, wp.z)
+    if off ~= 0 then wp.x, wp.z = ax, az end
+
     local dx, dz = wp.x - st.x, wp.z - st.z
     local dist = math.sqrt(dx * dx + dz * dz)
     if dist <= ARRIVE then
