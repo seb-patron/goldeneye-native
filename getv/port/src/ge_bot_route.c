@@ -295,42 +295,30 @@ static void ge_br_nav_build(void)
 #define GE_BR_RADIUS     35.0f
 #define GE_BR_CLEARANCE  1.26f   /* PD's own figure, chraction.c: chr->radius * 1.26f */
 
+extern int gePortSkirt(float x0, float z0, float tx, float tz, float *out_x, float *out_z);
+
 static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_deg)
 {
-    float left[2], right[2];
-    float best = 0.0f, bestscore = -1.0f;
-    int i, found = 0;
+    /* Rare's own construction, not the approximation this function used to be.
+     *
+     * gePortSkirt is a direct port of Perfect Dark's chrNavTryObstacle (chraction.c:12120): pick
+     * the obstacle corner that deviates least from the desired bearing, aim at the tangent point
+     * a clearance beyond it (rotate by acos(clearance/distance), not just push the corner point
+     * outward on its own radial), and -- the half this function never had -- CONFIRM the line
+     * there is actually walkable before committing, falling through to the other side if it is
+     * not. Aiming at an unvalidated corner is how a bot commits to the one direction it cannot
+     * fit through and the trace says it chose correctly every time.
+     *
+     * Kept as a heading rather than exposing the point directly: this function's caller steers
+     * on a heading, and changing that contract would touch every call site for no reason. */
+    float sx, sz;
+    int side = gePortSkirt(x, z, tx, tz, &sx, &sz);
 
-    if (!gePortObstacleEdge(x, z, tx, tz, left, right)) { return 0; }
-
-    for (i = 0; i < 2; i++) {
-        float ex = (i == 0) ? left[0] : right[0];
-        float ez = (i == 0) ? left[1] : right[1];
-        float dx = ex - x, dz = ez - z;
-        float len = sqrtf(dx * dx + dz * dz);
-        float ax, az, deg, score;
-
-        if (len < 1.0f) { continue; }
-
-        /* Push PAST the corner, not at it: aiming exactly at an edge point walks the body into
-         * the corner it is trying to round. */
-        ax = ex + (dx / len) * (GE_BR_RADIUS * GE_BR_CLEARANCE);
-        az = ez + (dz / len) * (GE_BR_RADIUS * GE_BR_CLEARANCE);
-
-        deg = (float) (atan2((double) (ax - x), (double) (az - z)) * 180.0 / 3.14159265358979);
-
-        /* Prefer the side that keeps the bot pointed most nearly at its target. */
-        {
-            float want = (float) (atan2((double) (tx - x), (double) (tz - z))
-                                  * 180.0 / 3.14159265358979);
-            float off = (float) fabs((double) ge_br_norm180(deg - want));
-            score = 180.0f - off;
-        }
-        if (score > bestscore) { bestscore = score; best = deg; found = 1; }
+    if (side <= 0) { return 0; }
+    if (out_deg != NULL) {
+        *out_deg = (float) (atan2((double) (sx - x), (double) (sz - z)) * 180.0 / 3.14159265358979);
     }
-
-    if (found && out_deg != NULL) { *out_deg = best; }
-    return found;
+    return 1;
 }
 
 
@@ -398,6 +386,19 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * behaviour above for a direct A/B against the new default. */
 static int   ge_br_fight = 0;
 static int   ge_br_target_id = -1;    /* chrnum of the guard being fought, -1 for none */
+/* The mission's own objective, separately from guard combat.
+ *
+ * Train's objectives are things to destroy -- brake units, tagged 8 through 13 -- mounted low on
+ * the wall beside each carriage door, worth 1000 damage and requiring aim mode pitched down: the
+ * C-button look never puts the crosshair on a knee-height target, measured with the object's own
+ * damage counter reading zero across a full run while GE_IN_AIM with stick_y down took the same
+ * counter from 0 to 750 and past its threshold. This is not optional the way guard combat is --
+ * a route with no live brake units left is not a route this level can finish -- so it runs
+ * unconditionally rather than behind GETV_BOT_FIGHT.
+ */
+static int   ge_br_obj_tag = -1;      /* setup tag of the target being worked, -1 for none */
+static int   ge_br_obj_aimed;         /* pitched down for this target already */
+static int   ge_br_obj_shots;
 static int   ge_br_engaged;           /* frames spent on this target */
 static int   ge_br_aim;               /* GETV_BOT_AIM=1: force the cornered (stop-and-face) response */
 
@@ -470,6 +471,39 @@ static int ge_br_pick_target(float x, float y, float z, GeEnemy *out)
     }
     (void) y;
     return best;
+}
+
+
+/* The nearest live objective target, in setup-tag terms, doors/keys/collectables excluded (those
+ * have their own handling). "Live" is asked of the OBJECT, not the pack: the pack lists a
+ * destroyed brake unit forever, so a picker that trusted it would keep aiming at wreckage. */
+static int ge_br_pick_objective_target(float x, float z, float *out_x, float *out_z, int *out_tag)
+{
+    extern int gePortTargetState(int tag, int *destroyed, float *dmg, float *maxdmg);
+    int i, n, best = -1;
+    float bestd = 0.0f, bx = 0.0f, bz = 0.0f;
+    int btag = -1;
+
+    n = geWorldPropCount();
+    for (i = 0; i < n; i++) {
+        GeWorldProp p;
+        float dx, dz, d;
+        int dead = 0;
+
+        if (!geWorldProp(i, &p)) { continue; }
+        if (p.tag < 0) { continue; }
+        if (p.kind == GE_PROP_DOOR || p.kind == GE_PROP_KEY || p.kind == GE_PROP_COLLECTABLE) { continue; }
+        if (gePortTargetState(p.tag, &dead, NULL, NULL) && dead) { continue; }
+
+        dx = p.x - x; dz = p.z - z;
+        d = dx * dx + dz * dz;
+        if (best < 0 || d < bestd) { best = i; bestd = d; bx = p.x; bz = p.z; btag = p.tag; }
+    }
+    if (best < 0) { return 0; }
+    if (out_x != NULL)   { *out_x = bx; }
+    if (out_z != NULL)   { *out_z = bz; }
+    if (out_tag != NULL) { *out_tag = btag; }
+    return 1;
 }
 
 /* The flight recorder.
@@ -1493,6 +1527,64 @@ steer:
         ge_br_logf((int) frame, "post", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
                    st.x, st.z, ge_br_heading, 0.0f, 0.0f,
                    (int) in.stick_x, (int) in.stick_y, note);
+    }
+
+    /* DESTROY THE OBJECTIVE. Unconditional, and ordered before the guard-combat arbiter: a
+     * brake unit does not shoot back, so there is no survival case where ignoring it is correct.
+     * Only overrides steering within engagement range -- outside that, routing (with its portal
+     * and skirt navigation) is what gets the bot there in the first place. */
+    {
+        float tx, tz;
+        int tag = -1;
+
+        if (ge_br_pick_objective_target(st.x, st.z, &tx, &tz, &tag)) {
+            float dx = tx - st.x, dz = tz - st.z;
+            float td = sqrtf(dx * dx + dz * dz);
+
+            if (tag != ge_br_obj_tag) {
+                ge_br_obj_tag = tag;
+                ge_br_obj_aimed = 0;
+                ge_br_obj_shots = 0;
+            }
+
+            if (td < 220.0f) {
+                float tb = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
+                float err2 = ge_br_norm180(tb - ge_br_heading);
+
+                if (fabs((double) err2) > 12.0) {
+                    float sx4 = (float) ge_br_sign_of() * err2 * GE_BR_TURN_GAIN;
+                    if (sx4 >  GE_BR_STICK_MAX) { sx4 =  GE_BR_STICK_MAX; }
+                    if (sx4 < -GE_BR_STICK_MAX) { sx4 = -GE_BR_STICK_MAX; }
+                    memset(&in, 0, sizeof in);
+                    in.stick_x = (signed char) sx4;
+                } else if (ge_br_obj_shots < 60) {
+                    /* AIM MODE, STICK DOWN, NOT THE LOOK BUTTON. Measured: with GE_IN_LOOK_DOWN
+                     * inside aim mode the object's own damage counter stays at 0 across a whole
+                     * run; with stick_y held down under GE_IN_AIM it climbs to 750 and past its
+                     * 1000 threshold. The look axis and the aim axis are not the same control. */
+                    memset(&in, 0, sizeof in);
+                    in.buttons = GE_IN_AIM | GE_IN_FIRE;
+                    in.stick_y = -80;
+                    ge_br_obj_aimed = 1;
+                    ge_br_obj_shots++;
+                } else if (ge_br_obj_aimed) {
+                    /* Bounded, and stand back up once done. A destroyed target drops out of the
+                     * picker on its own next frame; this cap exists so a report that never flips
+                     * DESTROYED for some other reason cannot pin the bot crouched at one spot
+                     * forever. */
+                    memset(&in, 0, sizeof in);
+                    in.buttons = GE_IN_CROUCH_UP;
+                    ge_br_obj_aimed = 0;
+                }
+                if (ge_br_trace && (frame % 30) == 0) {
+                    printf("[getv][botroute] objective tag %d, %.0fu away, %d shot(s)\n",
+                           tag, (double) td, ge_br_obj_shots);
+                    fflush(stdout);
+                }
+            }
+        } else {
+            ge_br_obj_tag = -1;
+        }
     }
 
     /* the arbiter owns this decision. geBotArbitrate was derived from exactly the three

@@ -70,7 +70,16 @@ function onEvent(name, a, b, c)
     end
 end
 
+-- STAND DOWN IF THE C BOT OWNS THIS SLOT. This mod auto-loads unconditionally from mods/, and
+-- ge_bot_route.c activates on GETV_BOT_ROUTE -- with no coordination, both post input to the same
+-- slot on the same frame and one overwrites the other. Measured: with GETV_BOT_ROUTE=0 set, the
+-- player sat at one coordinate for 6000 straight frames under a constant forward-stick probe, and
+-- it read exactly like a broken input path rather than what it was, which was this fight. Checked
+-- once at load rather than every frame: the env var does not change mid-run.
+local cBotSlot = tonumber(os.getenv("GETV_BOT_ROUTE") or "")
+
 function onFrame(frame)
+    if cBotSlot == SLOT then return end
     local level = ge.world()
     if not level then return end -- no extracted knowledge for this stage
 
