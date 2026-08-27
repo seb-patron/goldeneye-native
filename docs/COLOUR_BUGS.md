@@ -31,18 +31,18 @@ Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680:
   76-entry array. The `/* 0x66 */` comments in `cheat.c`'s table are text ids, not enum
   values, and reading them as indices is the trap here.
 - **Not fog.** Three levels with three different fog colours give the same magenta:
-  Bunker 1 fog(0,16,64) → (153,76,168); Jungle fog(24,32,0) → (127,78,176); Caverns
-  fog(8,0,8) → (152,87,191). If fog were tinting it, the colour would follow the fog.
+  Bunker 1 fog(0,16,64) -> (153,76,168); Jungle fog(24,32,0) -> (127,78,176); Caverns
+  fog(8,0,8) -> (152,87,191). If fog were tinting it, the colour would follow the fog.
 - **Not RGBA32.** `GETV_RGBA32BE` was added for this and all three modes gave a
   byte-identical frame. `GETV_LIGHTTRACE` then showed why: **there are no RGBA32 uploads at
   all** in the scene. The probe was inert, which is the useful result.
 
-### 🔴 Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
+### Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
 
 **The census has no coverage.** Five levels compared at mode 0 and mode 1 gave byte-identical
 frames, which reads like proof of safety and is not: `GETV_LIGHTTRACE` reports **zero RGBA16
 uploads** in those idle frames. The only RGBA16 consumer observed anywhere is the explosion
-flare, where the count moves 8 → 9 as the explosion appears.
+flare, where the count moves 8 -> 9 as the explosion appears.
 
 So what is established is "mode 1 fixes explosions" and "nothing else measured uses RGBA16
 yet". Promoting it needs frames that actually exercise RGBA16 elsewhere -- the wall-hole

@@ -11,8 +11,8 @@ Work flows Windows to Mac to `main`. The Mac tree is pre-`main`: it decides what
 integrates it, and owns the result building and being correct. The Windows tree publishes onto its
 own branch and does not merge Mac work back in and treat that as the truth.
 
-Only the Mac branch is a candidate for `main`, and **pushing is a manual step performed by a
-human** -- no part of the tooling pushes.
+Only the Mac branch is a candidate for `main`, and pushing there is a deliberate, manual step
+taken after review, not part of any script.
 
 ## Take by path, never by whole-tree merge
 
@@ -40,8 +40,8 @@ not link, over seven symbols that existed on one machine only.
 
 A symbol the port layer calls belongs in `getv/patches/` the same day it is written, and the patch
 is verified against the other machine's tree before it is announced. For a file under active edit
-on both sides, copy the file itself and compare hashes -- `tools/sync_surface.sh` prints a 1:1
-check for exactly this.
+on both sides, copy the file itself and compare hashes rather than trusting a patch that claims to
+apply cleanly.
 
 Patches must also be a valid series. Two patches generated against the same base cannot both
 apply in order; regenerate the later one against the tree that results from the earlier.
@@ -57,18 +57,21 @@ Shared files -- `tools/gen_level_*.py`, `getv/port/src/ge_*_api.c` -- are fetche
 touched. Paths are claimed before editing, not after; that is the entire discipline.
 
 Editing a file you do not own does not stick, and should not: report the bug against the owner
-rather than fixing it in place. When both sides independently write the same thing, **whoever owns
-the consumer keeps the code** -- that tiebreak needs no round trip, and it exists because both
-sides once deleted their own implementation in favour of the other's, leaving neither.
+rather than fixing it in place. If a shared file ends up with two competing implementations of
+the same thing after a sync, **whoever owns the consumer keeps the code** -- that tiebreak needs
+no round trip, and it exists because both were once dropped in favour of the other, leaving
+neither.
 
 ## Transport
 
-`tools/sync_surface.sh` pushes and pulls git bundles over SSH, prints the diffstat **without
-merging**, lists the other machine's uncommitted work -- which never travels, and is a frequent
-source of "I fixed that already" -- and verifies both trees agree on commit and decomp hashes.
-
 Git over SSH directly into Windows does not work here: the default shell is `cmd`, and the quoting
-around `git-upload-pack` defeats it. Bundles sidestep the problem entirely.
+around `git-upload-pack` defeats it. Git bundles over SSH sidestep the problem entirely -- push one
+side to a bundle, copy it across, pull it in on the other.
+
+A bundle exchange should always report the diffstat **without merging automatically**, list the
+other machine's uncommitted work (which never travels in a bundle, and is a frequent source of "I
+fixed that already"), and verify both trees agree on commit and decomp hashes before anything is
+taken. Skipping any of those three checks is how work has been silently reverted before.
 
 ## Verifying that a change is really in the build
 

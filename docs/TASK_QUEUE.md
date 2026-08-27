@@ -3,8 +3,8 @@
 Ordered. Each item says what "done" means, because a task without a finish condition gets
 reported as finished by whoever is tired.
 
-Lane rules: `docs/DEVELOPMENT.md`. Work flows Surface → Mac → `main`; the Mac integrates file
-by file. Fetch `C:\mac-work.bundle` before touching a shared file.
+This list crosses two machines before it reaches `main` -- see `docs/DEVELOPMENT.md` for how
+that integration works.
 
 ---
 

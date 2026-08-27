@@ -1,7 +1,8 @@
 # Level asset loading - map, holes, and plan
 
-Investigation only. Nothing in this document has been changed in the tree.
-Written 2026-08-19 by `getv-assets`. All paths relative to repo root unless absolute.
+This is a map of the level-load path and the plan for finishing it, not a changelog - nothing
+described here has been applied to the tree yet. All paths are relative to the repo root unless
+absolute.
 
 **Read §0 first.** The headline contradicts the obvious reading of the code.
 
@@ -37,7 +38,7 @@ only on the bg path for per-room chunks (§3.4).
 
 ---
 
-## 1. Call graph - "user picks a level" → data in memory
+## 1. Call graph - "user picks a level" -> data in memory
 
 Verified by reading the sources; line numbers are `vendor/ge-decomp/`.
 
@@ -135,7 +136,7 @@ bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
 | `stanDetermineEOF` | stan.c:3097 | real | relocates every pointer by `delta = (s32)newBase - origBase`. Called as `(gptr_stan, 0, gptr_stan)`, so `delta` = **truncated 64-bit pointer**, and it then adds that to already-correct pointers. Must be `delta == 0` on the native path. Also **not idempotent** - it writes into linked `.data`, so a second level load re-relocates |
 | `stanLoadFile` | stan.c:476 | real | already carries a port fix (`stan_prefix = file` instead of the half-pointer write) |
 | `stanBuildRoomData` | stan.c:246 | real | walks tiles by `list_of_tilesizes`. Depends on tile-to-tile adjacency in the linked object - **verified to hold**, see §4.1 |
-| `bgDecompress` | bg.c:2239 | real | **`u8 buffer[0x2100]` passed as `struct huft *`.** This is the exact bug that was fixed in `ob.c`, `image.c` and `music.c` and it is still live here. `struct huft` is 16 bytes on arm64 vs 8 on N64, so this buffer holds **half** the entries `inflate()` will carve out of it, unchecked, on the **stack**. Expect `__stack_chk_fail` → SIGABRT with no usable backtrace the first time a room streams. Fix: `struct huft buffer[GE_HUFT_ENTRIES];` (`src/inflate/inflate.h:30`) |
+| `bgDecompress` | bg.c:2239 | real | **`u8 buffer[0x2100]` passed as `struct huft *`.** This is the exact bug that was fixed in `ob.c`, `image.c` and `music.c` and it is still live here. `struct huft` is 16 bytes on arm64 vs 8 on N64, so this buffer holds **half** the entries `inflate()` will carve out of it, unchecked, on the **stack**. Expect `__stack_chk_fail` -> SIGABRT with no usable backtrace the first time a room streams. Fix: `struct huft buffer[GE_HUFT_ENTRIES];` (`src/inflate/inflate.h:30`) |
 | `bgLoadRoomVtxData` | bg.c:2252 | real | offset arithmetic **already fixed** to wrap in `u32` |
 | `bgLoadRoomPrimaryGdl` | bg.c:2299 | real | offset arithmetic **not** fixed: `(s32)((u8*)pPriMappingBin + ptr_bg_data) - ptr_bg_data`. Truncates through `s32`. Works only by accident while the field holds a 32-bit segmented value |
 | `bgLoadRoomSecondaryGdl` | bg.c:2359 | real | same, `pSecMappingBin` |
@@ -147,7 +148,7 @@ bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
 | `init_load_objpos_table` | initobjects.c:43 | real | |
 | `init_guards` / `init_path_table_links` | initguards.c / initpathtablelinks.c | real | consume `g_CurrentSetup` |
 | `bondviewLoadSetupIntroSection` | bondview_r.c:75 | real | but its collaborators live in `bondview2.c`, which does not compile |
-| `mempAllocBytesInBank` | memp.c | real | OOM = `while(1)` → **silent hang**, wrapped in `GE_MEMP_DIE` - do not remove |
+| `mempAllocBytesInBank` | memp.c | real | OOM = `while(1)` -> **silent hang**, wrapped in `GE_MEMP_DIE` - do not remove |
 | `setup_text_pointers` | chraidata.c:816 | **STUB** | `void *setup_text_pointers = 0;` - an 8-byte object. `setup_text_pointers[stageId]` for stageId up to 58 reads **464 bytes past it** into whatever the linker put next. Guaranteed garbage, possibly a non-NULL garbage pointer that passes the `&&` guard |
 | `g_GlobalAILists` | chraidata.c | **STUB** | 256 KB of 0xFF |
 | `g_Startpad`, `startpadcount`, `gBondViewCutscene`, `g_CameraLookAtBondPad` | bondview2.c | **STUB** | intro camera + spawn pad |
@@ -157,7 +158,7 @@ bg.c:2359  bgLoadRoomSecondaryGdl(room, dst, allocsize)
 | file | errors | kind | difficulty |
 |---|---|---|---|
 | `src/game/chraidata.c` | 71 | 49× `pasting formed '_(' `, 11× "too many arguments to function-like macro", plus 4 syntax + `unknown type name 'Switch'` | **preprocessor/macro DSL**, not a 64-bit problem. The AI-command macros. Mechanical but fiddly |
-| `src/game/bondview2.c` | 9 | all `-Wint-conversion` (`s32` ↔ pointer) | **easy** - the same `(s32)ptr` family already triaged in ROADMAP §"The `(u32)`/`(s32)` pointer-cast class" |
+| `src/game/bondview2.c` | 9 | all `-Wint-conversion` (`s32` <-> pointer) | **easy** - the same `(s32)ptr` family already triaged in ROADMAP §"The `(u32)`/`(s32)` pointer-cast class" |
 | `assets/obseg/setup/UsetuparchZ.c` | 2 | `pasting formed '_('` / `')_'` | macro paste, same family as chraidata |
 | `assets/obseg/setup/{u,e,j}/UsetuplenZ.c` | 2 | `CreditsEntry (*)[272]` into an `s32` field; "initializer element is not a compile-time constant" | a **pointer stored in a 32-bit asset field** - this one is a genuine layout problem, not a typo |
 
@@ -185,7 +186,7 @@ segment model comes from.
 
 ### 3.2 Why bg is not connected - VERIFIED with `nm`
 
-- `file_resource_table.inc.c:6` maps `"bg/bg_sev_all_p.seg"` → `&bg_sev_all_p_seg`.
+- `file_resource_table.inc.c:6` maps `"bg/bg_sev_all_p.seg"` -> `&bg_sev_all_p_seg`.
 - `bg_sev_all_p_seg` is produced by `ob_seg.s:70` (`bg_file_seg bg_sev_all_p_seg, bg_sev_all_p`) - **assembly the port does not build**.
 - `nm -g build/obj/asset_assets_obseg_bg_bg_sev_all_p.o` shows `_header`, `_room_data_table`, `_portal_data_table`, `_global_visibility_commands` - and **no `_bg_sev_all_p_seg`**.
 - So `bg_sev_all_p_seg` is undefined at link and is satisfied by a **256 KB 0xFF-poisoned array** in `ge_link_stubs.c`. 33 of them.
@@ -206,11 +207,11 @@ would try them:
 
 1. **Namespace them at compile time.** Compile each `bg_*.c` with
    `-Dheader=bg_sev_header -Droom_data_table=bg_sev_room_data_table ...`, and generate a
-   table `{levelID → &bg_sev_header}`. No asset regeneration, no format work.
+   table `{levelID -> &bg_sev_header}`. No asset regeneration, no format work.
    *(Recommended route. Untested - see §6.)*
 2. Post-process each object with `ld -r` + symbol renaming. More moving parts on Mach-O.
 3. Re-extract bg as **packed 1172 blobs** the way `chr`/`gun`/`prop` are done, and let
-   the existing `obLoadBGFileBytesAtOffset` → `romCopy` → `bgDecompress` path run
+   the existing `obLoadBGFileBytesAtOffset` -> `romCopy` -> `bgDecompress` path run
    unchanged. This is the *lowest-risk-to-the-game-code* option and the one that keeps
    the segment model honest - but no `.bin` source for bg exists in the tree
    (`gen_obseg_blobs.py` looks for `assets/obseg/<dir>/<sym>.bin`, and `assets/obseg/bg`
@@ -248,14 +249,14 @@ That distinction is the whole answer, and it is different per asset kind.
 `StandTilePoint` = 4 × `s16` = 8 bytes. **No pointers.** Header = 8 bytes at any width.
 
 `list_of_tilesizes` (stan.c:79) = `{0x20,0x20,0x20,0x20,0x28,0x30,0x38,0x40,0x48,0x50,0x58,0}`
-→ for `pointCount = n`, size = `8 + 8n`. Identical on MIPS and arm64.
+-> for `pointCount = n`, size = `8 + 8n`. Identical on MIPS and arm64.
 
 The adjacency assumption was verified empirically rather than reasoned about:
 
 ```
 nm -g build/obj/asset_assets_obseg_stan_Tbg_sev_all_p_stanZ.o | grep ' D _tile_'
-→ 1066 tiles, first at 0x14, last at 0x89c4, _footer at 0x89e8
-→ every consecutive gap ∈ {32,40,48,56,64,72,80,88}, ZERO anomalies
+-> 1066 tiles, first at 0x14, last at 0x89c4, _footer at 0x89e8
+-> every consecutive gap ∈ {32,40,48,56,64,72,80,88}, ZERO anomalies
 ```
 
 So clang laid the flexible-array-initialised `StandTile` globals out **exactly** the way
@@ -274,7 +275,7 @@ already cost a cycle with the font.)
 
 `StanPrefixRecord` (stan.c:15) is `{s32 stanfile; StandTile *ptr_firstroom;}` and
 `StandFileHeader` (bondtypes.h:472) is `{void *unk1; StandTile *firstTile; u8 unk2[];}`.
-Both compiled natively by the same compiler → offset 8 on both. Consistent.
+Both compiled natively by the same compiler -> offset 8 on both. Consistent.
 `tile_0` sits at 0x14 = 20 bytes in, which matches `8 + 8 + 4`. Confirms the header
 layout too.
 
@@ -338,7 +339,7 @@ POINTER. In the port it currently does:
 
 That is an **8-byte store into a 4-byte field**, which silently overwrites
 `width/height/level/format`. It is on the level path via
-`bgLoadRoomPrimaryGdl → texLoadFromGdl`. It needs the mirror machinery (a separate
+`bgLoadRoomPrimaryGdl -> texLoadFromGdl`. It needs the mirror machinery (a separate
 resolved-pointer side array keyed by index), not a cast. This is the known-blocked
 example the brief named, confirmed still in this shape.
 
@@ -390,7 +391,7 @@ compress/decompress structure has to be bypassed. **Everything in steps 4-7 depe
 this answer.**
 
 **1. Fix `bgDecompress`'s huft workspace.** One line, bg.c:2239:
-`u8 buffer[0x2100]` → `struct huft buffer[GE_HUFT_ENTRIES];`. This is a known-fatal
+`u8 buffer[0x2100]` -> `struct huft buffer[GE_HUFT_ENTRIES];`. This is a known-fatal
 bug of a family already diagnosed three times; leaving it costs a full deploy cycle the
 moment a room streams. Cheapest high-value fix in this document.
 
@@ -421,7 +422,7 @@ tiles - it turns the §4.1 adjacency assumption from luck into a checked invaria
 and fix `BG_SEG_TO_PTR` to keep `base` as a pointer. Mechanical, but must precede 7.
 
 **7. Bridge bg.** Route chosen by step 0. If route 1: generate a per-level
-`-Dheader=bg_<lvl>_header ...` compile plus a `{levelID → &header}` table, rewrite
+`-Dheader=bg_<lvl>_header ...` compile plus a `{levelID -> &header}` table, rewrite
 `load_bg_file` under `GE_PORT_NATIVE` to look up that table instead of doing the
 0x40-byte header read and the `size` computation, and fix
 `bgLoadRoomPrimaryGdl`/`SecondaryGdl` to compute their offsets the way
@@ -446,9 +447,13 @@ stack garbage with no signal. Add a one-shot diagnostic on the else branch.
 
 ---
 
-## 6. Verified vs inferred - read this before acting
+## 6. Confidence
 
-### VERIFIED (command run, or exact line read)
+Not everything above rests on the same footing. This section separates what was checked by
+running a command or reading an exact line from what is reasoned but unconfirmed, so a reader
+knows which claims to lean on and which to verify before building on them.
+
+### Solid: command run, or exact line read
 - 32 named level-path functions are **not** in `ge_link_stubs.c`; `setup_text_pointers` and `g_GlobalAILists` **are**.
 - `bg_*_all_p_seg` × 33 are stubs; **no object defines that symbol** (`nm` on `asset_assets_obseg_bg_bg_sev_all_p.o`).
 - Every `bg_*.o` defines the same 4 globals - checked `bg_sev` vs `bg_dam` with `nm`.
@@ -464,7 +469,7 @@ stack garbage with no signal. Add a one-shot diagnostic on the else branch.
 - `prop.c` performs the 10-field rebase and 6 promotion loops with `(u32)` arithmetic.
 - `gen_asset_fileview.py`'s `struct_names()` covers only `ModelNode`, `ModelAnimation`, `ModelRoData_*`.
 
-### INFERRED - treat every one of these as a guess
+### Unverified - treat every one of these as a guess
 - **That symbol namespacing (route 1) will work for bg.** No bg TU was compiled with `-Dheader=...`. There may be internal cross-references between the four tables that a `-D` rename breaks, and `bg_ame_all_p.c` is 128 KB, of which only the first 20 lines were read.
 - **That `point_table_binary_N` in the decompiled bg is still 1172-compressed.** Not checked. Step 0 exists precisely because this is unknown and everything downstream depends on it.
 - **That bg per-room chunks are big-endian.** By analogy with the model files. Not verified.
@@ -474,7 +479,7 @@ stack garbage with no signal. Add a one-shot diagnostic on the else branch.
 - **That stan tile adjacency holds for all 29 stan files.** Exactly one was measured (`Tbg_sev_all_p_stanZ`). It is the strongest sample available but it is one sample, at one optimisation level.
 - The `docs/ROADMAP.md` "Current state" table (113/159 objects, boot dies at `texReset`) is **stale** relative to measurement (`failing.txt` shows 14 failures). `failing.txt` and the build objects are the ground truth here, not the ROADMAP prose.
 
-### NOT INVESTIGATED
+### Not looked at yet
 - The other 12 non-compiling files (`crash.c`, `indy_*`, `init.c`, `ramrom.c`, `rmon.c`, `sched.c`, `sprintf.c`, `tlb_manage.c`, `usb.c`, `othermodemicrocode.c`, `spectrum.c`).
 - Whether Fast3D can execute a **room** display list (it executes the front-end's). GoldenEye's `gsp3D` microcode has commands Fast3D does not implement - ROADMAP flags Dam skybox / Frigate water as the known wall.
 - `chr` model loading for guards, and the `lang` bank load inside `proplvreset2`.

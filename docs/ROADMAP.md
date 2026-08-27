@@ -11,12 +11,12 @@ the API is complete and the rest is policy. Today a person gets the objective fr
 
 ## Staying 1:1: check it, do not assume it
 
-`tools/sync_surface.sh` verifies both halves and prints OK or MISMATCH:
+A sync check between the two build trees prints OK or MISMATCH:
 
 ```
 == 1:1 CHECK ==
-  commits   mac=cb0d534e0f  surface=cb0d534e0f  OK
-  decomp    mac=5f4c9f41fee5  surface=5f4c9f41fee5  OK
+  commits mac=cb0d534e0f surface=cb0d534e0f OK
+  decomp mac=5f4c9f41fee5 surface=5f4c9f41fee5 OK
 ```
 
 Being in sync has **two independent parts and only one travels in a bundle**:
@@ -30,7 +30,7 @@ Being in sync has **two independent parts and only one travels in a bundle**:
    `objective_status.c`, because a name check proves one symbol arrived and a hash proves the
    whole file did.
 
-⚠️ **`git apply` reports "Skipped patch" on the Surface's vendor tree**: its ignore rules exclude
+**`git apply` reports "Skipped patch" on the Surface's vendor tree**: its ignore rules exclude
 that path, so a patch that verifies clean can still land nothing while every signal says it
 worked. **Deliver the file by scp and verify the hash.** Patches are for the record, not the
 transport.
@@ -46,32 +46,32 @@ judgement, it is a constraint, and the split follows from it:
 | **Mac**, anything needing a running game | bots, co-op, the CLI, measurement, `vendor/**`, input, docs |
 | **Surface**, anything offline | extraction, audits, tests, Windows, the launcher, netplay |
 
-Work flows Surface → Mac → `main`; the Mac integrates file by file. Sync with
-`tools/sync_surface.sh`. Read the diffstat before taking anything: four reverts were caught that
-way today and none reached `main`.
+Work flows Surface -> Mac -> `main`; the Mac integrates file by file. Read the diffstat before
+taking anything: four reverts were caught that way today and none reached `main`.
 
-🔑 **Whoever owns the CONSUMER keeps the code** when both sides write the same thing. We each
-deleted our own walkability reader in the same hour in favour of the other's; for a few minutes
+**Whoever owns the CONSUMER keeps the code** when both sides write the same thing. The
+walkability reader was implemented twice and each copy was dropped in favour of the other's;
+for a few minutes
 neither existed.
 
 ---
 
 # SURFACE: offline work, in order
 
-## S1. Prop extents: ✅ DONE, end to end
+## S1. Prop extents: DONE, end to end
 
-**Shipped in `b5d694e`.** `extrascale` was in the setup data all along — `propobj.c:78`,
+**Shipped in `b5d694e`.** `extrascale` was in the setup data all along -- `propobj.c:78`,
 `scale = extrascale * (1/256)`, per *placement* rather than per model, and `parse_props` was
 already matching that word in its regex and discarding it. 4,207 of 4,871 props across 20 levels
 carry `hx`/`hz`/`radius`; the 664 without are Guards, every one, because they have no model box.
 Pack bumped to v3, `GeWorldProp` and the CLI carry it. Verified by decoding `train.gew` at the C
-loader's own byte offsets — 5 of 5 records match.
+loader's own byte offsets -- 5 of 5 records match.
 
-⚠️ **`0` means unknown, not point-sized**, at every layer. The CLI prints `radius ?` rather than
+**`0` means unknown, not point-sized**, at every layer. The CLI prints `radius ?` rather than
 `radius 0`, because a caller reading a Guard's 0 as zero-sized walks straight through people.
 
-⚠️ **One outlier, not smoothed:** `hatchbolt` as a Collectable gives radius 2236 runtime in a
-carriage ~739 wide. The pipeline is right — the same model as a StandardProp comes out 28 — so that
+**One outlier, not smoothed:** `hatchbolt` as a Collectable gives radius 2236 runtime in a
+carriage ~739 wide. The pipeline is right -- the same model as a StandardProp comes out 28 -- so that
 model's own box is simply large. 37 instances on Train. Do not trust that one.
 
 The original statement of the item follows, for the reasoning behind it.
@@ -84,8 +84,8 @@ policy fixes it because the information is not in the data.
 **Why it is yours:** `gePortPropExtent` is written, compiles, and is on your box, and it reads
 `chrobjGetBboxFromObjectRecord` plus `chrpropBBOXGetXmin`/`Zmin`. **It cannot be driven.** The
 engine exposes no enumerable prop list; props live behind the object handler and the only global
-prop arrays are the tank's. So the answer has to come from the model data offline, which is your
-extractor's lane.
+prop arrays are the tank's. So the answer has to come from the model data offline, in the
+extractor.
 
 **Do:**
 1. Emit `hx`, `hz`, `radius` per prop into the level knowledge, from the model bounding box.
@@ -94,19 +94,19 @@ extractor's lane.
 4. The CLI's `near` lines become `crate 278 away, radius 120` so a reader knows the surface is at
    158, not 278.
 
-⚠️ **Scale them.** Extents are asset-space lengths and the pack is runtime space now. An unscaled
+**Scale them.** Extents are asset-space lengths and the pack is runtime space now. An unscaled
 radius is wrong by `1/levelscale`: 6.7× on Train, 4.3× on Dam.
 
-⚠️ **The model box is unrotated.** A long crate at forty-five degrees occupies more width than its
+**The model box is unrotated.** A long crate at forty-five degrees occupies more width than its
 half-extent suggests. Emit the radius as well and label which is which; do not silently pick one.
 
-⚠️ **Round-trip tolerance is RELATIVE now.** f32 keeps seven significant digits, not seven decimal
+**Round-trip tolerance is RELATIVE now.** f32 keeps seven significant digits, not seven decimal
 places, and runtime coordinates reach 86,000. A flat `1e-3` fails seven levels.
 
 **Done when:** the CLI's `near` lines carry a radius, and the Train player walks past the crate it
 currently traps itself on.
 
-## S2. Navmesh nodes: ✅ DONE, and the acceptance test passed
+## S2. Navmesh nodes: DONE, and the acceptance test passed
 
 Pads are prop markers, not places to walk. Measured with the teleport probe: **139 of Train's 180
 nodes cannot be stood on**, and across the twenty solo levels it runs 33 to 240 each. A follower
@@ -117,68 +117,68 @@ You already emit tile adjacency, floor tiles and 1,100 stairways. **The tiles ar
 node per floor tile, or per cluster, is standable by construction, has a real height, and needs no
 snapping to place. Pads go back to being what they are: markers for props and spawns.
 
-⚠️ **Declare which coordinate space the extractor emits.** The pack scales at the boundary today
+**Declare which coordinate space the extractor emits.** The pack scales at the boundary today
 and that is fine, but it must be stated rather than assumed. `runtime = asset / levelscale`.
 
-**✅ Passed.** `tools/route_doors.py` routes the TILE graph from the measured spawn:
+**Passed.** `tools/route_doors.py` routes the TILE graph from the measured spawn:
 
 ```
-level      reachable   ratio    monotonic
-train           100%   53.4:1        100%     <- 117 of 117 steps advancing along X
-facility         85%    5.6:1         90%
-bunker1          84%    0.8:1         69%
+level reachable ratio monotonic
+train 100% 53.4:1 100% <- 117 of 117 steps advancing along X
+facility 85% 5.6:1 90%
+bunker1 84% 0.8:1 69%
 ```
 
 30 distinct rooms, zero revisited, 682 tiles reachable. The graph reproduces the linear chain of
 carriages **and does so distinctively**: Train is an outlier against every other level, which is
 what makes it a test rather than a coincidence.
 
-🔑 They flagged their own "linear chain: yes" check as WEAK because every level passes it,
+They flagged their own "linear chain: yes" check as WEAK because every level passes it,
 including open ones. A check that cannot fail is not a check, and saying so is worth more than
 the check was.
 
-⚠️ Two spaces reconciled explicitly on the way: the JSONs are asset space and the measured spawn
+Two spaces reconciled explicitly on the way: the JSONs are asset space and the measured spawn
 is runtime, so Train's spawn reads x=779 where the tile map ends at x=213. `asset = runtime *
 levelscale`.
 
 **Now the bot must ROUTE ON THIS GRAPH** rather than the pad graph. That is M1's real content and
 it is unblocked.
 
-## S3. Enemy facing: ✅ DONE
+## S3. Enemy facing: DONE
 
 `gePortEnemyFacing` refuses and `geSenseNoticedBy` falls back to line of sight, so a bot hides
-from a guard facing the other way and strolls past one staring at it. Train reports 17–19 watchers
+from a guard facing the other way and strolls past one staring at it. Train reports 17-19 watchers
 of 40 guards, which is what an unobstructed line down a row of carriages looks like, **not**
 seventeen guards watching.
 
 `ChrRecord` has no facing field I could find. `chr.c:2319` reads `chr->aimsideback` into a `yrot`
 when building the model matrix; that is where the answer probably starts.
 
-⚠️ **Do not tune the line test to shrink the watcher count.** Add the cone. And keep both
+**Do not tune the line test to shrink the watcher count.** Add the cone. And keep both
 questions: "could see me if it turned" is different from "is looking at me", and both are useful.
 
-**✅ Done.** The heading is `getsubroty(chr->model)` (model.c:698), **not** `chr->aimsideback`,
+**Done.** The heading is `getsubroty(chr->model)` (model.c:698), **not** `chr->aimsideback`,
 which was my hint and was wrong. aimsideback is an AIM OFFSET applied to a body part while the
 model is drawn, so a cone built on it swings with where a guard POINTS ITS GUN rather than which
 way it faces, and would have read as roughly right most of the time.
 
-🔑 Same shape as `prop->pos` versus `player->pos`, which has now caught us three times: **the
+Same shape as `prop->pos` versus `player->pos`, which has now caught us three times: **the
 value lives on the object the engine maintains, not the record that looks like it owns it.**
 
 They proved the convention from `chraction.c:9629` rather than assuming it: the game subtracts
 `getsubroty` directly from `atan2f(dx, dz)`, so it is radians in exactly our convention.
 
-## S4. Audit the line-versus-body substitution: ✅ DONE
+## S4. Audit the line-versus-body substitution: DONE
 
-**`a44c500`.** Audited every caller in the Surface lane. The split was clean: sites that *list*
+**`a44c500`.** Audited every caller. The split was clean: sites that *list*
 every bit set (`mod.lua` 107-110, `ge_cli.c` 187-189, `ge_bot_route.c` 550-552) are honest
-reporting and stay. Only sites that **act** on one bit were wrong — the atlas printed "that is a
+reporting and stay. Only sites that **act** on one bit were wrong -- the atlas printed "that is a
 DOOR, an opportunity to a bot" from the single bit, so a mod trusting the atlas would have believed
 it. It now claims a door only when the bit arrives *alone* and reports door-plus-wall as a grazed
 edge in those words.
 
-`geSenseAheadForBody` also stopped sampling three parallel lines — the withdrawn 1c approach — and
-now steps `gePortCanStandAt` along the heading. ⚠️ I wrote its forward vector as `-sin` and the unit
+`geSenseAheadForBody` also stopped sampling three parallel lines -- the withdrawn 1c approach -- and
+now steps `gePortCanStandAt` along the heading. I wrote its forward vector as `-sin` and the unit
 test caught it: the sweep walked *away* from the obstacle and reported clear every time. Fourth
 inverted direction sign on this project, so the vector is now copied from `geSenseAhead` rather
 than re-derived.
@@ -194,7 +194,7 @@ Fixed in the router and the CLI. **Check your own callers for the same substitut
 version is still right for questions genuinely about a line, whether a shot or a sightline
 reaches.
 
-## S5. Netplay determinism: ✅ DONE — 3,000 frames, identical
+## S5. Netplay determinism: DONE -- 3,000 frames, identical
 
 **`22a825e`.** `GETV_FPTRACE=1` emits the per-frame simulation fingerprint;
 `tools/audit_lockstep.ps1` runs the binary twice and compares. **3,000 frames identical, 3,000 of
@@ -204,41 +204,41 @@ The long-run test needs no second machine: two peers fed identical inputs are, f
 question, one binary run twice. Delivery is `netsim.py`'s half; reproducibility *given* the inputs
 was untested until now.
 
-⚠️ **Necessary, not sufficient** — it cannot see a divergence only a different CPU or compiler
+**Necessary, not sufficient** -- it cannot see a divergence only a different CPU or compiler
 would produce. A failure would have been decisive.
 
-⚠️ **The pass is guarded against being vacuous.** A fingerprint that never moved would make two
+**The pass is guarded against being vacuous.** A fingerprint that never moved would make two
 runs match trivially. My first attempt did exactly that: instrumenting `ge_playback` (which only
 runs when input is *posted*) gave **two samples** across 3,000 frames, and both runs "agreed". The
 distinct-value count is now reported for that reason.
 
-## S6. Node table: ✅ DONE
+## S6. Node table: DONE
 
-**`2df5236`.** `build/levels/<level>.nodes.json` — 27 levels, 34,967 nodes: engine waypoints, tiles
+**`2df5236`.** `build/levels/<level>.nodes.json` -- 27 levels, 34,967 nodes: engine waypoints, tiles
 and doors, each with position, kind, room and links.
 
-🔑 **A bare node id is ambiguous.** Train has 104 engine waypoints numbered from 0 *and* 682 tiles
+**A bare node id is ambiguous.** Train has 104 engine waypoints numbered from 0 *and* 682 tiles
 numbered from 0; a route's `path: [74, 75]` means waypoint 74. Every node therefore carries a
 namespace and a `uid` = base + id, bases a million apart.
 
-🔑 **`pathwaypoints` is `-1` terminated and the terminator was being emitted as a waypoint on every
-level** — Train 105 against the engine's 104, Dam 206 against 205. Caught because two independent
+**`pathwaypoints` is `-1` terminated and the terminator was being emitted as a waypoint on every
+level** -- Train 105 against the engine's 104, Dam 206 against 205. Caught because two independent
 counts differed by exactly one on *every* level. The field is `u32`, so `-1` arrives as
 4294967295; testing only for `-1` would have left it everywhere.
 
-✅ **The engine graph and our tile mesh agree.** Median distance from each of the 104 engine
+**The engine graph and our tile mesh agree.** Median distance from each of the 104 engine
 waypoints to our nearest tile centre: **5.7 units**, 90th percentile 19.8, one beyond 60. Zero
 rooms hold engine waypoints our mesh lacks tiles for.
 
-## S7. Wall-set validation: ✅ RESOLVED — the premise was wrong, not the walls
+## S7. Wall-set validation: RESOLVED -- the premise was wrong, not the walls
 
-🔑 **A waypoint link promises REACHABILITY, not a clear straight line.** Traced through the
+**A waypoint link promises REACHABILITY, not a clear straight line.** Traced through the
 decompilation rather than waiting for an answer:
 
-- `padhalllv.c` — `waypointFindNextStepToward` returns a **neighbour** of the current waypoint
+- `padhalllv.c` -- `waypointFindNextStepToward` returns a **neighbour** of the current waypoint
   (`waypointFindRandomByDist(pointa->neighbours, ...)`), not a bearing to the goal.
-- `chraction.c:10495` — the caller stores it as `self->padpreset1`, a **target pad**.
-- `chr.c:1468` — the guard then moves toward that pad through a collision-tested step:
+- `chraction.c:10495` -- the caller stores it as `self->padpreset1`, a **target pad**.
+- `chr.c:1468` -- the guard then moves toward that pad through a collision-tested step:
   `stanTestLineUnobstructed` **and** `stanTestVolume`, before every move it commits to.
 
 **If an edge guaranteed a clear straight line, that per-step collision test would be pointless.**
@@ -247,51 +247,51 @@ The engine tests because it does not assume, and the guard plots a course around
 So the **76.5%** measured below is real but does not mean what it appears to: straight segments
 between graph nodes clipping interior geometry is *expected*, and `gen_level_walls.py` is not
 indicted by it. `tools/audit_wall_routes.py` remains the right instrument for a different question
-— which links have obstructions between their endpoints, useful for a follower that *does* move in
-straight lines — but the figure is not a wall-set defect rate.
+-- which links have obstructions between their endpoints, useful for a follower that *does* move in
+straight lines -- but the figure is not a wall-set defect rate.
 
-⚠️ **The one genuine defect stands:** the wall set contains **duplicate segments**, a shared tile
+**The one genuine defect stands:** the wall set contains **duplicate segments**, a shared tile
 edge emitted once from each side. Dam's `(3772,4481)-(3922,4481)` appears twice in a single hit
 list, so the reported segment counts are inflated.
 
 The measurement and its three refuted hypotheses follow.
 
 **`4e00ba7`.** `tools/audit_wall_routes.py` scores `gen_level_walls.py`'s segments against every
-link in `g_CurrentSetup.pathwaypoints`. **3,198 of 4,180 engine links crossed by a wall — 76.5%.**
+link in `g_CurrentSetup.pathwaypoints`. **3,198 of 4,180 engine links crossed by a wall -- 76.5%.**
 
-🔴 **That number is too large to believe and I have not established whose fault it is.** Three
-hypotheses killed with measurements: 2D-versus-3D (fixed the height filter; 76.51% → 76.0%, not the
-cause), room boundaries (same-room links block at 96.4% against 98.6% across rooms —
+**That number is too large to believe and I have not established whose fault it is.** Three
+hypotheses killed with measurements: 2D-versus-3D (fixed the height filter; 76.51% -> 76.0%, not the
+cause), room boundaries (same-room links block at 96.4% against 98.6% across rooms --
 indistinguishable), and space mismatch (ranges agree on every level).
 
 **The open question is the premise: does a `padhalllv.c` waypoint link promise a clear STRAIGHT
-line, or only reachability?** Dam's wp0→wp5 is crossed by fragments of 45, 15 and 9 units — the
+line, or only reachability?** Dam's wp0->wp5 is crossed by fragments of 45, 15 and 9 units -- the
 mesh boundary around a pillar. If guards follow the mesh and steer around interior obstacles, a
 straight segment clipping a pillar is expected and this audit measures something the engine never
 claimed.
 
-⚠️ **One defect regardless: the wall set contains duplicates.** Dam's `(3772,4481)-(3922,4481)`
-appears twice in one hit list — a per-tile-edge derivation emits a shared edge once from each side.
+**One defect regardless: the wall set contains duplicates.** Dam's `(3772,4481)-(3922,4481)`
+appears twice in one hit list -- a per-tile-edge derivation emits a shared edge once from each side.
 
-## S8. Engine facts: ✅ DONE
+## S8. Engine facts: DONE
 
 **`94abaa2`, `064d84b`.** `tools/gen_engine_facts.py` emits name/value/unit/source:line from the
 engine documents; `tools/gen_level_facts.py` mines the 199 structured blocks across 23 per-level
 buckets that nothing had consumed.
 
-🔴 **Every record is `status="unverified"`.** The sources are community-written and the ingester's
+**Every record is `status="unverified"`.** The sources are community-written and the ingester's
 own note says "not ground truth". A tidy JSON table reads as authoritative in a way the paragraph
 did not.
 
-🔴 **And the dimensional claims do not survive checking.** Train's document says 239 m; we measure
-35,786 runtime units → 149.73 units/m, against the engine's own 102.78 (`chrheight` 185 at
+**And the dimensional claims do not survive checking.** Train's document says 239 m; we measure
+35,786 runtime units -> 149.73 units/m, against the engine's own 102.78 (`chrheight` 185 at
 `chr.c:1936`, a person ≈1.8 m). **Use its topology and tactics, never its distances.**
 
-⚠️ **32 facts from 240 KB, and the low yield *is* the finding** — 1,084 numeric tokens in 11,170
+**32 facts from 240 KB, and the low yield *is* the finding** -- 1,084 numeric tokens in 11,170
 lines, the commonest units being `fps`, `ms`, `kbps`. These are prose narratives, not parameter
 tables.
 
-⚠️ **A name collision in `ingest_walkthroughs.py`, still unfixed (mac's):**
+**A name collision in `ingest_walkthroughs.py`, still unfixed (mac's):**
 `Goldeneye64CameraAndControlsVerbose.txt` is filed under the **`control` level** because the
 filename contains "Control". With the multiplayer doc that is ~55 KB, a quarter of the engine
 reference, outside `_engine`. The extractors read engine documents *by name* so they are correct
@@ -328,24 +328,24 @@ normally on Agent, which points at approach distance or the use action not reach
 - **It is not only distance.** The player reached 96 units from a door and `use` still did
   nothing, so "walk closer" is not the whole answer.
 
-**✅ ANSWERED: `doorTestForInteract`, propobj.c:14411.** Three conditions, and we were breaking
+**ANSWERED: `doorTestForInteract`, propobj.c:14411.** Three conditions, and we were breaking
 two of them:
 
 ```c
 (door->flags & PROPFLAG_CANNOT_ACTIVATE) == 0
 && door->maxFrac > 0
-&& (prop->flags & PROPFLAG_ONSCREEN)        // must be LOOKING at it
+&& (prop->flags & PROPFLAG_ONSCREEN) // must be LOOKING at it
 ...
-xdiff*xdiff + zdiff*zdiff < 40000.0f        // 200 units, not 278
-&& ydiff < 200.0f && ydiff > -200.0f        // and within 200 vertically
+xdiff*xdiff + zdiff*zdiff < 40000.0f // 200 units, not 278
+&& ydiff < 200.0f && ydiff > -200.0f // and within 200 vertically
 ```
 
-🔑 **The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
+**The door must be ON SCREEN.** Walking past with use held does nothing however close you are;
 the bot has to square up to it. That is why 96 units still failed. The bot now turns onto a door
 before pressing, and only marks it used once it has actually faced it, since otherwise it
 marks doors used that it never opened and walks away from every one.
 
-⚠️ There is a second path when you are further out: same-room plus
+There is a second path when you are further out: same-room plus
 `chrpropTestPointInPaddedBoundPad(pos, 150, boundpads)`. So a door has a bound pad you can stand
 in, which is a better target than its centre and is already in the setup data.
 
@@ -379,14 +379,14 @@ The engine has an absolute frame already; we are throwing it away at the report 
 3. A compass line in the CLI: the player's absolute facing as a cardinal plus the level's bounds,
    so a reader knows where in the MAP they are rather than only what is in front of them.
 
-⚠️ Cardinals are a convenience over the axes, not a new coordinate system. Do not introduce a
+Cardinals are a convenience over the axes, not a new coordinate system. Do not introduce a
 second frame that can disagree with the first. Name the axes and derive the compass from them.
 
 **Done when:** the CLI report says where the player is in the level ("west third, facing north")
 and every listed object carries an absolute position, and a bot can answer "have I been here
 before" without re-deriving it from bearings.
 
-## M4. Co-op: ✅ MOVEMENT VERIFIED, with a control
+## M4. Co-op: MOVEMENT VERIFIED, with a control
 
 Player 2 driven through the player API, Train, 6001 frames, against a no-input control:
 
@@ -399,12 +399,12 @@ Player 2 moves **only** with input, and player 1 is unaffected: 330 in both runs
 not bleed into each other. Both spawn apart and both cameras render, which the split-screen
 capture already showed.
 
-🔑 This closes the question that opened the week. Co-op movement was never broken: `gePortPlayerPos`
+This closes the question that opened the week. Co-op movement was never broken: `gePortPlayerPos`
 read `player->pos`, which is zeroed at spawn and rarely written, so both players *were* walking
 while the accessor returned the same coordinate. The bug was in the measurement, and the measuring
 tool was mine.
 
-⚠️ The control is what makes this worth stating. A scripted run on Dam travels 36 units and looks
+The control is what makes this worth stating. A scripted run on Dam travels 36 units and looks
 like proof until the no-script control travels the same 36: the level's own opening walks the
 player. Every earlier "co-op moved" claim on this project was that intro, and I withdrew one.
 
@@ -418,9 +418,9 @@ appearing in front of geometry it should be behind. Classic depth-precision fail
 surfaces close enough together that the depth buffer cannot order them, so which one wins varies
 with view angle and distance.
 
-⚠️ **Do not "fix" this by nudging geometry.** The assets are the game's own and are correct on
+**Do not "fix" this by nudging geometry.** The assets are the game's own and are correct on
 hardware; if a surface has to move, the port is wrong somewhere else. The N64 uses a 15.3
-fixed-point depth encoding with a specific near/far arrangement, and `N64_RCP_GRAPHICS.md` §O–§P
+fixed-point depth encoding with a specific near/far arrangement, and `N64_RCP_GRAPHICS.md` §O-§P
 carries the current far-plane truth, and a depth range mapped differently in the port would produce
 exactly this, and would produce it on flat walls elsewhere too.
 
@@ -447,13 +447,13 @@ Ordered by dependency, not appetite. Nothing in a later phase should start while
 is blocking, because every one of them is easier once a bot can be pointed at a level and left
 to run.
 
-## 🔑 M0. THE ATTRACT-MODE DEMOS: recorded human play, already in the ROM
+## M0. THE ATTRACT-MODE DEMOS: recorded human play, already in the ROM
 
 Evan asked whether the title-screen gameplay is a bot or a video. **Neither: it is fourteen
 recorded input streams**, in `assets/ramrom/`, decoded by `tools/decode_ramrom.py`:
 
 ```
-bunker1 x2   dam x2   facility x3   frigate x2   runway x2   silo x2   train
+bunker1 x2 dam x2 facility x3 frigate x2 runway x2 silo x2 train
 32,469 input records across 6,695 blocks, one demo on 00 Agent
 ```
 
@@ -461,7 +461,7 @@ bunker1 x2   dam x2   facility x3   frigate x2   runway x2   silo x2   train
 we cannot finish**. The earlier 3,957 was a ceiling: it divided the file by 4, which counts
 the interleaved seed records as input. Same correction applies to the totals above.
 
-🔑 **The input record is `{s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}`.** It is
+**The input record is `{s8 stick_x, s8 stick_y, u8 button_low, u8 button_high}`.** It is
 **NOT** the same shape as `GePlayerInput` and does **not** feed straight through
 `gePlayerPost`. `GePlayerInput` is `{unsigned int buttons; int stick_x; int stick_y}` -- 12
 bytes carrying a `GE_IN_*` bitmask, against the record's 4 bytes of raw N64 pad bits. The
@@ -537,7 +537,7 @@ recorded `randseed` each block.
 **Done when:** `ramrom_Train.bin` replays and the player follows the recorded path, at which
 point we have a working reference route AND a determinism check in one artefact.
 
-⚠️ ROM-derived. Decoded output stays out of git like every other asset.
+ROM-derived. Decoded output stays out of git like every other asset.
 
 ## Phase 2: the API becomes a platform
 
@@ -560,11 +560,11 @@ is unproven and `gePlayerSeedFingerprint` exists for exactly that.
 **The Metal backend, ported from akratch/mgb64.** MIT, archived, and the one capability they have
 that we lack; see the prior-art note below.
 
-🔑 **This is the tvOS unlock, and tvOS was this project's original goal.** GL ES is deprecated on
+**This is the tvOS unlock, and tvOS was this project's original goal.** GL ES is deprecated on
 Apple platforms and Metal is the supported path; the OpenGL renderer we run today is a dead end
 there however well it works on desktop.
 
-⚠️ **Port it, do not copy it.** Theirs is written against their platform layer. The
+**Port it, do not copy it.** Theirs is written against their platform layer. The
 sm64ex-versus-libultraship lesson has already cost this project five separate bugs: a reference
 implementation written for a different tree is actively misleading even when it descends from the
 same code. Budget it as a rewrite with a working reference, not a transplant.
@@ -596,14 +596,14 @@ one".
 GoldenRecomp (Windows-only binaries) or GoldenPad (not reproducible from its own repo), both of
 which looked more useful than they were.
 
-🔑 **The one thing it has that we do not: a METAL rendering backend**, in `src/platform/`. That
+**The one thing it has that we do not: a METAL rendering backend**, in `src/platform/`. That
 matters more than it sounds, because tvOS was this project's original goal and Metal is the
 supported path there: GL ES is deprecated. We are OpenGL-only today.
 
 Its shape is otherwise close to ours: SDL2, an in-process ImGui launcher, a libultra shim,
 assets read from the user's own ROM at runtime, and a faithful-versus-remaster split.
 
-⚠️ **It has no co-op, no bots, no player or world API, no netplay, and no mod surface.** That is
+**It has no co-op, no bots, no player or world API, no netplay, and no mod surface.** That is
 worth stating because it tells us what this project is actually for: the port itself is no longer
 the differentiator, and the API layer is.
 
@@ -631,5 +631,3 @@ decomp team.
 - `vendor/` is gitignored: decomp symbols travel by patch, `git apply` says "Skipped patch" on the
   Surface's tree, so deliver the file and **verify by name**.
 - Run the control. Never sample a trace with `tail -1`.
-- ⚠️ **A third writer edits this repo** under the same git identity. Check `git log` before
-  assuming your tree is yours.

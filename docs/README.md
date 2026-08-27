@@ -16,6 +16,7 @@ Start with [`SETUP.md`](SETUP.md). Everything else is here because someone neede
 |---|---|
 | [MODDING.md](MODDING.md) | How the tree is arranged and where the seams are. |
 | [FRAME_TIMING.md](FRAME_TIMING.md) | Why frame rate is not a simple slider in this game, and what a real fix needs. |
+| [STANCE.md](STANCE.md) | Crouch, and the case for jump and lean; guard weapons as a cheat. |
 
 ## Where it is going
 
@@ -24,6 +25,7 @@ Start with [`SETUP.md`](SETUP.md). Everything else is here because someone neede
 | [ROADMAP.md](ROADMAP.md) | Current state, known issues, planned work. |
 | [VISION.md](VISION.md) | The long arc, scored honestly against what the tree does today. |
 | [REUSE_AUDIT.md](REUSE_AUDIT.md) | What to borrow from the N64 port ecosystem, what is already borrowed, and what is licence-quarantined. |
+| [PLAYER_API.md](PLAYER_API.md) | Design for the API bots, netplay and external AI all drive: one seam, several consumers. |
 
 ## How it works
 
@@ -33,7 +35,7 @@ Start with [`SETUP.md`](SETUP.md). Everything else is here because someone neede
 | [ASSET_LOADING.md](ASSET_LOADING.md) | How level assets get from the ROM into the running game. |
 | [asset-converter-spec.md](asset-converter-spec.md) | The converter's contract. |
 | [PERFECT_DARK.md](PERFECT_DARK.md) | What the MIT-licensed Perfect Dark port offers this one. |
-| [WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md) | Bringing up Windows: state, suspects, and the traps already paid for. |
+| [WINDOWS_STAN_ORDERING.md](WINDOWS_STAN_ORDERING.md) | The Windows rendering bug: root cause and fix, with before/after measurements. |
 
 ## Provenance
 

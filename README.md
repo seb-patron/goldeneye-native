@@ -17,7 +17,7 @@ source.
 |---|---|
 | **macOS** | Apple Silicon and Intel. Builds and plays. |
 | **Linux** | x86-64. Builds and plays. |
-| **Windows** | Builds, links and runs; world geometry is being fixed. Active bring-up. |
+| **Windows** | x86-64, mingw-w64. Builds and plays. |
 
 Same source tree, same features, one `build` script each.
 

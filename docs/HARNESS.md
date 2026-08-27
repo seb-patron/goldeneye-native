@@ -1,8 +1,8 @@
 # Injecting input: which path actually works
 
 There are two ways to drive a player without a human, and only one of them works. This is
-written down because the broken one looks like it works, and both agents have measured against
-it and drawn conclusions from it.
+written down because the broken one looks like it works, and it is easy to measure against it
+and draw the wrong conclusion.
 
 ## The player API works
 
@@ -12,7 +12,7 @@ it. Measured on Bunker 1 with the route follower on slot 0: the player turns fro
 degrees, walks 155 units, and its distance to the target closes 2387 -> 2250. With the bot off,
 `MoveBond`'s walk block does not execute at all.
 
-⚠️ **It needs the companion pad.** Under the 2.x control styles -- and this port defaults to 2.2
+**It needs the companion pad.** Under the 2.x control styles -- and this port defaults to 2.2
 Galore -- the engine reads movement from a second controller at `playernum + getPlayerCount()`.
 `ge_playback` routes the walk axis there in a second pass. In solo that pad is index 1, so bot
 runs need `GETV_PADS=2` or `joyGetStickY(1)` returns 0 whatever was written.
@@ -33,7 +33,7 @@ Byte-identical to the control, including the angle. And at the input layer, `SY=
 `SY=-70` and **no script at all** all produce the same `analogTurn=75 analogStrafe=0
 analogWalk=0`. A sign flip that changes nothing is not an input reaching the game.
 
-🔑 **Two traps in the measurements that were done against it before this was known.**
+**Two traps worth knowing, from measurements taken against it before this was understood.**
 
 **Always run the control.** On Dam a scripted run travels 36 units and looks like proof --
 until the no-script control travels the same 36 units, because Dam's opening walks the player
@@ -41,8 +41,9 @@ itself. Every "the script moved someone" result so far was the level's own intro
 
 **Never sample with `tail -1`.** `GETV_SCRIPT="400:SY=70:600"` stops holding at frame 1000, so a
 run ending at 1201 spends its last 200 frames with no input, and the last trace line shows
-`spd=0.000`. That reads as "the walk never worked" and is really "you looked after it ended".
-The same trap as the `tris submitted` bimodality in CLAUDE.md, in a different costume.
+`spd=0.000`. That reads as "the walk never worked" and is really "you looked after it ended" --
+the same trap as reading any value with `tail -1` instead of pinning it to a fixed frame: what
+you see depends on when the run happened to stop, not on what happened in it.
 
 ## What to do about it
 

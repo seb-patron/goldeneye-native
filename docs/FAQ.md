@@ -12,7 +12,7 @@ as editable C, compiled to a normal executable for your operating system. No cor
 no plugin to pick, no ROM loaded at runtime.
 
 Longer version, including why the renderer is the easy part:
-[front page](../README.md#why-this-isnt-an-emulator).
+[front page](../README.md#if-you-came-here-looking-for-a-goldeneye-emulator).
 
 ## Is this the Xbox 360 remaster, or the cancelled XBLA build?
 
@@ -29,7 +29,7 @@ the shape of this years before I started, and it is credited on the front page.
 Yes, your own legal copy of the NTSC (US) cartridge. Nothing in this repository contains game
 data and nothing ever will: every texture, model, animation, sound bank and level layout is read
 out of your dump at build time and emitted as C. The expected size and SHA-1 are in
-[the ROM section](../README.md#the-rom).
+[the ROM section](../README.md#bring-your-own-rom).
 
 The build reads it once. What you run afterwards never touches it.
 
@@ -63,7 +63,7 @@ high-refresh hardware.
 
 `framerate = 30` is the faithful setting. The whole story is in
 [`FRAME_TIMING.md`](FRAME_TIMING.md), and the short version is on the
-[front page](../README.md#the-frame-rate-problem).
+[front page](../README.md#on-frame-timing-and-a-thank-you).
 
 ## Can it run at 4K?
 

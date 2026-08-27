@@ -53,7 +53,7 @@ that does the counting.
 `frametiming.c` is 140 lines and we can edit it. The fix is available here in a way it
 structurally is not to an emulator.
 
-⚠️ That is a statement about where the problem can be solved, not a claim that it is solved.
+That is a statement about where the problem can be solved, not a claim that it is solved.
 It is not, yet. See below.
 
 > No code from `Graslu/1964GEPD` or the 1964 lineage is used in this project. Those are
@@ -110,7 +110,7 @@ stores plenty of state that the AI reads as a discrete fact, and any of it blend
 two values is a bug that presents as erratic behaviour rather than as visual judder -- much
 harder to diagnose than the problem being solved.
 
-⚠️ **AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so the
+**AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so the
 render path and the AI are not independent in this game. Interpolation touches both.
 
 The Perfect Dark port's experimental high-FPS support carries warnings above roughly 165 FPS.
@@ -149,7 +149,7 @@ between simulation states. `GETV_INTERP=1` by default, `GETV_INTERP=0` is the co
 position, look direction and up as parameters and only reads them, so the interpolated copies
 are handed to it through its own local pointers. The caller's vectors are untouched.
 
-🔴 **Nothing is written back into game state, and that restriction is the design rather than an
+**Nothing is written back into game state, and that restriction is the design rather than an
 implementation detail.** GoldenEye's AI reads state as discrete fact, so a blended value
 entering the simulation produces erratic behaviour far harder to diagnose than judder.
 
@@ -172,10 +172,10 @@ of rendered frames on which the camera did not move at all, which is the judder 
 | SIMDIV=4, INTERP=0 | 75.2% | 0.3112 | 0.6541 |
 | **SIMDIV=4, INTERP=1** | **0.0%** | 0.3117 | **0.1843** |
 
-🔑 **At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
+**At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
 simulation now renders as smoothly as a full-rate one.
 
-⚠️ Compare only **within** a divider. The mean step differs between dividers because a fixed
+Compare only **within** a divider. The mean step differs between dividers because a fixed
 frame window catches a different part of the walk's acceleration, not because speed changed.
 Within each divider the mean is preserved to 0.5%, which is the check that matters: the camera
 covers the same ground, it just stops jumping to get there.
