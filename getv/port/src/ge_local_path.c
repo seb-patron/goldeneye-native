@@ -95,6 +95,13 @@ int gePortLocalPath(float px, float pz, float tx, float tz, float cell,
                     float cx = px + (float) (gx - GE_LP_HALF) * cell;
                     float cz = pz + (float) (gz - GE_LP_HALF) * cell;
                     float dx2 = cx - ox, dz2 = cz - oz;
+                    /* Never close the ground under the player's feet or immediately around it.
+                     * A brake unit is a prop, and the player has to stand next to one to shoot
+                     * it -- closing that ring walled the body in against the thing it had just
+                     * destroyed, and the search then reported, correctly and uselessly, that
+                     * nothing was reachable. */
+                    if (gx >= GE_LP_HALF - 1 && gx <= GE_LP_HALF + 1
+                        && gz >= GE_LP_HALF - 1 && gz <= GE_LP_HALF + 1) { continue; }
                     if (dx2 * dx2 + dz2 * dz2 <= r * r) { ge_lp_open[gz * GE_LP_DIM + gx] = 0; }
                 }
             }

@@ -187,6 +187,10 @@ static void ge_cli_command(const char *line)
      * aim mode is what a player uses for a small target, and it is the only way to put the
      * crosshair on something mounted at knee height. stick_y is the aim axis while GE_IN_AIM is
      * held, and the deadzone in aim mode is 60 counts -- which is why this is -80 and not -20. */
+    /* stick_y, NOT the look button. Measured both: with the stick held down the brake unit's own
+     * damage counter climbs from 0 to 750 and the DESTROYED bit sets; with GE_IN_LOOK_DOWN inside
+     * aim mode it stays at 0 across a whole run. The look axis and the aim axis are not the same
+     * control, whatever the button names suggest. */
     else if (strcmp(verb, "snipe") == 0) { ge_cli_buttons = GE_IN_AIM | GE_IN_FIRE;
                                            ge_cli_sy = -80; }
     else if (strcmp(verb, "aimdown") == 0) { ge_cli_buttons = GE_IN_AIM; ge_cli_sy = -80; }

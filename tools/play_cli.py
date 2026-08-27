@@ -91,6 +91,7 @@ class Player:
         self.rooms = None          # the level's room/portal graph; loaded on first use
         self.portal_use = 0
         self.goal = None
+        self.crouched = False
         self.path_fine = False
 
     transcript = None
@@ -177,6 +178,13 @@ class Player:
         # trade. Hurt, under fire and outnumbered means turn away from the nearest one and put
         # distance and geometry between us -- their cone is a fact we can act on, and a corridor
         # gives plenty to stand behind.
+        # RETREATING IS USUALLY THE WRONG ANSWER HERE, so this stays deliberately narrow.
+        #
+        # Loosening it to "half health and one attacker" was measured and it LOST ground: 19.2m
+        # against 23.2m, because the guards on Train do not break off and a player that keeps
+        # backing away is a player being shot in the back while it walks. Shooting back is what
+        # survives. This is only for the case where the trade is already lost -- badly hurt, under
+        # fire, and outnumbered.
         if seen_by and under_fire and hp <= 40 and len(seen_by) > 1:
             _, b = seen_by[0]
             self.queue.append("w 80")
@@ -267,7 +275,17 @@ class Player:
                 # what a person does for a small low target.
                 n = self.shots.get(tag, 0)
                 self.shots[tag] = n + 1
+                self.crouched = True
                 return self.why("snipe", "snipe %d" % (10 + (n % 4) * 6))
+
+        # STAND BACK UP. Aim mode leaves the body low, and it stays there: the player was
+        # crouch-walking the rest of the carriage after every brake unit, slower and easier to
+        # hit, because nothing ever told it to get up. Costs one command, once, per crouch.
+        # Only when there is nothing left to shoot at close range. Standing up between rounds of
+        # the same volley cost a decision each time and measurably lost ground.
+        if self.crouched and not (tgt and tgt[2] < 500):
+            self.crouched = False
+            return self.why("stand", "stand 8")
 
         # WHAT THE DEAD WERE CARRYING. Guards drop what they hold, and on Train that includes the
         # key a locked door wants. Collecting it is only sensible once nothing is shooting, which
