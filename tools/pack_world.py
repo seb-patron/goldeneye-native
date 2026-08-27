@@ -108,6 +108,23 @@ def load_level_scales(root):
     return out
 
 
+def _extent(prop, extents, field, scale):
+    """One half-extent in world units, or 0.0 when the prop has no model box.
+
+    Prefers a value already on the prop -- a level file that carries its own is authoritative --
+    and otherwise looks up the object's model box and scales it. 0.0 means NOT KNOWN and must not
+    be read as "point-sized": guards have no model box, and a consumer treating unknown as zero
+    walks bodies through people.
+    """
+    have = prop.get(field)
+    if have:
+        return float(have) * (1.0 / scale if scale else 1.0)
+    box = extents.get(str(prop.get("obj")))
+    if not box:
+        return 0.0
+    return float(box.get(field) or 0.0) * (scale or 1.0)
+
+
 def pack_level(level, levels_dir):
     kp = os.path.join(levels_dir, level + ".json")
     tp = os.path.join(levels_dir, level + ".tactics.json")
@@ -128,6 +145,21 @@ def pack_level(level, levels_dir):
     # worse than one consistently wrong.
     scale = load_level_scales(ROOT).get(level)
     inv = (1.0 / scale) if scale else 1.0
+
+    # PROP SIZES, WHICH THE PACK HAS NEVER CARRIED. Every StandardProp on Train reported "radius ?"
+    # -- the pack said a crate was there and would not say how big -- so a consumer could route a
+    # body straight through a row of them, and did.
+    #
+    # The extents live in _prop_extents.json keyed by object number, in MODEL space. Model space
+    # converts to world by MULTIPLYING by levelscale, which is the opposite of the asset-space
+    # conversion used for positions below. Checked rather than assumed: obj 82 (wood_sm_crate4)
+    # has a model radius of 594, and 594 * 0.150197 gives 89 world units against the 85 the
+    # engine's own obstacle sweep measures for that crate in the level.
+    extents = {}
+    ext_path = os.path.join(levels_dir, "_prop_extents.json")
+    if os.path.exists(ext_path):
+        with open(ext_path, encoding="utf-8") as fh:
+            extents = (json.load(fh) or {}).get("by_obj") or {}
     if not scale:
         # Loud: a level with no scale is packed in asset space and will not line up at runtime,
         # and silence here is what hid this for a week.
@@ -201,9 +233,9 @@ def pack_level(level, levels_dir):
                       # Guards, which have no model box at all; a consumer must read 0 as "no
                       # extent information" and fall back to the centre -- which is precisely the
                       # behaviour every caller had before this field existed.
-                      float(p.get("hx") or 0.0) * inv,
-                      float(p.get("hz") or 0.0) * inv,
-                      float(p.get("radius") or 0.0) * inv))
+                      _extent(p, extents, "hx", scale),
+                      _extent(p, extents, "hz", scale),
+                      _extent(p, extents, "radius", scale)))
 
     blob = struct.pack(HDR_FMT, MAGIC, VERSION, level.encode()[:16],
                        len(waypoints), len(guards), len(objectives), len(steps), len(props))

@@ -31,6 +31,14 @@ DD="$BUILD-dd"
 PROJ_NAME="GoldeneyeNativeSim${SLOT:+$SLOT}"
 SPEC="$HERE/project-sim${SLOT:+-$SLOT}.yml"
 SDK="$(xcrun -sdk appletvsimulator --show-sdk-path)"
+# Optional Dear ImGui, same arrangement as build.sh/build_mac.sh. Run
+# tools/fetch_imgui.sh tvsim once to enable it.
+IMGUI="$HOME/.n64tvos/imgui-tvsim"
+IMGUIFLAGS=(); IMGUILIBS=()
+if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
+  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
+  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
+fi
 # A space-free path. The repo lives under ".../Code Projects/...", and an unquoted
 # HEADER_SEARCH_PATHS entry containing a space is silently split by xcodebuild, which
 # presents as "SDL.h file not found" even though the path is right there in project.yml.
@@ -118,6 +126,7 @@ build_port_layer() {
     # own comment on this same branch.
     $([ "$RENDERER" = "gl" ] && echo "-DUSE_GLES -DTVOS_SUPERSAMPLE")
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
+    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
   )
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c "$HERE"/port/audio/*.c; do
     [ -e "$f" ] || continue
@@ -125,7 +134,7 @@ build_port_layer() {
     if clang "${PORTFLAGS[@]}" -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
     else pfail=$((pfail+1)); rm -f "$o"; echo "  sim port FAILED: $(basename "$f")"; fi
   done
-  for f in "$HERE"/port/fast3d/*.mm; do
+  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
     if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
@@ -285,6 +294,7 @@ cmd_app() {
   # target picks the renderer this slot's libge.a was just built with.
   export GETV_RAPI_DEFINE
   GETV_RAPI_DEFINE="$([ "$RENDERER" = "metal" ] && echo RAPI_METAL || echo RAPI_GL)"
+  export GETV_IMGUI_LIB="${IMGUILIBS[0]:-}"
   # Regenerating over an EXISTING $PROJ_NAME.xcodeproj (e.g. a second `app` run in the
   # same slot) can leave the scheme's buildable "supported platforms" empty -- xcodebuild
   # -showdestinations then reports it directly, and a plain `build` with only -sdk (no

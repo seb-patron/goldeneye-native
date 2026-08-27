@@ -76,6 +76,10 @@ targets:
           - $(SRCROOT)/build/libge.a
           - ${N64TVOS_PREFIX}/sdl2-tvos/lib/libSDL2main.a
           - ${N64TVOS_PREFIX}/sdl2-tvos/lib/libSDL2.a
+          # One more static library, or an empty (harmless) linker argument when ImGui was
+          # never fetched for this target -- see build.sh/build_sim.sh, which export this
+          # before every `xcodegen generate`, same mechanism as ${GETV_RAPI_DEFINE}.
+          - ${GETV_IMGUI_LIB}
           - -lc++
           - -lz
           - -framework

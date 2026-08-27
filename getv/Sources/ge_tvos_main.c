@@ -342,6 +342,36 @@ int SDL_main(int argc, char *argv[])
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
+#ifndef GE_PLATFORM_DESKTOP
+    /* The launcher, forced on. On desktop, ge_mac_main.c's main() calls geConfigInit() then
+     * gePortLauncherRun() BEFORE calling SDL_main() (this function) -- see its own comment on
+     * why the order matters: 76 GETV_* gates are read once into a static on first use, so the
+     * launcher has to run, and finish resolving every setting, before anything else touches
+     * them. tvOS/iOS have no such wrapper -- libSDL2main.a's real main() calls
+     * UIApplicationMain() and only reaches SDL_main() itself -- so this is that same call
+     * sequence, run from the one entry point these platforms actually give the app, as early
+     * as it can possibly go (before even the stub-table poisoning below).
+     *
+     * GETV_LAUNCHER=1 with overwrite=0: there is no --launcher argv on a sideloaded app and
+     * no shell to set the env from, so the launcher has to default to on rather than be
+     * reachable only by a flag nothing can pass. overwrite=0 lets a value already read from
+     * goldeneye.cfg (once one exists on-device) win, same convention geConfigInit() itself
+     * uses everywhere else. gePortLauncherRun() no longer execv()s on this platform (see
+     * relaunch()'s GE_PLATFORM_DESKTOP guard) -- it returns 0 and this function falls through
+     * into the game below, in the same still-pristine process, exactly like desktop's own
+     * execv-failed fallback already does. */
+    setenv("GETV_LAUNCHER", "1", 0);
+    {
+        extern int geConfigInit(int argc, char **argv);
+        extern int gePortLauncherRun(int argc, char **argv);
+        int rc = geConfigInit(argc, argv);
+        if (rc < 0) return 0;   /* --help / --write-config / --list-cheats: none reachable
+                                   here, kept only so this matches main()'s contract exactly */
+        if (rc > 0) return rc;
+        if (gePortLauncherRun(argc, argv) != 0) return 0;
+    }
+#endif
+
     printf("[getv] GoldenEye tvOS harness starting\n");
 
     /* Must run before any game code: it lays down the 0xFF poison the stub tables are

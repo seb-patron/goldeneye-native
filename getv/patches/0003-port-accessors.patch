@@ -442,10 +442,10 @@
 +    if (out_x != NULL) { *out_x = p->field_488.collision_position.f[0]; }
 +    if (out_y != NULL) { *out_y = p->field_488.collision_position.f[1]; }
 +    if (out_z != NULL) { *out_z = p->field_488.collision_position.f[2]; }
-+    return 1;
-+}
-+
-+
+     return 1;
+ }
+ 
+ 
 +/* WHAT is in the way, not merely whether something is. The sensing primitive.
 + *
 + * gePortProbeWalkable answers yes or no, and a bot that only knows "blocked" behaves the same
@@ -701,10 +701,10 @@
 +        for (j = 0; j < 4; j++) { deaths += g_playerPlayerData[j].kill_counts[idx]; }
 +        *out_deaths = deaths;
 +    }
-     return 1;
- }
- 
- 
++    return 1;
++}
++
++
 +/* Live enemy state, for getv/port/src/ge_enemy_api.c. See docs/ENEMY_API.md.
 + *
 + * Here for the same reason gePortPlayerPos is: ChrRecord is a game type, the port layer is
@@ -799,7 +799,7 @@
  void gePortStateDump(int frame)
  {
      s32 i;
-@@ -780,5 +1554,595 @@
+@@ -780,5 +1554,690 @@
      }
      printf(" complete=%d\n", objectiveIsAllComplete() ? 1 : 0);
      fflush(stdout);
@@ -1063,7 +1063,7 @@
 +        if (bondinvCheckHasKeyFlags((u32) (1 << bit)) != 0) { flags |= (u32) (1 << bit); }
 +    }
 +    return flags;
- }
++}
 +
 +
 +s32 gePortTileAt(f32 x, f32 z, s32 *out_id, s32 *out_room)
@@ -1123,7 +1123,7 @@
 +    /* Terminated by a negative padID, the same way the engine walks it. */
 +    while (node->padID >= 0) { n++; node++; }
 +    return n;
-+}
+ }
 +
 +int gePortNavAt(s32 index, s32 *out_pad, f32 *out_pos, s32 *out_group)
 +{
@@ -1393,5 +1393,100 @@
 +    }
 +    return 1;
 +}
++
++
++/* Where to walk to get AROUND the thing in the way, using Rare's own construction.
++ *
++ * Ported from Perfect Dark's chrNavTryObstacle (chraction.c:12120) and the side-selection above
++ * it at 12402. The shape of it:
++ *
++ *   - the obstacle's two corners are already known, as seen from here (gePortObstacleEdge)
++ *   - pick the corner whose bearing deviates least from the way you actually want to go
++ *   - aim not AT that corner but at a point offset from it, on the tangent, by a clearance of
++ *     radius * 1.26 -- the extra quarter is what stops a body clipping the corner it is rounding
++ *   - and only accept it if the way there is clear
++ *
++ * The angle is acos(clearance / distance-to-corner), which is the half-angle of the cone the
++ * clearance circle subtends: rotate the corner direction by it and you are standing exactly
++ * clearance away from the corner, on the side you chose. When the corner is closer than the
++ * clearance the arccos is undefined and Rare substitutes 45 degrees, which is the same value
++ * their constant 0.7852731347 encodes.
++ *
++ * This is the behaviour our own bot has been approximating badly: it walks into a crate, gets
++ * pushed, and calls the push navigation.
++ *
++ * Returns 1 and fills the aim point, or 0 if nothing is in the way or neither side works.
++ */
++s32 gePortSkirt(f32 x0, f32 z0, f32 tx, f32 tz, f32 *out_x, f32 *out_z)
++{
++    f32 left[2], right[2];
++    f32 want, dev_l, dev_r;
++    s32 side;
++
++    /* -1 rather than 0 when there is nothing to go around: "no obstacle" and "an obstacle with
++     * no way past it" are opposite answers and a caller told 0 for both cannot tell a clear path
++     * from a dead end. */
++    if (!gePortObstacleEdge(x0, z0, tx, tz, left, right)) { return -1; }
++
++    want = (f32) atan2((double) (tx - x0), (double) (tz - z0));
++    dev_l = want - (f32) atan2((double) (left[0]  - x0), (double) (left[1]  - z0));
++    dev_r = want - (f32) atan2((double) (right[0] - x0), (double) (right[1] - z0));
++    if (dev_l < 0.0f) { dev_l = -dev_l; }
++    if (dev_r < 0.0f) { dev_r = -dev_r; }
++
++    /* Both sides, nearer one first. Rare tries its preferred side and falls through to the other
++     * when the way there is not clear, which matters in a corridor: one side of a crate can be
++     * against the wall. */
++    if (getenv("GETV_SKIRT_TRACE") != NULL) {
++        printf("[getv][skirt] from (%.0f %.0f) to (%.0f %.0f): left (%.0f %.0f) right (%.0f %.0f)\n",
++               (double) x0, (double) z0, (double) tx, (double) tz,
++               (double) left[0], (double) left[1], (double) right[0], (double) right[1]);
++        fflush(stdout);
++    }
++
++    for (side = 0; side < 2; side++) {
++        const f32 *corner = ((dev_l <= dev_r) == (side == 0)) ? left : right;
++        s32 is_left = (corner == left);
++        f32 vx = corner[0] - x0;
++        f32 vz = corner[1] - z0;
++        f32 len = (f32) sqrt((double) (vx * vx + vz * vz));
++        f32 clearance = GE_STAND_WIDTH * 1.26f;
++        f32 inv, ux, uz, c, angle, ax, az;
++
++        if (len < 1.0f) { continue; }
++        inv = 1.0f / len;
++        ux = vx * clearance * inv;
++        uz = vz * clearance * inv;
++        c  = clearance * inv;
++        angle = (c > 1.0f) ? 0.7852731347084f : (f32) acos((double) c);
++        if (!is_left) { angle = 6.28318530717959f - angle; }
++
++        ax = -(f32) cos((double) angle) * ux + (f32) sin((double) angle) * uz;
++        az = -(f32) sin((double) angle) * ux - (f32) cos((double) angle) * uz;
++
++        ax += corner[0];
++        az += corner[1];
++
++        /* THE LINE ONLY. Rare validates with chrNavCanSeeNextPos, which is a visibility test:
++         * can this body see its way to that point. gePortPathClear pairs that line with a volume
++         * test at the destination, and that volume test has been measured not to depend on the
++         * body at all -- sweeping the width from 20 to 4 and the height from 165 to 30 changes
++         * its answer by zero cells. Asking it here rejected BOTH tangent points at every crate on
++         * Train, which is how a bot with working obstacle avoidance still walks into a box. */
++        if (getenv("GETV_SKIRT_TRACE") != NULL) {
++            printf("[getv][skirt]   %s tangent (%.0f %.0f) line=%s\n", is_left ? "left " : "right",
++                   (double) ax, (double) az,
++                   ((gePortPathClearParts(x0, z0, ax, az) & 1) != 0) ? "clear" : "blocked");
++            fflush(stdout);
++        }
++        if ((gePortPathClearParts(x0, z0, ax, az) & 1) != 0) {
++            if (out_x != NULL) { *out_x = ax; }
++            if (out_z != NULL) { *out_z = az; }
++            return is_left ? 1 : 2;      /* which side, so a caller can say so */
++        }
++    }
++    return 0;
++}
++
 +
  #endif

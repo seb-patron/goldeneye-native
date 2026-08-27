@@ -249,7 +249,7 @@ build_port_layer() {
   # whole body is inert (the file is one big #ifdef RAPI_METAL), exactly symmetric with
   # gfx_opengl.c compiling to nothing under -DRAPI_METAL. ARC (-fobjc-arc) manages the
   # id<MTL...> objects; only needed under metal but harmless (a no-op) under gl.
-  for f in "$HERE"/port/fast3d/*.mm; do
+  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
     if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))

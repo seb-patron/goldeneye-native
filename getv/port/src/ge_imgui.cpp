@@ -67,15 +67,22 @@
 
 #include <SDL2/SDL.h>
 
+#ifdef RAPI_METAL
+/* Metal instead of GL entirely -- tvOS has no desktop GL, and imgui_impl_opengl2's
+ * fixed-function calls don't exist under GLES either (see gfx_metal.mm's header comment for
+ * why the game renderer made the same call). The actual id<MTLDevice>/command-buffer/
+ * encoder types stay inside gfx_metal.mm; gfx_metal.h's gePortMetal* entry points are plain
+ * C, so this file does not need to be Objective-C++ itself. */
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "../fast3d/gfx_metal.h"
+#else
 /* Same order and the same one-line preamble gfx_opengl.c uses. Without
  * GL_GLEXT_PROTOTYPES, SDL_opengl.h pulls in macOS's GL 1.1 header and declares everything
  * past it as function-pointer typedefs only, and the state save/restore below fails to
  * compile on glUseProgram -- which is a confusing way to be told "you forgot the define". */
 #define GL_GLEXT_PROTOTYPES 1
 
-/* Desktop GL. USE_GLES is defined only by the tvOS targets, which do not build this file
- * today (their Xcode projects compile getv/port/**.c); the branch is here so that adding
- * it there later is a build-script change and not a source change. */
 /* Windows needs an extension loader before any GL header. opengl32.dll exports GL 1.1 and
  * nothing later, so glGetVertexAttribiv and everything else past 1997 resolves only through
  * GLEW -- without this the link fails on __imp_glGetVertexAttribiv, which reads like a
@@ -95,6 +102,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl2.h"
+#endif /* RAPI_METAL */
 
 namespace {
 
@@ -103,20 +111,24 @@ bool g_frame_open;          /* ImGui::NewFrame() called and not yet Render()ed *
 unsigned long g_frames;
 int  g_probe_frame = -2;    /* -2 = env not read yet, -1 = off */
 
-/* Number of generic vertex attribute arrays saved across the draw. Fast3D's shader
- * generator uses at most a handful (position, colour, up to two texture coordinate sets);
- * 8 is the minimum GL_MAX_VERTEX_ATTRIBS any implementation may report, so this is a
- * bound that cannot under-cover on a conforming driver without also breaking Fast3D. */
-const int GE_IMGUI_ATTRIBS = 8;
-
 bool ge_imgui_env_on(void)
 {
     const char *e = getenv("GETV_IMGUI");
     return e != NULL && *e != '\0' && strcmp(e, "0") != 0;
 }
 
+#ifndef RAPI_METAL
+/* Number of generic vertex attribute arrays saved across the draw. Fast3D's shader
+ * generator uses at most a handful (position, colour, up to two texture coordinate sets);
+ * 8 is the minimum GL_MAX_VERTEX_ATTRIBS any implementation may report, so this is a
+ * bound that cannot under-cover on a conforming driver without also breaking Fast3D. */
+const int GE_IMGUI_ATTRIBS = 8;
+
 /* The probe rectangle: the top-left corner of the framebuffer, which is where the overlay
- * window is pinned below. GL's origin is bottom-left, hence the height subtraction. */
+ * window is pinned below. GL's origin is bottom-left, hence the height subtraction.
+ * GETV_IMGUI_PROBE has no Metal equivalent yet -- gePortImguiRender()'s RAPI_METAL branch
+ * reads the env var and always reports "not supported on this backend" rather than reading
+ * pixels back, so a script asking for it fails loudly instead of silently reporting 0. */
 void ge_imgui_probe_rect(int *x, int *y, int *w, int *h)
 {
     int fw = 0, fh = 0;
@@ -127,6 +139,7 @@ void ge_imgui_probe_rect(int *x, int *y, int *w, int *h)
     int rh = fh < 400 ? fh : 400;
     *x = 0; *y = fh - rh; *w = rw; *h = rh;
 }
+#endif /* !RAPI_METAL */
 
 } /* namespace */
 
@@ -150,6 +163,22 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
      * under the port's own config directory (port_paths.c), not to the default. */
     ImGui::GetIO().IniFilename = NULL;
 
+#ifdef RAPI_METAL
+    (void)glctx; /* unused on this backend -- see gfx_metal_init()'s call site */
+    if (!ImGui_ImplSDL2_InitForMetal((SDL_Window *)window)) {
+        printf("[getv][imgui] SDL2 backend init FAILED -- overlay OFF\n");
+        fflush(stdout);
+        ImGui::DestroyContext();
+        return;
+    }
+    if (!gePortMetalImguiInit()) {
+        printf("[getv][imgui] Metal backend init FAILED -- overlay OFF\n");
+        fflush(stdout);
+        ImGui_ImplSDL2_Shutdown();
+        ImGui::DestroyContext();
+        return;
+    }
+#else
     if (!ImGui_ImplSDL2_InitForOpenGL((SDL_Window *)window, glctx)) {
         printf("[getv][imgui] SDL2 backend init FAILED -- overlay OFF\n");
         fflush(stdout);
@@ -163,13 +192,16 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
         ImGui::DestroyContext();
         return;
     }
+#endif
 
     g_active = true;
     printf("[getv][imgui] overlay ON (GETV_IMGUI) -- Dear ImGui %s, backends: %s + %s\n",
            IMGUI_VERSION,
            ImGui::GetIO().BackendPlatformName ? ImGui::GetIO().BackendPlatformName : "?",
            ImGui::GetIO().BackendRendererName ? ImGui::GetIO().BackendRendererName : "?");
+#ifndef RAPI_METAL
     printf("[getv][imgui] GL_VERSION=%s\n", (const char *)glGetString(GL_VERSION));
+#endif
     fflush(stdout);
 }
 
@@ -177,7 +209,14 @@ extern "C" void gePortImguiNewFrame(void)
 {
     if (!g_active || g_frame_open) return;
 
+    /* No ImGui_ImplMetal_NewFrame() call here -- unlike the GL2 backend's per-frame call,
+     * it needs a render pass descriptor that does not exist yet at this point (gfx_wapi->
+     * start_frame(), which is what calls this, always runs before gfx_rapi->start_frame() --
+     * see gfx_pc.c's gfx_start_frame()). gePortMetalImguiBeginPass() in gePortImguiRender()
+     * below calls it instead, once the game's own pass for this frame exists. */
+#ifndef RAPI_METAL
     ImGui_ImplOpenGL2_NewFrame();
+#endif
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
     g_frame_open = true;
@@ -207,6 +246,27 @@ extern "C" void gePortImguiRender(void)
     ImDrawData *dd = ImGui::GetDrawData();
     if (dd == NULL) return;
 
+#ifdef RAPI_METAL
+    /* No GL state to save/restore -- gfx_metal.mm's game and overlay encoders are already
+     * two separate MTLRenderCommandEncoders on the same command buffer, which is Metal's own
+     * mechanism for exactly this kind of state isolation; nothing here can leak into or out
+     * of the game's draw calls the way fixed-function GL state can. GETV_IMGUI_PROBE is not
+     * implemented on this backend (see ge_imgui_probe_rect()'s comment) -- read the env var
+     * only to say so once, rather than silently reporting a probe that never ran. */
+    if (g_probe_frame == -2) {
+        const char *e = getenv("GETV_IMGUI_PROBE");
+        g_probe_frame = (e && *e) ? atoi(e) : -1;
+        if (g_probe_frame > 0) {
+            printf("[getv][imgui] GETV_IMGUI_PROBE is not implemented on the Metal backend "
+                   "-- ignored\n");
+            fflush(stdout);
+        }
+    }
+
+    gePortMetalImguiBeginPass();
+    gePortMetalImguiRenderDrawData(dd);
+    gePortMetalImguiEndPass();
+#else
     if (g_probe_frame == -2) {
         const char *e = getenv("GETV_IMGUI_PROBE");
         g_probe_frame = (e && *e) ? atoi(e) : -1;
@@ -281,6 +341,7 @@ extern "C" void gePortImguiRender(void)
                dd->CmdListsCount, dd->TotalVtxCount);
         fflush(stdout);
     }
+#endif /* RAPI_METAL */
 }
 
 extern "C" void gePortImguiEvent(void *sdl_event)
@@ -294,7 +355,11 @@ extern "C" void gePortImguiShutdown(void)
     if (!g_active) return;
     g_active = false;
     g_frame_open = false;
+#ifdef RAPI_METAL
+    gePortMetalImguiShutdown();
+#else
     ImGui_ImplOpenGL2_Shutdown();
+#endif
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
     printf("[getv][imgui] overlay shut down after %lu frames\n", g_frames);

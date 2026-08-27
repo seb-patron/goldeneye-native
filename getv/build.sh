@@ -15,6 +15,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
 BUILD="$HERE/build"
 SDK="$(xcrun -sdk appletvos --show-sdk-path)"
+# Optional Dear ImGui, same arrangement as build_mac.sh: absent is the normal case (run
+# tools/fetch_imgui.sh tvos once to enable it), and without it ge_imgui.cpp/ge_launcher.cpp
+# compile to their own empty-stub bodies via the #else branches already in both files.
+IMGUI="$HOME/.n64tvos/imgui-tvos"
+IMGUIFLAGS=(); IMGUILIBS=()
+if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
+  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
+  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
+fi
 # GETV_RENDERER=gl|metal (default gl). metal selects port/fast3d/gfx_metal.mm -- see
 # build_mac.sh's own header comment for the full rationale; this is the same switch,
 # same default, on the tvOS device target. Only one physical Apple TV exists to deploy
@@ -214,6 +223,7 @@ cmd_lib() {
     # supersample path yet at all -- known v1 gap, see its header comment).
     $([ "$RENDERER" = "gl" ] && echo "-DUSE_GLES -DTVOS_SUPERSAMPLE")
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
+    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
   )
   local pok=0 pfail=0
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c; do
@@ -228,7 +238,7 @@ cmd_lib() {
   # Objective-C++: gfx_metal.mm. Always compiled, both renderers -- inert (empty body)
   # under -DRAPI_GL, exactly symmetric with gfx_opengl.c under -DRAPI_METAL. Same ARC
   # flag as build_mac.sh's equivalent loop.
-  for f in "$HERE"/port/fast3d/*.mm; do
+  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
     if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then
@@ -291,6 +301,9 @@ cmd_app() {
   # before xcodegen ever sees it. This script calls xcodegen on the raw project.yml, so it
   # has to export the default itself.
   export N64TVOS_PREFIX="${N64TVOS_PREFIX:-$HOME/.n64tvos}"
+  # project.yml's OTHER_LDFLAGS references ${GETV_IMGUI_LIB} the same way -- one more
+  # library path, or an empty (and harmless) linker argument when ImGui was never fetched.
+  export GETV_IMGUI_LIB="${IMGUILIBS[0]:-}"
   # See build_sim.sh's identical rm -- regenerating over an existing xcodeproj can leave
   # the scheme's buildable "supported platforms" empty, which surfaces later as an
   # opaque "Found no destinations" build failure. Delete-then-regenerate is clean.

@@ -49,7 +49,14 @@
 #include "gfx_pc.h"
 #include "gfx_metal.h"
 
+#ifdef GE_WITH_IMGUI
+#include "imgui.h"
+#include "imgui_impl_metal.h"
+#include "../src/ge_imgui.h"
+#endif
+
 void *gePortMetalLayer = NULL;
+void *gePortMetalWindow = NULL;
 
 #define SHADER_PROGRAM_POOL_SIZE 128
 #define TEX_CACHE_STEP 512
@@ -103,6 +110,12 @@ static CAMetalLayer *mtl_layer;
 static id<MTLCommandQueue> mtl_queue;
 static id<MTLCommandBuffer> mtl_cmdbuf;
 static id<MTLRenderCommandEncoder> mtl_encoder;
+#ifdef GE_WITH_IMGUI
+/* The overlay's OWN encoder, separate from the game's mtl_encoder above -- a second render
+ * pass on the same drawable texture, loadAction=Load so the game's pixels survive. See the
+ * frame-lifecycle note on gfx_metal_end_frame()/gePortMetalFinishFrame(). */
+static id<MTLRenderCommandEncoder> mtl_overlay_encoder;
+#endif
 static id<CAMetalDrawable> mtl_drawable;
 static id<MTLTexture> mtl_depth_tex;
 static uint32_t mtl_depth_w, mtl_depth_h;
@@ -640,6 +653,17 @@ static void gfx_metal_init(void) {
 
     printf("[getv][metal] device=%s\n", mtl_device.name.UTF8String);
     fflush(stdout);
+
+#ifdef GE_WITH_IMGUI
+    /* Not called from gfx_sdl2.c's gfx_sdl_init(), unlike the GL path -- gePortImguiInit()
+     * needs mtl_device, which does not exist until this function has run this far, and
+     * gfx_pc.c's gfx_init() always calls gfx_wapi->init() (where gfx_sdl_init() would have
+     * called it) before gfx_rapi->init() (this function). Passing NULL for glctx: ImGui
+     * doesn't use it here (see ge_imgui.cpp's RAPI_METAL branch, which calls
+     * ImGui_ImplSDL2_InitForMetal(window) instead of ...InitForOpenGL(window, glctx)). */
+    { extern void gePortImguiInit(void *window, void *glctx);
+      gePortImguiInit(gePortMetalWindow, NULL); }
+#endif
 }
 
 static void gfx_metal_on_resize(void) {
@@ -687,16 +711,90 @@ static void gfx_metal_start_frame(void) {
     mtl_vbo_offset = 0;
 }
 
+/* Ends the GAME's render encoder only -- does NOT present or commit. That split (and this
+ * whole file being reachable from outside gfx_pc.c's GfxRenderingAPI table at all) exists
+ * for one reason: ImGui. gfx_pc.c calls gfx_rapi->end_frame() and then
+ * gfx_wapi->swap_buffers_begin() (gfx_sdl2.c), which is where the launcher/dev-overlay
+ * draws and where GL's SDL_GL_SwapWindow() lives -- i.e. the overlay draws INTO THE SAME
+ * FRAME, after the game but before it reaches the screen. Metal has no equivalent of "draw
+ * more into an already-presented drawable": presentDrawable+commit is terminal. So end_frame
+ * here only closes out the game's own encoder, the command buffer and drawable stay alive,
+ * and gePortMetalFinishFrame() below -- called from gfx_sdl2.c in GL's SDL_GL_SwapWindow
+ * slot, i.e. AFTER the overlay's own encoder (gePortMetalImguiBeginPass/EndPass) has run --
+ * is what actually presents and commits. Without ImGui built in this still runs exactly the
+ * same way; gePortMetalFinishFrame() is unconditional, not GE_WITH_IMGUI-gated, because
+ * something has to present the frame either way. */
 static void gfx_metal_end_frame(void) {
     if (!mtl_encoder) return;
     [mtl_encoder endEncoding];
+    mtl_encoder = nil;
+}
+
+void gePortMetalFinishFrame(void) {
+    if (!mtl_cmdbuf) return;
     if (mtl_drawable) [mtl_cmdbuf presentDrawable:mtl_drawable];
     [mtl_cmdbuf commit];
-    mtl_encoder = nil;
     mtl_cmdbuf = nil;
     mtl_drawable = nil;
     mtl_vbo_index = (mtl_vbo_index + 1) % VBO_POOL_COUNT;
 }
+
+#ifdef GE_WITH_IMGUI
+int gePortMetalImguiInit(void) {
+    if (!ImGui_ImplMetal_Init(mtl_device)) return 0;
+    /* Build EVERY device object -- depth-stencil state and the font atlas texture -- NOW, via
+     * CreateDeviceObjects(), not lazily inside the first ImGui_ImplMetal_NewFrame() call. Two
+     * bugs, found on this exact code path (ge_launcher_metal.mm hit both first; see its much
+     * longer comment for the full story):
+     *   1. ImGui::NewFrame() asserts g.IO.Fonts->IsBuilt() before any renderer backend call
+     *      runs at all, so the atlas must exist before the loop's first NewFrame() -- not
+     *      merely before the first draw, which is where gePortMetalImguiBeginPass() runs.
+     *   2. ImGui_ImplMetal_NewFrame() lazily calls CreateDeviceObjects() itself the first time
+     *      (`if (depthStencilState == nil)`), and CreateDeviceObjects() unconditionally
+     *      REBUILDS the font texture even if one already exists. Calling just
+     *      CreateFontsTexture() here (the first, incomplete fix) left depthStencilState nil,
+     *      so that lazy rebuild still fired on the first BeginPass() -- after ImGui::Render()
+     *      had already recorded draw commands referencing the FIRST texture, which ARC then
+     *      deallocated out from under them the moment the second one replaced it in the
+     *      strong property. CreateDeviceObjects() sets depthStencilState too, so the lazy
+     *      branch never fires. */
+    return ImGui_ImplMetal_CreateDeviceObjects(mtl_device) ? 1 : 0;
+}
+
+/* A second render pass on the SAME drawable texture the game just drew into, loadAction=
+ * Load so those pixels are kept rather than cleared. ImGui_ImplMetal_NewFrame only stashes
+ * this pass's pixel format/sample count for pipeline-state matching and lazily creates
+ * device objects (font texture) on first call -- it does not touch ImGuiIO/layout state, so
+ * calling it here rather than at the conventional start-of-frame point (where we have no
+ * pass yet -- gfx_wapi->start_frame() runs before gfx_rapi->start_frame(), see gfx_pc.c) is
+ * safe. No depth attachment: ImGui doesn't test or write depth. */
+void gePortMetalImguiBeginPass(void) {
+    if (!mtl_cmdbuf || !mtl_drawable) return;
+    @autoreleasepool {
+        MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+        pass.colorAttachments[0].texture = mtl_drawable.texture;
+        pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
+        pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+        ImGui_ImplMetal_NewFrame(pass);
+        mtl_overlay_encoder = [mtl_cmdbuf renderCommandEncoderWithDescriptor:pass];
+    }
+}
+
+void gePortMetalImguiRenderDrawData(void *draw_data) {
+    if (!mtl_overlay_encoder) return;
+    ImGui_ImplMetal_RenderDrawData((ImDrawData *)draw_data, mtl_cmdbuf, mtl_overlay_encoder);
+}
+
+void gePortMetalImguiEndPass(void) {
+    if (!mtl_overlay_encoder) return;
+    [mtl_overlay_encoder endEncoding];
+    mtl_overlay_encoder = nil;
+}
+
+void gePortMetalImguiShutdown(void) {
+    ImGui_ImplMetal_Shutdown();
+}
+#endif /* GE_WITH_IMGUI */
 
 static void gfx_metal_finish_render(void) {
 }

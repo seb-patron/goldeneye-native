@@ -532,6 +532,33 @@ static void ge_cli_report(int frame)
              * Probed along the route rather than along the facing, because the question is how
              * to reach the objective, not what happens to be in front of the body.
              */
+            /* AND THE WAY ROUND IT, by Rare's own construction. See gePortSkirt -- it picks the
+             * corner of the obstacle that deviates least from where we are going and aims at a
+             * tangent point a body's clearance beyond it. This is the line to steer at when
+             * something is in the way; the detour line below is the cruder sideways-step answer
+             * and stays because it works where there is no identifiable obstacle, only geometry. */
+            if (ahead.distance < 500.0f) {
+                extern int gePortSkirt(float x0, float z0, float tx, float tz,
+                                       float *out_x, float *out_z);
+                float gx, gz, sx, sz;
+                int side;
+
+                if (ge_cli_objective_point(&gx, &gz)) {
+                    side = gePortSkirt(st.x, st.z, gx, gz, &sx, &sz);
+                    if (side < 0) {
+                        printf("skirt  nothing identifiable in the way\n");
+                    } else if (side == 0) {
+                        printf("skirt  obstacle found but neither side is clear\n");
+                    } else {
+                        printf("skirt  go %s: (%.0f %.0f)  %.0f away, turn %+.0f\n",
+                               (side == 1) ? "left" : "right", (double) sx, (double) sz,
+                               (double) sqrt((double) ((sx - st.x) * (sx - st.x)
+                                                     + (sz - st.z) * (sz - st.z))),
+                               (double) ge_cli_rel(st.x, st.z, sx, sz, st.angle));
+                    }
+                }
+            }
+
             if (ahead.distance < 500.0f) {
                 extern float gePortLaneOffset(float px, float pz, float *tx, float *tz);
                 float ob_x, ob_z, ax, az, off;
