@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """S7: does the derived wall set block a step the ENGINE considers walkable?
 
-🔴 ANSWERED, AND THE ANSWER INVALIDATES THIS TOOL'S PREMISE. READ THIS BEFORE QUOTING ITS NUMBER.
+ANSWERED, AND THE ANSWER INVALIDATES THIS TOOL'S PREMISE. READ THIS BEFORE QUOTING ITS NUMBER.
 
 A waypoint link does NOT promise a clear straight line. It promises REACHABILITY. Traced through
 the decompilation rather than guessed:
@@ -17,7 +17,7 @@ WOULD BE POINTLESS. The engine tests because it does not assume, and a guard plo
 what it finds.
 
 So the 76.5% this tool reports is measuring something the engine never claimed: straight segments
-between graph nodes clipping interior geometry is EXPECTED, and mac-getv's wall derivation is not
+between graph nodes clipping interior geometry is EXPECTED, and the wall derivation is not
 indicted by it. The figure is kept because the tool is still the right instrument for a different
 question -- "which links have obstructions between their endpoints" is useful for a follower that
 DOES want to move in straight lines -- but it is not a wall-set defect rate and must not be quoted
@@ -34,11 +34,11 @@ hand-authored assertion by people who could playtest that a guard walks from thi
 A wall crossing one of those is either a flaw in the wall derivation or a doorway the gap-cutting
 missed, and both are worth knowing.
 
-⚠️ THIS MEASURES; IT DOES NOT FIX. tools/gen_level_walls.py is mac-getv's and is deliberately not
-touched. A number and the worst offenders are more use to its author than a patch from someone who
-did not write it.
+THIS MEASURES; IT DOES NOT FIX. tools/gen_level_walls.py owns wall generation and is deliberately
+not touched here. A number and the worst offenders are more useful there than folding a patch into
+an audit that has a different job.
 
-⚠️ SHARED ENDPOINTS ARE NOT CROSSINGS. Waypoint links very often begin or end ON a wall -- a node
+SHARED ENDPOINTS ARE NOT CROSSINGS. Waypoint links very often begin or end ON a wall -- a node
 against a corridor wall is normal, not a fault -- so an intersection within EPS of either segment's
 endpoint is ignored. Counting those would report most links as blocked and the number would be
 about the geometry convention rather than about the walls.
@@ -89,7 +89,7 @@ def wall_segments(w):
                 if isinstance(p, (list, tuple)) and isinstance(q, (list, tuple)):
                     segs.append((float(p[0]), float(p[-1]), float(q[0]), float(q[-1]), yv))
         elif isinstance(s, (list, tuple)) and len(s) >= 4:
-            # 🔑 THE FIFTH ELEMENT IS THE FLOOR HEIGHT, AND DROPPING IT MAKES THIS AUDIT MEANINGLESS.
+            # THE FIFTH ELEMENT IS THE FLOOR HEIGHT, AND DROPPING IT MAKES THIS AUDIT MEANINGLESS.
             #
             # gen_level_walls.py emits [x1, z1, x2, z2, y]. The first version of this file sliced
             # s[:4] and tested in plan view, which lets a wall on one deck block a link on another.
@@ -146,7 +146,7 @@ def main():
             lo_x, hi_x = (ax, bx) if ax <= bx else (bx, ax)
             lo_z, hi_z = (az, bz) if az <= bz else (bz, az)
             for (cx, cz, dx, dz, wy) in walls:
-                # ⚠️ HEIGHT FIRST. A wall belongs to the deck whose floor produced it, and a link
+                # HEIGHT FIRST. A wall belongs to the deck whose floor produced it, and a link
                 # running above or below it is not obstructed by it. Without this the audit reports
                 # a multi-storey level as almost entirely walled -- see the note in wall_segments.
                 #

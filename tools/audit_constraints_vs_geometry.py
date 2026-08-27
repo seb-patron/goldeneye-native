@@ -5,7 +5,7 @@ A negative claim is the most falsifiable thing in the corpus. "There is no alter
 the train" is refuted by a single cycle in the room graph, and nothing about it is a matter of
 degree. That makes these worth checking even though there are few of them.
 
-⚠️ MOST OF THEM ARE NOT GEOMETRIC, AND THAT IS THE MAIN RESULT HERE. Of 42 descriptive
+MOST OF THEM ARE NOT GEOMETRIC, AND THAT IS THE MAIN RESULT HERE. Of 42 descriptive
 constraints, the majority assert something about PERCEPTION or KNOWLEDGE rather than shape:
 
     the player cannot easily predict the exact visibility boundary

@@ -18,12 +18,12 @@ WHAT IT PULLS, and why each is worth having:
   CONDITIONS "if the alarm sounds", "once the hatch opens", "until the guard turns" -- the
              triggers a level's logic actually turns on.
 
-⚠️ EVERY RECORD KEEPS ITS SOURCE LINE, and every record is a CLAIM. The documents' distances are
+EVERY RECORD KEEPS ITS SOURCE LINE, and every record is a CLAIM. The documents' distances are
 already known wrong by 1.46x (gen_level_facts.py), so a count or a relation from them is a lead to
 verify, not a fact to act on. The counts in particular can be checked against the setup data, and
 that is the point of extracting them separately.
 
-⚠️ AND IT EXTRACTS DATA, NOT PROSE. A record is a noun, a kind, a relation type and a line number.
+IT EXTRACTS DATA, NOT PROSE. A record is a noun, a kind, a relation type and a line number.
 Sentences stay in the source document; this makes them findable.
 """
 import argparse
@@ -103,15 +103,12 @@ def mine_text(text):
                 ent_kind[t] = kind
                 ent_line.setdefault(t, i)
 
-        # 🔑 RELATIONS MUST NOT REQUIRE MY VOCABULARY. The first version demanded a direction word
-        # AND two nouns from the KINDS list, and kept 20 relations out of 43,731 lines. Measured:
-        # 724 lines carry a direction word, but only 102 contain even ONE noun I had listed. The
-        # documents describe these levels in their own words; a miner that only sees terms it
-        # already knew is measuring its own word list.
-        #
-        # So the anchor is the DIRECTION or CONNECTIVE, and the operands are whatever substantial
-        # words sit either side of it. Recognised kinds are still tagged when present, because a
-        # typed operand is worth more -- but an untyped one is kept rather than discarded.
+        # RELATIONS MUST NOT REQUIRE MY VOCABULARY. Requiring a direction word AND a KINDS noun
+        # kept 20 relations out of 43,731 lines -- 724 lines carry a direction word but only 102
+        # contain a noun from the list; the documents describe these levels in their own words.
+        # So the anchor is the direction/connective, and the operands are whatever substantial
+        # words sit either side of it. Recognised kinds are still tagged when present, but an
+        # untyped operand is kept rather than discarded.
         d = DIRECTION.search(s)
         c = CONNECT.search(s)
         if d or c:
@@ -154,14 +151,11 @@ def mine_text(text):
     entities = [{"name": t, "kind": ent_kind[t], "count": c, "line": ent_line[t]}
                 for t, c in ent.most_common()]
 
-    # ⚠️ AND WHAT THE DOCUMENTS NAME THAT I DID NOT THINK TO LIST. The KINDS vocabulary was written
-    # by guessing which nouns a GoldenEye level guide would use, and a miner limited to it reports
-    # its author's imagination rather than the source. Same failure the relations had.
-    #
-    # So: multi-word Capitalised phrases (the way documents name specific places -- "Control
-    # Room", "Cargo Bay") that recur, and are not already typed. Kept as kind="untyped" rather
-    # than guessed at, because a wrong type is worse than none: a reader can see "untyped" and
-    # look, where a confidently mislabelled "area" would be believed.
+    # WHAT THE DOCUMENTS NAME THAT THE KINDS LIST DID NOT ANTICIPATE. Same failure as the
+    # relations: a vocabulary guessed in advance reports the author's imagination, not the
+    # source. So recurring multi-word Capitalised phrases ("Control Room", "Cargo Bay") that are
+    # not already typed are kept as kind="untyped" rather than guessed at -- a reader can see
+    # "untyped" and look, where a confidently mislabelled "area" would just be believed.
     phrase = collections.Counter()
     phrase_line = {}
     for i, line in enumerate(text.splitlines(), 1):

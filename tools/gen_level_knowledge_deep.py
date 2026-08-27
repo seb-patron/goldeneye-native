@@ -12,21 +12,21 @@ the structure is machine-readable if you look at it:
      13  embedded JSON blocks
      10  key: value attributes   "LENGTH: ~29 m"
 
-🔑 THE LABEL SEQUENCE IS A PROCEDURE. Train's runs ENTER CAR -> CLEAR COMBAT SPACE -> LOCATE BRAKE
+THE LABEL SEQUENCE IS A PROCEDURE. Train's runs ENTER CAR -> CLEAR COMBAT SPACE -> LOCATE BRAKE
 -> DESTROY BRAKE -> PROGRESS. That is a bot's objective loop for the level, written down, and
 nothing was reading it. The numbered items are the level's own outline. Together they give a
 per-level index of what the document knows and where to find it.
 
-⚠️ THIS EMITS AN INDEX, NOT A COPY. Sections carry a title, a line range and a size; labels carry
+THIS EMITS AN INDEX, NOT A COPY. Sections carry a title, a line range and a size; labels carry
 their text and how often they occur; attributes carry a name and a value. The prose stays in the
 source document -- the point is to make it addressable, so a later tool or a person can go to
 train.walkthrough.json line 412 rather than re-read 43,831 characters.
 
-⚠️ AND NOTHING HERE IS GROUND TRUTH. Same rule as the rest of this pipeline: these are a
+NOTHING HERE IS GROUND TRUTH, either. Same rule as the rest of this pipeline: these are a
 document's assertions. gen_level_facts.py already established that its metres are 1.46x the
 engine's, so its topology and vocabulary are usable and its distances are not.
 
-⚠️ OUTPUT STAYS OUT OF GIT -- build/ is ignored and .gitignore names the intent.
+Output stays out of git -- build/ is ignored and .gitignore names the intent.
 """
 import argparse
 import collections

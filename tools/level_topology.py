@@ -22,7 +22,7 @@ between the dominant and cross axes:
     ratio >= 3   elongated  -- a main axis with real rooms off it
     otherwise    open       -- route choice is genuine
 
-⚠️ Extents, not connectivity. A doughnut-shaped level and a solid one look identical here, and a
+Extents, not connectivity. A doughnut-shaped level and a solid one look identical here, and a
 level with two floors reads as its footprint. This says which way the level RUNS, not how it
 joins up -- the room graph answers that and disagreeing with it means one of them is wrong.
 """

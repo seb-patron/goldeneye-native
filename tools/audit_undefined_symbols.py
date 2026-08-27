@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """W15's first slice: which declared symbols have no definition anywhere in the tree.
 
-Motivating incident, not a hypothetical: this exact defect shape hit three people in one day.
+Motivating incident, not a hypothetical: this exact defect shape has hit three times in one day.
 gePortCliFrame was defined and never called (a hook gap, caught at runtime, the hard way).
 gePortTileAt and gePortPathClearParts were called and never defined (a link failure, caught only
-because a full rebuild happened to be attempted). gePortTargetState hit a second, independent
-build the same day. Every one of these was an `extern` declaration nobody checked against the
+because a full rebuild happened to be attempted). gePortTargetState hit again in a rebuild later
+the same day. Every one of these was an `extern` declaration nobody checked against the
 rest of the tree, because nothing DOES that check -- until now, it was "does the build fail",
 which only happens when someone rebuilds everything, which this project's own build times
 discourage doing constantly.

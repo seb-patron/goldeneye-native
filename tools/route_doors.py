@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""S2's acceptance test: route a level over the TILE graph and report the doors crossed, in order.
+"""Acceptance test: route a level over the TILE graph and report the doors crossed, in order.
 
 WHY THIS AND NOT A BOT. Train's walkthrough describes a linear chain of carriages joined by doors,
 with seven brake units along it. If our navmesh reproduces that shape, the graph is right; if it
@@ -7,19 +7,19 @@ does not, the graph is wrong in a way no coverage percentage would show -- 88% c
 route that teleports between carriages both look fine in a summary. This runs with no bot, no
 running game and no frame budget, which matters on a box that renders at about one frame a second.
 
-⚠️ PADS ARE NOT PLACES TO STAND. 139 of Train's 180 pad nodes cannot be stood on, so a route
+PADS ARE NOT PLACES TO STAND. 139 of Train's 180 pad nodes cannot be stood on, so a route
 graph built from pads hands a follower targets a body cannot occupy. The TILES are standable by
 construction -- they are the floor -- which is why the graph here is tiles and their shared-edge
 adjacency, not waypoints.
 
-⚠️ TWO SPACES, AND THEY MUST BE RECONCILED EXPLICITLY. The extracted JSONs are ASSET space; the
+TWO SPACES, AND THEY MUST BE RECONCILED EXPLICITLY. The extracted JSONs are ASSET space; the
 measured spawn was read out of the running game and is RUNTIME space. For Train they differ by
 1/0.15019713, about 6.66x -- the spawn reads x=779 where the entire tile map ends at x=213, so
 using it unconverted does not merely shift the answer, it starts the route outside the level.
 asset = runtime * levelscale. Stated here rather than assumed, because this exact pairing is what
 levelscale was hiding behind.
 
-⚠️ THE ROUTE STARTS FROM THE MEASURED SPAWN, NOT routes.json's. That file carries
+THE ROUTE STARTS FROM THE MEASURED SPAWN, NOT routes.json's. That file carries
 spawn_is_assumed=true, and a route from an assumed start measures the assumption.
 """
 import argparse
@@ -164,7 +164,7 @@ def main():
     # Rooms are discrete and already assigned, so the chain they form needs no threshold. "A linear
     # chain of carriages" means exactly: every room entered once, none revisited.
     #
-    # 🔴 AND IT TURNS OUT TO PROVE ALMOST NOTHING -- reported anyway, with this warning attached,
+    # AND IT TURNS OUT TO PROVE ALMOST NOTHING -- reported anyway, with this warning attached,
     # because deleting a check that failed is how the same idea gets tried again in a fortnight.
     #
     # Measured across levels: Train, Bunker 1, Dam, Facility and Archives ALL come back

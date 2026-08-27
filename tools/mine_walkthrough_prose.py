@@ -25,11 +25,11 @@ This one produces the units those shapes should have been matched against, and r
 paragraph itself rather than re-running the same patterns: a paragraph is evidence in its own right
 and can be quoted with its context, which a matched fragment cannot.
 
-⚠️ A PARAGRAPH ENDS AT A BLANK LINE, A HEADING, A DRAWING OR A LIST, and not merely at a full stop.
+A PARAGRAPH ENDS AT A BLANK LINE, A HEADING, A DRAWING OR A LIST, and not merely at a full stop.
 Running paragraphs together across those boundaries would staple unrelated statements into one
 block and give a claim a context it never had, which is worse than leaving the lines uncovered.
 
-⚠️ AND SINGLE-LINE PARAGRAPHS ARE STILL PARAGRAPHS. A one-line statement between two blanks is a
+AND SINGLE-LINE PARAGRAPHS ARE STILL PARAGRAPHS. A one-line statement between two blanks is a
 complete thought and the author wrote plenty of them. Requiring two or more lines would drop
 exactly the terse declarative statements that are the most quotable thing in the corpus.
 

@@ -19,7 +19,7 @@ before a closing brace, // and # comments, smart quotes. Anything still unparsea
 unparseable with its file and line rather than silently dropped, because a spec that fails to parse
 is a thing to go and look at, not a thing to pretend does not exist.
 
-⚠️ THE REPAIR PASS NEVER GUESSES AT CONTENT. It removes syntax the author did not intend as data
+THE REPAIR PASS NEVER GUESSES AT CONTENT. It removes syntax the author did not intend as data
 (comments, trailing commas) and nothing else. It does not fill in an ellipsis, close an unclosed
 brace or invent a missing value, because a spec that parses because the tool completed it is worse
 than one that does not parse: the invented part is indistinguishable from the authored part.

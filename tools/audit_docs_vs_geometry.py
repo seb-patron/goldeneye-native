@@ -22,14 +22,14 @@ WHAT IS CHECKED, and how each maps onto something measured:
   enumerated spaces   a list of N named spaces is a claim about how many distinct spaces exist.
   flow chains         a traversal sequence of room-kind labels asserts that such a walk exists.
 
-⚠️ THE HARD PART IS NOT MEASURING, IT IS DECIDING WHAT COUNTS AS AGREEMENT. A previous audit on
+THE HARD PART IS NOT MEASURING, IT IS DECIDING WHAT COUNTS AS AGREEMENT. A previous audit on
 this project compared local statements against level-wide totals and reported that 12% of the
 documents' counts agreed, which was a libel produced by a category error rather than a finding. So
 every check here states its threshold in the output, and anything whose threshold would be
 arbitrary is reported as UNVERIFIABLE rather than scored. A claim that cannot be checked is not
 evidence against the document.
 
-⚠️ AND VOCABULARY IS NOT GEOMETRY. environment.type says "institutional_interior" or
+AND VOCABULARY IS NOT GEOMETRY. environment.type says "institutional_interior" or
 "tropical_terrain". Nothing in the tile data can confirm or refute a description of what a place
 looks like, and inventing a proxy for it -- room size, prop mix -- would be measuring something
 else and reporting it under this name. Those fields are counted and listed, never scored.

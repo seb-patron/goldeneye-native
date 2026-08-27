@@ -33,7 +33,7 @@ walkthrough can make. Thresholds are printed with the results, and --sweep varie
 holds at 85% across aspect 2.0-3.5 and chamber 1.5-3.0, so it is not an artefact of where the lines
 were drawn.
 
-⚠️ AN UNSATISFIED CHAIN IS NOT AUTOMATICALLY THE DOCUMENT BEING WRONG. It can equally be the room
+AN UNSATISFIED CHAIN IS NOT AUTOMATICALLY THE DOCUMENT BEING WRONG. It can equally be the room
 extractor splitting one space into several, or this file's classifier calling a corridor a room.
 Both failure directions are stated with every result rather than being resolved silently in favour
 of the tool.

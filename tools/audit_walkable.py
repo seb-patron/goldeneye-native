@@ -167,7 +167,7 @@ def main():
                  (100 * r["walkable"] // r["pairs"]) if r["pairs"] else 0,
                  r["asym"], len(r["suspect"]), r["mask"] or "UNRECORDED"))
         if r["mask"] is None:
-            print("           ⚠️  no mask recorded -- the mask decides the answer "
+            print("           no mask recorded -- the mask decides the answer "
                   "(CDTYPE_DOORS seals every room)")
         if r["asym"]:
             print("           %d pair(s) disagree by direction; both must agree to count as "

@@ -17,11 +17,11 @@ These are the real questions, and the wall segments answer them:
              the open has almost none blocked; a point beside a crate or in a doorway has many.
              That is occlusion, which is what cover actually means.
 
-⚠️ HEIGHT IS RESPECTED. Wall segments carry the floor height of the tile that produced them, and a
+HEIGHT IS RESPECTED. Wall segments carry the floor height of the tile that produced them, and a
 wall on another deck must not block a ray on this one. Ignoring that made an earlier audit report
 multi-storey levels as almost entirely walled.
 
-⚠️ SAMPLED, AND THE SAMPLE SIZE IS REPORTED. Full pairwise visibility on 2,294 tiles against 7,532
+SAMPLED, AND THE SAMPLE SIZE IS REPORTED. Full pairwise visibility on 2,294 tiles against 7,532
 walls is tens of millions of tests. Points and directions are sampled with a FIXED stride rather
 than randomly, so the figures are reproducible run to run -- a metric that moves when nothing
 changed is one nobody trusts.

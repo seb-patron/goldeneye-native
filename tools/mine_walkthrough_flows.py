@@ -21,7 +21,7 @@ lines. The connector may be an arrow glyph or an ascii equivalent. The scan star
 CONNECTOR and walks BACKWARDS to pick up the head label, which is the part the structural miner
 loses, then forwards to the tail.
 
-⚠️ A CHAIN OF ONE IS NOT A CHAIN. Two labels minimum, and the labels must be short enough to be
+A CHAIN OF ONE IS NOT A CHAIN. Two labels minimum, and the labels must be short enough to be
 labels rather than sentences that happen to sit near an arrow -- otherwise a paragraph containing a
 stray arrow is emitted as a five-stage pipeline, which reads as a finding and is noise.
 

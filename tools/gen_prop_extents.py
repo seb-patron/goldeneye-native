@@ -5,7 +5,7 @@ WHY THIS EXISTS: every position in the pack is a POINT and the world is made of 
 reported "278 away" is 278 units to its CENTRE, so a bot that still sees room has already walked
 into the corner of it.
 
-⚠️ THIS IS THE REPORTING HALF, NOT THE DECISION HALF. Knowing a crate's surface is at 158 does not
+THIS IS THE REPORTING HALF, NOT THE DECISION HALF. Knowing a crate's surface is at 158 does not
 tell you whether the gap between it and the wall admits a body -- that is gePortCanStandAt over
 stanTestVolume, which already exists. Extents make the REPORT honest. They are not a clearance
 test and must not be used as one.
@@ -27,18 +27,18 @@ guessed: where we have neither, the prop is emitted WITHOUT extents rather than 
 because a made-up radius is worse than a missing one -- a reader can handle "unknown" and cannot
 detect "plausible but invented".
 
-⚠️ FIELD ORDER IS xmin, xmax, ymin, ymax, zmin, zmax -- NOT min-then-max.
+FIELD ORDER IS xmin, xmax, ymin, ymax, zmin, zmax -- NOT min-then-max.
 bondtypes.h's `bbox` union also aliases `coord3d min; coord3d max;` over the same storage, which
 would make min = (xmin, xmax, ymin). That alias is wrong and reading it would silently produce
 nonsense boxes. The order used here is confirmed twice: against the named fields, and against
 ak47mag's own vertex data, whose x reaches -104 and z reaches 37 exactly as its box says.
 
-⚠️ THE MODEL BOX IS UNROTATED. A long crate at forty-five degrees occupies more width than its
+THE MODEL BOX IS UNROTATED. A long crate at forty-five degrees occupies more width than its
 half-extent suggests. That is why `radius` is emitted alongside `hx`/`hz` and labelled: hx/hz are
 axis-aligned half-extents in the model's own frame, radius is the XZ circumradius and is the only
 one of the three that is safe to use without knowing the prop's orientation.
 
-🔴 THESE NUMBERS ARE NOT YET USABLE AS WORLD LENGTHS. READ THIS BEFORE WIRING THEM INTO ANYTHING.
+THESE NUMBERS ARE NOT YET USABLE AS WORLD LENGTHS. READ THIS BEFORE WIRING THEM INTO ANYTHING.
 
 The join is sound -- all 340 enum members resolve, and 342 of Train's 342 props find a model box.
 The MAGNITUDES are not. These boxes are in MODEL space, and the engine multiplies them by
@@ -50,12 +50,12 @@ box on Train is hx=221 with a max of 2275. A crate cannot be four times wider th
 sits in, and half the props would be wider than the carriage is. The implied scale is somewhere
 around 0.1-0.15, not 1.0.
 
-`model->scale` is set by modelSetScale at runtime and every caller I can find is a cheat, the
-watch or a character -- none is the prop placement path -- so the prop's scale is applied
-somewhere in the object loader and is NOT available to this script. Until that is resolved this
-file emits MODEL-SPACE numbers only, and anything consuming them as world lengths will be wrong
-by roughly a factor of ten in the DANGEROUS direction: it would report props far larger than they
-are and a bot would refuse gaps it fits through easily.
+`model->scale` is set by modelSetScale at runtime and every caller found is a cheat, the watch or
+a character -- none is the prop placement path -- so the prop's scale is applied somewhere in the
+object loader and is NOT available to this script. Until that is resolved this file emits
+MODEL-SPACE numbers only, and anything consuming them as world lengths will be wrong by roughly a
+factor of ten in the DANGEROUS direction: it would report props far larger than they are and a
+bot would refuse gaps it fits through easily.
 
 Emitting them anyway with a guessed scale would be worse than emitting nothing. A missing radius
 is visibly missing; a plausible wrong one is indistinguishable from a measurement.
@@ -67,7 +67,7 @@ WHAT WOULD CLOSE IT, cheapest first:
      scale at all -- bondtypes.h:2746 documents a flag meaning "scale object to fit completely
      within preset bounds", which is that mechanism. Those can ship first and independently.
 
-⚠️ SPACE. Everything here is ASSET space, matching the extractor's convention (the pack converts
+SPACE. Everything here is ASSET space, matching the extractor's convention (the pack converts
 at its boundary by dividing by levelscale). Emitting runtime lengths here would make this file
 disagree with every other JSON it sits beside.
 """
@@ -90,7 +90,7 @@ def prop_enum_order():
     PROP_ prefix dropped (PROP_AMMO_CRATE1 -> ammo_crate1), which is what joins a setup file's
     `obj` id to a model on disk.
 
-    ⚠️ PROP_INVALID = -1 is declared FIRST and is explicitly negative -- the decomp comments that
+    PROP_INVALID = -1 is declared FIRST and is explicitly negative -- the decomp comments that
     it exists to force the enum signed. Counting it as member 0 would shift every prop id by one
     and mislabel every extent in the game, so it is skipped rather than enumerated.
     """
@@ -150,7 +150,7 @@ def main():
 
     # Join the enum to the directories. Reported rather than assumed: a silent miss here shows up
     # much later as a prop with no extents and no reason given.
-    # ⚠️ MATCHED CASE-INSENSITIVELY. The enumerators are all upper case and MOST directories are all
+    # MATCHED CASE-INSENSITIVELY. The enumerators are all upper case and MOST directories are all
     # lower, so a plain .lower() looks right and silently drops the four that are not: ICBM,
     # ICBM_nose, console_sev_GEa, console_sev_GEb. Four props out of 340 is small enough to never
     # notice and large enough to matter to whoever walks into an ICBM.

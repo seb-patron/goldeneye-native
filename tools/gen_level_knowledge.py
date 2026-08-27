@@ -177,17 +177,15 @@ def parse_waypoints(text, stem):
     for i, mm in enumerate(re.finditer(r"\{\s*(0x[0-9a-fA-F]+|-?\d+)\s*,", body)):
         tok = mm.group(1)
         pad = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
-        # 🔑 STOP AT THE -1 TERMINATOR. bondtypes.h documents pathwaypoints as a -1 terminated
+        # STOP AT THE -1 TERMINATOR. bondtypes.h documents pathwaypoints as a -1 terminated
         # array, and the terminator was being emitted as a real waypoint on EVERY level: Train
         # reported 105 nodes where the engine has 104, Dam 206 against 205, and so on. It survived
         # because it looks like a plain data hole -- one waypoint whose pad will not resolve --
-        # rather than like an off-by-one, and every level having exactly one was read as a quirk
-        # of the assets instead of the signature it is.
+        # rather than an off-by-one, and every level having exactly one read as a quirk of the
+        # assets instead of the signature it is. Caught by comparing against a live run: 104
+        # nodes on Train at runtime against 105 offline, disagreeing by exactly one on every level.
         #
-        # Caught by mac-getv measuring 104 LIVE on Train against my 105 offline. Two independent
-        # counts of the same thing disagreeing by exactly one, on every level, is the whole tell.
-        #
-        # ⚠️ Compared unsigned too: the field is read as u32 here, so -1 arrives as 4294967295.
+        # Compared unsigned too: the field is read as u32 here, so -1 arrives as 4294967295.
         # Testing only for -1 would have left this in place on every level.
         if pad == -1 or pad == 0xFFFFFFFF:
             break
@@ -268,7 +266,7 @@ def parse_props(text):
     pat = re.compile(
         r"/\*\s*Type\s*=\s*(\w+)\s*;\s*index\s*=\s*(\d+)\s*\*/[^\n]*\n"
         r"(\s*[^\n]*?\)\))\s*,\s*_mkword\(\s*(\d+)\s*,\s*(\d+)\s*\)")
-    # 🔑 EXTRASCALE IS THE PROP'S SCALE, AND IT IS IN THE SETUP FILE ALL ALONG.
+    # EXTRASCALE IS THE PROP'S SCALE, AND IT IS IN THE SETUP FILE ALL ALONG.
     #
     # propobj.c:78 records that sub_GAME_7F051F30 computes `scale = extrascale * (1/256)`, so 256
     # means 1.0. The model bounding boxes in assets/obseg/prop are MODEL space and are useless as
@@ -276,7 +274,7 @@ def parse_props(text):
     # wide, about ten times too large. This is the missing multiplier, and it is per PLACEMENT
     # rather than per model, which is why it has to come from here and not from the model file.
     #
-    # ⚠️ Captured as None when the header is not in the _mkword(n, _mkshort(...)) form rather than
+    # Captured as None when the header is not in the _mkword(n, _mkshort(...)) form rather than
     # defaulting to 256. A record whose scale could not be read is NOT a record scaled by 1.0, and
     # writing 256 there would silently hand every unreadable prop a plausible wrong size -- the
     # same absent-is-not-zero rule the rest of this pipeline follows.
@@ -682,7 +680,7 @@ def build(name, stem, stage_id, mission, path):
             props_located += 1
             prev_positioned = pr["propdef"]
 
-    # ---- prop extents (S1) --------------------------------------------------------------
+    # ---- prop extents ---------------------------------------------------------------------
     #
     # A position is a POINT and the world is made of solids: "crate 278 away" is 278 to its CENTRE,
     # and a bot that still sees room has already walked into the corner. These three numbers are
@@ -697,12 +695,12 @@ def build(name, stem, stage_id, mission, path):
     #                 Collectable and 28 as a StandardProp; without this they would be identical.
     #   levelscale    model boxes are runtime-proportioned and this file is ASSET space.
     #
-    # ⚠️ EMITTED IN ASSET SPACE, like every other length here. pack_world.py applies
+    # EMITTED IN ASSET SPACE, like every other length here. pack_world.py applies
     # runtime = asset / levelscale to every position it packs, and these ride the same conversion.
     # Emitting runtime lengths beside asset positions is the "half in one space" failure its own
     # comment warns about.
     #
-    # ⚠️ hx/hz ARE UNROTATED half-extents in the model's own frame; `radius` is the XZ circumradius
+    # hx/hz ARE UNROTATED half-extents in the model's own frame; `radius` is the XZ circumradius
     # and is the only one safe to use without knowing the prop's orientation. Both are emitted and
     # named rather than silently picking one, because a long crate at 45 degrees occupies more
     # width than its half-extent suggests.
