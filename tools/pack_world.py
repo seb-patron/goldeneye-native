@@ -44,9 +44,9 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MAGIC = b"GEWD"
-VERSION = 3                           # v3: props carry hx, hz, radius
+VERSION = 4                           # v4: portals, for routing on rooms rather than pads
 
-HDR_FMT = "<4sI16s5I"                 # magic, version, level, counts (v2 adds props)
+HDR_FMT = "<4sI16s6I"                 # magic, version, level, counts (v4 adds portals)
 WP_FMT  = "<HHfff"                    # id, room, x, y, z
 GD_FMT  = "<HHfff"                    # chrnum, room, x, y, z
 OB_FMT  = "<HHHHIfff"                 # index, difficulty, target_count, step_count,
@@ -56,6 +56,12 @@ OB_FMT  = "<HHHHIfff"                 # index, difficulty, target_count, step_co
 # room would start reading as its tag. Growing at the end is the only change a positional format
 # tolerates, and the version bump is what stops an old loader reading a new pack at all.
 PR_FMT  = "<HHhHffffff"               # type, room, tag, nav_node, x, y, z, hx, hz, radius
+
+# v4. Two rooms and where their shared doorway actually is, in world units. This is what lets a
+# consumer ask "which way out of this room" instead of trusting the pad graph, which does not
+# know a crate row exists -- the CLI driver only got past Train's first carriage by routing on
+# this rather than the route's own waypoints. See tools/ge_rooms.py, which this mirrors.
+PO_FMT  = "<HHff"                     # room_a, room_b, x, z
 
 # Prop kinds worth asking about at runtime, in a fixed order that must never be reordered --
 # the pack stores the INDEX, so inserting in the middle silently relabels every prop in every
@@ -237,8 +243,27 @@ def pack_level(level, levels_dir):
                       _extent(p, extents, "hz", scale),
                       _extent(p, extents, "radius", scale)))
 
+    # PORTALS. Centres only, in runtime units -- the same conversion as every other position in
+    # this pack. Two rooms and a point is all a router needs; the polygon that produced the point
+    # is extraction-time detail nobody downstream should have to re-derive.
+    portals = []
+    seen_pairs = set()
+    for p in rooms.get("portals", []) or []:
+        rs = p.get("rooms")
+        poly = p.get("poly")
+        if not rs or len(rs) != 2 or not poly:
+            continue
+        pair = (min(rs), max(rs))
+        if pair in seen_pairs:
+            continue   # a level can extract the same doorway from both sides
+        seen_pairs.add(pair)
+        cx = sum(v[0] for v in poly) / len(poly) * inv
+        cz = sum(v[2] for v in poly) / len(poly) * inv
+        portals.append((rs[0] & 0xFFFF, rs[1] & 0xFFFF, cx, cz))
+
     blob = struct.pack(HDR_FMT, MAGIC, VERSION, level.encode()[:16],
-                       len(waypoints), len(guards), len(objectives), len(steps), len(props))
+                       len(waypoints), len(guards), len(objectives), len(steps), len(props),
+                       len(portals))
     for w in waypoints:
         blob += struct.pack(WP_FMT, *w)
     for g in guards:
@@ -249,18 +274,21 @@ def pack_level(level, levels_dir):
         blob += struct.pack(ST_FMT, *s)
     for pr in props:
         blob += struct.pack(PR_FMT, *pr)
-    return blob, (waypoints, guards, objectives, steps)
+    for po in portals:
+        blob += struct.pack(PO_FMT, *po)
+    return blob, (waypoints, guards, objectives, steps, props, portals)
 
 
 def unpack_level(blob):
     """The reader that makes the packer testable. Mirrors what the C loader must do."""
     hs = struct.calcsize(HDR_FMT)
-    magic, version, name, nw, ng, no, ns, npr = struct.unpack(HDR_FMT, blob[:hs])
+    magic, version, name, nw, ng, no, ns, npr, npo = struct.unpack(HDR_FMT, blob[:hs])
     if magic != MAGIC:
         raise ValueError("bad magic %r" % magic)
     off = hs
     out = []
-    for fmt, n in ((WP_FMT, nw), (GD_FMT, ng), (OB_FMT, no), (ST_FMT, ns), (PR_FMT, npr)):
+    for fmt, n in ((WP_FMT, nw), (GD_FMT, ng), (OB_FMT, no), (ST_FMT, ns), (PR_FMT, npr),
+                   (PO_FMT, npo)):
         sz = struct.calcsize(fmt)
         items = [struct.unpack(fmt, blob[off + i * sz: off + (i + 1) * sz]) for i in range(n)]
         off += sz * n

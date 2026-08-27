@@ -643,20 +643,128 @@ void model_store(const Model &m)
 void apply_profile(Model &m)
 {
     if (m.profile == 1) {
-        m.fov         = (m.fov < 100) ? 100 : m.fov;
+        m.fov = (m.fov < 100) ? 100 : m.fov;
+        /* msaa/aniso/supersample are GL-only image-quality knobs -- gfx_metal.mm's own
+         * header comment lists supersample/CRT/FXAA post-processing as an unimplemented
+         * "KNOWN v1 GAP", gfx_pc.c's shared gfx_supersample never rises above 1 under
+         * RAPI_METAL (only gfx_opengl.c's now-inert code path there ever touches it),
+         * and GETV_MSAA is read inside an explicit #ifndef RAPI_METAL block in
+         * gfx_sdl2.c. Bumping them here on tvOS/iOS (always Metal) would silently do
+         * nothing while looking like GoldenEye+ enabled something it did not --
+         * verified by directly testing all three against a real level load on the iOS
+         * Simulator, identical output with or without them. */
+#ifndef RAPI_METAL
         m.msaa        = (m.msaa  < 4) ? 4 : m.msaa;
         m.aniso       = (m.aniso < 8) ? 8 : m.aniso;
         m.supersample = (m.supersample < 2) ? 2 : m.supersample;
+#endif
     } else {
+#ifndef RAPI_METAL
         m.msaa = 0;
         m.aniso = 0;
         m.supersample = 1;
+#endif
         m.fov = 100;
         m.ruleset = 0;
         m.rs_custom = false;
         m.horde = false;
     }
 }
+
+/* ---------------------------------------------------------------- Swift bridge
+ *
+ * GeNativeLauncher.swift (tvOS/iOS's launcher UI, see its own header comment for why a
+ * native UI replaced this file's ImGui one on those two platforms) needs read/write
+ * access to the exact same Model this file's UI code below edits, so a setting changed
+ * from the native UI takes effect exactly the way this UI's own "Start Mission" already
+ * does -- through model_store()'s existing env-var writes, which geConfigInit() (already
+ * called once per boot, before either launcher runs) reads back before the game itself
+ * starts. A single static instance, not a struct handed across the bridge: the
+ * enumerable tables (stages/rulesets/cheats) are read-only globals already, so exposing
+ * them by index here cannot let a Swift-side copy drift out of sync -- there is only one
+ * copy of any of this data, ever.
+ *
+ * Declared in GeLauncherBridge.h, which both this file and Swift (via
+ * SWIFT_OBJC_BRIDGING_HEADER) include -- unlike gePortNativeLauncherRun()'s @_cdecl
+ * (Swift exporting a C symbol, needing no header on the C side), this is the other
+ * direction: C++ exporting symbols for SWIFT TO CALL, which Xcode only picks up through
+ * an explicit bridging header. */
+#include "GeLauncherBridge.h"
+
+static Model g_bridgeModel;
+
+extern "C" {
+
+void geBridgeLoad(void) { model_load(g_bridgeModel); }
+void geBridgeSave(void) { model_store(g_bridgeModel); }
+
+int geBridgeStageCount(void) { return kStageCount; }
+const char *geBridgeStageName(int i)  { return (i >= 0 && i < kStageCount) ? kStages[i].name  : ""; }
+const char *geBridgeStagePlace(int i) { return (i >= 0 && i < kStageCount) ? kStages[i].place : ""; }
+int geBridgeStageMission(int i)       { return (i >= 0 && i < kStageCount) ? kStages[i].mission : 0; }
+int geBridgeStageMpOnly(int i)        { return (i >= 0 && i < kStageCount) ? (kStages[i].mp_only ? 1 : 0) : 0; }
+
+int geBridgeRulesetCount(void) { return kRulesetCount; }
+const char *geBridgeRulesetName(int i) { return (i >= 0 && i < kRulesetCount) ? kRulesets[i] : ""; }
+
+int geBridgeCheatCount(void) { return kCheatCount; }
+const char *geBridgeCheatLabel(int i) { return (i >= 0 && i < kCheatCount) ? kCheats[i].label : ""; }
+int geBridgeCheatLive(int i)          { return (i >= 0 && i < kCheatCount) ? (kCheats[i].live ? 1 : 0) : 0; }
+
+int  geBridgeGetPickStage(void)   { return g_bridgeModel.pick_stage ? 1 : 0; }
+void geBridgeSetPickStage(int v)  { g_bridgeModel.pick_stage = (v != 0); }
+int  geBridgeGetStageIdx(void)    { return g_bridgeModel.stage_idx; }
+void geBridgeSetStageIdx(int v)   { if (v >= 0 && v < kStageCount) g_bridgeModel.stage_idx = v; }
+
+int  geBridgeGetProfile(void)     { return g_bridgeModel.profile; }
+void geBridgeSetProfile(int v)    { g_bridgeModel.profile = v; apply_profile(g_bridgeModel); }
+
+int  geBridgeGetRuleset(void)     { return g_bridgeModel.ruleset; }
+void geBridgeSetRuleset(int v)    { if (v >= 0 && v < kRulesetCount) g_bridgeModel.ruleset = v; }
+
+int  geBridgeGetHorde(void)             { return g_bridgeModel.horde ? 1 : 0; }
+void geBridgeSetHorde(int v)            { g_bridgeModel.horde = (v != 0); }
+int  geBridgeGetHordePerKill(void)      { return g_bridgeModel.horde_per_kill; }
+void geBridgeSetHordePerKill(int v)     { g_bridgeModel.horde_per_kill = v; }
+int  geBridgeGetHordePerKillCap(void)   { return g_bridgeModel.horde_per_kill_cap; }
+void geBridgeSetHordePerKillCap(int v)  { g_bridgeModel.horde_per_kill_cap = v; }
+int  geBridgeGetHordeMaxAlive(void)     { return g_bridgeModel.horde_max_alive; }
+void geBridgeSetHordeMaxAlive(int v)    { g_bridgeModel.horde_max_alive = v; }
+int  geBridgeGetHordeWaveKills(void)    { return g_bridgeModel.horde_wave_kills; }
+void geBridgeSetHordeWaveKills(int v)   { g_bridgeModel.horde_wave_kills = v; }
+int  geBridgeGetHordeGrowth(void)       { return g_bridgeModel.horde_growth; }
+void geBridgeSetHordeGrowth(int v)      { g_bridgeModel.horde_growth = v; }
+
+int  geBridgeGetSupersample(void) { return g_bridgeModel.supersample; }
+void geBridgeSetSupersample(int v){ g_bridgeModel.supersample = v; }
+int  geBridgeGetFov(void)         { return g_bridgeModel.fov; }
+void geBridgeSetFov(int v)        { g_bridgeModel.fov = v; }
+int  geBridgeGetFramerate(void)   { return g_bridgeModel.framerate; }
+void geBridgeSetFramerate(int v)  { g_bridgeModel.framerate = v; }
+int  geBridgeGetMsaa(void)        { return g_bridgeModel.msaa; }
+void geBridgeSetMsaa(int v)       { g_bridgeModel.msaa = v; }
+int  geBridgeGetFxaa(void)        { return g_bridgeModel.fxaa ? 1 : 0; }
+void geBridgeSetFxaa(int v)       { g_bridgeModel.fxaa = (v != 0); }
+
+int geBridgeModCount(void) { return g_bridgeModel.mod_count; }
+const char *geBridgeModName(int i) {
+    return (i >= 0 && i < g_bridgeModel.mod_count) ? g_bridgeModel.mod_name[i] : "";
+}
+int  geBridgeGetModOn(int i) {
+    return (i >= 0 && i < g_bridgeModel.mod_count) ? (g_bridgeModel.mod_on[i] ? 1 : 0) : 0;
+}
+void geBridgeSetModOn(int i, int on) {
+    if (i >= 0 && i < g_bridgeModel.mod_count) g_bridgeModel.mod_on[i] = (on != 0);
+}
+
+int  geBridgeGetCheatOn(int i) {
+    return (i >= 0 && i < kCheatCount) ? (g_bridgeModel.cheat_on[i] ? 1 : 0) : 0;
+}
+void geBridgeSetCheatOn(int i, int on) {
+    if (i >= 0 && i < kCheatCount) g_bridgeModel.cheat_on[i] = (on != 0);
+}
+
+} // extern "C"
 
 /* ---------------------------------------------------------------- exec
  *
@@ -1176,19 +1284,69 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
      * no concept of a small movable window, so it silently produced a black screen with no
      * crash -- verified on the real Apple TV, matching this exact symptom, and confirmed by
      * a stray "Unbalanced calls to begin/end appearance transitions" UIKit warning that
-     * stopped appearing once this matched gfx_sdl2.c's game-window creation below. */
+     * stopped appearing once this matched gfx_sdl2.c's game-window creation below.
+     *
+     * The size itself is queried, not hardcoded to tvOS's fixed 1920x1080: iPhones and
+     * iPads cover a wide range of portrait-shaped resolutions, and a landscape 1920x1080
+     * request handed to a portrait screen does not get corrected by the fullscreen call
+     * below -- verified on the iOS Simulator, where the whole launcher rendered into a
+     * small landscape-shaped box pinned to one corner of the actual portrait frame rather
+     * than filling it. SDL_GetDisplayBounds() reports whatever the real screen is on every
+     * platform this branch runs on, tvOS included, so there is no need to special-case it. */
     int winw = 1920, winh = 1080;
+    {
+        SDL_Rect db;
+        int dbrc = SDL_GetDisplayBounds(0, &db);
+        printf("[getv][launcher][diag] SDL_GetDisplayBounds rc=%d w=%d h=%d\n",
+               dbrc, db.w, db.h);
+        if (dbrc == 0 && db.w > 0 && db.h > 0) {
+            winw = db.w;
+            winh = db.h;
+        }
+    }
+    printf("[getv][launcher][diag] winw=%d winh=%d\n", winw, winh);
+    /* TEMPORARY: printf capture from a UIKit sim app is unreliable through every
+     * simctl/log mechanism tried (--console, --console-pty, --stdout file redirect, `log
+     * show`/`log stream` predicated on the process) -- all came back empty even though the
+     * process was confirmed alive via launchctl. A plain file write sidesteps all of that:
+     * readable straight from the host via `simctl get_app_container ... data`. Remove once
+     * the iOS sizing bug is closed. */
+    {
+        char *pp = SDL_GetPrefPath("org.goldeneyenative", "getv-diag");
+        if (pp != NULL) {
+            char path[4096];
+            snprintf(path, sizeof path, "%sdiag.txt", pp);
+            FILE *df = fopen(path, "w");
+            if (df != NULL) {
+                SDL_Rect db2;
+                SDL_GetDisplayBounds(0, &db2);
+                fprintf(df, "GetDisplayBounds=%dx%d\nwinw=%d winh=%d\n", db2.w, db2.h, winw, winh);
+                fclose(df);
+            }
+            SDL_free(pp);
+        }
+    }
+    /* See gfx_sdl2.c's identical comment: SDL_WINDOW_RESIZABLE makes SDL's iOS backend
+     * ignore Info.plist's landscape-only lock and allow every orientation, which is what
+     * produced this exact launcher UI squeezed into a small box in one corner of a
+     * portrait frame on the iOS Simulator. Setting the hint AND dropping RESIZABLE below
+     * (this window has nothing to resize on tvOS/iOS anyway) fixes it. */
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 #endif
     SDL_Window *win = SDL_CreateWindow("GoldenEye 007",
                                        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        winw, winh,
 #ifdef RAPI_METAL
                                        SDL_WINDOW_METAL | SDL_WINDOW_SHOWN |
-                                       SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+                                       SDL_WINDOW_ALLOW_HIGHDPI
 #else
                                        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN |
-                                       SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+                                       SDL_WINDOW_ALLOW_HIGHDPI
 #endif
+#ifdef GE_PLATFORM_DESKTOP
+                                       | SDL_WINDOW_RESIZABLE
+#endif
+                                       );
     if (win != NULL) {
         /* Same icon as the game window, from the same pixels. See ge_icon_apply.c. */
         gePortSetWindowIcon(win);
@@ -1202,6 +1360,30 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
     /* Mirrors gfx_sdl2.c's gfx_sdl_set_fullscreen(): on tvOS/iOS the window must be
      * explicitly transitioned to fullscreen-desktop, or nothing is displayed at all. */
     if (win != NULL) SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    if (win != NULL) {
+        extern void gePortForceLandscapeOrientation(void);
+        gePortForceLandscapeOrientation();
+    }
+    if (win != NULL) {
+        int aw = 0, ah = 0, dw = 0, dh = 0;
+        SDL_GetWindowSize(win, &aw, &ah);
+#ifdef RAPI_METAL
+        SDL_Metal_GetDrawableSize(win, &dw, &dh);
+#endif
+        printf("[getv][launcher][diag] after fullscreen: SDL_GetWindowSize=%dx%d "
+               "drawable=%dx%d\n", aw, ah, dw, dh);
+        char *pp = SDL_GetPrefPath("org.goldeneyenative", "getv-diag");
+        if (pp != NULL) {
+            char path[4096];
+            snprintf(path, sizeof path, "%sdiag.txt", pp);
+            FILE *df = fopen(path, "a");
+            if (df != NULL) {
+                fprintf(df, "after_fullscreen GetWindowSize=%dx%d drawable=%dx%d\n", aw, ah, dw, dh);
+                fclose(df);
+            }
+            SDL_free(pp);
+        }
+    }
 #endif
     if (win == NULL) {
         printf("[getv][launcher] SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -1296,7 +1478,19 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
             ImGuiIO &io2 = ImGui::GetIO();
             float ph_w = io2.DisplaySize.x, ph_h = io2.DisplaySize.y;
             if (ph_w > 0.0f && ph_h > 0.0f) {
-                float log_h = 620.0f;
+                /* Clamped to the real screen height, never above it: on tvOS (ph_h=1080)
+                 * this is still 620, giving the intended ~1.7x enlarge. On an iPhone in
+                 * landscape (ph_h≈393, well under 620) an UNCLAMPED 620 would make the
+                 * logical canvas TALLER than the real screen -- the opposite of the
+                 * intended effect, since FramebufferScale then has to SHRINK everything
+                 * to fit, on top of the launcher's already-modest desktop-authored sizes.
+                 * Verified on Evan's real iPhone 14 Pro: with the unclamped constant the
+                 * launcher came back "sooo small, not filling the screen" even after
+                 * SDL_GetDisplayBounds() was already reporting the correct real 852x393.
+                 * Clamping makes log_h==ph_h on any screen shorter than 620, which
+                 * collapses the whole transform to identity (scale 1.0) -- exactly "use
+                 * the real size, don't shrink it further" for anything phone-sized. */
+                float log_h = (ph_h < 620.0f) ? ph_h : 620.0f;
                 float log_w = log_h * ph_w / ph_h;
                 if (io2.MousePos.x != FLT_MAX) io2.MousePos.x *= log_w / ph_w;
                 if (io2.MousePos.y != FLT_MAX) io2.MousePos.y *= log_h / ph_h;

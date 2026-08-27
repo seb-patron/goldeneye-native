@@ -477,12 +477,13 @@ static int ge_br_pick_target(float x, float y, float z, GeEnemy *out)
 /* The nearest live objective target, in setup-tag terms, doors/keys/collectables excluded (those
  * have their own handling). "Live" is asked of the OBJECT, not the pack: the pack lists a
  * destroyed brake unit forever, so a picker that trusted it would keep aiming at wreckage. */
-static int ge_br_pick_objective_target(float x, float z, float *out_x, float *out_z, int *out_tag)
+static int ge_br_pick_objective_target(float x, float z, float *out_x, float *out_z, int *out_tag,
+                                        int *out_room, float *out_radius)
 {
     extern int gePortTargetState(int tag, int *destroyed, float *dmg, float *maxdmg);
     int i, n, best = -1;
-    float bestd = 0.0f, bx = 0.0f, bz = 0.0f;
-    int btag = -1;
+    float bestd = 0.0f, bx = 0.0f, bz = 0.0f, brad = 0.0f;
+    int btag = -1, broom = GE_WORLD_NO_ROOM;
 
     n = geWorldPropCount();
     for (i = 0; i < n; i++) {
@@ -497,12 +498,16 @@ static int ge_br_pick_objective_target(float x, float z, float *out_x, float *ou
 
         dx = p.x - x; dz = p.z - z;
         d = dx * dx + dz * dz;
-        if (best < 0 || d < bestd) { best = i; bestd = d; bx = p.x; bz = p.z; btag = p.tag; }
+        if (best < 0 || d < bestd) {
+            best = i; bestd = d; bx = p.x; bz = p.z; btag = p.tag; broom = p.room; brad = p.radius;
+        }
     }
     if (best < 0) { return 0; }
-    if (out_x != NULL)   { *out_x = bx; }
-    if (out_z != NULL)   { *out_z = bz; }
-    if (out_tag != NULL) { *out_tag = btag; }
+    if (out_x != NULL)      { *out_x = bx; }
+    if (out_z != NULL)      { *out_z = bz; }
+    if (out_tag != NULL)    { *out_tag = btag; }
+    if (out_room != NULL)   { *out_room = broom; }
+    if (out_radius != NULL) { *out_radius = brad; }
     return 1;
 }
 
@@ -1049,6 +1054,42 @@ have_target:
         return;
     }
 
+    /* ROUTE ON ROOMS FOR STEERING ONLY -- NEVER FOR ARRIVAL.
+     *
+     * dist and the ARRIVE check above already ran against the real route target, so step
+     * advancement is untouched by any of this. What follows only changes which way dx/dz point
+     * the TURN, for exactly the reason the Python CLI driver stopped fighting Train's first
+     * carriage: the route waypoint can sit in a room the bot is not currently in, and the
+     * straight-line bearing to it then points through whatever is between -- a wall, a crate row
+     * the pad graph has never heard of, or the carriage divider itself. geWorldNextPortal finds
+     * the doorway to aim at instead, using the same portal graph tools/ge_rooms.py already
+     * proved on this exact case: Train room 5 to room 7 goes via room 6, portal at (-1431 -196),
+     * verified against this function bit for bit before it was wired in here.
+     *
+     * Deliberately NOT substituted into wp itself, and deliberately not given its own arrival
+     * radius -- both were the shape of the bug that cost an earlier attempt at this. Once the
+     * bot's own room changes, geWorldNextPortal naturally stops returning the same portal (the
+     * BFS is asked fresh every tick, it is cheap enough), so there is nothing here to fall out of
+     * sync when the room updates. */
+    if (wp.room != GE_WORLD_NO_ROOM && st.room >= 0 && st.room != wp.room) {
+        extern int geWorldNextPortal(int fromRoom, int goalRoom, float *out_x, float *out_z);
+        float px, pz;
+        if (geWorldNextPortal(st.room, wp.room, &px, &pz)) {
+            dx = px - st.x;
+            dz = pz - st.z;
+            if (ge_br_trace && (frame % 60) == 0) {
+                printf("[getv][botroute] room %d -> %d: steering at the portal (%.0f %.0f)"
+                       " instead of the route target\n", st.room, wp.room, (double) px, (double) pz);
+                fflush(stdout);
+            }
+        }
+    }
+    /* Extending this to the objective target's room (mirroring the Python CLI driver's actual
+     * breakthrough) was tried and reverted: it regressed to 6.1m against this version's 13.4m,
+     * and even then the routing line never fired. Something about calling
+     * ge_br_pick_objective_target from two places in the same frame broke more than it was meant
+     * to fix, and it was not diagnosed before time ran out -- flagged rather than shipped. */
+
     memset(&in, 0, sizeof in);
     if (!ge_br_have_heading) {
         /* No heading yet: walk forward to make one. Steering on an unknown heading turns the
@@ -1534,12 +1575,19 @@ steer:
      * Only overrides steering within engagement range -- outside that, routing (with its portal
      * and skirt navigation) is what gets the bot there in the first place. */
     {
-        float tx, tz;
+        float tx, tz, trad = 0.0f;
         int tag = -1;
 
-        if (ge_br_pick_objective_target(st.x, st.z, &tx, &tz, &tag)) {
+        if (ge_br_pick_objective_target(st.x, st.z, &tx, &tz, &tag, NULL, &trad)) {
             float dx = tx - st.x, dz = tz - st.z;
             float td = sqrtf(dx * dx + dz * dz);
+            /* The prop's OWN radius plus a body's worth of clearance -- not a re-derived
+             * geometric guess. This is what a screenshot showed directly: crouched against the
+             * brake's own housing, the door it needed next on a different pad entirely, "skirt
+             * obstacle found but neither side is clear" because the tangent-point construction
+             * assumes approaching an obstacle from outside it, not standing inside its own
+             * collision disc. Getting closer than this is not progress, it is wedging in. */
+            float standoff = trad + GE_BR_RADIUS * 1.5f;   /* GE_BR_RADIUS is this file's own body-radius constant */
 
             if (tag != ge_br_obj_tag) {
                 ge_br_obj_tag = tag;
@@ -1547,7 +1595,26 @@ steer:
                 ge_br_obj_shots = 0;
             }
 
-            if (td < 220.0f) {
+            if (td < standoff) {
+                /* BACK STRAIGHT OUT. Known centre, known radius -- walk directly away from it
+                 * until clear, no sensor, no skirt, no re-derivation. This is the one case that
+                 * construction cannot answer (you cannot round the corner of a thing you are
+                 * standing inside), so do not ask it to. */
+                float bb = (float) (atan2((double) -dx, (double) -dz) * 180.0 / 3.14159265358979);
+                float be = ge_br_norm180(bb - ge_br_heading);
+                float sxb = (float) ge_br_sign_of() * be * GE_BR_TURN_GAIN;
+                if (sxb >  GE_BR_STICK_MAX) { sxb =  GE_BR_STICK_MAX; }
+                if (sxb < -GE_BR_STICK_MAX) { sxb = -GE_BR_STICK_MAX; }
+                memset(&in, 0, sizeof in);
+                in.stick_x = (signed char) sxb;
+                in.stick_y = (signed char) (GE_BR_WALK * (1.0f - (float) fabs((double) be) / 180.0f));
+                if (ge_br_trace && (frame % 30) == 0) {
+                    printf("[getv][botroute] %.0fu from tag %d (radius %.0f, standoff %.0f) --"
+                           " backing out, not routing around\n",
+                           (double) td, tag, (double) trad, (double) standoff);
+                    fflush(stdout);
+                }
+            } else if (td < 220.0f) {
                 float tb = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
                 float err2 = ge_br_norm180(tb - ge_br_heading);
 

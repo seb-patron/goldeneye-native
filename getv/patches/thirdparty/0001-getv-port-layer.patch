@@ -1,6 +1,6 @@
 diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
---- a/getv/port/audio/ge_mixer.c	2026-08-26 16:18:31
-+++ b/getv/port/audio/ge_mixer.c	2026-08-26 16:18:32
+--- a/getv/port/audio/ge_mixer.c	2026-08-26 20:00:41
++++ b/getv/port/audio/ge_mixer.c	2026-08-26 20:00:42
 @@ -0,0 +1,22 @@
 +/* GoldenEye native port -- the RSP audio microcode (aspMain), in software.
 + *
@@ -443,8 +443,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
 +    }
 +    return 0;
 diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
---- a/getv/port/audio/ge_mixer.h	2026-08-26 16:18:31
-+++ b/getv/port/audio/ge_mixer.h	2026-08-26 16:18:32
+--- a/getv/port/audio/ge_mixer.h	2026-08-26 20:00:41
++++ b/getv/port/audio/ge_mixer.h	2026-08-26 20:00:42
 @@ -1,2 +1,21 @@
 -#ifndef MIXER_H
 -#define MIXER_H
@@ -541,8 +541,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 +
 +#endif /* GE_MIXER_H */
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
---- a/getv/port/fast3d/gfx_cc.c	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_cc.c	2026-08-26 16:18:31
+--- a/getv/port/fast3d/gfx_cc.c	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_cc.c	2026-08-26 20:00:42
 @@ -3 +3 @@
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features) {
@@ -554,8 +554,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
 +    }
 +    cc_features->two_cycle = (shader_id & SHADER_OPT_2CYC) != 0;
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
---- a/getv/port/fast3d/gfx_cc.h	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_cc.h	2026-08-26 16:18:31
+--- a/getv/port/fast3d/gfx_cc.h	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_cc.h	2026-08-26 20:00:42
 @@ -6,0 +7,14 @@
 +/* Two-cycle combiners. GoldenEye is two-cycle nearly everywhere.
 + *
@@ -616,8 +616,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features);
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features);
 diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
---- a/getv/port/fast3d/gfx_opengl.c	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_opengl.c	2026-08-26 16:18:31
+--- a/getv/port/fast3d/gfx_opengl.c	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_opengl.c	2026-08-26 20:00:42
 @@ -4,0 +5 @@
 +#include <stdio.h>
 @@ -27 +28,6 @@
@@ -1480,8 +1480,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +#endif
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
---- a/getv/port/fast3d/gfx_pc.c	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_pc.c	2026-08-26 16:18:32
+--- a/getv/port/fast3d/gfx_pc.c	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_pc.c	2026-08-26 20:00:42
 @@ -22,0 +23 @@
 +#include "ge_sky_rdp.h"
 @@ -31 +32,39 @@
@@ -5991,8 +5991,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +        ge_tri_count = 0;
 +    }
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
---- a/getv/port/fast3d/gfx_pc.h	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_pc.h	2026-08-26 16:18:32
+--- a/getv/port/fast3d/gfx_pc.h	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_pc.h	2026-08-26 20:00:42
 @@ -12,0 +13,5 @@
 +// gfx_current_dimensions is the INTERNAL render size. With supersampling it is
 +// larger than the window; gfx_output_dimensions is the real drawable that the
@@ -6000,16 +6000,16 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
 +extern struct GfxDimensions gfx_output_dimensions;
 +extern unsigned int gfx_supersample;
 diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rendering_api.h
---- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 16:18:32
+--- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-26 20:00:42
 @@ -14,2 +14,2 @@
 -    struct ShaderProgram *(*create_and_load_new_shader)(uint32_t shader_id);
 -    struct ShaderProgram *(*lookup_shader)(uint32_t shader_id);
 +    struct ShaderProgram *(*create_and_load_new_shader)(uint64_t shader_id);
 +    struct ShaderProgram *(*lookup_shader)(uint64_t shader_id);
 diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
---- a/getv/port/fast3d/gfx_sdl2.c	2026-08-26 16:18:31
-+++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-26 16:18:32
+--- a/getv/port/fast3d/gfx_sdl2.c	2026-08-26 20:00:41
++++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-26 20:00:42
 @@ -19 +19,8 @@
 -#ifdef OSX_BUILD
 +/* Desktop GL when we are NOT on a GLES target. USE_GLES is defined only by the tvOS
@@ -6144,13 +6144,53 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 -    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 -    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 -
-@@ -173,0 +277,3 @@
-+#ifdef RAPI_METAL
-+        SDL_WINDOW_METAL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
-+#else
-@@ -174,0 +281 @@
+@@ -170,0 +274,35 @@
++#ifndef GE_PLATFORM_DESKTOP
++    /* iOS only in practice (tvOS has one fixed landscape mode and never rotates; this is a
++     * no-op there): SDL_UIKit's UIKit_GetSupportedOrientations() force-widens the allowed
++     * orientation set to UIInterfaceOrientationMaskAll whenever SDL_WINDOW_RESIZABLE is set
++     * on the window, REGARDLESS of Info.plist's UISupportedInterfaceOrientations -- see
++     * SDL_uikitwindow.m's own comment ("any orientation is okay"). Without this hint the
++     * device/simulator can come up in portrait despite the landscape-only Info.plist lock,
++     * which renders this landscape-authored UI squeezed into a small box in one corner of a
++     * portrait frame rather than filling the screen -- verified on the iOS Simulator. The
++     * hint is checked BEFORE that fallback, so setting it here (not just in Info.plist)
++     * makes the lock take effect regardless of the RESIZABLE flag below. */
++    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
++
++    /* configWindow.w/h default to a HARDCODED 1920x1080 for every non-desktop platform
++     * (port_support.c) -- correct on tvOS, which really does have exactly one fixed
++     * landscape mode, but wrong on iPhone/iPad, whose real resolution is neither 1920x1080
++     * nor a fixed constant across models. ge_launcher.cpp's window hit this same bug
++     * first (see its own SDL_GetDisplayBounds() comment) and was fixed there; the GAME's
++     * own window creation here still had the original hardcoded value, which explained a
++     * separate, harder-to-spot symptom: the HUD/weapon view (drawn in normalized
++     * screen-space, so it lands correctly regardless) rendered fine while world geometry
++     * (whose scissor/viewport math is built from configWindow.w/h) did not appear at
++     * all -- confirmed via matching tris-submitted counts in the log with a completely
++     * blank world on screen, i.e. the geometry WAS being drawn, just into a viewport that
++     * did not correspond to any part of the visible drawable. Querying real bounds here
++     * is a no-op on tvOS (it reports 1920x1080 back) and a real fix on iOS. */
++    {
++        SDL_Rect db;
++        if (SDL_GetDisplayBounds(0, &db) == 0 && db.w > 0 && db.h > 0) {
++            configWindow.w = (unsigned)db.w;
++            configWindow.h = (unsigned)db.h;
++        }
++    }
 +#endif
-@@ -175,0 +283,16 @@
++
+@@ -174 +312,8 @@
+-        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
++#ifdef RAPI_METAL
++        SDL_WINDOW_METAL | SDL_WINDOW_SHOWN
++#else
++        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
++#endif
++#ifdef GE_PLATFORM_DESKTOP
++        | SDL_WINDOW_RESIZABLE
++#endif
+@@ -175,0 +321,18 @@
 +    {
 +        /* The window carries the launcher's icon. See ge_icon_apply.c. */
 +        extern void gePortSetWindowIcon(SDL_Window *win);
@@ -6158,16 +6198,18 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +    }
 +
 +#ifdef RAPI_METAL
-+    /* No GL context, no ImGui-on-GL init -- gePortImguiInit() is never called on this
-+     * path, so gePortImguiActive() stays false and every ge_imgui.h entry point is the
-+     * safe no-op its header promises. A Metal ImGui backend is a fast follow, not done
-+     * here yet. */
++    /* No GL context -- gePortImguiInit() is NOT called from here the way it is for GL,
++     * below. It needs an MTLDevice, which does not exist until gfx_metal_init() has run
++     * (gfx_wapi->init(), this function, always runs before gfx_rapi->init() -- see
++     * gfx_pc.c's gfx_init()), so gfx_metal_init() calls it itself once the device exists.
++     * gePortMetalWindow carries `wnd` there for that call. */
 +    metal_view = SDL_Metal_CreateView(wnd);
 +    if (!metal_view) sys_fatal("SDL_Metal_CreateView failed: %s", SDL_GetError());
 +    gePortMetalLayer = SDL_Metal_GetLayer(metal_view);
 +    if (!gePortMetalLayer) sys_fatal("SDL_Metal_GetLayer returned NULL");
++    gePortMetalWindow = wnd;
 +#else
-@@ -177,0 +301,18 @@
+@@ -177,0 +341,18 @@
 +    /* Immediately after the context exists and before anything else touches GL. ImGui's
 +     * GL2 backend builds a font texture on its first frame, not here, so this is only
 +     * bookkeeping -- but it must still come after context creation, because the SDL2
@@ -6186,9 +6228,17 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +        fflush(stdout);
 +    }
 +
-@@ -178,0 +320 @@
+@@ -178,0 +360 @@
 +#endif // RAPI_METAL
-@@ -184 +326,30 @@
+@@ -181,0 +364,7 @@
++#ifndef GE_PLATFORM_DESKTOP
++    /* See ge_launcher.cpp's identical call for why: SDL_HINT_ORIENTATIONS above only
++     * restricts which orientations are ALLOWED, it does not itself rotate an
++     * already-portrait launch into landscape. No-op on tvOS (defined empty there). */
++    { extern void gePortForceLandscapeOrientation(void); gePortForceLandscapeOrientation(); }
++#endif
++
+@@ -184 +373,30 @@
 -    frame_rate = perf_freq / FRAMERATE;
 +    {
 +        const char *e = getenv("GETV_FPS");
@@ -6220,14 +6270,14 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +
 +    use_timer  = (ge_pace_framerate > 0);
 +    frame_rate = use_timer ? (perf_freq / ge_pace_framerate) : 0.0;
-@@ -185,0 +357,6 @@
+@@ -185,0 +404,6 @@
 +#ifndef RAPI_METAL
 +    SDL_GL_SetSwapInterval(configWindow.vsync);
 +#endif
 +    printf("[getv] pace: %d fps cap %s (GETV_FPS), vsync=%d\n",
 +           ge_pace_framerate, use_timer ? "on" : "OFF", (int)configWindow.vsync);
 +    fflush(stdout);
-@@ -226 +403,12 @@
+@@ -226 +450,12 @@
 -    if (state[SDL_SCANCODE_LALT] && state[SDL_SCANCODE_RETURN]) {
 +    /* Alt+Enter is the inherited Windows convention and still works. On macOS neither
 +     * half of it is discoverable -- LALT is the Option key and nothing on the platform
@@ -6241,28 +6291,34 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +                           && state[SDL_SCANCODE_F];
 +
 +    if (alt_enter || f11 || cmd_f) {
-@@ -239,0 +428,6 @@
+@@ -239,0 +475,6 @@
 +        /* Observational only: the game's own handling below runs for every event either
 +         * way, so turning the overlay on cannot swallow a keypress or a window resize.
 +         * When the overlay grows controls that need to capture input, that decision
 +         * belongs here (io.WantCaptureKeyboard / io.WantCaptureMouse) and it should be a
 +         * deliberate, separately gated change. */
 +        gePortImguiEvent(&event);
-@@ -285,0 +480,4 @@
+@@ -285,0 +527,4 @@
 +    /* gfx_pc.c calls handle_events() (above) and then start_frame(), so by here the SDL
 +     * event queue for this frame has already been fed to ImGui. Widgets are built now;
 +     * nothing is drawn until swap_buffers_begin(). */
 +    gePortImguiNewFrame();
-@@ -289,0 +488,4 @@
+@@ -289,0 +535,4 @@
 +    // GETV_FPS=0 removes the cap entirely: run as fast as the GPU and vsync allow.
 +    // `use_timer` was declared by sm64ex and never read; it is the honest home for this.
 +    if (!use_timer) { return; }
 +
-@@ -306,0 +509,11 @@
+@@ -306,0 +556,17 @@
 +#ifdef RAPI_METAL
-+    /* gfx_rapi->end_frame() (gfx_metal.mm) already presented the drawable and committed
-+     * the command buffer before this runs -- Metal has no separate "swap" call the way GL
-+     * does, and no ImGui-on-Metal renderer exists yet to draw here either. */
++    /* Same slot as GL's SDL_GL_SwapWindow() below: gfx_rapi->end_frame() (gfx_metal.mm)
++     * only ended the game's own render encoder, not presented anything yet -- see the long
++     * comment on gfx_metal_end_frame()/gePortMetalFinishFrame() for why. gePortImguiRender()
++     * (ge_imgui.cpp) draws the overlay into a second encoder on the SAME still-open command
++     * buffer if it is active, and gePortMetalFinishFrame() is what actually presents the
++     * drawable and commits -- unconditionally, so a build without GE_WITH_IMGUI (where
++     * gePortImguiRender() is the empty stub) still presents every frame. */
++    gePortImguiRender();
++    gePortMetalFinishFrame();
 +#else
 +    /* The overlay draws last, into the same back buffer, after gfx_rapi->end_frame() and
 +     * before the present. Deliberately not inside gfx_opengl.c: this is a window-manager
@@ -6270,13 +6326,13 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +     * which is supposed to photograph the game and not the debug UI. */
 +    gePortImguiRender();
 +
-@@ -309,0 +523 @@
+@@ -309,0 +576 @@
 +#endif
-@@ -326,0 +541,5 @@
+@@ -326,0 +594,5 @@
 +#ifdef RAPI_METAL
 +        if (metal_view) { SDL_Metal_DestroyView(metal_view); metal_view = NULL; }
 +#else
 +        /* Before the context goes away: the GL2 backend deletes its font texture here. */
 +        gePortImguiShutdown();
-@@ -327,0 +547 @@
+@@ -327,0 +600 @@
 +#endif

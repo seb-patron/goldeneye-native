@@ -24,7 +24,7 @@
 
 /* Layout, mirroring pack_world.py. Changing either without the other is what the size check
  * exists to catch. */
-#define HDR_SIZE   44          /* v2: one more count */
+#define HDR_SIZE   48          /* v4: one more count, portals */
 #define HDR_MAGIC   0
 #define HDR_VERSION 4
 #define HDR_NAME    8
@@ -33,6 +33,7 @@
 #define HDR_NOB    32
 #define HDR_NST    36
 #define HDR_NPR    40
+#define HDR_NPO    44
 
 #define WP_SIZE 16          /* id u16, room u16, x f32, y f32, z f32 */
 #define GD_SIZE 16          /* chrnum u16, room u16, x f32, y f32, z f32 */
@@ -44,13 +45,14 @@
  * offset from the wrong field list. */
 #define PR_SIZE 32          /* kind u16, room u16, tag s16, nav u16, x f32, y f32, z f32,
                                hx f32, hz f32, radius f32 */
+#define PO_SIZE 12          /* v4. room_a u16, room_b u16, x f32, z f32 */
 
 static struct {
     unsigned char *blob;
     long           size;
     char           level[24];
-    int            nwp, ngd, nob, nst, npr;
-    long           owp, ogd, oob, ost, opr;  /* byte offsets of each table */
+    int            nwp, ngd, nob, nst, npr, npo;
+    long           owp, ogd, oob, ost, opr, opo;  /* byte offsets of each table */
 } ge_w;
 
 static unsigned int rd_u32(const unsigned char *p)
@@ -137,6 +139,7 @@ int geWorldLoad(const char *level)
     ge_w.nob = (int) rd_u32(blob + HDR_NOB);
     ge_w.nst = (int) rd_u32(blob + HDR_NST);
     ge_w.npr = (int) rd_u32(blob + HDR_NPR);
+    ge_w.npo = (int) rd_u32(blob + HDR_NPO);
 
     /* The declared counts must account for exactly the bytes present. This is the drift check:
      * if the packer gains a field and this reader does not, the totals stop agreeing and the
@@ -144,7 +147,7 @@ int geWorldLoad(const char *level)
     need = (long) HDR_SIZE
          + (long) ge_w.nwp * WP_SIZE + (long) ge_w.ngd * GD_SIZE
          + (long) ge_w.nob * OB_SIZE + (long) ge_w.nst * ST_SIZE
-         + (long) ge_w.npr * PR_SIZE;
+         + (long) ge_w.npr * PR_SIZE + (long) ge_w.npo * PO_SIZE;
     if (need != size) {
         printf("[getv][world] %s: layout mismatch -- %ld bytes on disk, %ld implied by counts "
                "(%d/%d/%d/%d). Reader and packer disagree; repack.\n",
@@ -163,6 +166,7 @@ int geWorldLoad(const char *level)
     ge_w.oob = ge_w.ogd + (long) ge_w.ngd * GD_SIZE;
     ge_w.ost = ge_w.oob + (long) ge_w.nob * OB_SIZE;
     ge_w.opr = ge_w.ost + (long) ge_w.nst * ST_SIZE;
+    ge_w.opo = ge_w.opr + (long) ge_w.npr * PR_SIZE;
 
     printf("[getv][world] %s: %d waypoints, %d guards, %d objectives, %d steps (%ld bytes)\n",
            ge_w.level, ge_w.nwp, ge_w.ngd, ge_w.nob, ge_w.nst, size);
@@ -431,4 +435,89 @@ int geWorldPropByTag(int tag, GeWorldProp *out)
         if (geWorldProp(i, &pr) && pr.tag == tag) { *out = pr; return 1; }
     }
     return 0;
+}
+
+int geWorldPortalCount(void) { return ge_w.npo; }
+
+int geWorldPortal(int i, GeWorldPortal *out)
+{
+    const unsigned char *p;
+
+    if (ge_w.blob == NULL || out == NULL || i < 0 || i >= ge_w.npo) { return 0; }
+    p = ge_w.blob + ge_w.opo + (long) i * PO_SIZE;
+
+    out->room_a = rd_u16(p + 0);
+    out->room_b = rd_u16(p + 2);
+    out->x      = rd_f32(p + 4);
+    out->z      = rd_f32(p + 8);
+    return 1;
+}
+
+/* Breadth-first over the portal graph. Levels here run to a few dozen rooms, so a fixed queue of
+ * 256 rooms and a linear scan of the portal table per expansion costs nothing a per-tick caller
+ * would notice -- this is not a pathfinder over thousands of nodes, it is "which door first".
+ *
+ * Ported from tools/ge_rooms.py's Rooms.next_portal: search back from the ROOM, not room by room
+ * forward, the standard BFS shape for "what is the first step of the shortest path" -- the parent
+ * pointers found while discovering `goalRoom` are walked back to `fromRoom`, and the portal taken
+ * on that last hop is the answer. */
+int geWorldNextPortal(int fromRoom, int goalRoom, float *out_x, float *out_z)
+{
+#define GE_NP_MAX 256
+    short parent[GE_NP_MAX];
+    short queue[GE_NP_MAX];
+    int   seen[GE_NP_MAX];
+    int   qh = 0, qt = 0, i;
+    int   cur;
+
+    if (fromRoom < 0 || goalRoom < 0 || fromRoom >= GE_NP_MAX || goalRoom >= GE_NP_MAX) { return 0; }
+    if (fromRoom == goalRoom) { return 0; }
+
+    for (i = 0; i < GE_NP_MAX; i++) { seen[i] = 0; parent[i] = -1; }
+    seen[fromRoom] = 1;
+    queue[qt++] = (short) fromRoom;
+
+    while (qh < qt) {
+        int a, n;
+        cur = queue[qh++];
+        if (cur == goalRoom) { break; }
+
+        n = geWorldPortalCount();
+        for (a = 0; a < n; a++) {
+            GeWorldPortal po;
+            int nxt;
+            if (!geWorldPortal(a, &po)) { continue; }
+            if (po.room_a == cur)      { nxt = po.room_b; }
+            else if (po.room_b == cur) { nxt = po.room_a; }
+            else                       { continue; }
+            if (nxt < 0 || nxt >= GE_NP_MAX || seen[nxt]) { continue; }
+            seen[nxt] = 1;
+            parent[nxt] = (short) cur;
+            if (qt < GE_NP_MAX) { queue[qt++] = (short) nxt; }
+        }
+    }
+
+    if (!seen[goalRoom]) { return 0; }   /* no path: disconnected, or the room graph does not say */
+
+    /* Walk the parent chain back from the goal to the room just after fromRoom -- that step's
+     * portal is the one to walk to right now. */
+    cur = goalRoom;
+    while (parent[cur] != fromRoom && parent[cur] >= 0) { cur = parent[cur]; }
+    if (parent[cur] != fromRoom) { return 0; }   /* fromRoom itself was never reached (shouldn't happen) */
+
+    {
+        int a, n = geWorldPortalCount();
+        for (a = 0; a < n; a++) {
+            GeWorldPortal po;
+            if (!geWorldPortal(a, &po)) { continue; }
+            if ((po.room_a == fromRoom && po.room_b == cur)
+             || (po.room_b == fromRoom && po.room_a == cur)) {
+                if (out_x != NULL) { *out_x = po.x; }
+                if (out_z != NULL) { *out_z = po.z; }
+                return 1;
+            }
+        }
+    }
+    return 0;
+#undef GE_NP_MAX
 }

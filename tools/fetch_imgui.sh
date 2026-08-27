@@ -65,15 +65,18 @@ DEPS="$HERE/../deps"
 SRC="$DEPS/imgui-$VERSION"
 
 # TARGET selects which platform's library this run produces -- "host" (the default,
-# original behaviour, unchanged) builds for whatever this Mac/Linux box is; "tvos" and
-# "tvsim" cross-compile for the Apple TV device and Simulator respectively, with a Metal
-# renderer backend instead of OpenGL2 (tvOS has no desktop GL at all, GLES or not -- see
-# gfx_metal.mm's header comment for why the game renderer went the same way). Each target
-# gets its own prefix and its own SOURCES list below; nothing about the host path changes.
+# original behaviour, unchanged) builds for whatever this Mac/Linux box is; "tvos"/"tvsim"
+# and "ios"/"iossim" cross-compile for the Apple TV and iPhone/iPad device and Simulator
+# respectively, all four with a Metal renderer backend instead of OpenGL2 (none of these
+# platforms have desktop GL at all, GLES or not -- see gfx_metal.mm's header comment for
+# why the game renderer went the same way). Each target gets its own prefix and its own
+# SOURCES list below; nothing about the host path changes.
 #
 #   ./fetch_imgui.sh          host build (as before)
-#   ./fetch_imgui.sh tvos     device, arm64-apple-tvos17.0
-#   ./fetch_imgui.sh tvsim    simulator, arm64-apple-tvos17.0-simulator
+#   ./fetch_imgui.sh tvos     tvOS device, arm64-apple-tvos17.0
+#   ./fetch_imgui.sh tvsim    tvOS simulator, arm64-apple-tvos17.0-simulator
+#   ./fetch_imgui.sh ios      iOS device, arm64-apple-ios15.0
+#   ./fetch_imgui.sh iossim   iOS simulator, arm64-apple-ios15.0-simulator
 TARGET="${1:-host}"
 CXX="${CXX:-c++}"
 TARGETFLAGS=()
@@ -113,7 +116,21 @@ case "$TARGET" in
     BACKEND_RENDERER=metal
     TARGETFLAGS=( -target arm64-apple-tvos17.0-simulator -isysroot "$(xcrun -sdk appletvsimulator --show-sdk-path)" )
     ;;
-  *) echo "unknown target: $TARGET (want host, tvos or tvsim)" >&2; exit 1 ;;
+  ios)
+    BUILDSCRIPT=build_ios.sh
+    PREFIX="$HOME/.n64tvos/imgui-ios"
+    SDL="$HOME/.n64tvos/sdl2-ios"
+    BACKEND_RENDERER=metal
+    TARGETFLAGS=( -target arm64-apple-ios15.0 -isysroot "$(xcrun -sdk iphoneos --show-sdk-path)" )
+    ;;
+  iossim)
+    BUILDSCRIPT=build_ios_sim.sh
+    PREFIX="$HOME/.n64tvos/imgui-iossim"
+    SDL="$HOME/.n64tvos/sdl2-iossim"
+    BACKEND_RENDERER=metal
+    TARGETFLAGS=( -target arm64-apple-ios15.0-simulator -isysroot "$(xcrun -sdk iphonesimulator --show-sdk-path)" )
+    ;;
+  *) echo "unknown target: $TARGET (want host, tvos, tvsim, ios or iossim)" >&2; exit 1 ;;
 esac
 
 # ImGui's SDL2 backend includes <SDL.h>. The port links a private static SDL2 built by
@@ -132,8 +149,10 @@ else
   echo "  expected $SDL/include/SDL2" >&2
   case "$TARGET" in
     host)  echo "  run './getv/build_mac.sh sdl' first" >&2 ;;
-    tvos)  echo "  build getv/deps/sdl2-tvos and symlink it into ~/.n64tvos/sdl2-tvos first" >&2 ;;
-    tvsim) echo "  build getv/deps/sdl2-tvsim and symlink it into ~/.n64tvos/sdl2-tvsim first" >&2 ;;
+    tvos)   echo "  build getv/deps/sdl2-tvos and symlink it into ~/.n64tvos/sdl2-tvos first" >&2 ;;
+    tvsim)  echo "  build getv/deps/sdl2-tvsim and symlink it into ~/.n64tvos/sdl2-tvsim first" >&2 ;;
+    ios)    echo "  build ~/.n64tvos/sdl2-ios first (see tools/fetch_imgui.sh's ios case)" >&2 ;;
+    iossim) echo "  build ~/.n64tvos/sdl2-iossim first (see tools/fetch_imgui.sh's ios case)" >&2 ;;
   esac
   exit 1
 fi
@@ -236,7 +255,7 @@ case "$TARGET" in
     echo "rebuild the game to pick it up: ./getv/$BUILDSCRIPT all"
     echo "then run it with: GETV_IMGUI=1 ./getv/$BUILDSCRIPT run"
     ;;
-  tvos|tvsim)
+  tvos|tvsim|ios|iossim)
     echo "rebuild the game to pick it up: GETV_RENDERER=metal ./getv/$BUILDSCRIPT all"
     ;;
 esac

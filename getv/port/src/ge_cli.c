@@ -240,6 +240,22 @@ static void ge_cli_command(const char *line)
         ge_cli_hold = 0;
         fflush(stdout);
     }
+    else if (strcmp(verb, "rooms") == 0) {
+        /* GETV self-test for the room BFS: "rooms <from> <to>" prints the next portal, so the
+         * routing accessor can be checked against tools/ge_rooms.py's known answer (Train room 5
+         * to room 7 goes via room 6, portal at roughly -1431,-196) without needing a live bot. */
+        extern int geWorldNextPortal(int fromRoom, int goalRoom, float *out_x, float *out_z);
+        float px = 0.0f, pz = 0.0f;
+        /* ge_cli_arg_x holds the SAME first number as n (the "goal x z" parser reuses that pair
+         * for a coordinate), so the second room comes from ge_cli_arg_z, not ge_cli_arg_x. */
+        if (ge_cli_have_arg && geWorldNextPortal(n, (int) ge_cli_arg_z, &px, &pz)) {
+            printf("rooms  %d -> %d : next portal at (%.0f %.0f)\n", n, (int) ge_cli_arg_z,
+                   (double) px, (double) pz);
+        } else {
+            printf("rooms  no route or bad args\n");
+        }
+        ge_cli_hold = 0;
+    }
     else if (strcmp(verb, "tags") == 0) {
         /* Which setup tags actually resolve to a live object. The world pack's tags come from the
          * extractor; objFindByTagId works off the setup's own tag records, and if the two number

@@ -20,8 +20,12 @@
 /* v3 added hx/hz/radius to the prop record. Bumped rather than tolerated: the record is read
  * POSITIONALLY, so a v2 pack fed to a v3 loader would not fail, it would read the next prop's
  * fields as this one's extents and report confident nonsense. A refusal to load is the only
- * outcome that is obviously wrong to whoever runs it. */
-#define GE_WORLD_VERSION 3
+ * outcome that is obviously wrong to whoever runs it.
+ *
+ * v4 added portals: which two rooms share a doorway, and where. The route's own waypoints do not
+ * know a crate row exists -- Train's first carriage cost days before routing on this instead of
+ * the pad graph got a bot past it. */
+#define GE_WORLD_VERSION 4
 
 /* Sentinel for "this thing has no room recorded", which is different from room 0. */
 #define GE_WORLD_NO_ROOM 0xFFFF
@@ -163,3 +167,20 @@ int  geWorldPropByTag(int tag, GeWorldProp *out);
 
 /* Name of a kind, for logs and mod UIs. Never NULL. */
 const char *geWorldPropKindName(int kind);
+
+/* WHICH DOORWAY, AND WHERE. A portal joins exactly two rooms; the point is the doorway's centre
+ * in runtime units, not a navigation node -- walking there and then re-asking gePortPathClear
+ * toward the next target is the caller's job, the same way it already is for a route waypoint. */
+typedef struct GeWorldPortal {
+    int   room_a, room_b;
+    float x, z;
+} GeWorldPortal;
+
+int  geWorldPortalCount(void);
+int  geWorldPortal(int i, GeWorldPortal *out);
+
+/* The next room to walk into on the way from `fromRoom` to `goalRoom`, and where its shared
+ * doorway is -- a breadth-first search over the portal graph, same shape as tools/ge_rooms.py's
+ * Rooms.next_portal, just answered in C so a per-tick bot policy can call it directly instead of
+ * shelling out. Returns 0 if the rooms are the same, disconnected, or unknown. */
+int  geWorldNextPortal(int fromRoom, int goalRoom, float *out_x, float *out_z);
