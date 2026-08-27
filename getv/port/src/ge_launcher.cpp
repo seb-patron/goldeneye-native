@@ -83,18 +83,29 @@
 #include <GL/glew.h>
 #endif
 
+/* No GL on this target (RAPI_METAL). imgui.h/imgui_impl_sdl2.h stay unconditional -- the
+ * UI-drawing helper functions throughout this file (ge_load_fonts, ge_apply_style, the page
+ * renderers) use plain ImGui:: calls with no renderer dependency, and imgui_impl_sdl2.h is the
+ * SDL PLATFORM backend (events/input), shared across GL and Metal. Only the OpenGL2 RENDERER
+ * backend and the raw GL headers are GL-specific -- see gePortLauncherRun()'s own #ifdef
+ * RAPI_METAL / #else split for why its body does not need them under RAPI_METAL either. */
+#ifndef RAPI_METAL
 #if defined(USE_GLES)
 #include <SDL2/SDL_opengles2.h>
 #else
 #include <SDL2/SDL_opengl.h>
 #endif
+#endif /* RAPI_METAL */
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
+#ifndef RAPI_METAL
 #include "imgui_impl_opengl2.h"
+#endif
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
+#include <TargetConditionals.h>
 #endif
 
 namespace {
@@ -139,7 +150,7 @@ void  put_str(const char *k, const char *v)
     else         unsetenv(k);
 }
 
-/* The stage list. Ids and names are from the table in CLAUDE.md, which is the project's
+/* The stage list. Ids and names are from the project's own stage reference table, the
  * ground truth for which stages are solo, multiplayer-only or have no data at all. Only
  * loadable stages are offered: eleven ids can never load (nine cut, plus CITADEL, whose
  * background exists but whose setup file does not), and offering them would be offering a
@@ -271,6 +282,7 @@ struct Model {
     int  supersample, fov, framerate, msaa, aniso;
     int  filtering;               /* 0 nearest, 1 bilinear, 2 three-point (configFiltering) */
     bool widescreen;              /* fill the real window instead of a 4:3 pillarbox (configWidescreen) */
+    bool mipmaps;                 /* trilinear filtering on minification (GETV_MIPMAPS) */
     bool hd_textures;             /* check texpack for overrides before each N64 texture (configHDTextures) */
     char texpack[256];            /* GETV_TEXPACK: override pack directory */
     bool fullscreen;
@@ -485,6 +497,7 @@ void model_load(Model &m)
      * the 4:3 pillarbox was never a deliberate choice, just what a non-4:3 window did with
      * nothing to correct for it. */
     m.widescreen  = env_bool("GETV_WIDESCREEN", true);
+    m.mipmaps     = env_bool("GETV_MIPMAPS", false);
     /* Default false, matching configHDTextures' own compiled-in default (port_support.c) --
      * unlike widescreen/filtering above, this path has had no compiler available to verify
      * it against, so it stays opt-in rather than presenting itself as a finished feature. */
@@ -577,6 +590,7 @@ void model_store(const Model &m)
     put_int("GETV_ANISO",       m.aniso);
     put_int("GETV_FILTERING",   m.filtering);
     setenv("GETV_WIDESCREEN", m.widescreen ? "1" : "0", 1);
+    setenv("GETV_MIPMAPS", m.mipmaps ? "1" : "0", 1);
     setenv("GETV_HD_TEXTURES", m.hd_textures ? "1" : "0", 1);
     put_str("GETV_TEXPACK", m.texpack);
     setenv("GETV_FULLSCREEN", m.fullscreen ? "1" : "0", 1);
@@ -653,10 +667,12 @@ void apply_profile(Model &m)
         m.fov         = (m.fov < 100) ? 100 : m.fov;
         m.msaa        = (m.msaa  < 4) ? 4 : m.msaa;
         m.aniso       = (m.aniso < 8) ? 8 : m.aniso;
+        m.mipmaps     = true;
         m.supersample = (m.supersample < 2) ? 2 : m.supersample;
     } else {
         m.msaa = 0;
         m.aniso = 0;
+        m.mipmaps = false;
         m.supersample = 1;
         m.fov = 100;
         m.ruleset = 0;
@@ -664,6 +680,101 @@ void apply_profile(Model &m)
         m.horde = false;
     }
 }
+
+/* ---------------------------------------------------------------- Swift bridge
+ *
+ * GeNativeLauncher.swift (tvOS/iOS's launcher UI, see its own header comment for why a
+ * native UI replaced this file's ImGui one on those two platforms) needs read/write
+ * access to the exact same Model this file's UI code below edits, so a setting changed
+ * from the native UI takes effect exactly the way this UI's own "Start Mission" already
+ * does -- through model_store()'s existing env-var writes, which geConfigInit() (already
+ * called once per boot, before either launcher runs) reads back before the game itself
+ * starts. A single static instance, not a struct handed across the bridge: the
+ * enumerable tables (stages/rulesets/cheats) are read-only globals already, so exposing
+ * them by index here cannot let a Swift-side copy drift out of sync -- there is only one
+ * copy of any of this data, ever.
+ *
+ * Declared in GeLauncherBridge.h, which both this file and Swift (via
+ * SWIFT_OBJC_BRIDGING_HEADER) include -- unlike gePortNativeLauncherRun()'s @_cdecl
+ * (Swift exporting a C symbol, needing no header on the C side), this is the other
+ * direction: C++ exporting symbols for SWIFT TO CALL, which Xcode only picks up through
+ * an explicit bridging header. */
+#include "GeLauncherBridge.h"
+
+static Model g_bridgeModel;
+
+extern "C" {
+
+void geBridgeLoad(void) { model_load(g_bridgeModel); }
+void geBridgeSave(void) { model_store(g_bridgeModel); }
+
+int geBridgeStageCount(void) { return kStageCount; }
+const char *geBridgeStageName(int i)  { return (i >= 0 && i < kStageCount) ? kStages[i].name  : ""; }
+const char *geBridgeStagePlace(int i) { return (i >= 0 && i < kStageCount) ? kStages[i].place : ""; }
+int geBridgeStageMission(int i)       { return (i >= 0 && i < kStageCount) ? kStages[i].mission : 0; }
+int geBridgeStageMpOnly(int i)        { return (i >= 0 && i < kStageCount) ? (kStages[i].mp_only ? 1 : 0) : 0; }
+
+int geBridgeRulesetCount(void) { return kRulesetCount; }
+const char *geBridgeRulesetName(int i) { return (i >= 0 && i < kRulesetCount) ? kRulesets[i] : ""; }
+
+int geBridgeCheatCount(void) { return kCheatCount; }
+const char *geBridgeCheatLabel(int i) { return (i >= 0 && i < kCheatCount) ? kCheats[i].label : ""; }
+int geBridgeCheatLive(int i)          { return (i >= 0 && i < kCheatCount) ? (kCheats[i].live ? 1 : 0) : 0; }
+
+int  geBridgeGetPickStage(void)   { return g_bridgeModel.pick_stage ? 1 : 0; }
+void geBridgeSetPickStage(int v)  { g_bridgeModel.pick_stage = (v != 0); }
+int  geBridgeGetStageIdx(void)    { return g_bridgeModel.stage_idx; }
+void geBridgeSetStageIdx(int v)   { if (v >= 0 && v < kStageCount) g_bridgeModel.stage_idx = v; }
+
+int  geBridgeGetProfile(void)     { return g_bridgeModel.profile; }
+void geBridgeSetProfile(int v)    { g_bridgeModel.profile = v; apply_profile(g_bridgeModel); }
+
+int  geBridgeGetRuleset(void)     { return g_bridgeModel.ruleset; }
+void geBridgeSetRuleset(int v)    { if (v >= 0 && v < kRulesetCount) g_bridgeModel.ruleset = v; }
+
+int  geBridgeGetHorde(void)             { return g_bridgeModel.horde ? 1 : 0; }
+void geBridgeSetHorde(int v)            { g_bridgeModel.horde = (v != 0); }
+int  geBridgeGetHordePerKill(void)      { return g_bridgeModel.horde_per_kill; }
+void geBridgeSetHordePerKill(int v)     { g_bridgeModel.horde_per_kill = v; }
+int  geBridgeGetHordePerKillCap(void)   { return g_bridgeModel.horde_per_kill_cap; }
+void geBridgeSetHordePerKillCap(int v)  { g_bridgeModel.horde_per_kill_cap = v; }
+int  geBridgeGetHordeMaxAlive(void)     { return g_bridgeModel.horde_max_alive; }
+void geBridgeSetHordeMaxAlive(int v)    { g_bridgeModel.horde_max_alive = v; }
+int  geBridgeGetHordeWaveKills(void)    { return g_bridgeModel.horde_wave_kills; }
+void geBridgeSetHordeWaveKills(int v)   { g_bridgeModel.horde_wave_kills = v; }
+int  geBridgeGetHordeGrowth(void)       { return g_bridgeModel.horde_growth; }
+void geBridgeSetHordeGrowth(int v)      { g_bridgeModel.horde_growth = v; }
+
+int  geBridgeGetSupersample(void) { return g_bridgeModel.supersample; }
+void geBridgeSetSupersample(int v){ g_bridgeModel.supersample = v; }
+int  geBridgeGetFov(void)         { return g_bridgeModel.fov; }
+void geBridgeSetFov(int v)        { g_bridgeModel.fov = v; }
+int  geBridgeGetFramerate(void)   { return g_bridgeModel.framerate; }
+void geBridgeSetFramerate(int v)  { g_bridgeModel.framerate = v; }
+int  geBridgeGetMsaa(void)        { return g_bridgeModel.msaa; }
+void geBridgeSetMsaa(int v)       { g_bridgeModel.msaa = v; }
+int  geBridgeGetFxaa(void)        { return g_bridgeModel.fxaa ? 1 : 0; }
+void geBridgeSetFxaa(int v)       { g_bridgeModel.fxaa = (v != 0); }
+
+int geBridgeModCount(void) { return g_bridgeModel.mod_count; }
+const char *geBridgeModName(int i) {
+    return (i >= 0 && i < g_bridgeModel.mod_count) ? g_bridgeModel.mod_name[i] : "";
+}
+int  geBridgeGetModOn(int i) {
+    return (i >= 0 && i < g_bridgeModel.mod_count) ? (g_bridgeModel.mod_on[i] ? 1 : 0) : 0;
+}
+void geBridgeSetModOn(int i, int on) {
+    if (i >= 0 && i < g_bridgeModel.mod_count) g_bridgeModel.mod_on[i] = (on != 0);
+}
+
+int  geBridgeGetCheatOn(int i) {
+    return (i >= 0 && i < kCheatCount) ? (g_bridgeModel.cheat_on[i] ? 1 : 0) : 0;
+}
+void geBridgeSetCheatOn(int i, int on) {
+    if (i >= 0 && i < kCheatCount) g_bridgeModel.cheat_on[i] = (on != 0);
+}
+
+} // extern "C"
 
 /* ---------------------------------------------------------------- exec
  *
@@ -726,6 +837,18 @@ void relaunch()
      * would be, and a caller waiting on the original PID will see it return early. */
 #if defined(_WIN32)
     _execv(exe, nv);
+#elif defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH)
+    /* execv() is a hard compile error on tvOS/watchOS (marked __TVOS_PROHIBITED /
+     * __WATCHOS_PROHIBITED in unistd.h) -- the sandbox does not allow a process to replace
+     * its own image. This whole function is only reachable here through the
+     * GETV_LAUNCHER_AUTOPLAY path (gePortLauncherRun() declines to exec under RAPI_METAL
+     * everywhere else), and that path's own comment already establishes that falling through
+     * without relaunching is correct: the model was written by model_store() above, so the
+     * game just continues in this same process instead of a fresh one. */
+    printf("[getv][launcher] not relaunching: execv is unavailable on this platform; "
+           "continuing in this process\n");
+    free(nv);
+    return;
 #else
     execv(exe, nv);
 #endif
@@ -1138,6 +1261,20 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
         return 0;
     }
 
+#ifdef RAPI_METAL
+    /* This ImGui launcher's OpenGL2 backend has no Metal equivalent wired up in this tree
+     * (the mac+RAPI_METAL and tvOS/iOS RAPI_METAL combination), unlike gePortNativeLauncherRun()
+     * (GeNativeLauncher.swift), which is what actually runs on tvOS/iOS regardless of renderer.
+     * Declining here rather than trying to build a GL context matches the existing "no
+     * --launcher argv" fallback below: return 0 and fall through to the game in the same
+     * process. TODO: a real Metal ImGui backend for this path, tracked separately -- it
+     * currently only matters for `GETV_RENDERER=metal` on a desktop build. Everything from
+     * here to this function's closing brace is excluded at COMPILE time too (not just this
+     * runtime return), because it calls the OpenGL2 ImGui backend, which is not declared
+     * under RAPI_METAL. */
+    printf("[getv][launcher] declining: this ImGui launcher has no Metal backend here\n");
+    return 0;
+#else
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         printf("[getv][launcher] SDL_Init failed: %s\n", SDL_GetError());
         return 0;                      /* fall through to the game rather than refusing to start */
@@ -1609,6 +1746,14 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                          "Bilinear is the standard modern filter. Nearest is the sharp, blocky "
                          "look with no filtering at all.");
 
+                    ImGui::Dummy(ImVec2(0, 6));
+                    ImGui::BeginDisabled(!en);
+                    ImGui::Checkbox("Mipmapping", &m.mipmaps);
+                    ImGui::EndDisabled();
+                    Hint("Blends distant textures toward a smaller mip level instead of "
+                         "shimmering. Pairs with Anisotropic above, which sharpens the same "
+                         "textures back up at grazing angles.");
+
                     ImGui::Dummy(ImVec2(0, 10));
                     ImGui::BeginDisabled(!en);
                     ImGui::Checkbox("Widescreen", &m.widescreen);
@@ -1896,6 +2041,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
            m.pick_stage ? "" : " (title screen)");
     relaunch();
     return 0;
+#endif /* RAPI_METAL */
 }
 
 #else  /* !GE_WITH_IMGUI */
