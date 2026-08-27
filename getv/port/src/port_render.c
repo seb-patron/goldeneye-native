@@ -128,7 +128,7 @@ void gePortRenderDisplayList(void *firstGdl)
         return;
     }
 
-    /* GETV_GLDEBUG=1. Installed on the very first frame, which is as early as this lane can reach
+    /* GETV_GLDEBUG=1. Installed on the very first frame, which is as early as this path can reach
      * the context -- anything raised during GL init is already in the queue by then and the
      * callback will never see it, so a silent run here means "not raised after init", not "no
      * error". The poll below covers that case by reporting what is already pending. */
@@ -181,7 +181,7 @@ void gePortRenderDisplayList(void *firstGdl)
          * every draw-side hypothesis is dead at once and the cost is in the frame machinery --
          * context, swapchain or compositor.
          *
-         * ⚠️ DIAGNOSTIC ONLY: the screen shows nothing, which is the point. gfx_start_frame and
+         * DIAGNOSTIC ONLY: the screen shows nothing, which is the point. gfx_start_frame and
          * gfx_end_frame still run, so the present still happens and the comparison stays honest --
          * skipping those too would measure a different thing entirely. */
         {

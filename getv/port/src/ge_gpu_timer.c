@@ -11,10 +11,10 @@
 # include <GL/glew.h>
 #else
 # define GL_GLEXT_PROTOTYPES 1
-# if defined(__APPLE__)
+# if defined(__APPLE__) && defined(GE_PLATFORM_MAC)
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
-# else
+# elif !defined(__APPLE__)
 #  include <GL/gl.h>
 #  include <GL/glext.h>
 # endif
@@ -31,6 +31,15 @@
 #include <SDL.h>
 
 #include "ge_gpu_timer.h"
+
+/* No GL on this target (RAPI_METAL, or an Apple platform other than macOS): same empty-stub
+ * pattern as ge_gl_debug.c right above it in this same investigation. */
+#if !defined(RAPI_GL) || (defined(__APPLE__) && !defined(GE_PLATFORM_MAC))
+int  geGpuTimerEnabled(void) { return 0; }
+void geGpuTimerFrameBegin(void) { }
+void geGpuTimerFrameEnd(void) { }
+void geGpuTimerRecordSwap(double ms) { (void) ms; }
+#else
 
 /* Ring depth. Three is the smallest that reliably has a finished result to collect while two are
  * still in flight; four gives a frame of slack on a driver that runs further ahead. It is NOT a
@@ -198,3 +207,4 @@ void geGpuTimerRecordSwap(double ms)
     ge_gt_swap_n++;
     if (ms > ge_gt_swap_max) { ge_gt_swap_max = ms; }
 }
+#endif /* !RAPI_GL || (Apple && !GE_PLATFORM_MAC) */

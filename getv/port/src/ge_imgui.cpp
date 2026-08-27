@@ -63,7 +63,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(GE_WITH_IMGUI)
+/* RAPI_METAL: this file only has the fixed-function OpenGL2 ImGui backend (see the header
+ * comment above build_mac.sh's own choice of it) -- no imgui_impl_metal integration exists here,
+ * so on a Metal target the feature falls through to the plain stub block below, same as when
+ * GE_WITH_IMGUI is off entirely. */
+#if defined(GE_WITH_IMGUI) && !defined(RAPI_METAL)
 
 #include <SDL2/SDL.h>
 

@@ -2,7 +2,7 @@
  *
  * ge_player_api.h is the seam for ACTING -- post input for a slot, read that slot's state. This
  * is the seam for KNOWING: where the objectives are, which waypoints lead to them, which guards
- * are near, which room anything is in. Bots, learning agents and tooling all need it, and none
+ * are near, which room anything is in. Bots and tooling all need it, and none
  * of them can get it from the game state alone because the game does not carry it in a form
  * anything can query.
  *
@@ -112,8 +112,8 @@ int  geWorldGuardsNear(float x, float y, float z, float radius,
  * alarms, monitors, glass. 4,871 of them across 28 levels, each with a position, the room it is
  * in, the nav node nearest to it, and its setup tag where it has one.
  *
- * This exists because the extraction is worth more than the bots that prompted it. A modder or an
- * agent should be able to ask where the keys are, which door leads out of a room, or what is
+ * This exists because the extraction is worth more than the bots that prompted it. A modder or a
+ * bot should be able to ask where the keys are, which door leads out of a room, or what is
  * worth picking up, without a ROM or a rebuild.
  *
  * The kind values are INDICES into a fixed list in tools/pack_world.py. Append only -- the pack

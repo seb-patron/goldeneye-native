@@ -15,6 +15,26 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
 BUILD="$HERE/build"
 SDK="$(xcrun -sdk appletvos --show-sdk-path)"
+# GETV_RENDERER=gl|metal (default gl). metal selects port/fast3d/gfx_metal.mm -- see
+# build_mac.sh's own header comment for the full rationale; this is the same switch,
+# same default, on the tvOS device target. Only one physical Apple TV exists to deploy
+# to, so unlike build_mac.sh this does NOT give metal its own BUILD dir -- switching
+# renderers here always means a fresh cmd_lib anyway.
+RENDERER="${GETV_RENDERER:-gl}"
+case "$RENDERER" in
+  gl|metal) ;;
+  *) echo "unknown GETV_RENDERER: $RENDERER (want gl or metal)" >&2; exit 1 ;;
+esac
+
+# ImGui, if fetched for tvOS -- same pattern as build_ios.sh. Optional: unlike iOS/mac,
+# this used to have no fetched prefix at all, so absence must stay a silent no-op (empty
+# stub bodies compile from ge_launcher.cpp/ge_imgui.cpp) rather than an error.
+IMGUI="${N64TVOS_PREFIX:-$HOME/.n64tvos}/imgui-tvos"
+IMGUIFLAGS=(); IMGUILIBS=()
+if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
+  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
+  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
+fi
 
 # Established by the port work; see the goldeneye_decomp_port memory for why each
 # one is needed. -ferror-limit=0 matters: the default of 20 silently truncates and
@@ -192,20 +212,50 @@ cmd_lib() {
     -DTARGET_N64 -DGE_PORT_NATIVE
     # port_vi.c includes PR/os.h, which defines nothing without this
     -D_LANGUAGE_C=1
-    # Backend selection. sm64ex wraps whole files in these: without RAPI_GL and
-    # WAPI_SDL2 gfx_opengl.c and gfx_sdl2.c compile to EMPTY objects and report
-    # success, then the link fails on the missing gfx_opengl_api / gfx_sdl structs.
-    -DRAPI_GL -DWAPI_SDL2
-    # tvOS is GL ES only, and supersampling is the sole route to a sharper image
-    # because tvOS exposes exactly one 1920x1080 mode.
-    -DUSE_GLES -DTVOS_SUPERSAMPLE
+    # Backend selection. sm64ex wraps whole files in these: without RAPI_GL/RAPI_METAL
+    # and WAPI_SDL2, gfx_opengl.c/gfx_metal.mm and gfx_sdl2.c compile to EMPTY objects
+    # and report success, then the link fails on the missing gfx_*_api / gfx_sdl structs.
+    -DWAPI_SDL2
+    $([ "$RENDERER" = "metal" ] && echo -DRAPI_METAL || echo -DRAPI_GL)
+    # GL ES-only concerns: tvOS is GL ES only there, and supersampling is the sole route
+    # to a sharper image because tvOS exposes exactly one 1920x1080 mode. Metal needs
+    # neither -- USE_GLES gates GL ES headers gfx_metal.mm never includes, and
+    # TVOS_SUPERSAMPLE's offscreen-framebuffer path is GL-specific (gfx_metal.mm has no
+    # supersample path yet at all -- known v1 gap, see its header comment).
+    $([ "$RENDERER" = "gl" ] && echo "-DUSE_GLES -DTVOS_SUPERSAMPLE")
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
+    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
   )
   local pok=0 pfail=0
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.c}").o"
     if clang "${PORTFLAGS[@]}" -c "$f" -o "$o" 2>/dev/null; then
+      pok=$((pok+1))
+    else
+      pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
+    fi
+  done
+  # Objective-C++: gfx_metal.mm. Always compiled, both renderers -- inert (empty body)
+  # under -DRAPI_GL, exactly symmetric with gfx_opengl.c under -DRAPI_METAL. Same ARC
+  # flag as build_mac.sh's equivalent loop.
+  for f in "$HERE"/port/fast3d/*.mm; do
+    [ -e "$f" ] || continue
+    local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
+    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then
+      pok=$((pok+1))
+    else
+      pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
+    fi
+  done
+  # C++ in the port layer -- see build_sim.sh's identical loop for why this is needed
+  # (gfx_sdl2.c's gePortImgui*() calls). IMGUIFLAGS above is empty (and this compiles
+  # ge_launcher.cpp/ge_imgui.cpp's stub bodies) unless imgui-tvos has actually been
+  # fetched, same as build_ios.sh.
+  for f in "$HERE"/port/src/*.cpp; do
+    [ -e "$f" ] || continue
+    local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
+    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -c "$f" -o "$o" 2>/dev/null; then
       pok=$((pok+1))
     else
       pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
@@ -238,6 +288,29 @@ DEV_XCODEBUILD="634383e218b182eaad97337eeade7c82e9e231cf"  # NOT the same id as 
 BUNDLE_ID="org.goldeneyenative.getv"
 
 cmd_app() {
+  # project.yml's GCC_PREPROCESSOR_DEFINITIONS reads this via xcodegen's own ${VAR}
+  # substitution (same mechanism already used there for ${N64TVOS_PREFIX} and
+  # ${DEVELOPMENT_TEAM}) so ge_tvos_main.c's Xcode-compiled copy picks the SAME
+  # renderer libge.a was just built with -- exported, not just set, so the subshell
+  # xcodegen runs in below inherits it.
+  export GETV_RAPI_DEFINE
+  GETV_RAPI_DEFINE="$([ "$RENDERER" = "metal" ] && echo RAPI_METAL || echo RAPI_GL)"
+  # project.yml's HEADER_SEARCH_PATHS/OTHER_LDFLAGS reference the literal ${N64TVOS_PREFIX}
+  # too, and xcodegen's substitution has no concept of bash's ${VAR:-default} -- an unset
+  # N64TVOS_PREFIX resolves to an empty string there, not to ~/.n64tvos, which is exactly
+  # how ge_tvos_main.c stopped finding SDL.h. build_sim.sh never hits this: its sed pass
+  # already replaces the whole ${N64TVOS_PREFIX}/sdl2-tvos substring with a literal path
+  # before xcodegen ever sees it. This script calls xcodegen on the raw project.yml, so it
+  # has to export the default itself.
+  export N64TVOS_PREFIX="${N64TVOS_PREFIX:-$HOME/.n64tvos}"
+  # project.yml's OTHER_LDFLAGS references ${GETV_IMGUI_LIB} the same way it references
+  # ${N64TVOS_PREFIX} above -- same build_ios.sh pattern. Empty when imgui-tvos was
+  # never fetched, which is fine: xcodegen substitutes an empty list entry.
+  export GETV_IMGUI_LIB="${IMGUILIBS[0]:-}"
+  # See build_sim.sh's identical rm -- regenerating over an existing xcodeproj can leave
+  # the scheme's buildable "supported platforms" empty, which surfaces later as an
+  # opaque "Found no destinations" build failure. Delete-then-regenerate is clean.
+  rm -rf "$HERE/Goldeneye-Native.xcodeproj"
   ( cd "$HERE" && xcodegen generate ) || return 1
   # Build the named scheme. Passing -destination without a scheme makes xcodebuild a
   # silent no-op that reports success and produces nothing.

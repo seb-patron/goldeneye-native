@@ -9,6 +9,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include <SDL.h>
 
@@ -169,28 +172,191 @@ ConfigWindow configWindow = {
 #endif
 
 /* 0 = nearest, 1 = bilinear, 2 = three-point. Three-point is what the N64 actually
- * did and what looked right on Perfect Dark. */
+ * did and what looked right on Perfect Dark.
+ *
+ * GETV_FILTERING=0|1|2 overrides the compiled-in default below, read once via a GCC/clang
+ * constructor rather than a lazy-static check at the read sites -- gfx_opengl.c and gfx_pc.c
+ * both read this global directly with no accessor to hang a check off, and both run before
+ * any explicit port-init call this file could otherwise piggyback on. Constructors run before
+ * main() on every platform this project targets, so "before the first read" is guaranteed
+ * without needing to find or disturb an existing init sequence. */
 unsigned int configFiltering = 2;
+
+__attribute__((constructor))
+static void ge_filtering_env_init(void)
+{
+    const char *e = getenv("GETV_FILTERING");
+    if (e && *e >= '0' && *e <= '2' && e[1] == '\0') {
+        configFiltering = (unsigned int) (*e - '0');
+    }
+}
+
+/* 1 = the rendered scene fills the real window at its real aspect; 0 = retail behaviour,
+ * pillarboxed/letterboxed to the game's native 4:3 (gfx_pc.c's ge_scale()/ge_offset_*()
+ * picking the smaller of the two axis scales). Defaults on: the pillarbox was never a
+ * deliberate user-facing choice, just what happens when nothing corrects for a non-4:3
+ * window, and it is the thing GETV_WIDESCREEN=0 is for undoing on request.
+ *
+ * Same env-var-via-constructor approach as configFiltering above, for the same reason:
+ * gfx_pc.c reads this global directly at multiple call sites with no accessor to hang a
+ * lazy check off. */
+unsigned int configWidescreen = 1;
+
+__attribute__((constructor))
+static void ge_widescreen_env_init(void)
+{
+    const char *e = getenv("GETV_WIDESCREEN");
+    if (e && *e >= '0' && *e <= '1' && e[1] == '\0') {
+        configWidescreen = (unsigned int) (*e - '0');
+    }
+}
+
+/* 1 = ge_upload_texture() (gfx_pc.c) checks GETV_TEXPACK for an override of every texture
+ * before uploading the N64 decoder's own output; 0 = never checks, byte-for-byte the
+ * current behaviour. Defaults OFF, unlike configFiltering/configWidescreen above -- both
+ * of those were verified by tracing the exact call order and, for widescreen, by working
+ * through the arithmetic that proves ge_scale() collapses to a single uniform factor. This
+ * one has had no such verification pass, because there has been no compiler available to
+ * run one against: it was written and reasoned through, not measured. An empty
+ * GETV_TEXPACK makes it a no-op regardless, so turning it on costs one failed file lookup
+ * per unique texture rather than anything worse -- but "costs little if wrong" is not the
+ * same claim as "verified correct", and this stays opt-in until it has actually been run. */
+unsigned int configHDTextures = 0;
+
+__attribute__((constructor))
+static void ge_hdtextures_env_init(void)
+{
+    const char *e = getenv("GETV_HD_TEXTURES");
+    if (e && *e >= '0' && *e <= '1' && e[1] == '\0') {
+        configHDTextures = (unsigned int) (*e - '0');
+    }
+}
 
 /* ---- filesystem -------------------------------------------------------- */
 
-/* Fast3D only uses these for external HD texture packs. GoldenEye has no asset
- * loader yet and ships no texture directory, so lookups always miss and the game's
- * own embedded textures are used. Wire these up when a pack format is chosen. */
+/* Pack format, chosen: a flat directory of override texture files, named by content
+ * hash -- ge_texhash() in gfx_pc.c hashes the raw N64 texel bytes plus fmt/siz, so the
+ * name is stable across runs and independent of where the ROM data happens to sit in
+ * memory. GETV_TEXPACK_DUMP=<dir> (also gfx_pc.c; not GETV_TEXDUMP, which is already
+ * image.c's own unrelated byte-count debug gate) writes a same-named .ppm baseline the
+ * first time each texture is decoded, so a pack starts life as a copy of a dump with
+ * individual files replaced by an upscaler, not as a guessing game over what to name things.
+ *
+ * GETV_TEXPACK names the root explicitly; "hdtextures" is the default so a pack folder
+ * dropped next to the executable with no configuration at all is picked up. Same
+ * GETV_EXEDIR fallback as gePortLuaInit() (ge_lua.c) and ge_config.c's own config-file
+ * search, and for the same reason: a relative path is tried against the working directory
+ * first (an explicit relative GETV_TEXPACK should mean what the user typed, standing in
+ * the right place), then against the executable's own directory, which is where a
+ * distributed folder's pack actually lives when launched from a shortcut or from
+ * somewhere else entirely. No pack directory is the normal case -- most players have not
+ * installed one -- and stays silent rather than logging on every missed lookup. */
+static const char *ge_texpack_dir(void)
+{
+    static char resolved[1024];
+    static const char *dir;
+    static int done;
+    struct stat st;
 
+    if (done) return dir;
+    done = 1;
+
+    dir = getenv("GETV_TEXPACK");
+    if (dir == NULL || *dir == '\0') dir = "hdtextures";
+
+    if (stat(dir, &st) == 0 && S_ISDIR(st.st_mode)) return dir;
+
+    if (dir[0] != '/' && dir[0] != '\\' && !(dir[0] != '\0' && dir[1] == ':')) {
+        const char *exedir = getenv("GETV_EXEDIR");
+        if (exedir != NULL && *exedir != '\0') {
+            snprintf(resolved, sizeof(resolved), "%s/%s", exedir, dir);
+            if (stat(resolved, &st) == 0 && S_ISDIR(st.st_mode)) {
+                dir = resolved;
+                return dir;
+            }
+        }
+    }
+
+    dir = NULL;
+    return dir;
+}
+
+/* Fast3D's own EXTERNAL_DATA path asks for FS_TEXTUREDIR ("gfx") specifically and expects
+ * a walk to recurse into it; this pack has no such structure, it is one flat folder of
+ * <hash>.<ext> files, so a `base` naming any subdirectory legitimately finds nothing. */
 fs_walk_result_t fs_walk(const char *base, walk_fn_t walkfn, void *user, const bool recur)
 {
-    (void)base; (void)walkfn; (void)user; (void)recur;
-    return FS_WALK_NOTFOUND;
+    const char *root = ge_texpack_dir();
+    char path[1280];
+    DIR *d;
+    struct dirent *e;
+    fs_walk_result_t result = FS_WALK_SUCCESS;
+
+    (void)recur;   /* flat directory, nothing to recurse into */
+    if (root == NULL) return FS_WALK_NOTFOUND;
+
+    if (base != NULL && *base != '\0' && strcmp(base, ".") != 0) {
+        snprintf(path, sizeof(path), "%s/%s", root, base);
+    } else {
+        snprintf(path, sizeof(path), "%s", root);
+    }
+
+    d = opendir(path);
+    if (d == NULL) return FS_WALK_NOTFOUND;
+
+    while ((e = readdir(d)) != NULL) {
+        char full[1536];
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        snprintf(full, sizeof(full), "%s/%s", path, e->d_name);
+        if (!walkfn(user, full)) {
+            result = FS_WALK_INTERRUPTED;
+            break;
+        }
+    }
+    closedir(d);
+    return result;
 }
 
 void *fs_load_file(const char *vpath, uint64_t *outsize)
 {
-    (void)vpath;
-    if (outsize) {
-        *outsize = 0;
+    const char *root = ge_texpack_dir();
+    char path[1280];
+    FILE *f;
+    long size;
+    void *buf;
+
+    if (outsize) *outsize = 0;
+    if (root == NULL || vpath == NULL || *vpath == '\0') return NULL;
+
+    /* fs_walk() above hands its callback full paths under the resolved root; a caller
+     * that turns around and loads one of those (rather than a bare "<hash>.png") is
+     * passing an already-rooted path back in, so an absolute vpath is used as-is instead
+     * of being joined onto root a second time. */
+    if (vpath[0] == '/' || vpath[0] == '\\' || (vpath[0] != '\0' && vpath[1] == ':')) {
+        snprintf(path, sizeof(path), "%s", vpath);
+    } else {
+        snprintf(path, sizeof(path), "%s/%s", root, vpath);
     }
-    return NULL;
+
+    f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return NULL; }
+    size = ftell(f);
+    if (size < 0 || fseek(f, 0, SEEK_SET) != 0) { fclose(f); return NULL; }
+
+    buf = malloc((size_t) size);
+    if (buf == NULL) { fclose(f); return NULL; }
+
+    if (size > 0 && fread(buf, 1, (size_t) size, f) != (size_t) size) {
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
+    fclose(f);
+
+    if (outsize) *outsize = (uint64_t) size;
+    return buf;
 }
 
 /* ---- shutdown ---------------------------------------------------------- */

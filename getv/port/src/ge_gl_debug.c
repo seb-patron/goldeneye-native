@@ -21,6 +21,16 @@
 
 #include "ge_gl_debug.h"
 
+/* No GL on this target (RAPI_METAL, or an Apple platform other than macOS -- iOS/tvOS have no
+ * <OpenGL/gl3.h>): nothing above declared GLenum, so the real implementation below cannot compile
+ * here. Same empty-stub pattern as ge_lua.c/ge_net_enet.c for a feature that is a no-op on this
+ * target rather than a build error. */
+#if !defined(RAPI_GL) || (defined(__APPLE__) && !defined(GE_PLATFORM_MAC))
+int  geGlDebugEnabled(void) { return 0; }
+void geGlDebugInstall(void) { }
+int  geGlDebugPoll(const char *where, int frame) { (void) where; (void) frame; return 0; }
+#else
+
 /* The debug callback must carry the GL calling convention: the driver invokes it, so getting this
  * wrong corrupts the stack on any target where __stdcall and the C default differ.
  *
@@ -175,3 +185,4 @@ int geGlDebugPoll(const char *where, int frame)
     }
     return n;
 }
+#endif /* !RAPI_GL || (Apple && !GE_PLATFORM_MAC) */

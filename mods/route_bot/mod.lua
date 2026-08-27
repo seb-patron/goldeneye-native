@@ -116,11 +116,8 @@ function onFrame(frame)
 
     if step >= steps then return end
 
- -- FOLLOW THE ROUTE, waypoint by waypoint. The first version of this fetched the step and
- -- then walked at the objective's final position instead, which ignored the route entirely
- -- and would have walked into whatever wall lay between. It did that because the API had no
- -- way to ask where a waypoint is -- ge.waypoint(id) exists now because writing this found
- -- that gap.
+ -- FOLLOW THE ROUTE, waypoint by waypoint -- walking straight at the objective's final position
+ -- instead would ignore the route and walk into whatever wall lies between.
     local s = ge.route_step(objective, step)
     if not s then return end
     local wp = ge.waypoint(s.to)

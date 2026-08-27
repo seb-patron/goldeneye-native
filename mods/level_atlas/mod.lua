@@ -112,24 +112,17 @@ function onFrame(frame)
                          c.clear and "clear" or table.concat(what, " "),
                          c.clear and "" or string.format(" at %.0fu", c.distance)))
 
-    -- 🔴 THE DOOR BIT DOES NOT MEAN "A DOOR IS IN FRONT OF YOU".
+    -- THE DOOR BIT DOES NOT MEAN "A DOOR IS IN FRONT OF YOU".
     --
-    -- geSenseLine reports WALL, DOOR and OBJECT together whenever the ray merely GRAZES a doorway
-    -- edge, so the mask says what the line TOUCHED, not what is ahead. mac-getv's bot acted on
-    -- this bit and drove into a wall with the action button held for an entire run while its real
-    -- target sat at bearing -60.
+    -- geSenseLine reports WALL, DOOR and OBJECT together whenever the ray merely grazes a doorway
+    -- edge, so the bit says what the line touched, not what is ahead. A door bit alongside a wall
+    -- or object bit is a grazed edge, not an open doorway -- and "I cannot tell" and "there is a
+    -- door" lead to opposite actions, so only an isolated door bit is reported as a door.
     --
-    -- This line used to say "that is a DOOR, an opportunity to a bot" from the bit alone, which is
-    -- the same mistake one layer up: a mod reading the atlas would have believed it. Now it only
-    -- claims a door when the door bit arrives ALONE. A door reported together with a wall is a
-    -- grazed edge and is reported as exactly that, because "I cannot tell" and "there is a door"
-    -- lead to opposite actions.
-    --
-    -- ⚠️ Confirming against the prop table is what the bot now does (a real door, within the
-    -- engine's own 200 units, and near the bearing to the TARGET rather than to the current
-    -- heading). The atlas deliberately does not repeat that here: it reports what the sensor said
-    -- and who else agrees, and a second, subtly different door test living in a mod is how two
-    -- answers to one question start disagreeing.
+    -- Confirming against the prop table (a real door, within the engine's own 200 units, and near
+    -- the bearing to the target) is what a bot should do before acting on this. The atlas
+    -- deliberately does not repeat that check here: a second, subtly different door test living in
+    -- a mod is how two answers to one question start disagreeing.
     if c.door and not c.wall and not c.object then
         ge.log("    a DOOR alone -- an obstacle to a planner, an opportunity to a bot with a hand")
     elseif c.door then
@@ -140,7 +133,7 @@ function onFrame(frame)
     -- Which way is clear, as a TURN rather than a bearing: the useful question is how far to
     -- turn, not where north is.
     --
-    -- 🔴 THE BODY VERSION, not ge.clearest_heading. A line has no width, so a gap narrower than
+    -- THE BODY VERSION, not ge.clearest_heading. A line has no width, so a gap narrower than
     -- the player passes the line test and the sweep hands it back as the best way out -- and a
     -- reader who acts on it walks into the one direction it cannot fit through, with the report
     -- insisting it chose correctly. The sensor lies; the policy is fine.
@@ -156,10 +149,9 @@ function onFrame(frame)
                          math.abs(turn) < 1 and " (straight ahead is fine)" or ""))
 
     -- Am I against something, as opposed to predicting one? History, not geometry.
-    -- Three states, not two. The first version printed "moving freely" whenever it was not stuck,
-    -- so a player standing still read as walking -- and it read that way even before anything fed
-    -- the detector, when the honest answer was "no data at all". Not-stuck and moving are
-    -- different claims.
+    -- Three states, not two: "not stuck" is not the same claim as "moving freely" -- a
+    -- stationary player is neither, and with no data yet the honest answer is "no data at
+    -- all" rather than a guess at one or the other.
     local stuck, travel = ge.is_stuck(SLOT, 8)
     local contact
     if stuck then

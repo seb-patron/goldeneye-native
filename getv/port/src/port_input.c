@@ -1335,10 +1335,10 @@ static void geKeyboardApply(int port, struct GePadState *out)
  * did, and the keys are simply another way in. Off unless GETV_CROUCH_KEY is 1, which it is
  * by default; set it to 0 for faithful-only behaviour.
  *
- * not routed through port_os.c's action table. That table is the Windows build's
- * lane and is being edited there for the per-player bindings; a second author adding rows
- * to it mid-flight is how the last collision happened. When the binding work lands these
- * should move onto it as GE_ACT_CROUCH / GE_ACT_STAND.
+ * not routed through port_os.c's action table. That table is mid-rework for the
+ * per-player bindings, and adding rows to it while that is in progress is how the last
+ * merge conflict happened. When the binding work lands these should move onto it as
+ * GE_ACT_CROUCH / GE_ACT_STAND.
  */
 static int geCrouchKeysEnabled(void)
 {

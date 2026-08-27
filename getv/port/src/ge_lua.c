@@ -571,7 +571,7 @@ static int ge_l_sense_ahead_body(lua_State *L)
 
 /* ge.clearest_heading(x, z, heading [, span] [, reach]) -> degrees.
  *
- * ⚠️ A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
+ * A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
  * reaches. Do NOT steer a body on it: a line has no width, so a gap narrower than the player
  * passes cleanly and the sweep then returns that gap as the best way out. Use
  * ge.clearest_heading_body below for anything that moves. */
@@ -591,7 +591,7 @@ static int ge_l_clearest_heading(lua_State *L)
  * The one anything steering a body must use. Same outward sweep, so the smallest correction still
  * wins, but every candidate is judged with a body rather than a ray.
  *
- * 🔴 THIS BINDING WAS THE LAST PLACE THE LYING SENSOR SURVIVED. The router and the CLI were both
+ * THIS BINDING WAS THE LAST PLACE THE LYING SENSOR SURVIVED. The router and the CLI were both
  * moved onto the body test; Lua was not, so every mod -- including our own atlas -- was still
  * being handed the line answer while the C callers had been corrected. Two callers of one idea
  * with only one fixed is worse than neither being fixed, because the tree looks done.

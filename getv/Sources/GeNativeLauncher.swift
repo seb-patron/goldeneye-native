@@ -529,7 +529,7 @@ private final class GeLauncherBridgeRunner {
         // GETV_LAUNCHER_AUTOPLAY=1: skip presenting the window and fall straight through
         // to the game with whatever GETV_* settings are already in the environment (e.g.
         // GETV_STAGE). Mirrors the old ImGui launcher's own GETV_LAUNCHER_AUTOPLAY -- it
-        // exists for the same reason: automated boots (this session's own testing, CI)
+        // exists for the same reason: automated boots (headless local runs, CI)
         // have nothing to tap a SwiftUI button with. model_load()+model_store() still
         // run via geBridgeLoad()/geBridgeSave(), so a value set only through the
         // launcher's own env-var reading (not a live model edit) is preserved exactly

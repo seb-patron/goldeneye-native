@@ -78,6 +78,15 @@ struct MetalTexture {
     id<MTLSamplerState> sampler;
     float size[2];
     bool linear_filter;
+    /* Parallax height companion, one per diffuse texture slot -- same reasoning as
+     * gfx_opengl.c's identical has_height/height_gltex fields on struct GLTexture: this is
+     * per-slot rather than a single shared "current" texture because the uniform refresh
+     * (gfx_metal_draw_triangles, every draw) and the override upload
+     * (ge_texpack_try_override, gfx_pc.c, only on a texture-cache miss) run at different
+     * rates, so a shared flag would go stale the moment a different, already-cached texture
+     * got rebound without re-importing. */
+    bool has_height;
+    id<MTLTexture> height_tex;
 };
 
 struct FrameUniforms {
@@ -87,10 +96,16 @@ struct FrameUniforms {
 /* Mirrors gfx_opengl.c's uTex0Size/uTex1Size/uTex0Filter/uTex1Filter uniforms -- needed
  * for correctness whenever both textures are sampled (the TEXEL1 rescale, see the
  * fragment shader body below), not just for the 3-point filter this port does not yet
- * implement on Metal. */
+ * implement on Metal. has_height mirrors GL's uHasHeight: whether THIS draw's tile-0
+ * texture has a real height companion bound (gfx_metal_draw_triangles decides, per draw,
+ * from metal_tex[0]->has_height) or is reading the neutral placeholder. int32_t, not bool,
+ * to match this struct's layout byte-for-byte against the MSL `struct DrawUniforms` it is
+ * read as through a raw buffer binding -- MSL bool is not guaranteed the same size as C++
+ * bool across compilers, int32_t is unambiguous on both sides. */
 struct DrawUniforms {
     float tex0_size[2];
     float tex1_size[2];
+    int32_t has_height;
 };
 
 static struct ShaderProgram shader_program_pool[SHADER_PROGRAM_POOL_SIZE];
@@ -104,6 +119,15 @@ static struct MetalTexture *metal_tex[2];
 static int metal_curtex = 0;
 
 static uint32_t frame_count;
+
+/* Parallax height channel's neutral placeholder -- see gfx_opengl.c's identical
+ * ge_height_tex for the full reasoning. Bound whenever the currently selected tile-0
+ * texture has no real height data of its own (MetalTexture::has_height false), so
+ * uTexHeight is always legal to sample even on the frame before any override could
+ * possibly have loaded one. 1x1, mid-grey (128,128,128,255): the value the fragment
+ * shader's `- 0.5` reads as "no displacement". */
+static id<MTLTexture> mtl_height_placeholder;
+static id<MTLSamplerState> mtl_height_sampler;
 
 static id<MTLDevice> mtl_device;
 static CAMetalLayer *mtl_layer;
@@ -143,7 +167,7 @@ static bool gfx_metal_z_is_from_0_to_1(void) {
 // of GLSL. Deliberately NOT using gfx_cc_get_features() (gfx_cc.c): that helper's
 // do_single/do_multiply/do_mix/color_alpha_same are computed only from cycle 1's c[0]/c[1]
 // arrays and never from cycle 2's c2[0]/c2[1] -- silently wrong for every two-cycle
-// combiner, which CLAUDE.md notes is "nearly everywhere" in this game. Decoding inline
+// combiner, and two-cycle combiners are nearly everywhere in this game. Decoding inline
 // here, matching gfx_opengl.c's own (correct, two-cycle-aware) logic byte for byte, avoids
 // depending on that latent bug. Flagged separately; not this file's job to fix gfx_cc.c.
 
@@ -273,14 +297,6 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     bool color_alpha_same = (shader_id & 0xfff) == ((shader_id >> 12) & 0xfff);
     bool color_alpha_same2 = ((shader_id >> CC_C2_RGB_SHIFT) & 0xffff) == ((shader_id >> CC_C2_ALPHA_SHIFT) & 0xffff);
 
-    printf("[getv][diag] build_pipeline shader_id=0x%llx tex0=%d tex1=%d num_inputs=%d "
-           "2cyc=%d alpha=%d fog=%d cc=[%d %d %d %d] ac=[%d %d %d %d] rgb=(%d,%d,%d)\n",
-           (unsigned long long) shader_id, used_textures[0], used_textures[1], num_inputs,
-           two_cycle, opt_alpha, opt_fog, c[0][0], c[0][1], c[0][2], c[0][3],
-           c[1][0], c[1][1], c[1][2], c[1][3],
-           (int) ((shader_id >> 0) & 0xff), (int) ((shader_id >> 8) & 0xff), (int) ((shader_id >> 16) & 0xff));
-    fflush(stdout);
-
     // ---- Vertex layout: position(4), [texCoord(2)], [fog(4)], input1..N(3 or 4) --
     // same order gfx_pc.c always produces (mirrors gfx_opengl.c's attrib push order).
     size_t num_floats = 4;
@@ -290,7 +306,7 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     vd.attributes[attr].bufferIndex = 0;
     vd.attributes[attr].offset = 0;
     attr++;
-    size_t off_tex = 0, off_fog = 0;
+    size_t off_tex = 0, off_fog = 0, off_viewpos = 0;
     if (used_textures[0] || used_textures[1]) {
         off_tex = num_floats * sizeof(float);
         vd.attributes[attr].format = MTLVertexFormatFloat2;
@@ -298,6 +314,19 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
         vd.attributes[attr].offset = off_tex;
         attr++;
         num_floats += 2;
+    }
+    /* Parallax view-space position -- see the field comment on LoadedVertex::vpx/vpy/vpz
+     * in gfx_pc.c. Gated on tex0 specifically (not tex0||tex1), matching exactly how
+     * gfx_pc.c packs it into the VBO: right after texcoord, before fog, only when tex0
+     * is in use, since a height-map override always pairs with the diffuse (tile 0)
+     * override. Ported from gfx_opengl.c's identical aViewPos/vViewPos addition. */
+    if (used_textures[0]) {
+        off_viewpos = num_floats * sizeof(float);
+        vd.attributes[attr].format = MTLVertexFormatFloat3;
+        vd.attributes[attr].bufferIndex = 0;
+        vd.attributes[attr].offset = off_viewpos;
+        attr++;
+        num_floats += 3;
     }
     if (opt_fog) {
         off_fog = num_floats * sizeof(float);
@@ -331,6 +360,9 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     if (used_textures[0] || used_textures[1]) {
         char l[128]; snprintf(l, sizeof l, "  float2 texCoord [[attribute(%d)]];", a++); m_append_line(vs, &vs_len, l);
     }
+    if (used_textures[0]) {
+        char l[128]; snprintf(l, sizeof l, "  float3 viewPos [[attribute(%d)]];", a++); m_append_line(vs, &vs_len, l);
+    }
     if (opt_fog) {
         char l[128]; snprintf(l, sizeof l, "  float4 fog [[attribute(%d)]];", a++); m_append_line(vs, &vs_len, l);
     }
@@ -343,6 +375,7 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     m_append_line(vs, &vs_len, "struct V2F {");
     m_append_line(vs, &vs_len, "  float4 pos [[position]];");
     if (used_textures[0] || used_textures[1]) m_append_line(vs, &vs_len, "  float2 texCoord;");
+    if (used_textures[0]) m_append_line(vs, &vs_len, "  float3 viewPos;");
     if (opt_fog) m_append_line(vs, &vs_len, "  float4 fog;");
     for (int i = 0; i < num_inputs; i++) {
         char l[64]; snprintf(l, sizeof l, "  %s input%d;", opt_alpha ? "float4" : "float3", i + 1);
@@ -353,6 +386,7 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     m_append_line(vs, &vs_len, "  V2F out;");
     m_append_line(vs, &vs_len, "  out.pos = in.pos;");
     if (used_textures[0] || used_textures[1]) m_append_line(vs, &vs_len, "  out.texCoord = in.texCoord;");
+    if (used_textures[0]) m_append_line(vs, &vs_len, "  out.viewPos = in.viewPos;");
     if (opt_fog) m_append_line(vs, &vs_len, "  out.fog = in.fog;");
     for (int i = 0; i < num_inputs; i++) {
         char l[64]; snprintf(l, sizeof l, "  out.input%d = in.input%d;", i + 1, i + 1);
@@ -363,7 +397,7 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     vs[vs_len] = '\0';
 
     m_append_line(fs, &fs_len, "struct FrameUniforms { int frameCount; };");
-    m_append_line(fs, &fs_len, "struct DrawUniforms { float2 tex0Size; float2 tex1Size; };");
+    m_append_line(fs, &fs_len, "struct DrawUniforms { float2 tex0Size; float2 tex1Size; int hasHeight; };");
     if (used_textures[0] && used_textures[1]) {
         m_append_line(fs, &fs_len,
             "float4 sampleTex(texture2d<float> t, sampler s, float2 uv) { return t.sample(s, uv); }");
@@ -374,9 +408,45 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     m_append_str(fs, &fs_len, "  constant DrawUniforms &uDraw [[buffer(1)]]");
     if (used_textures[0]) m_append_str(fs, &fs_len, "\n  , texture2d<float> uTex0 [[texture(0)]], sampler uSamp0 [[sampler(0)]]");
     if (used_textures[1]) m_append_str(fs, &fs_len, "\n  , texture2d<float> uTex1 [[texture(1)]], sampler uSamp1 [[sampler(1)]]");
+    /* Parallax height channel -- see the long comment on struct MetalTexture's has_height
+     * field and gfx_pc.c's ge_texpack_try_override for where uDraw.hasHeight actually gets
+     * set true. Present in every shader that uses tex0 so the two cannot fall out of sync;
+     * inert (texCoord0 == in.texCoord) whenever hasHeight is 0, which today is always,
+     * since no texture pack ships a height companion yet. Ported from gfx_opengl.c's
+     * identical uTexHeight/uHasHeight addition -- see its comments for the full reasoning,
+     * including why vViewPos.xy stands in for a true tangent-space view direction. */
+    if (used_textures[0]) m_append_str(fs, &fs_len, "\n  , texture2d<float> uTexHeight [[texture(2)]], sampler uSampHeight [[sampler(2)]]");
     m_append_line(fs, &fs_len, ") {");
+    {
+        const char *e = getenv("GETV_DEBUGCOLOR");
+        if (e && *e == '7') {
+            /* Absolute earliest possible exit -- before any texture sample, combiner term, or
+             * discard_fragment() runs. If this does not visibly cover a shader's draws, nothing
+             * downstream in this function is responsible: the fragment either never gets
+             * generated by the rasterizer for that shader (culling/scissor/viewport), or its
+             * pipeline/encoder state is wrong before this code ever runs. */
+            m_append_line(fs, &fs_len, "  return float4(1.0, 0.6, 0.0, 1.0);");
+            m_append_line(fs, &fs_len, "}");
+            fs[fs_len] = '\0';
+            goto ge_metal_fs_early_exit;
+        }
+    }
 
-    if (used_textures[0]) m_append_line(fs, &fs_len, "  float4 texVal0 = uTex0.sample(uSamp0, in.texCoord);");
+    if (used_textures[0]) {
+        /* heightScale is deliberately small and fixed, not a uniform -- see gfx_opengl.c's
+         * identical constant for why (this is a seam, not a tuned effect, with no real
+         * height content anywhere yet to tune it against). One height sample, not a ray
+         * march -- tier 1 (parallax texture mapping), not tier 2 (occlusion mapping). The
+         * 0.5 subtraction reads the height texture's mid-grey as "no displacement", matching
+         * gfx_metal_ensure_height_placeholder()'s own fill below. */
+        m_append_line(fs, &fs_len, "  float2 texCoord0 = in.texCoord;");
+        m_append_line(fs, &fs_len, "  if (uDraw.hasHeight != 0) {");
+        m_append_line(fs, &fs_len, "    float3 parallaxViewDir = normalize(-in.viewPos);");
+        m_append_line(fs, &fs_len, "    float parallaxHeight = uTexHeight.sample(uSampHeight, in.texCoord).r - 0.5;");
+        m_append_line(fs, &fs_len, "    texCoord0 = in.texCoord + parallaxViewDir.xy * (parallaxHeight * 0.04);");
+        m_append_line(fs, &fs_len, "  }");
+        m_append_line(fs, &fs_len, "  float4 texVal0 = uTex0.sample(uSamp0, texCoord0);");
+    }
     if (used_textures[1]) {
         /* Same TEXEL1 rescale as gfx_opengl.c: one shared UV, normalised by TEXEL0's
          * dimensions; TEXEL1 (often a different LOD/size) rescales by the size ratio. */
@@ -434,6 +504,7 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     m_append_line(fs, &fs_len, "}");
     fs[fs_len] = '\0';
 
+ge_metal_fs_early_exit:
     NSMutableString *src = [NSMutableString stringWithUTF8String:vs];
     [src appendString:@"\n"];
     [src appendString:[NSString stringWithUTF8String:fs]];
@@ -564,6 +635,57 @@ static void gfx_metal_set_sampler_parameters(int tile, bool linear_filter, uint3
     }
 }
 
+/* Called once, from gfx_metal_init(), so the placeholder is always bound and legal to
+ * sample from the first frame on -- every shader with used_textures[0] compiles in the
+ * height-sampling code (gated at runtime by uDraw.hasHeight, not by a shader variant), so
+ * uTexHeight must have something valid in it even on the frame before any real override
+ * could possibly have loaded one. Ported from gfx_opengl.c's gfx_opengl_ensure_height_tex. */
+static void gfx_metal_ensure_height_placeholder(void) {
+    if (mtl_height_placeholder) return;
+    @autoreleasepool {
+        static const uint8_t neutral[4] = { 128, 128, 128, 255 };
+        MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                          width:1 height:1 mipmapped:NO];
+        desc.usage = MTLTextureUsageShaderRead;
+        mtl_height_placeholder = [mtl_device newTextureWithDescriptor:desc];
+        MTLRegion region = MTLRegionMake2D(0, 0, 1, 1);
+        [mtl_height_placeholder replaceRegion:region mipmapLevel:0 withBytes:neutral bytesPerRow:4];
+
+        MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
+        sd.minFilter = MTLSamplerMinMagFilterLinear;
+        sd.magFilter = MTLSamplerMinMagFilterLinear;
+        sd.sAddressMode = MTLSamplerAddressModeClampToEdge;
+        sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
+        mtl_height_sampler = [mtl_device newSamplerStateWithDescriptor:sd];
+    }
+}
+
+/* Stored on metal_tex[metal_curtex] -- the SAME slot gfx_metal_upload_texture (the diffuse
+ * upload right before this call, in ge_texpack_try_override, gfx_pc.c) just wrote to --
+ * rather than a single shared "current" texture. See MetalTexture::has_height's own comment
+ * for why per-slot storage is required, not optional. Ported from gfx_opengl.c's
+ * gfx_opengl_upload_height_texture. */
+static void gfx_metal_upload_height_texture(const uint8_t *rgba32_buf, int width, int height) {
+    struct MetalTexture *t = metal_tex[metal_curtex];
+    @autoreleasepool {
+        MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                                                          width:width height:height mipmapped:NO];
+        desc.usage = MTLTextureUsageShaderRead;
+        t->height_tex = [mtl_device newTextureWithDescriptor:desc];
+        MTLRegion region = MTLRegionMake2D(0, 0, width, height);
+        [t->height_tex replaceRegion:region mipmapLevel:0 withBytes:rgba32_buf bytesPerRow:(NSUInteger)width * 4];
+    }
+    t->has_height = true;
+}
+
+/* Marks this slot as having no height companion. Does not release height_tex -- see
+ * gfx_opengl.c's identical gfx_opengl_clear_height_texture for why (packs are static files,
+ * not something that changes mid-session, so there is no case where a slot legitimately
+ * loses a height companion it once had). */
+static void gfx_metal_clear_height_texture(void) {
+    metal_tex[metal_curtex]->has_height = false;
+}
+
 static void gfx_metal_apply_depth_state(void) {
     if (!mtl_encoder) return;
     static int force_no_depth = -1;
@@ -603,16 +725,6 @@ static void gfx_metal_set_scissor(int x, int y, int width, int height) {
     NSUInteger sy = (NSUInteger)MAX(0, MIN(y, (int)dh));
     NSUInteger sw = (NSUInteger)MAX(0, MIN(width, (int)dw - (int)sx));
     NSUInteger sh = (NSUInteger)MAX(0, MIN(height, (int)dh - (int)sy));
-    {
-        static int n;
-        if (n < 8) { n++;
-            printf("[getv][diag] set_scissor in=(%d,%d,%d,%d) drawable=%lux%lu clamped=(%lu,%lu,%lu,%lu) encoder=%p\n",
-                   x, y, width, height, (unsigned long) dw, (unsigned long) dh,
-                   (unsigned long) sx, (unsigned long) sy, (unsigned long) sw, (unsigned long) sh,
-                   (__bridge void *) mtl_encoder);
-            fflush(stdout);
-        }
-    }
     MTLScissorRect sr = { sx, sy, sw, sh };
     [mtl_encoder setScissorRect:sr];
 }
@@ -624,18 +736,6 @@ static void gfx_metal_set_use_alpha(bool use_alpha) {
 
 static void gfx_metal_draw_triangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) {
     if (!mtl_encoder || !cur_prg) return;
-    {
-        static int n;
-        if (n < 12 && buf_vbo_num_tris > 20) { n++;
-            printf("[getv][diag] draw n_tris=%zu vbo_len=%zu pos0=(%.3f %.3f %.3f %.3f) "
-                   "depth(test=%d mask=%d decal=%d) prg=%p tex0=%p\n",
-                   buf_vbo_num_tris, buf_vbo_len,
-                   (double) buf_vbo[0], (double) buf_vbo[1], (double) buf_vbo[2], (double) buf_vbo[3],
-                   (int) cur_depth_test, (int) cur_depth_mask, (int) cur_zmode_decal,
-                   (__bridge void *) cur_prg->pipeline, (void *) metal_tex[0]);
-            fflush(stdout);
-        }
-    }
     size_t bytes = sizeof(float) * buf_vbo_len;
     if (mtl_vbo_offset + bytes > VBO_POOL_BYTES) {
         sys_fatal("metal vertex buffer pool exhausted this frame (%zu > %d)", mtl_vbo_offset + bytes, VBO_POOL_BYTES);
@@ -654,11 +754,21 @@ static void gfx_metal_draw_triangles(float buf_vbo[], size_t buf_vbo_len, size_t
     du.tex0_size[1] = metal_tex[0] ? metal_tex[0]->size[1] : 1.0f;
     du.tex1_size[0] = metal_tex[1] ? metal_tex[1]->size[0] : 1.0f;
     du.tex1_size[1] = metal_tex[1] ? metal_tex[1]->size[1] : 1.0f;
+    /* Parallax: whether TILE 0's currently-bound texture has a real height companion --
+     * see MetalTexture::has_height's own comment for why this is read per-slot, per draw,
+     * rather than cached anywhere. */
+    du.has_height = (metal_tex[0] && metal_tex[0]->has_height) ? 1 : 0;
     [mtl_encoder setFragmentBytes:&du length:sizeof du atIndex:1];
 
     if (cur_prg->used_textures[0] && metal_tex[0]) {
         [mtl_encoder setFragmentTexture:metal_tex[0]->tex atIndex:0];
         [mtl_encoder setFragmentSamplerState:metal_tex[0]->sampler atIndex:0];
+        /* uTexHeight/uSampHeight -- always bound to SOMETHING legal to sample (the real
+         * height texture when this slot has one, the neutral placeholder otherwise), same
+         * reasoning as gfx_opengl.c's GL_TEXTURE2 binding in gfx_opengl_set_texture_uniforms. */
+        bool has_height = metal_tex[0]->has_height;
+        [mtl_encoder setFragmentTexture:(has_height ? metal_tex[0]->height_tex : mtl_height_placeholder) atIndex:2];
+        [mtl_encoder setFragmentSamplerState:mtl_height_sampler atIndex:2];
     }
     if (cur_prg->used_textures[1] && metal_tex[1]) {
         [mtl_encoder setFragmentTexture:metal_tex[1]->tex atIndex:1];
@@ -696,6 +806,8 @@ static void gfx_metal_init(void) {
     tex_cache_size = TEX_CACHE_STEP;
     tex_cache = (struct MetalTexture *)calloc(tex_cache_size, sizeof(struct MetalTexture));
     if (!tex_cache) sys_fatal("out of memory allocating metal texture cache");
+
+    gfx_metal_ensure_height_placeholder();
 
     for (int i = 0; i < VBO_POOL_COUNT; i++)
         mtl_vbo_pool[i] = [mtl_device newBufferWithLength:VBO_POOL_BYTES options:MTLResourceStorageModeShared];
@@ -736,13 +848,6 @@ static void gfx_metal_start_frame(void) {
     frame_count++;
     @autoreleasepool {
         CGSize sz = mtl_layer.drawableSize;
-        if (frame_count == 1 || frame_count == 61) {
-            extern struct GfxDimensions gfx_current_dimensions;
-            printf("[getv][diag] drawableSize=%gx%g contentsScale=%g gfx_current_dimensions=%ux%u\n",
-                   sz.width, sz.height, (double) mtl_layer.contentsScale,
-                   gfx_current_dimensions.width, gfx_current_dimensions.height);
-            fflush(stdout);
-        }
         if (sz.width < 1 || sz.height < 1) return;
         gfx_metal_ensure_depth_target((uint32_t)sz.width, (uint32_t)sz.height);
 
@@ -761,6 +866,20 @@ static void gfx_metal_start_frame(void) {
 
         mtl_cmdbuf = [mtl_queue commandBuffer];
         mtl_encoder = [mtl_cmdbuf renderCommandEncoderWithDescriptor:pass];
+        /* Default MTLDepthClipMode is .clip: a triangle with ANY vertex outside the valid
+         * [0,1] NDC z range (after the perspective divide) is discarded WHOLESALE by the
+         * GPU, not clamped and kept -- unlike GL, which this renderer's CPU-side
+         * GETV_NEARCLAMP (gfx_pc.c) was written against, and unlike the near-plane clamp
+         * that N64 hardware's own RDP performs (see that code's own comment: "the RDP's
+         * depth clamp produces [minimum depth]... The exact fix is GL_DEPTH_CLAMP /
+         * ARB_depth_clamp / EXT_depth_clamp... That belongs in the rendering backend").
+         * .clamp is that fix, at the encoder level, for every draw through this encoder at
+         * once -- ported from kenix3/libultraship's gfx_metal.cpp (port-maintenance
+         * branch), which sets this on every encoder it creates, for exactly this reason.
+         * Matters most for large, camera-adjacent geometry whose vertices are likeliest to
+         * straddle the near plane -- room walls and animated characters, not the small,
+         * stable gun/HUD geometry that kept rendering without it. */
+        [mtl_encoder setDepthClipMode:MTLDepthClipModeClamp];
         cur_depth_test = false; cur_depth_mask = true; cur_zmode_decal = false;
         gfx_metal_apply_depth_state();
         gfx_metal_set_viewport(0, 0, (int)sz.width, (int)sz.height);
@@ -835,6 +954,9 @@ void gePortMetalImguiBeginPass(void) {
         pass.colorAttachments[0].storeAction = MTLStoreActionStore;
         ImGui_ImplMetal_NewFrame(pass);
         mtl_overlay_encoder = [mtl_cmdbuf renderCommandEncoderWithDescriptor:pass];
+        /* Same reasoning as the game encoder's identical call above -- matching upstream
+         * libultraship, which sets this on every encoder it creates, not just one. */
+        [mtl_overlay_encoder setDepthClipMode:MTLDepthClipModeClamp];
     }
 }
 
@@ -870,6 +992,8 @@ struct GfxRenderingAPI gfx_metal_api = {
     gfx_metal_new_texture,
     gfx_metal_select_texture,
     gfx_metal_upload_texture,
+    gfx_metal_upload_height_texture,
+    gfx_metal_clear_height_texture,
     gfx_metal_set_sampler_parameters,
     gfx_metal_set_depth_test,
     gfx_metal_set_depth_mask,

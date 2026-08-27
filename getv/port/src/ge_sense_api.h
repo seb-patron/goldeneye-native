@@ -8,7 +8,7 @@
  * different: turn, shoot or skirt, press the action button. Every obstacle recovery in
  * ge_bot_route.c so far has been a guess for that reason.
  *
- * ⚠️ These are seeded from the tile under the asking point, so they are honest asked from where a
+ * These are seeded from the tile under the asking point, so they are honest asked from where a
  * body stands and guesswork asked about a spot nobody is at. That is the same rule the edge
  * validator had to learn: the seed decides the answer.
  */
@@ -25,7 +25,7 @@
 
 /* What actually stops a body and will not move on its own.
  *
- * ⚠️ GE_SENSE_BODY is deliberately NOT in here, and that is not a judgement call about tactics --
+ * GE_SENSE_BODY is deliberately NOT in here, and that is not a judgement call about tactics --
  * the line starts at the asking position, so THE ASKER'S OWN COLLISION SETS IT. Every reading
  * came back with BODY, every direction read blocked, and geSenseClearestHeading found nothing
  * open anywhere on the map. Steering decisions must use this mask; deciding whether to shoot
@@ -77,7 +77,7 @@ int geSenseWatchers(int player_slot);
 #define GE_NOTICE_LINE     (1u << 0)   /* unobstructed line of sight                      */
 #define GE_NOTICE_FACING   (1u << 1)   /* the player is inside the enemy's view cone      */
 #define GE_NOTICE_ALERT    (1u << 2)   /* the enemy is alert enough to be watching at all */
-/* 🔴 TWO DIFFERENT QUESTIONS, AND CONFLATING THEM HID THE VIEW CONE COMPLETELY.
+/* TWO DIFFERENT QUESTIONS, AND CONFLATING THEM HID THE VIEW CONE COMPLETELY.
  *
  * GE_NOTICE_SEEN used to be LINE|FACING|ALERT and geSenseNoticing counted it, so "how many are
  * actually looking at me" silently ALSO required the guard to be alerted. Train's guards start
@@ -85,7 +85,7 @@ int geSenseWatchers(int player_slot);
  * facing -- which looked exactly like a broken cone and sent me to rewrite gePortEnemyFacing.
  * The facing work was needed anyway, but it was not what made this number zero.
  *
- * ⚠️ An always-false term in a composite reads as a broken feature, not as a strict condition.
+ * An always-false term in a composite reads as a broken feature, not as a strict condition.
  * Same family as the always-true engagement range that deadlocked the bot: a condition that never
  * changes stops being a condition and becomes a constant, and nothing downstream can tell.
  *
@@ -146,7 +146,7 @@ int geSenseAheadForBody(float x, float z, float heading_deg, float reach, GeSens
 
 /* The clearest heading judged with a BODY, not a line.
  *
- * 🔴 geSenseClearestHeading is a line test and a line has no width, so a crate/wall gap narrower
+ * geSenseClearestHeading is a line test and a line has no width, so a crate/wall gap narrower
  * than the player passes it -- and the sweep then reports that gap as the best way out. A router
  * that commits to it wedges itself in the one direction it cannot fit through, and every trace
  * says it chose correctly. The sensor is lying, the policy is fine.

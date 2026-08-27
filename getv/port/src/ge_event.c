@@ -131,16 +131,16 @@ void gePortEventFrame(int frame)
      * during a live session -- it reports that two machines disagree, never how long they agreed
      * or where they parted.
      *
-     * 🔑 THE LONG-RUN TEST NEEDS NO SECOND MACHINE. Two peers fed identical inputs are, for the
+     * THE LONG-RUN TEST NEEDS NO SECOND MACHINE. Two peers fed identical inputs are, for the
      * determinism question, the same thing as ONE binary run twice. Delivering identical inputs is
      * the network's job and netsim.py already models it; whether the simulation is reproducible
      * GIVEN them is a separate property, and nothing tested it.
      *
-     * ⚠️ NECESSARY, NOT SUFFICIENT. A pass means the simulation reproduces itself from the same
+     * NECESSARY, NOT SUFFICIENT. A pass means the simulation reproduces itself from the same
      * inputs; it says nothing about whether the transport delivers them. A FAILURE is decisive
      * though: a machine that cannot reproduce itself will never agree with another.
      *
-     * ⚠️ SAMPLED HERE, PER FRAME, AND NOT WHERE ge_seed_fp IS SET. The first version instrumented
+     * SAMPLED HERE, PER FRAME, AND NOT WHERE ge_seed_fp IS SET. The first version instrumented
      * ge_playback in ge_player_api.c, which only runs when a caller POSTS input -- with no bot
      * driving, a 3,000-frame run produced TWO samples. A determinism trace that goes quiet
      * whenever the thing is idle is worse than none: it reports agreement it never checked.

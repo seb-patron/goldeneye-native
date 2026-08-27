@@ -17,9 +17,9 @@
  * they cross the doorway.
  *
  * The authoritative versions -- actual damage, actual death, a shot fired, an objective flag
- * being set -- need publish sites inside the game, which is a different lane. When those land
- * they should emit through this same bus with the same type ids, and the derived emitters for
- * those types should be deleted rather than left racing them.
+ * being set -- need publish sites inside the game, which is separate follow-on work. When those
+ * land they should emit through this same bus with the same type ids, and the derived emitters
+ * for those types should be deleted rather than left racing them.
  */
 #ifndef GE_EVENT_H
 #define GE_EVENT_H

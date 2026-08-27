@@ -70,7 +70,7 @@ int geWallsLoad(const char *level)
     fclose(f);
     buf[size] = '\0';
 
-    /* 🔑 asset = runtime * levelscale. The segments are asset space like every other JSON here,
+    /* asset = runtime * levelscale. The segments are asset space like every other JSON here,
      * so they are divided ONCE, at this boundary. A consumer that has to remember to convert is
      * a consumer that will eventually forget. */
     p = strstr(buf, "\"levelscale\":");

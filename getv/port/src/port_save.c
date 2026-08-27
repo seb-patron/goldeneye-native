@@ -128,7 +128,7 @@ static int geSavePathInit(void)
         }
     }
 
-    /* The project was renamed from Goldeneye-Native to Goldeneye-Native. An install that
+    /* The project was renamed from GoldenEyeTV to Goldeneye-Native. An install that
      * predates the rename has its EEPROM under the old directory, and simply pointing at
      * the new one would present the player with an empty save slot and no explanation.
      * If the new directory has no save and the old one does, adopt the old path for this
@@ -217,7 +217,7 @@ static void geSaveFlush(void)
     }
  fflush(f);
  fclose(f);
- /* 🔴 THE SAVE HAS NEVER WORKED ON WINDOWS, AND IT FAILED SILENTLY.
+ /* THE SAVE HAS NEVER WORKED ON WINDOWS, AND IT FAILED SILENTLY.
   *
   * POSIX rename() atomically REPLACES the destination. Windows rename() REFUSES when the
   * destination exists, with EEXIST -- so every flush after the file first appeared failed.
@@ -230,7 +230,7 @@ static void geSaveFlush(void)
   * SUCCESS path prints only under ge_eep_debug while the FAILURE path always prints, so the log
   * filled with failures and never carried a baseline to compare them against.
   *
-  * ⚠️ It was a real performance cost too, not just noise: 112 doomed write+rename pairs each
+  * It was a real performance cost too, not just noise: 112 doomed write+rename pairs each
   * followed by an unconditional printf, on a box where a flushed stdout line costs about 24 ms.
   *
   * MoveFileExA with MOVEFILE_REPLACE_EXISTING is the Windows equivalent of POSIX rename -- it

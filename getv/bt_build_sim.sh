@@ -14,7 +14,7 @@
 # Linking a device SDL2 into a simulator binary fails at link time with a platform
 # mismatch, which is why deps/sdl2-tvsim exists separately from the device build.
 #
-# Kept OUT of build.sh deliberately: several agents share that script, and the device
+# Kept OUT of build.sh deliberately: that script is relied on everywhere, and the device
 # path is the one that ships. This is an additive diagnostic tool.
 set -uo pipefail
 
@@ -34,9 +34,8 @@ SDK="$(xcrun -sdk appletvsimulator --show-sdk-path)"
 # A SPACE-FREE PATH. The repo lives under ".../Code Projects/...", and an
 # unquoted HEADER_SEARCH_PATHS entry containing a space is silently split by
 # xcodebuild -- which presents as "SDL.h file not found" even though the path is
-# right there in project.yml. The device build never hit this because
-# The SDL2 prefix must not contain spaces. Symlink into the same
-# space-free directory and use that.
+# right there in project.yml. The SDL2 prefix must not contain spaces, so
+# symlink into a space-free directory and use that.
 SDL="${N64TVOS_PREFIX:-$HOME/.n64tvos}/sdl2-tvsim"
 TARGET="arm64-apple-tvos17.0-simulator"
 BUNDLE_ID="org.goldeneyenative.getv"
@@ -144,7 +143,7 @@ cmd_lib() {
     # As an ERROR a regression shows up as a changed build count instead of a mystery.
     -Wno-everything -Werror=return-type -ferror-limit=0 -fno-strict-aliasing -O1
   )
-  # boot lane (bt_): opt-in automatic-variable initialisation. MSan does not exist on
+  # Opt-in automatic-variable initialisation. MSan does not exist on
   # Darwin; -ftrivial-auto-var-init is the compiler-side substitute and it makes every
   # uninitialised automatic variable DETERMINISTIC instead of stack-residue-dependent.
   if [ -n "${GETV_AUTOVARINIT:-}" ]; then
@@ -161,7 +160,7 @@ cmd_lib() {
   #
   # OPT-IN, NOT DEFAULT, and this is deliberate. With DEBUGMENU defined the else-chain in
   # boss.c routes **START** into debug_menu_processor, which is disruptive during normal
-  # play and would silently change every lane's measurements. Turn it on per-run:
+  # play and would silently change any measurement taken while it's on. Turn it on per-run:
   #
   #     GETV_DEBUGMENU=1 ./build_sim.sh lib
   #
