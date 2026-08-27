@@ -18,14 +18,31 @@ source.
 | **macOS** | Apple Silicon and Intel. Builds and plays. |
 | **Linux** | x86-64. Builds and plays. |
 | **Windows** | x86-64, mingw-w64. Builds and plays. |
+| **tvOS / iOS** | Bring-up. Builds and deploys to real hardware, with a native Metal renderer. |
 
-Same source tree, same features, one `build` script each.
+Same source tree, same features, one `build` script each. There are two rendering backends
+behind one interface, OpenGL and a native Metal one (not MoltenVK), which is what keeps the
+Apple targets viable as desktop GL and GL ES are deprecated out from under them.
 
 ## What you get
 
 - **Every stage.** All 27 loadable missions boot, render and exit cleanly. Twenty-one load
   directly; six are multiplayer-only and need two or more players.
+- **Widescreen that actually widens the view.** Not a stretched 4:3 image and not a
+  pillarbox: the projection is recomputed for the window's real aspect, so a 16:9 window
+  shows more of the room to either side. Split screen is corrected the same way.
+- **It renders fast.** 881 frames per second at 1280x960 on an M1, measured steady-state
+  with the frame cap and vsync released. The renderer has not been the bottleneck for a
+  while.
+- **Simulation decoupled from rendering.** `GETV_SIMDIV` runs the game one tick in n while
+  drawing every frame, and the fields the simulation skips are accumulated and handed to the
+  tick that runs, so game time stays real. `GETV_INTERP` then interpolates the camera between
+  ticks. At a quarter-rate simulation the measured judder is gone: frames where the camera
+  did not move at all drop from 75.2% to 0.0%, with the same spread as a full-rate run.
 - **Multiplayer.** Split screen, radar, all 64 selectable characters.
+- **Bots that use the game's own AI.** GoldenEye already ships a behaviour VM with 250 AI
+  opcodes driving every guard in the campaign. The bots drive that rather than replacing it,
+  with navigation, door handling and an arbiter on top.
 - **Keyboard and mouse**, on by default. Mouse look with sensitivity and invert, left button
   fires, right aims, ESC releases the cursor. Gamepads work alongside it, not instead of it.
 - **A launcher.** Pick a level, a ruleset, cheats, resolution and field of view before you
@@ -35,10 +52,19 @@ Same source tree, same features, one `build` script each.
   falls and grows the waves as you clear them.
 - **Lua mod scripting.** Drop a `mod.lua` in `mods/` and get `onFrame`, `onPlayerSpawn` and
   `onWeaponFire` with a read API into live game state. No rebuild.
+- **Co-op.** Two to four players in a single-player mission, sharing its geometry, props and
+  objectives. Bring-up quality, and the section below is specific about what that means.
+- **A crosshair you can colour.** `crosshair_color = FF0000`, or a picker in the launcher. The
+  RDP already multiplied the sight texture by a colour at that call site and retail always
+  passed white, so this changes the value rather than adding a pass.
 - **The cheats the game already had**, by name, from the launcher or a config file.
 - **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
   anisotropic filtering, adjustable field of view, and three texture filters including the
   N64's real three-point sampling.
+
+Fourteen unit tests cover the parts that are testable without a window: the bot arbiter and
+policy, the input queue, the discovery parser, sense stability, fire cadence and the field
+integrator.
 
 ## On frame timing, and a thank you
 
@@ -51,12 +77,27 @@ drift. What breaks is everything the game counts *per iteration* rather than per
 frames per second, and automatic fire rates, turret delay and guard reaction stepping were
 tuned against that. Run the same loop at a locked 60 and they simply happen more often.
 
-**Where this port stands: `framerate = 30` gives a simulation running at the cadence the game
-was authored for, with a correct time base.** That is the faithful configuration and it is one
-setting away. High-refresh rendering with correct gameplay timing needs the simulation
-separated from the draw, which is real work and is not done. The full analysis, including why
-this is fixable here and structurally is not in an emulator, is in
-[`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
+**Where this port stands.** Two of the three pieces are done. The simulation is separated from
+the draw: `GETV_SIMDIV` ticks the game one frame in n while every frame still renders, and the
+video fields the skipped ticks would have consumed are accumulated and handed to the tick that
+runs, so the mission clock and animation stay on real time rather than running at 1/n speed.
+Interpolation landed on top of that, so a lower-rate simulation no longer judders. Measured on
+a scripted walk, the share of frames where the camera did not move at all:
+
+| | still frames | spread of step |
+|---|---|---|
+| full-rate simulation | 12.1% | 0.1855 |
+| quarter-rate, no interpolation | 75.2% | 0.6541 |
+| **quarter-rate, interpolated** | **0.0%** | **0.1843** |
+
+A quarter-rate simulation now renders as smoothly as a full-rate one, and travels the same
+distance while doing it. Divider 1 is byte-identical with interpolation on and off.
+
+What is left is the third piece: fire rates, reload timing, turret delay and reaction stepping
+still count iterations rather than seconds, so each one needs converting and checking against
+retail behaviour. Until that is done `framerate = 30` remains the setting that matches the
+cadence the game was authored for, and the config layer still declines anything above 60. The
+full analysis is in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
 
 No code from the 1964 or Mouse Injector lineage is used here. Those are GPL-2.0 and
 quarantined; see [`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit above is for
@@ -97,20 +138,28 @@ and what you run afterwards is a native executable.
 **Does it support mouse and keyboard?** Yes, and it is the default. Mouse look with
 sensitivity and Y-invert, WASD movement, ESC to release the cursor.
 
-**Does it run at 60fps? Can it run higher?** It renders at 60 by default and the resolution
-is arbitrary. Above 60 the game's per-frame systems run faster than they were tuned for; see
-the section above. `framerate = 30` is the faithful setting.
+**Does it run at 60fps? Can it run higher?** It renders at 60 by default and the resolution is
+arbitrary. The renderer itself is far quicker than that: 881 fps at 1280x960 on an M1 with the
+cap and vsync off. The reason the config still declines anything above 60 is gameplay, not
+throughput, and that is covered above.
 
-**Is there widescreen?** Resolution is fully configurable, but measured: **changing the
-window aspect does not widen the field of view.** The renderer fits the 4:3 view to whatever
-window it is given. Use `fov` for a genuinely wider view; it is the setting that changes what
-you can see. Real aspect-aware widescreen is a roadmap item.
+**Is there widescreen?** Yes, and it widens the view rather than stretching or cropping it.
+The projection is recomputed for the window's real aspect ratio, so a 16:9 window shows more
+of the room to either side, with the HUD placed against the true window edges. Split screen
+gets the same treatment. `fov` is still there if you want to go wider again.
 
 **Can I mod it?** Yes, three ways: Lua scripts in `mods/`, roughly 275 `GETV_*` behaviour
-gates, and `goldeneye.cfg`. Texture replacement is on the roadmap, not implemented.
+gates, and `goldeneye.cfg`. There is also a texture-override path that reads replacement
+images out of a pack directory by content hash, off by default. It is written and reasoned
+through but has not been run against a real pack yet, so treat it as untested rather than as
+a feature.
 
-**Is multiplayer online?** No. Split-screen multiplayer works. LAN and online are roadmap
-items and are downstream of the frame-timing work.
+**Is multiplayer online?** Not yet, and it is worth being exact about how far along it is.
+Split-screen multiplayer works. For network play the lockstep transport, the peer discovery
+parser and the launcher page are all written, and the discovery parser has unit tests. What is
+missing is the last connection: nothing in the game loop calls into it yet, so selecting Host
+or Join sets the variables and no session starts. The input seam it plugs into is the same one
+the bots already use, which is why that piece is the one left.
 
 **Can two people play the single-player missions?** Partly, and it is honest to call it alpha.
 Two to four players spawn into a solo mission with its own geometry, props and objectives, and
@@ -276,19 +325,22 @@ job count and defaults to 6.
 Expected output from `./build_mac.sh all`:
 
 ```
-  mac FAILED: src/tlb_manage.c
-mac game: 167 built, 1 failed
+mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 23 built, 0 failed
+mac port layer: 60 built, 0 failed
 ```
 
-**The one failure is expected.** `src/tlb_manage.c` programs the N64's MIPS R4300 translation
-lookaside buffer. There is no TLB to program here and nothing links against it, so it is left to
-fail rather than being papered over. Seven further N64-hardware and SGI-dev-host files
-(`usb.c`, `rmon.c`, `sched.c`, `ramrom.c`, `init.c`, `indy_comms.c`, `indy_commands.c`) are
-excluded by name in the build script for the same reason. Any second name in a `mac FAILED:` line
-is a real problem.
+Ten N64-hardware and SGI-dev-host files are excluded by name in the build script:
+`tlb_manage.c` programs the MIPS R4300 translation lookaside buffer, and `usb.c`, `rmon.c`,
+`sched.c`, `ramrom.c`, `ramromreplay.c`, `audi.c`, `init.c`, `indy_comms.c` and
+`indy_commands.c` all talk to hardware or a development host that is not here. Nothing links
+against any of them. They are named rather than stubbed, because a stub that compiles is a file
+somebody can call by accident.
+
+Check all four counts rather than grepping for one. Compiles run with stderr suppressed, so a
+broken file shows up only as a changed number, and a grep for two of the lines will happily miss
+a broken audio file. Any name in a `FAILED:` line is a real problem.
 
 ### Linux
 
@@ -413,18 +465,21 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   frame-counted systems drop to 30 Hz, close to the cadence the game was tuned for. That setting
   previously capped the renderer without the second half and ran the game at half speed, which was
   a defect rather than the inherent property it was documented as.
-  It is a trade, not a fix: 60 renders smoothly and runs gameplay fast, 30 runs gameplay correctly
-  and renders less smoothly. Having both at once needs a fixed-rate simulation tick with rendering
-  interpolated above it, which is architecture rather than a setting, and is the next substantial
-  thing this port needs.
+  Having both at once needs a fixed-rate simulation tick with rendering interpolated above it.
+  That architecture now exists (`GETV_SIMDIV` and `GETV_INTERP`, measured above), so the trade
+  is no longer forced. What remains is converting the frame-counted systems themselves to count
+  time instead of iterations, one at a time, each checked against retail behaviour.
 
+- **Network play is not connected.** The transport, the discovery parser and the launcher page
+  are written; the game loop does not call them, so no session starts. See the FAQ above.
 - **Missing HMS MI5 crest on the multiplayer character select.** The same crest renders correctly on
   the file select screen, so the asset and its decode path are sound.
 - **Select File background.** Renders flat black; the original has a faint circular watermark
   behind the folders.
 - **Multiplayer edge cases.** Score caps are not enforced on the headless path, and `num_shots`
   disagrees with the fire path.
-- **Keyboard and mouse.** Mouse look is not supported.
+- **Texture packs are untested.** The override path exists and is off by default. It has not
+  been run against a real pack.
 
 [`docs/ROADMAP.md`](docs/ROADMAP.md) carries the full list and the planned work.
 
