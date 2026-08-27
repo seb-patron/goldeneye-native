@@ -138,7 +138,28 @@ static void ge_cli_setup(void)
     ge_cli_win_is_pipe = (GetFileType(GetStdHandle(GE_CLI_STD_INPUT_HANDLE))
                           == GE_CLI_FILE_TYPE_PIPE);
 #endif
-    gePlayerClaim(ge_cli_slot, GE_SLOT_INJECTED);
+    /* DO NOT CLAIM A SLOT SOMETHING ELSE IS ALREADY DRIVING. GETV_BOT_ROUTE claims a slot the
+     * same way this does, and both default to 0 -- with no coordination, whichever posted last
+     * this frame wins and the other's commands silently do nothing. Measured: with GETV_BOT_ROUTE
+     * set, turning GETV_CLI on at all froze the player at one coordinate for 1500 straight frames
+     * under a bot that, with the CLI off, was genuinely walking. The exact symptom this interface
+     * exists to let a person catch -- turning the wrong way, walking into a wall -- is invisible
+     * if watching it breaks the thing being watched.
+     *
+     * The report still works without the claim: reading position, health and the world does not
+     * need ownership of the input slot, only posting to it does. So GETV_CLI=1 alongside a bot on
+     * the same slot becomes exactly what it should be for that case -- a live window onto what
+     * the bot is doing, with movement commands quietly inert rather than fighting it. */
+    {
+        const char *bot = getenv("GETV_BOT_ROUTE");
+        int bot_slot = (bot != NULL && *bot != '\0') ? atoi(bot) : -1;
+        if (bot_slot == ge_cli_slot) {
+            printf("[cli] slot %d is driven by GETV_BOT_ROUTE -- watching only, commands are inert\n",
+                   ge_cli_slot);
+        } else {
+            gePlayerClaim(ge_cli_slot, GE_SLOT_INJECTED);
+        }
+    }
     printf("[cli] playing slot %d. commands: w/s/a/d/up/down <ticks>, use, fire, snipe, aimdown, aimup, crouch, stand, look, map, path, tags, stop, quit\n",
            ge_cli_slot);
     fflush(stdout);
@@ -893,6 +914,19 @@ void gePortCliFrame(int frame)
     if (ge_cli_report_now || (frame % ge_cli_every) == 0) {
         ge_cli_report_now = 0;
         ge_cli_report(frame);
+    }
+
+    /* NOT WHEN SOMETHING ELSE OWNS THIS SLOT. This used to post every tick unconditionally,
+     * including a neutral, all-zero input when no command was pending -- which is exactly what
+     * ge_cli_setup's read-only mode was supposed to prevent, and did not, because that fix only
+     * skipped the initial CLAIM. This is the actual overwrite: it ran every frame regardless,
+     * right after the bot posted its real steering for the same tick, and zeroed it. Measured:
+     * turning GETV_CLI on with GETV_BOT_ROUTE set froze the player at one coordinate for 1500
+     * straight frames under a bot that, with the CLI off, was genuinely walking. */
+    {
+        const char *bot = getenv("GETV_BOT_ROUTE");
+        int bot_slot = (bot != NULL && *bot != '\0') ? atoi(bot) : -1;
+        if (bot_slot == ge_cli_slot) { return; }
     }
 
     memset(&in, 0, sizeof in);
