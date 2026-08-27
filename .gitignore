@@ -92,6 +92,11 @@ build-sim-*/
 scratchpad/
 getv/scratchpad/
 
+# Backup files `patch` leaves behind on a fuzzy or partial match. Two showed up untracked in
+# getv/port/fast3d/ (already-gitignored third-party sources) mid-session -- a `git add -A`
+# would have picked them up.
+*.orig
+
 # Belt and braces: never commit a compiled object or archive from anywhere in the tree.
 # deps/ (vendored SDL2) is excluded by its own rule above and is not tracked; an early
 # commit did contain it, which is why SDL2 test data and a prebuilt libSDL2.a appear in
@@ -220,6 +225,23 @@ core.*
 # machine cloning this tree happily committed all twelve files. A shared rule is the only
 # kind that actually holds.
 docs/research/
+
+# Cross-machine handoff notes (Mac/Windows sync state, in-flight task claims). Working
+# documents for keeping two machines honest with each other, same reasoning as
+# docs/research/ above -- useful to whoever is running this tree, not to someone reading it.
+NEXT-FROM-MAC.txt
+READ-ME-LACUNARI.md
+
+# Same reasoning, and these three also hardcode a real LAN address, username and SSH key
+# filename, which has no business in a public repo regardless of the rest of it.
+tools/lac_win.py
+tools/lacunari_tunnel.sh
+tools/sync_surface.sh
+
+# A session handoff note (addresses the reader as "you" mid-task, refers to the person
+# running it in the third person) rather than documentation. Its one real finding is
+# written up properly in docs/WINDOWS_STAN_ORDERING.md, which stays.
+docs/WINDOWS_BRINGUP.md
 
 # ENet, fetched by tools/fetch_enet.sh from a pinned commit and never vendored here.
 # Same arrangement as the fast3d sources above and deps/ (SDL2, Lua): the repository does not
