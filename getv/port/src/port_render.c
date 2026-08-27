@@ -181,7 +181,7 @@ void gePortRenderDisplayList(void *firstGdl)
          * every draw-side hypothesis is dead at once and the cost is in the frame machinery --
          * context, swapchain or compositor.
          *
-         * DIAGNOSTIC ONLY: the screen shows nothing, which is the point. gfx_start_frame and
+         * ⚠️ DIAGNOSTIC ONLY: the screen shows nothing, which is the point. gfx_start_frame and
          * gfx_end_frame still run, so the present still happens and the comparison stays honest --
          * skipping those too would measure a different thing entirely. */
         {
@@ -238,7 +238,7 @@ void gePortRenderDisplayList(void *firstGdl)
      * alike, so not a pacing regression).
      *
      *   lock    g_ControlsLockedFlag -- cutscenes and level transitions (lv.c:1036)
-     *   paused  g_pausedFlag -- the watch / MP menu (lv.c:1040 via checkGamePaused)
+     *   paused  g_pausedFlag         -- the watch / MP menu (lv.c:1040 via checkGamePaused)
      *
      * Both land in the same `g_ClockTimer = 0` in lvlManageMpGame, which is the whole
      * freeze. Nothing else writes either flag after init (`lvlSetControlsLockedFlag`,
@@ -331,24 +331,7 @@ void gePortRenderDisplayList(void *firstGdl)
      * names a slot. */
     {
         extern void gePortBotRouteFrame(int frame);
-        extern void gePortTimingProbeFrame(int frame);
         gePortBotRouteFrame(rendered);
-        gePortTimingProbeFrame(rendered);
-
-        /* The CLI reads commands and prints its report from here. It was written, documented and
-         * never called: gePortCliFrame had exactly one reference in the tree, its own definition,
-         * so GETV_CLI=1 has done nothing on any platform since it was added. */
-        {
-            extern void gePortCliFrame(int frame);
-            gePortCliFrame(rendered);
-        }
-
-        /* Says which route steps the engine considers impossible, before any policy is blamed
-         * for failing them. Inert unless GETV_ROUTE_AUDIT is set. */
-        {
-            extern void gePortRouteAuditFrame(int frame);
-            gePortRouteAuditFrame(rendered);
-        }
     }
 
     /* Recorded human play from the ROM's attract-mode demos, fed through the same seam as the

@@ -14,7 +14,7 @@
   line. The port's synthetic clock makes gameplay frames deterministic on purpose (osGetCount in
   port_os.c: "gameplay frames stay byte-reproducible"), so two correct builds MUST agree.
 
-  WHAT IS FILTERED, AND WHY THAT LIST IS SHORT ON PURPOSE. A few lines legitimately differ
+  ⚠️ WHAT IS FILTERED, AND WHY THAT LIST IS SHORT ON PURPOSE. A few lines legitimately differ
   between any two runs of the SAME binary, so comparing them would report a difference every time
   and the check would be ignored within a day:
 
@@ -77,7 +77,7 @@ function Normalise([string] $path) {
                        $_ -notmatch 'start=\d+ms' -and $_ -notmatch '\bfps\b' -and
                        $_ -notmatch 'elapsed' } |
         ForEach-Object {
-            # addresses, and anything derived from them. Two different binaries lay code out
+            # ⚠️ ADDRESSES, AND ANYTHING DERIVED FROM THEM. Two different binaries lay code out
             # differently, so any diagnostic printing a function address differs by construction
             # and says nothing about behaviour. [getv][fnptr] prints one and ALSO prints its low
             # 32 bits reinterpreted as a float, so the pointer and the float must both go.
@@ -86,13 +86,13 @@ function Normalise([string] $path) {
             # lines byte-identically, and both builds emit exactly 9 of them. The value moves only
             # when the binary does. Had the COUNT differed, that would have been real and this
             # filter would be hiding it -- so the count is asserted separately below.
-            # order matters, and getting IT wrong corrupted the comparison. The
+            # ⚠️ ORDER MATTERS, AND GETTING IT WRONG CORRUPTED THE COMPARISON. The
             # "pointer printed as a float" pair is collapsed as ONE unit FIRST, before any
             # general hex rule runs.
             #
             # The first version did it the other way round and mangled its own input: the
             # baseline prints -26504816079202425976135373291520.000000, whose digit run is 32
-            # characters, and decimal digits are valid hex digits -- so the \b[0-9a-fA-F]{12,}\b
+            # characters, and DECIMAL DIGITS ARE VALID HEX DIGITS -- so the \b[0-9a-fA-F]{12,}\b
             # rule swallowed the float's mantissa and emitted "-<ptr>.000000". The float rule then
             # could not match, and the check reported 18 differences that did not exist. A
             # normaliser that rewrites the evidence is worse than none.
@@ -113,7 +113,7 @@ function Normalise([string] $path) {
 function CategoryCounts([string] $path) {
     $h = @{}
     foreach ($l in Get-Content $path) {
-        # the same line-LEVEL exclusions AS Normalise. Counting raw lines put wall-clock
+        # ⚠️ THE SAME LINE-LEVEL EXCLUSIONS AS Normalise. Counting raw lines put wall-clock
         # timings back in through the side door: "frame 0: DONE start=1ms" and "start=0ms"
         # collapse to DIFFERENT keys, so 20 phantom category mismatches appeared from timing
         # jitter alone. A guard that fires on noise gets switched off, which is how the real

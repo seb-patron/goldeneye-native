@@ -1,10 +1,11 @@
 # Frame timing
 
-GoldenEye runs its gameplay off frame counts rather than off the clock, which is why every
-attempt to run it above 30fps has made the game itself run fast. This is what causes it, what
-this port does about it, and where it stands now.
+The most-cited problem with running GoldenEye above its original frame rate, what actually
+causes it, what this port does about it today, and what a complete fix requires.
 
-Graslu flagged this publicly and it is the first thing anyone who knows the game checks.
+Credit where it is due: **Graslu** raised this publicly and was right to. It is the first
+thing a knowledgeable player checks, and a port that waves it away has not understood its
+own subject.
 
 ## What people mean by "it breaks above 60Hz"
 
@@ -52,7 +53,7 @@ that does the counting.
 `frametiming.c` is 140 lines and we can edit it. The fix is available here in a way it
 structurally is not to an emulator.
 
-That is a statement about where the problem can be solved, not a claim that it is solved.
+⚠️ That is a statement about where the problem can be solved, not a claim that it is solved.
 It is not, yet. See below.
 
 > No code from `Graslu/1964GEPD` or the 1964 lineage is used in this project. Those are
@@ -109,7 +110,7 @@ stores plenty of state that the AI reads as a discrete fact, and any of it blend
 two values is a bug that presents as erratic behaviour rather than as visual judder -- much
 harder to diagnose than the problem being solved.
 
-**AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so the
+⚠️ **AI opcodes branch on render visibility** (`IFImOnScreen`, `IFMyRoomIsOnScreen`), so the
 render path and the AI are not independent in this game. Interpolation touches both.
 
 The Perfect Dark port's experimental high-FPS support carries warnings above roughly 165 FPS.
@@ -125,28 +126,16 @@ This is the piece with no natural end. Every converted system needs checking aga
 behaviour, and `docs/research/GE_RETAIL_BEHAVIOUR.md` exists precisely because "what does
 the real game do" is a question with 173 numbered answers rather than one.
 
-## Where this stands
+## Position
 
-The split is in. `GETV_SIMDIV` renders every frame while the simulation ticks once every n, and
-the divider is now chosen from the frame cap rather than left to the user: 60 or below keeps the
-old behaviour of one tick per frame, and anything faster holds the simulation near 30Hz.
-`GETV_SIMDIV` overrides it, `GETV_SIMDIV=auto` derives it from the display.
+Until step 1 lands, **60fps is the honest ceiling and anything above it changes the game.**
+`GETV_TICKFIELDS=2` with `framerate = 30` is the configuration that matches the cadence the
+game was authored against.
 
-Game speed survives it. Walking Train with constant forward input, measured over the steady
-middle of the run:
-
-| Configuration | Speed |
-|---|---|
-| 60fps, one tick per frame | 46.3, 46.5 units/s |
-| uncapped at 500+ fps, divider chosen automatically | 46.6, 46.6 units/s |
-
-Within one percent, which is the whole point: the renderer runs as fast as the machine allows and
-the game does not notice.
-
-Both halves of the presentation are interpolated. The camera landed on 2026-08-24 and props and
-characters on 2026-08-26; before the second one the view glided while everything in it moved in
-steps, which looked worse than no divider at all. Measured over an eight thousand frame run at
-divider 2: 82,176 props interpolated, none skipped.
+Step 1 is the next piece of work on this and is worth doing on its own, because it converts
+"do not run this above 60" into "run it at whatever your display does, and the simulation is
+unaffected". That is the outcome people actually want, and the decompilation is what makes
+it reachable.
 
 ## Step 2: interpolation -- landed 2026-08-24
 
@@ -160,7 +149,7 @@ between simulation states. `GETV_INTERP=1` by default, `GETV_INTERP=0` is the co
 position, look direction and up as parameters and only reads them, so the interpolated copies
 are handed to it through its own local pointers. The caller's vectors are untouched.
 
-**Nothing is written back into game state, and that restriction is the design rather than an
+🔴 **Nothing is written back into game state, and that restriction is the design rather than an
 implementation detail.** GoldenEye's AI reads state as discrete fact, so a blended value
 entering the simulation produces erratic behaviour far harder to diagnose than judder.
 
@@ -183,10 +172,10 @@ of rendered frames on which the camera did not move at all, which is the judder 
 | SIMDIV=4, INTERP=0 | 75.2% | 0.3112 | 0.6541 |
 | **SIMDIV=4, INTERP=1** | **0.0%** | 0.3117 | **0.1843** |
 
-**At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
+🔑 **At divider 4 the interpolated spread is 0.1843 against divider 1's own 0.1855.** A quarter-rate
 simulation now renders as smoothly as a full-rate one.
 
-Compare only **within** a divider. The mean step differs between dividers because a fixed
+⚠️ Compare only **within** a divider. The mean step differs between dividers because a fixed
 frame window catches a different part of the walk's acceleration, not because speed changed.
 Within each divider the mean is preserved to 0.5%, which is the check that matters: the camera
 covers the same ground, it just stops jumping to get there.
@@ -209,135 +198,8 @@ a single frame moved bucket. It is a one-frame timing shift at a room boundary, 
 any framerate change does anyway. Worth re-checking if AI behaviour is ever reported odd under
 a divider, and not worth blocking on now.
 
-## Verification
-
-Three measurements, because "it should be fine" is not a claim.
-
-**Game speed.** Train, constant forward input, measured over the steady middle of each run and
-divided by the elapsed time the log actually recorded:
-
-| Configuration | Walking speed | Game clock |
-|---|---|---|
-| 60fps cap, real clock | 43.4, 43.3, 43.4 units/s | 60.0, 59.9, 59.9 fields/s |
-| uncapped with the real clock | 43.2, 43.5, 43.0 units/s | 60.0, 59.8, 60.0 fields/s |
-
-Within 0.7% on speed, and the game clock is at real time in both. Two earlier versions of this
-table were wrong, once for dividing by a hard-coded window instead of the elapsed time recorded,
-and once for timestamping with `clock()`, which is processor time rather than wall time.
-
-**Fire rate**, which is the clearest frame-quantised system in the game. Two players in
-multiplayer armed with the RC-P90 through `GETV_MP_ARM=14`, trigger held, counted against the
-wall clock rather than against frames:
-
-| Configuration | Rate |
-|---|---|
-| divider 1, 60Hz simulation | 3.76 rounds/s |
-| uncapped, auto divider | 3.73 rounds/s |
-| uncapped, divider 2 | 3.82 rounds/s |
-
-**Character rotation** interpolates alongside position, through `subroty` on the chr model. Only
-characters carry a yaw worth interpolating: guards turning to face you is the motion where the
-step shows. Measured over a run at divider 2: 3,620 rotations interpolated, no props skipped, and
-walking speed unchanged at 46.5 against 46.6.
-
-The wrap is the part that goes wrong if it is written carelessly, so it has its own test in
-`getv/port/tests/test_angle_lerp.c`. Turning from 350 degrees to 10 must sweep 20 degrees forward
-through zero rather than 340 backward, and no pair of angles may travel more than a quarter turn
-by the halfway point.
-
-**The fire gate itself**, in `getv/port/tests/test_fire_cadence.c`. It models both the retail tick
-modulo and the ported field-crossing test over a minute of video, and asserts the difference:
-
-```
-time-based:  divider 1 = 900 shots
-time-based:  divider 2 = 900 shots
-time-based:  divider 4 = 900 shots
-tick-based:  divider 2 = 450 shots
-tick-based:  divider 4 = 225 shots
-tick-based:  divider 8 = 112 shots
-```
-
-The tick-based column is what every previous attempt at this shipped. It also pins the floor: the
-fastest weapon wants one shot every two video fields, and a 30Hz simulation delivers exactly that,
-with no drift. That is why the auto divider targets 30 and will not go under.
-
-## The other frame-quantised systems
-
-Fire rate was the one that needed converting. The rest were checked, and most were already
-correct for a reason worth writing down.
-
-**Reload timing** keys off `handptr->field_890`, which is the same field counter the fire gate
-uses: it accumulates `g_ClockTimer` and is compared against a threshold. A threshold on a count of
-video fields is time-based whatever the divider does. Not measured directly, because holding the
-trigger empties the magazine without triggering a reload in the harness, so this one rests on the
-shared mechanism rather than on its own number.
-
-**Autogun tracking, truck turning and the door motion** run through `chrobjApplySpeed`
-(`propobj.c`). Its constants are named `PER_FRAME` and are applied with no time factor, which
-looks frame-quantised until you notice the whole body sits inside
-`for (i = 0; i < g_ClockTimer; i++)`. It steps once per elapsed field, so a tick worth n fields
-does n steps and the rate holds. `getv/port/tests/test_field_integrator.c` pins that, and shows
-what removing the loop would cost:
-
-```
-per field: divider 1 = 2.99131   divider 2 = 2.99131   divider 8 = 2.99131
-per tick:  divider 1 = 2.99131   divider 4 = 0.72926
-```
-
-**The tank turret and the autogun beam timer** already multiply by `g_GlobalTimerDelta`, so they
-were never frame-quantised.
-
-## The game clock: what was wrong and what fixes it
-
-Two defects, found by instrumenting `waitForNextFrame` and reporting frames and fields against a
-host timebase once a real second.
-
-**The rounding term was acting as a threshold.** The retail expression is
-`(elapsed + 387937) / 775875`, where 387937 is half a video field. On hardware `osGetCount()` was
-read once per frame after the machine had already waited for vblank, so adding half a field before
-dividing rounded a number that was going to be 1 regardless. Here the same expression is the loop
-condition, and `(elapsed + half) / field >= 1` is satisfied after HALF a field. Measured with the
-real clock before the fix: 121 frames, 121 fields, 1002ms, so a game that believed it was running
-at 60 was running at 120. The bias is dropped where the counter tells the truth and left alone for
-the synthetic counter, where it is harmless.
-
-**The remainder was being discarded.** Rendering faster than a field means most frames advance the
-clock by nothing. `updateFrameCounters` moved the reference point to "now" on every frame, so the
-leftover fraction went in the bin each time and the clock stopped entirely: 121 frames, 0 fields,
-one second. The reference now advances by exactly the whole fields consumed, so the fraction
-carries.
-
-With both fixed, uncapped and with `GETV_REALCLOCK=1`:
-
-```
-[getv][clock]  955 frames 60 fields delay=1 simdiv=4 in 1000ms ->  955 fps, 60 fields/s
-[getv][clock]  904 frames 61 fields delay=1 simdiv=4 in 1003ms ->  901 fps, 60 fields/s
-[getv][clock] 1083 frames 60 fields delay=1 simdiv=4 in 1000ms -> 1083 fps, 60 fields/s
-```
-
-A thousand frames a second of rendering, sixty fields a second of game time. That is the thing
-this port set out to do.
-
-**Reconciled.** The wait loop, `speedgraphframes` and `g_GlobalTimer` were printed together from
-one place, once per real second, and they agree exactly:
-
-```
-[getv][clock]  618 fps | waitloop 60 fields/s | speedgraph 60/s | g_GlobalTimer 60/s | simdiv 4
-[getv][clock]  790 fps | waitloop 60 fields/s | speedgraph 60/s | g_GlobalTimer 60/s | simdiv 4
-```
-
-An earlier reading through the bot harness disagreed with this by a factor of five, and the fault
-was in the harness rather than the engine: it timestamped with `clock()`, which reports PROCESSOR
-time. On a build with an audio thread and a render thread that runs at some multiple of the wall
-clock depending on how busy the machine is, so every rate derived from that log was wrong by a
-factor that changed run to run. It uses a host wall clock now. `GETV_CLOCKTRACE=1` prints the
-trace above.
-
 ## Still open
 
-**The absolute rates have not been checked against hardware.** Everything here establishes that
-rates no longer change with the frame rate, and that they match the game's own authored constants.
-Whether those constants produce the same rounds per second as a real N64 needs a capture from one.
-
-**Reload has no measurement of its own.** The mechanism it shares with fire rate is measured; the
-reload itself is not, because the harness cannot provoke one.
+**Step 3, the frame-quantised systems.** Fire rates, reload timing, turret delay and reaction
+stepping still count iterations rather than time. This is the remaining piece and each
+conversion needs checking against retail behaviour.

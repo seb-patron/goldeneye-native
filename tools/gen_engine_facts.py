@@ -5,7 +5,7 @@ Prose is for people; facts are for us. This reads build/levels/_engine.walkthrou
 build/levels/_engine.facts.json as name / value / unit / source, so an engine can compare a claim
 against what the decompilation actually does.
 
-EVERY FACT HERE IS A CLAIM, NOT A MEASUREMENT, AND THE FILE SAYS SO IN EVERY RECORD.
+🔴 EVERY FACT HERE IS A CLAIM, NOT A MEASUREMENT, AND THE FILE SAYS SO IN EVERY RECORD.
 The source is community-written documentation. The ingester's own note is "third-party prose, for
 analysis only; not ground truth", and that property has to survive extraction: a tidy JSON table
 of numbers looks authoritative in a way the paragraph it came from did not, and the danger is
@@ -16,10 +16,10 @@ facts about the game.
 The useful ones are those a decomp lookup can settle. `chrwidth 20.0f` is in chr.c:1936; if the
 prose says a different number, one of them is wrong and it is worth knowing which.
 
-OUTPUT STAYS OUT OF GIT. It is derived from material we may not redistribute -- build/ is
+⚠️ OUTPUT STAYS OUT OF GIT. It is derived from material we may not redistribute -- build/ is
 ignored, and .gitignore now names the intent explicitly rather than relying on that.
 
-THE LABEL IS A LABEL, NOT AN EXCERPT. `name` is a short slug built from the few words adjacent
+⚠️ THE LABEL IS A LABEL, NOT AN EXCERPT. `name` is a short slug built from the few words adjacent
 to the number, enough to say what the value refers to. This deliberately does not copy sentences:
 the point is the number and where to look it up, and a facts file that quietly became a copy of
 the document would defeat the reason it is kept out of git.
@@ -86,7 +86,7 @@ def main():
     ap.add_argument("--levels", default=os.path.join(ROOT, "build", "levels"))
     a = ap.parse_args()
 
-    # gathered BY document name, not BY which bundle they landed IN.
+    # ⚠️ GATHERED BY DOCUMENT NAME, NOT BY WHICH BUNDLE THEY LANDED IN.
     #
     # Two of the five engine-wide documents do not reach _engine.walkthrough.json at all:
     #
@@ -167,7 +167,7 @@ def main():
     for u, n in sorted(out["by_unit"].items(), key=lambda kv: -kv[1]):
         print("   %-8s %d" % (u, n))
     if misfiled:
-        print("\n %d engine document(s) are NOT in the _engine bundle and were read from "
+        print("\n⚠️ %d engine document(s) are NOT in the _engine bundle and were read from "
               "elsewhere:" % len(misfiled))
         for src, bucket in misfiled:
             print("     %-46s found in %s" % (src, bucket))

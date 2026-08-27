@@ -2,7 +2,7 @@
   Build GoldenEye natively on Windows, with mingw-w64.
 
   WHY THIS IS POWERSHELL AND NOT BASH
- -----------------------------------
+  -----------------------------------
   getv/build_windows.sh exists and is a faithful translation of build_linux.sh, and on a
   healthy MSYS2 it works. On the machine this was brought up on it does not, and the reason
   is worth recording because it is a property of MSYS2 rather than of this project:
@@ -52,7 +52,7 @@ param(
   # diagnostics. tools/verify_opt.ps1 compares them. Any level that changes the output is wrong
   # for this project no matter how fast it is -- an archival build that renders different pixels
   # is not an archival build.
-  # defaults TO -O1: the behaviour this tree already had. Introducing the dial and changing the
+  # ⚠️ DEFAULTS TO -O1: THE BEHAVIOUR THIS TREE ALREADY HAD. Introducing the dial and changing the
   # setting in one step would mean every later measurement compared against a baseline nobody had
   # ever run. The default moves only when the determinism check has passed and the numbers are in.
   [ValidateSet('-O0','-O1','-O2','-O3','-Os')]
@@ -268,7 +268,7 @@ function Build-Lib {
     # crash.c, spectrum.c and tlb_manage.c are N64 hardware and dev-host stubs, and the port
     # replaces them with getv/port/src/ge_link_stubs.c. On macOS and Linux they are not
     # excluded by name because they simply FAIL to compile there, and that failure is the
-    # guard -- the project notes are explicit that the 167/1 split must not be "fixed".
+    # guard -- CLAUDE.md is explicit that the 167/1 split must not be "fixed".
     #
     # This build's permissive flags (see $permissive above) let two of them through, and the
     # result was not a silent success: they compiled, went into the archive, and collided
@@ -415,7 +415,7 @@ function Build-App {
   }
 
   # The launcher's bundled font, next to the binary where ge_launcher.cpp looks for it first.
-  # Roboto Condensed, sil ofl 1.1; OFL.txt travels with it because the licence requires the
+  # Roboto Condensed, SIL OFL 1.1; OFL.txt travels with it because the licence requires the
   # copyright notice to be distributed alongside the font.
   $fsrc = Join-Path $here ('port' + [char]92 + 'assets' + [char]92 + 'fonts')
   if (Test-Path $fsrc) {

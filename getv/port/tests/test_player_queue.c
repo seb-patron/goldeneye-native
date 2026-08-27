@@ -1,20 +1,20 @@
 /* The player API's queue discipline -- the seam everything else rides on.
  *
  * Bots, the Lua bridge and netplay all reach the game through gePlayerPost, so its contract is
- * necessary in a way none of the consumers are individually. test_intent.c covers which BIT an
+ * load-bearing in a way none of the consumers are individually. test_intent.c covers which BIT an
  * intent becomes; this covers WHEN input is applied, for how long, and what happens when it is
  * not.
  *
  * Three properties matter more than the rest, and all three fail quietly:
  *
- *   A late post IS refused, not dropped. In netplay a post for a tick that has already run IS the
+ *   A LATE POST IS REFUSED, NOT DROPPED. In netplay a post for a tick that has already run IS the
  *   desync. A caller that cannot tell "applied" from "too late" has no way to notice one.
  *
- *   AN expired hold goes neutral, not "the last thing forever". A button left down indefinitely
+ *   AN EXPIRED HOLD GOES NEUTRAL, NOT "the last thing forever". A button left down indefinitely
  *   produces exactly one press and then blocks the idle timers several screens rely on, so a bot
  *   that stopped posting would wedge the front end rather than idle.
  *
- *   A full queue IS also A refusal. Silently overwriting the oldest entry would make a bot that
+ *   A FULL QUEUE IS ALSO A REFUSAL. Silently overwriting the oldest entry would make a bot that
  *   over-posts look like a bot with a planning bug.
  *
  * The real playback hook is driven here rather than the pieces, so tick advance, queue promotion,
@@ -38,7 +38,7 @@ signed char joyGetStickY(signed char p) { (void) p; return 0; }
 void joySetContDataIndex(int i) { (void) i; }
 int  gePortPlayerPos(int idx, float *out) { (void) idx; (void) out; return 0; }
 
-/* the Mac build's accessors. Absent here, which by their own contract means "unavailable" and is the
+/* mac-getv's accessors. Absent here, which by their own contract means "unavailable" and is the
  * correct answer for a build with no game attached. */
 int gePortPlayerMovePad(int idx) { (void) idx; return -1; }
 int gePortPlayerAngle(int idx, float *d) { (void) idx; (void) d; return 0; }
@@ -69,7 +69,7 @@ static void check(const char *what, int got, int want)
 
 /* One frame of the real hook.
  *
- * The argument IS joy.c's 20-DEEP sample ring, not one sample. ge_playback computes
+ * THE ARGUMENT IS joy.c's 20-DEEP SAMPLE RING, NOT ONE SAMPLE. ge_playback computes
  * `index = (curlast + 1) % 20` and writes samples[index], so handing it a single struct puts a
  * whole contsample past the end of the buffer.
  *
@@ -134,7 +134,7 @@ int main(void)
     check("hold tick 1",                  run_frame(0), 55);
     check("hold tick 2",                  run_frame(0), 55);
     check("hold tick 3",                  run_frame(0), 55);
-    /* the one that matters: not "the last thing forever". */
+    /* THE ONE THAT MATTERS: not "the last thing forever". */
     check("expired hold goes NEUTRAL",    run_frame(0), 0);
     check("  and stays neutral",          run_frame(0), 0);
 

@@ -1,0 +1,118 @@
+name: GoldeneyeNativeIOSSim
+options:
+  bundleIdPrefix: org.goldeneyenative
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+
+targets:
+  Goldeneye-Native-iOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      # Same entry point as tvOS -- SDL_main()'s job (pick the renderer, run the
+      # launcher, fall through into the game) has nothing tvOS-specific in it.
+      - path: Sources/ge_tvos_main.c
+      # The native SwiftUI launcher -- see its own header comment for why this replaced
+      # the ImGui one on this platform.
+      - path: Sources/GeNativeLauncher.swift
+      # Shared with tvOS's target: the catalog also carries tvOS's own
+      # "App Icon & Top Shelf Image.brandassets" bundle, which actool simply ignores
+      # for an iOS build (it is not this target's ASSETCATALOG_COMPILER_APPICON_NAME).
+      - path: Sources/Assets.xcassets
+    info:
+      path: Sources/Info-iOS.plist
+      properties:
+        CFBundleDisplayName: GoldenEye 007
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        UIRequiredDeviceCapabilities:
+          - arm64
+        GCSupportsControllerUserInteraction: true
+        UIApplicationSupportsIndirectInputEvents: true
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # MANDATORY -- see project.yml's identical tvOS comment; same TCC crash class.
+        NSBluetoothAlwaysUsageDescription: >-
+          GoldenEye 007 uses Bluetooth to connect game controllers.
+        NSBluetoothPeripheralUsageDescription: >-
+          GoldenEye 007 uses Bluetooth to connect game controllers.
+        NSMicrophoneUsageDescription: >-
+          Not used; required because the audio system enumerates input devices.
+        # An EMPTY UILaunchScreen dict, not omitted: without ANY launch-screen key, iOS
+        # treats the app as a pre-size-classes legacy binary and runs it in a fixed
+        # 480x320-point compatibility frame, scaled/letterboxed into the real screen --
+        # confirmed via SDL_GetDisplayBounds() reporting exactly 480x320 on an iPhone 17
+        # Simulator, and matches the launcher rendering squeezed into a small box in one
+        # corner instead of filling the display. The empty dict is enough to opt into
+        # modern (real-resolution) rendering without needing an actual storyboard/nib.
+        UILaunchScreen: {}
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: "5.0"
+        SWIFT_OBJC_BRIDGING_HEADER: port/src/GeLauncherBridge.h
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: YES
+        PRODUCT_BUNDLE_IDENTIFIER: org.goldeneyenative.getv
+        PRODUCT_NAME: Goldeneye-Native-iOS
+        TARGETED_DEVICE_FAMILY: "1,2"   # iPhone + iPad
+        DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_BITCODE: NO
+        HEADER_SEARCH_PATHS:
+          - /Users/you/.n64tvos/sdl2-iossim/include
+          - /Users/you/.n64tvos/sdl2-iossim/include/SDL2
+          - $(SRCROOT)/port
+          - $(SRCROOT)/port/include
+          - $(SRCROOT)/port/fast3d
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - TARGET_N64=1
+          - GE_PORT_NATIVE=1
+          - _LANGUAGE_C=1
+          - WAPI_SDL2=1
+          - ${GETV_RAPI_DEFINE}=1
+        OTHER_LDFLAGS:
+          - $(SRCROOT)/build-ios-sim/libge.a
+          - /Users/you/.n64tvos/sdl2-iossim/lib/libSDL2main.a
+          - /Users/you/.n64tvos/sdl2-iossim/lib/libSDL2.a
+          - ${GETV_IMGUI_LIB}
+          - -lc++
+          - -lz
+          - -framework
+          - OpenGLES
+          - -framework
+          - Metal
+          - -framework
+          - UIKit
+          - -framework
+          - Foundation
+          - -framework
+          - QuartzCore
+          - -framework
+          - CoreGraphics
+          - -framework
+          - CoreVideo
+          - -framework
+          - CoreAudio
+          - -framework
+          - AudioToolbox
+          - -framework
+          - AVFoundation
+          - -framework
+          - CoreBluetooth
+          - -weak_framework
+          - GameController
+          - -weak_framework
+          - CoreHaptics
+          # iOS-only: SDL_mfijoystick.m's #if TARGET_OS_IOS branch references
+          # CMMotionManager for controller motion input. tvOS's project.yml has no such
+          # branch compiled into its SDL2 build, which is why it never needed this.
+          - -framework
+          - CoreMotion

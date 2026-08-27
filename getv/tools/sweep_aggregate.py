@@ -96,10 +96,10 @@ RE_ROOMS  = re.compile(r"maxrooms=(\d+)")
 #   geTexSelCiNoLut -- a CI texture whose lutmode hit no case, so NO combiner was
 #                      emitted and the PREVIOUS draw call's combiner stayed in force.
 #                      GoldenEye is CI-heavy; if this prints it is a real render bug.
-#   [getv][hitidx] -- propobjFindHit() is the only writer of mtxindex/dlnode and runs
+#   [getv][hitidx]  -- propobjFindHit() is the only writer of mtxindex/dlnode and runs
 #                      only for HIT_GUN/HIT_HAT, so any other body part passed on an
 #                      uninitialised ModelNode* on the shooting path.
-#   [getv][texidx] -- besttexture == -1 indexed g_Textures BEFORE the array.
+#   [getv][texidx]  -- besttexture == -1 indexed g_Textures BEFORE the array.
 RE_COUNTERS = {
     "geTexSelCiNoLut": re.compile(r"geTexSelCiNoLut"),
     "hitidx":          re.compile(r"\[getv\]\[hitidx\]"),
@@ -208,7 +208,7 @@ def read_sample(d, loadpts=()):
             # If the app exits during the ~1-2 s the capture takes, the image is the tvOS
             # home screen, which scores 99.90-99.91% non-black on every level and would
             # award the best coverage in the table to a level that drew nothing (DEFAULT,
-            # control, sho and Cradle all reported exactly 99.91). Any coverage in that
+            # CONTROL, SHO and CRADLE all reported exactly 99.91). Any coverage in that
             # narrow band is discarded as unmeasurable rather than trusted.
             try:
                 cov = float(r["coverage"])

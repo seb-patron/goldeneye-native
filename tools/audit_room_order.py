@@ -7,7 +7,7 @@ for the secondary (blended) pass. Blended geometry has no depth-buffer answer to
 if the secondary pass is not back to front the result depends on draw order -- and "which surface
 wins varies with view angle" is exactly what that looks like.
 
-WHAT THIS FOUND ON TRAIN: 163 of 699 frames draw the blended pass out of depth order, and
+🔑 WHAT THIS FOUND ON TRAIN: 163 of 699 frames draw the blended pass out of depth order, and
 159 of those inversions are ACROSS buckets rather than within one.
 
     4 rooms visible    0% of frames out of order
@@ -23,17 +23,17 @@ It reads as correct at the spawn because looking straight down a linear train gi
 whose bucket numbers happen to ascend with distance. Turn far enough that the camera sees rooms
 whose bucket assignment disagrees with their depth, and the order inverts.
 
-I GOT THIS WRONG TWICE BEFORE THE TOOL WAS WRITTEN, WHICH IS WHY IT EXISTS. Reading one frame
+⚠️ I GOT THIS WRONG TWICE BEFORE THE TOOL WAS WRITTEN, WHICH IS WHY IT EXISTS. Reading one frame
 suggested the bucket sequence was fine and only intra-bucket ties were unsorted; reading three
 suggested the same. Across 699 frames the split is 159 across-bucket against 4 within. Three frames
 is not a sample, and an eyeballed pattern from a scrolling log is a hypothesis, not a measurement.
 
-THIS DOES NOT BY ITSELF PROVE IT CAUSES THE STEEL-PLATE ARTEFACT. It proves the blended pass is
+⚠️ THIS DOES NOT BY ITSELF PROVE IT CAUSES THE STEEL-PLATE ARTEFACT. It proves the blended pass is
 depth-inverted on 23% of frames, and that the inversions are INTRA-bucket. Whether the plate is
 blended geometry in a shared bucket is a separate question that needs the asset checked. Reported
 as a mechanism with a measured rate, not as a diagnosis.
 
-AND IT MAY BE FAITHFUL. The buckets come from the game's own data, so hardware had the same
+⚠️ AND IT MAY BE FAITHFUL. The buckets come from the game's own data, so hardware had the same
 intra-bucket ambiguity. Before "fixing" it, establish whether the N64 result differs -- a port that
 sorts more carefully than the original is still a port that renders something the original did not.
 """
@@ -95,8 +95,8 @@ def main():
 
     # The distinction that says whose bug it is.
     print("\ninversions by kind:")
-    print("   within one bucket : %d -- rooms sharing a bucket, unsorted against each other" % intra)
-    print("   across buckets    : %d -- bucket order disagrees with depth order" % inter)
+    print("   within one bucket : %d   -- rooms sharing a bucket, unsorted against each other" % intra)
+    print("   across buckets    : %d   -- bucket order disagrees with depth order" % inter)
     if inter > intra:
         print("\n   THE BUCKETS INTERLEAVE IN DEPTH: a room in a later bucket sits nearer than one")
         print("   in an earlier bucket, so walking buckets in order cannot be back-to-front no")

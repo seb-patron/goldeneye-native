@@ -2,24 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "ge_gl_debug.h"
-
-/* KHR_debug is a desktop GL 4.3 feature (a different, differently-queried extension exists on
- * GLES) and this whole file is a diagnostic tool that has never shipped enabled -- both public
- * entry points are GETV_GLDEBUG=1-gated and off by default. Gated on GE_PLATFORM_DESKTOP, not
- * USE_GLES: tvOS has no <OpenGL/gl3.h> regardless of which game renderer (GL ES or Metal) was
- * chosen, so this has to be a platform check, not a renderer check. Rather than a second
- * GLES-flavoured implementation of a debug-only tool, this is the same "empty when the
- * capability isn't present" shape used elsewhere in the port (see ge_imgui.h). Desktop GL keeps
- * the real implementation below, unchanged. */
-#ifndef GE_PLATFORM_DESKTOP
-
-int geGlDebugEnabled(void) { return 0; }
-void geGlDebugInstall(void) { }
-int geGlDebugPoll(const char *where, int frame) { (void) where; (void) frame; return 0; }
-
-#else
-
 /* GL headers follow the same rule as gfx_opengl.c: GLEW where it is used to load entry points,
  * the platform's own headers otherwise. Including <GL/glew.h> unconditionally builds on Windows
  * and fails everywhere else, which is how this file arrived. */
@@ -28,14 +10,16 @@ int geGlDebugPoll(const char *where, int frame) { (void) where; (void) frame; re
 # include <GL/glew.h>
 #else
 # define GL_GLEXT_PROTOTYPES 1
-# if defined(__APPLE__)
+# if defined(__APPLE__) && defined(GE_PLATFORM_MAC)
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
-# else
+# elif !defined(__APPLE__)
 #  include <GL/gl.h>
 #  include <GL/glext.h>
 # endif
 #endif
+
+#include "ge_gl_debug.h"
 
 /* The debug callback must carry the GL calling convention: the driver invokes it, so getting this
  * wrong corrupts the stack on any target where __stdcall and the C default differ.
@@ -191,5 +175,3 @@ int geGlDebugPoll(const char *where, int frame)
     }
     return n;
 }
-
-#endif /* GE_PLATFORM_DESKTOP */

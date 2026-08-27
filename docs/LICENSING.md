@@ -282,7 +282,7 @@ it covers only the Fast3D engine. The other two headers are inherited from an up
 states nothing at all, and sm64ex's own non-Fast3D code descends from the Super Mario 64
 decompilation, which likewise carries no licence.
 
-Both headers are small and neither is necessary. Rewriting them from the interfaces this port
+Both headers are small and neither is load-bearing. Rewriting them from the interfaces this port
 actually uses would remove them from the question at low cost, and is worth considering
 independently of whatever is decided about Fast3D.
 

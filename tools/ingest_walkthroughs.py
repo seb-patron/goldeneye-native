@@ -12,7 +12,7 @@ It is also a check on our own data. Train's walkthrough describes seven brake un
 run of cars; if the route graph cannot reproduce that shape, the graph is wrong and the
 walkthrough is how we find out.
 
-THIS IS THIRD-PARTY PROSE, NOT GROUND TRUTH. It is written for humans, it covers difficulty
+⚠️ THIS IS THIRD-PARTY PROSE, NOT GROUND TRUTH. It is written for humans, it covers difficulty
 tiers we may not model, and some of it is folklore. Treat a claim here the way the research docs
 treat a FOLKLORE tag: useful, and not a measurement. The extracted text keeps its source so a
 surprising line can be traced back.
@@ -98,7 +98,7 @@ def extract_blocks(text):
     principal_cars, traversal_axis, player_start. That is the half a tool can act on, and leaving
     it inside a wall of prose means every consumer re-reads the prose.
 
-    Parsed, not regex-scraped. A block that does not parse is DROPPED rather than half-read:
+    ⚠️ Parsed, not regex-scraped. A block that does not parse is DROPPED rather than half-read:
     a partially understood spatial model is worse than none, because a consumer cannot tell.
     """
     out = []
@@ -115,7 +115,7 @@ def extract_blocks(text):
 
 def level_for(name):
     low = name.lower()
-    # Multiplayer arenas share names with solo levels and are DIFFERENT PLACES -- Facility the
+    # ⚠️ Multiplayer arenas share names with solo levels and are DIFFERENT PLACES -- Facility the
     # mission and Facility the arena have different geometry and different rules. Filing an arena
     # guide under the solo level would put wrong tactics on a level that already has right ones.
     if "multiplayer" in low:

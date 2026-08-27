@@ -24,7 +24,7 @@ Now carries the player accessors, the control-style helpers, both navigation pro
 
 ---
 
-## 1. the sensing API IS the priority: build out what a bot can perceive
+## 1. THE SENSING API IS THE PRIORITY: build out what a bot can perceive
 
 This is the half of the platform that was missing, and it matters more than routing. Waypoints
 say where things are. **Interaction** is knowing you are against a wall rather than a crate,
@@ -34,13 +34,13 @@ whether the thing ahead can be opened or must be shot, and whether anyone can se
 
 | | |
 |---|---|
-| `geSenseLine` | what blocks a line, as a bitmask: wall / door / object / body |
+| `geSenseLine` | what blocks a line, as a bitmask: WALL / DOOR / OBJECT / BODY |
 | `geSenseAhead` | walks a ray in samples: what, how far, and the last clear point |
 | `geSenseClearestHeading` | the smallest turn that opens up |
 | `geSenseVisibleTo` | does this character have a clear line to this player |
 | `geSenseWatchers` | how many living enemies do |
 
-Live on Train: `clear at 300u`, then `wall door object body at 300u`, then `object body at 50u,
+Live on Train: `clear at 300u`, then `WALL DOOR OBJECT BODY at 300u`, then `OBJECT BODY at 50u,
 clearest +40 deg`.
 
 **What is missing, and it is yours:**
@@ -59,7 +59,7 @@ that number smaller; add the cone.
 know it is *touching* something right now: the difference between "there is a wall ahead" and
 "I am pressed against it and my last four moves did nothing".
 
-**1c. Reachability with a body, not a line. this IS the current blocker, and do not build it
+**1c. Reachability with a body, not a line. THIS IS THE CURRENT BLOCKER, and do not build it
 the way this item originally said.** A line test passes through a gap narrower than the player.
 Evan has a capture of exactly that: the bot trying to fit between a crate and a wall.
 

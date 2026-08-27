@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build it &mdash; Goldeneye-Native</title>
+<meta name="description" content="How to build Goldeneye-Native from source on Windows, macOS or Linux with your own ROM, and the full honest status of every platform and feature.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav">
+      <a href="index.html">Overview</a>
+      <a href="build.html" class="current">Build it</a>
+      <a href="faq.html">FAQ</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native" class="nav-icon" aria-label="GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Building it</h1>
+    <p>There is no prebuilt binary to download. That's a deliberate consequence of how this project
+    handles game data, not a missing feature &mdash; see below. Building it is a handful of commands.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Why there's no download button</h2>
+    <p class="section-sub">
+      This port compiles the extracted game assets directly into the executable rather than reading
+      the ROM at runtime. That means a built binary contains the entire game, not just this project's
+      own code &mdash; so a binary isn't this project's to hand out, only yours to build for yourself
+      once you've supplied your own ROM. Full accounting in
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+    </p>
+    <div class="callout reveal">
+      <strong>Nothing in this repository contains game data, and nothing ever will.</strong> Not the
+      ROM, not extracted assets, not a texture, not a sound. You supply your own legal copy and the
+      build reads it once, at extraction time.
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>What you need</h2>
+    <p class="section-sub">Your own legal NTSC (US) GoldenEye 007 cartridge, dumped to a file.</p>
+    <div class="panel reveal">
+    <table class="rom-table">
+      <tr><td>Size</td><td>12,582,912 bytes exactly</td></tr>
+      <tr><td>Byte order</td><td>Big-endian <code>z64</code></td></tr>
+      <tr><td>Header magic</td><td><code>80371240</code></td></tr>
+      <tr><td>Internal name</td><td><code>GOLDENEYE</code></td></tr>
+      <tr><td>SHA-1</td><td><code>abe01e4aeb033b6c0836819f549c791b26cfde83</code></td></tr>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-bottom:0">
+      That SHA-1 matches <code>ge007.u.sha1</code> in the decompilation, so a dump matching it is
+      byte-identical to what a correct US build has to produce. A <code>.n64</code> or <code>.v64</code>
+      extension, or a header of <code>37804012</code>, means byte-swapped &mdash; convert to native
+      big-endian first.
+    </p>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Quick start</h2>
+    <p class="section-sub">macOS and Linux:</p>
+    <div class="panel reveal">
+    <pre><code>git clone https://github.com/SegfaultEvan/goldeneye-native.git
+cd goldeneye-native
+tools/setup.sh                 # fetches deps, applies patches
+./getv/build_mac.sh all        # or build_linux.sh
+./getv/build-mac/goldeneye --launcher</code></pre>
+    </div>
+    <p class="section-sub" style="margin-top:24px">Windows (PowerShell):</p>
+    <div class="panel reveal">
+    <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_deps_windows.ps1
+.\getv\build_windows.ps1 -Target all</code></pre>
+    </div>
+    <p class="section-sub" style="margin-bottom:0; margin-top:24px">
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/SETUP.md">docs/SETUP.md</a>
+      is the real guide &mdash; every prerequisite, every command, the output each should produce, and
+      a troubleshooting section. The asset-generation step is the one you can't shortcut.
+    </p>
+  </div>
+</section>
+
+<section class="content" id="status">
+  <div class="wrap">
+    <h2>Where it actually stands</h2>
+    <p class="section-sub">
+      Scored honestly: <span class="tag tag-done">DONE</span> is implemented and verified,
+      <span class="tag tag-partial">PARTIAL</span> is real and working with a stated gap,
+      <span class="tag tag-open">OPEN</span> is not started. Full detail in the repository's
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/ROADMAP.md">ROADMAP.md</a>
+      and <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/VISION.md">VISION.md</a>.
+    </p>
+    <div class="status-panel reveal">
+    <table class="status">
+      <thead><tr><th>Platform / feature</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="item">Windows / macOS / Linux</td><td><span class="tag tag-done">DONE</span></td><td class="note">Native builds from one source tree, build from source.</td></tr>
+        <tr><td class="item">Split-screen multiplayer</td><td><span class="tag tag-done">DONE</span></td><td class="note">Radar, all 64 characters, all five watch pages, saves persist.</td></tr>
+        <tr><td class="item">Rulesets &amp; horde mode</td><td><span class="tag tag-done">DONE</span></td><td class="note">Classic / hardcore / survival / chaos / horde, plus nine individual percentages.</td></tr>
+        <tr><td class="item">Lua modding</td><td><span class="tag tag-done">DONE</span></td><td class="note">Read-only API today; write access (move a player, spawn a prop) is next.</td></tr>
+        <tr><td class="item">Metal renderer backend</td><td><span class="tag tag-done">DONE</span></td><td class="note">Landed 2026-08-26 on macOS &mdash; boots to the title crawl. Unlocks tvOS/iOS.</td></tr>
+        <tr><td class="item">Co-op campaign</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha. Players spawn, render and move; objectives/AI/cutscenes still assume one Bond.</td></tr>
+        <tr><td class="item">LAN play</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha, and disputed in the project's own docs &mdash; see <a href="faq.html">FAQ</a>.</td></tr>
+        <tr><td class="item">High frame rate above 60</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Uncapped renders at 350&ndash;560+ fps, but gameplay is tick-coupled today.</td></tr>
+        <tr><td class="item">Apple TV / iOS</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Not shipped. The Metal backend is the unlock; device bring-up is next.</td></tr>
+        <tr><td class="item">Android</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Architecture is in place (SDL2, split platform layer, a GLES renderer path). Not built yet.</td></tr>
+        <tr><td class="item">VR</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Camera seam exists for a per-eye transform. Listed because the hook exists, not because it works.</td></tr>
+        <tr><td class="item">HD texture packs</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Roadmap item, following Perfect Dark's <code>ext_tex</code> approach.</td></tr>
+        <tr><td class="item">True widescreen</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Resolution is configurable, but a wider window fits the 4:3 view rather than widening it.</td></tr>
+        <tr><td class="item">Online play</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Downstream of the frame-timing work.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Mods and mod packs</h2>
+    <p class="section-sub">
+      There's no separate mod-pack download hub yet &mdash; mods live in this repository's own
+      <code>mods/</code> directory today, and are shared the same way the project itself is: clone it,
+      drop a mod in, or open a pull request. A launcher setting points at whichever mods directory you
+      choose (<code>GETV_MODDIR</code>).
+    </p>
+    <p class="section-sub" style="margin-bottom:0">
+      A Lua mod is a <code>mod.lua</code> with any of <code>onFrame</code>, <code>onPlayerSpawn</code>,
+      <code>onWeaponFire</code>, plus a read API into live game state &mdash; no rebuild required. The
+      CRT shader (scanlines, aperture mask, barrel curve, vignette) ships as a mod you can read and
+      change. Start at
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/MODDING.md">docs/MODDING.md</a>.
+      HD texture replacement is on the roadmap and isn't implemented yet.
+    </p>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Configuration</h2>
+    <p class="section-sub">Most settings live in the launcher. For the rest, one file, written on first run:</p>
+    <div class="panel reveal">
+    <table class="rom-table">
+      <tr><td>Windows</td><td><code>%APPDATA%\Goldeneye-Native\</code></td></tr>
+      <tr><td>macOS</td><td><code>~/Library/Application Support/Goldeneye-Native/</code></td></tr>
+      <tr><td>Linux</td><td><code>~/.local/share/Goldeneye-Native/</code></td></tr>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-bottom:0">
+      A <code>goldeneye.cfg</code> beside the binary beats it, and <code>--config=&lt;path&gt;</code> /
+      <code>GETV_CONFIG</code> override both. Every key is documented in
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/CONFIGURATION.md">docs/CONFIGURATION.md</a>.
+    </p>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-links">
+      <a href="https://github.com/SegfaultEvan/goldeneye-native">Source</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/issues">Issues</a>
+    </div>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

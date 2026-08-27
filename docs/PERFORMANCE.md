@@ -33,12 +33,12 @@ twice.
 
 ## Measuring anything on this machine
 
-**The run-to-run spread is about 20%.** Two identical runs of one binary measured 63 and 95 fps.
+⚠️ **The run-to-run spread is about 20%.** Two identical runs of one binary measured 63 and 95 fps.
 A single-run comparison here is worthless and has already produced one wrong answer: a
 `GETV_LOADTRACE` A/B came out 44.96 fps with the gate ON and 53.61 with it OFF - noise pointing the
 wrong way, which would have been committed as a speedup by anyone reading one number.
 
-**And the spread is not symmetric noise, it is a systematic drift.** Frame rate decays
+⚠️ **And the spread is not symmetric noise, it is a systematic drift.** Frame rate decays
 monotonically within every benchmark as the machine heats: 105 -> 85 fps, then 111 -> 91 on the
 next. Whichever build is measured *second* is penalised by a thermal state the first one created.
 Running A five times then B five times is therefore **confounded, not merely noisy**, and
@@ -63,15 +63,15 @@ byte-reproducible on purpose (`osGetCount`, `port_os.c`), so two correct builds 
 diagnostics. `-O1` vs `-O2`: **691 distinct line shapes, occurrence counts matched, values
 identical.**
 
-**`-fno-strict-aliasing` is not part of the dial and must never be removed.** This source reads
+⚠️ **`-fno-strict-aliasing` is not part of the dial and must never be removed.** This source reads
 the same memory through incompatible types constantly. That was well-defined on IDO/MIPS and is
 undefined in standard C, and letting the optimiser assume it cannot happen miscompiles this tree
 into wrong pixels rather than into errors.
 
-**Do not use `-march=native`.** This is meant to be an archival build. `-march=native` produces a
+⚠️ **Do not use `-march=native`.** This is meant to be an archival build. `-march=native` produces a
 binary that fails with an illegal instruction on any machine older than the one that built it.
 
-**A verification filter can hide the bug it was written to expose.** The first version of
+⚠️ **A verification filter can hide the bug it was written to expose.** The first version of
 `verify_opt.ps1` reported 18 differences that did not exist: the baseline prints a float
 `-26504816079202425976135373291520.000000`, whose digit run is 32 characters, and **decimal digits
 are valid hex digits** - so the pointer-normalising rule ate the float's mantissa. The comparison
@@ -91,7 +91,7 @@ GPU timeline 5.87 - 7.30 ms  |  CPU in swap 0.07 - 0.10 ms
 **The present does not block.** 0.08 ms. The missing time is entirely GPU-side, so it is not the
 compositor stalling our thread and not the driver making us wait in `SwapWindow`.
 
-**But "GPU timeline" is not "GPU busy", and the difference decides what to do about it.**
+⚠️ **But "GPU timeline" is not "GPU busy", and the difference decides what to do about it.**
 `GL_TIME_ELAPSED` measures wall time between two markers on the GPU's timeline; time the GPU
 spends *waiting* inside that window is included. So this proves the time is spent GPU-side. It
 does **not** prove the hardware is saturated.
@@ -105,11 +105,11 @@ calls per frame, optimising geometry, batching or shaders targets work the GPU i
 doing. **Anyone continuing this should be chasing per-frame fixed cost** - submission overhead,
 buffer orphaning, or the swapchain - not draw calls.
 
-**`flush=48(empty 61)` is not a lead.** 61 "empty flushes" per frame sounds like 61 wasted
+⚠️ **`flush=48(empty 61)` is not a lead.** 61 "empty flushes" per frame sounds like 61 wasted
 state validations; it is not. `gfx_flush` returns immediately when the vertex buffer is empty and
 issues no GL call at all. Checked before optimising, and recorded so it is not "found" again.
 
-**There is a real, unfixed `GL_INVALID_OPERATION` --  but it is NOT the per-frame cost.**
+🔴 **There is a real, unfixed `GL_INVALID_OPERATION` — but it is NOT the per-frame cost.**
 Hunted with `GETV_GLDEBUG=1` (`getv/port/src/ge_gl_debug.c`), which installs a synchronous
 `KHR_debug` callback. Result:
 
@@ -119,26 +119,26 @@ poll hits: 1  ->  frame 0, after gfx_run
 ```
 
 **Six errors, all during frame 0, all inside `gfx_run`.** The poll after `gfx_start_frame` comes
-back clean, so they are bounded to that one call on that one frame --  where shaders are first
+back clean, so they are bounded to that one call on that one frame — where shaders are first
 compiled and textures first uploaded.
 
-**The obvious hypothesis was wrong and is recorded as wrong.** The reason to chase this was that
+⚠️ **The obvious hypothesis was wrong and is recorded as wrong.** The reason to chase this was that
 a driver can drop off a fast path once a context is in an error state, which would be a candidate
 for a fixed per-frame cost. It is not: a one-time startup error cannot explain a cost paid every
 frame, and the error does not recur after frame 0. **The ~6 ms per frame remains unexplained.**
 
-Still worth fixing as correctness --  nothing else in the tree calls `glGetError`, so six real GL
+Still worth fixing as correctness — nothing else in the tree calls `glGetError`, so six real GL
 errors have been raised and ignored for the life of the project. Intel's driver reports the
 function as `(null)`, so pinning the exact call means instrumenting inside `gfx_run`
 (third-party), which has not been done.
 
-**Drain the GL error queue before checking your own call.** `glGetError` reports and clears ONE
+⚠️ **Drain the GL error queue before checking your own call.** `glGetError` reports and clears ONE
 error per call from a queue that persists until read, so a stale error from unrelated code gets
 attributed to whatever checks next. The first version of the timer reported "could not allocate
 timer queries" on a driver where allocation had succeeded - it was reading somebody else's error,
 and the misleading message sent the investigation to the wrong place.
 
-**Never read a query with `GL_QUERY_RESULT` on the frame you issued it.** That blocks until the
+⚠️ **Never read a query with `GL_QUERY_RESULT` on the frame you issued it.** That blocks until the
 GPU finishes, which inserts exactly the stall the timer exists to detect - it would report a busy
 GPU whatever the truth, self-fulfillingly. Results are collected several frames late, and only
 after `GL_QUERY_RESULT_AVAILABLE` says so; a result that is not ready is skipped, never waited for.
@@ -157,15 +157,15 @@ uploads, does the GPU timeline still show 6 ms?
 **It collapses to zero.** So the cost is not the frame machinery - not the swapchain, not the
 compositor, not context or present overhead. It is the drawing.
 
-**That gives the number to chase: ~145 microseconds per draw call.** 48 draws costing ~7 ms,
+🔑 **That gives the number to chase: ~145 microseconds per draw call.** 48 draws costing ~7 ms,
 while being indifferent to pixel count *and* to triangle count (311 triangles total). That is
 per-draw driver overhead, not shading and not geometry.
 
-**`GETV_NODRAW` is a diagnostic, not a rendering mode** - the screen shows nothing. It
+⚠️ **`GETV_NODRAW` is a diagnostic, not a rendering mode** - the screen shows nothing. It
 deliberately still runs `gfx_start_frame` and `gfx_end_frame`, so the present still happens and
 the comparison isolates drawing rather than quietly measuring a different frame shape.
 
-Note the wall time does NOT collapse with it: ~4-6 ms per frame remains with zero GPU work.
+⚠️ Note the wall time does NOT collapse with it: ~4-6 ms per frame remains with zero GPU work.
 That is the rest of the program - game logic, the display-list walk that still runs to build
 nothing, and per-frame overhead - and it is a separate question from the GPU 6 ms.
 
@@ -202,7 +202,7 @@ both legitimate. The counters agree that the cheap causes are already at zero: s
 list changes render state every few triangles and the port is already collapsing every change it
 legitimately can.
 
-**What would reduce it further, and why it has not been done.** Batching across state changes
+⚠️ **What would reduce it further, and why it has not been done.** Batching across state changes
 means reordering draws. On a project whose whole purpose is reproducing the original output, a
 change that can alter draw order is a change that can alter what appears on screen - and the
 existing verification (`tools/verify_opt.ps1`) compares diagnostics, not pixels, so it would not
@@ -231,7 +231,7 @@ so, because it will look like a bug to the next reader too.
 The experiment was **removed rather than left behind a flag**. A measurably slower path kept "for
 reference" is one somebody eventually switches on.
 
-Note this was A/B'd on a single binary with an environment variable. That is strictly better
+⚠️ Note this was A/B'd on a single binary with an environment variable. That is strictly better
 than comparing two builds: it removes build-to-build variation, which on this machine is larger
 than the effect being looked for. Prefer it whenever a change can be expressed as a runtime branch.
 
@@ -245,7 +245,7 @@ Recorded so they are not re-tested:
 - **The presented frame.** `gfx_end_frame` is 0-1 ms.
 - **The texture cache.** Every lookup a hit, zero imports at steady state.
 
-**Read the `DONE start=/run=/end=` line, not the `-> gfx_end_frame (Nms)` line.** The latter is
+⚠️ **Read the `DONE start=/run=/end=` line, not the `-> gfx_end_frame (Nms)` line.** The latter is
 labelled for the stage it is *about to enter* and reports the time of the stage *before* it. Read
 carelessly it blames the buffer swap for `gfx_run`'s cost, and that instrumentation only covers the
 first five frames - which are dominated by asset loading and are not representative of anything.
@@ -258,8 +258,8 @@ first five frames - which are dominated by asset loading and are not representat
 | `GETV_LOADTRACE` | off | the ~646 per-asset load diagnostics |
 | `GETV_SCISSORTRACE` | off | the scissor rectangle, per change |
 | `GETV_VSYNC` | unset | SDL swap interval: `1` blocks, `0` does not, `-1` adaptive |
-| `GETV_PROF` | off | per-frame render breakdown. Costs ~25 ms/frame itself; read it as a ratio. |
+| `GETV_PROF` | off | per-frame render breakdown. ⚠️ Costs ~25 ms/frame itself; read it as a ratio. |
 
-**Do not redirect `stdout` to a file when measuring or playing.** A flushed line costs ~24 ms on
+⚠️ **Do not redirect `stdout` to a file when measuring or playing.** A flushed line costs ~24 ms on
 this machine's storage. That single fact accounted for a 7x difference (17.80 fps redirected vs
 124.78 fps discarded) and is why the benchmark harness sends output to `NUL` by default.

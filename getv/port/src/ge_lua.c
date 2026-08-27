@@ -386,7 +386,7 @@ static int ge_l_waypoint_near(lua_State *L)
 
 /* ge.guards_near(x, y, z, radius) -> array of tables, nearest first.
  *
- * Static placement, not live positions. This says where guards start and usually are, which is
+ * STATIC PLACEMENT, NOT LIVE POSITIONS. This says where guards start and usually are, which is
  * what a route planner wants. It is not who is shooting at you; that needs live character state
  * the port cannot yet read. Naming it guards_near rather than enemies would be a lie in the
  * other direction, so the docstring carries the distinction instead. */
@@ -571,7 +571,7 @@ static int ge_l_sense_ahead_body(lua_State *L)
 
 /* ge.clearest_heading(x, z, heading [, span] [, reach]) -> degrees.
  *
- * A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
+ * ⚠️ A LINE TEST. Keep it for questions genuinely about a line -- whether a shot or a sightline
  * reaches. Do NOT steer a body on it: a line has no width, so a gap narrower than the player
  * passes cleanly and the sweep then returns that gap as the best way out. Use
  * ge.clearest_heading_body below for anything that moves. */
@@ -591,7 +591,7 @@ static int ge_l_clearest_heading(lua_State *L)
  * The one anything steering a body must use. Same outward sweep, so the smallest correction still
  * wins, but every candidate is judged with a body rather than a ray.
  *
- * This binding was the last place the lying sensor survived. The router and the CLI were both
+ * 🔴 THIS BINDING WAS THE LAST PLACE THE LYING SENSOR SURVIVED. The router and the CLI were both
  * moved onto the body test; Lua was not, so every mod -- including our own atlas -- was still
  * being handed the line answer while the C callers had been corrected. Two callers of one idea
  * with only one fixed is worse than neither being fixed, because the tree looks done.
@@ -868,29 +868,6 @@ static int ge_l_props_in_room(lua_State *L)
     return 1;
 }
 
-/* ge.route_lane(px, pz, tx, tz) -> x, z, offset
- *
- * The reachable aim point for a route target. Route waypoints are the game's own nav pads, and
- * those do not always sit on ground a body fits through -- on Train they run about 70 units off
- * the walkable centre, which is enough for the engine's own walkability test to refuse 18 of the
- * level's 46 route steps. See ge_route_lane.c. Returns the target unchanged, with an offset of
- * zero, when it needed no help.
- */
-static int ge_l_route_lane(lua_State *L)
-{
-    extern float gePortRouteLane(float px, float pz, float *tx, float *tz);
-    float px = (float) luaL_checknumber(L, 1);
-    float pz = (float) luaL_checknumber(L, 2);
-    float tx = (float) luaL_checknumber(L, 3);
-    float tz = (float) luaL_checknumber(L, 4);
-    float off = gePortRouteLane(px, pz, &tx, &tz);
-
-    lua_pushnumber(L, (lua_Number) tx);
-    lua_pushnumber(L, (lua_Number) tz);
-    lua_pushnumber(L, (lua_Number) off);
-    return 3;
-}
-
 static const luaL_Reg ge_api[] = {
     { "log",          ge_l_log },
     { "stage",        ge_l_stage },
@@ -902,7 +879,6 @@ static const luaL_Reg ge_api[] = {
     { "objectives",    ge_l_objectives },
     { "objective",     ge_l_objective },
     { "route_step",    ge_l_route_step },
-    { "route_lane",    ge_l_route_lane },
     { "waypoint",      ge_l_waypoint },
     { "waypoint_near", ge_l_waypoint_near },
     { "guards_near",   ge_l_guards_near },

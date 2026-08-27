@@ -82,7 +82,7 @@ def main():
     adj = {f["t"]: [n for n in f.get("l", []) if n in pos] for f in floors}
     room = {f["t"]: f.get("r") for f in floors}
 
-    # snap the player into the level'S playable body, not merely TO the nearest tile.
+    # SNAP THE PLAYER INTO THE LEVEL'S PLAYABLE BODY, NOT MERELY TO THE NEAREST TILE.
     #
     # These tile graphs are fragmented -- frigate has 178 connected components, facility 156 -- and
     # a nearest-in-XZ snap lands on whatever scrap of floor happens to be closest. On frigate that
@@ -90,12 +90,12 @@ def main():
     # 1,240, the level reported zero arrival points, and the scheduler refused it as "unsuitable".
     # The main body it should have snapped to (768 tiles) sat 39 units away and lost on distance.
     #
-    # A height band does not fix this, recorded because it was tried first and did nothing. The
+    # A HEIGHT BAND DOES NOT FIX THIS, recorded because it was tried first and did nothing. The
     # island sits at a body-to-floor offset of 75 and the correct tiles at 25; BOTH are inside the
     # measured 12-202 offset range, so any band admitting real spawns admits the island too, and the
     # island still wins on horizontal distance.
     #
-    # The constraint that actually holds is semantic, not metric: A player cannot spawn ON A two-TILE
+    # The constraint that actually holds is semantic, not metric: A PLAYER CANNOT SPAWN ON A TWO-TILE
     # ISLAND. The playable body of a level IS its largest connected component, so the snap is
     # restricted to that component and the fragments drop out by construction. This also removes the
     # luck from the levels that already worked -- facility passed only because its spawn happened to
@@ -117,7 +117,7 @@ def main():
     main = max(comps, key=len)
     start = min(main, key=lambda t: (pos[t][0] - px) ** 2 + (pos[t][2] - pz) ** 2)
 
-    # cast AT floor height, not body height. The wall set carries the floor y of the tile that
+    # CAST AT FLOOR HEIGHT, NOT BODY HEIGHT. The wall set carries the FLOOR y of the tile that
     # produced each wall; the captured spawn is a BODY position, standing a body-to-floor offset
     # above its floor. Comparing one against the other with a deck-separation band silently rejects
     # every wall on the player's OWN deck as soon as that offset exceeds the band.
@@ -163,14 +163,14 @@ def main():
         cand.append({"tile": t, "pos": [round(v, 1) for v in c], "room": room.get(t),
                      "dist": round(d, 1), "blocked_at": round(hit, 1)})
 
-    # how many points A level gets must come from the level, OR IT IS not grounded IN anything.
+    # HOW MANY POINTS A LEVEL GETS MUST COME FROM THE LEVEL, OR IT IS NOT GROUNDED IN ANYTHING.
     #
     # A fixed --want 12 made every one of the 20 playable levels return exactly 12 points and
     # therefore exactly 140 enemies over 20 waves -- bunker1, whose median sightline measures 262
     # units, got the identical horde to statue. That is the archetype-audit failure again: a measure
     # returning the same verdict for levels that are visibly different is not measuring them.
     #
-    # rooms that can host AN arrival is the discriminator, and it genuinely discriminates: runway
+    # ROOMS THAT CAN HOST AN ARRIVAL is the discriminator, and it genuinely discriminates: runway
     # has 7, control has 73, a tenfold spread. Tile count does not work as well -- it counts floor
     # area, and a large open hall is one place to come from, not fifty.
     #
@@ -182,7 +182,7 @@ def main():
         n_rooms = len({c["room"] for c in cand})
         want = max(MIN_SPAWNS, min(16, int(round(n_rooms * 0.3))))
 
-    # spread across the band, not nearest-FIRST. Sorting by distance and taking the first N
+    # SPREAD ACROSS THE BAND, NOT NEAREST-FIRST. Sorting by distance and taking the first N
     # picks every arrival from the near edge: on Train that gave twelve spawns between 807 and 962
     # units of an 806-4031 band, all in one stretch of carriages. Two per room did not fix it,
     # because Train's rooms ARE the carriages and consecutive ones are adjacent -- a per-room cap

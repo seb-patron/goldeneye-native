@@ -203,7 +203,7 @@ void aClearBufferImpl(uint16_t addr, int nbytes) {
 void aLoadBufferImpl(const void *source_addr) {
     memcpy(rspa.buf.as_u8 + rspa.in, source_addr, ROUND_UP_8(rspa.nbytes));
     /* Probed as s16 even though ADPCM is nibble-packed: this is only asking "did any
-     * Non-zero bytes arrive from dram", which answers whether the dma/wavetable
+     * non-zero BYTES arrive from DRAM", which answers whether the DMA/wavetable
      * pointer is right, and that question is upstream of every codec detail. */
     if (ge_mixer_probe) {
         ge_probe_peak(rspa.buf.as_s16 + rspa.in / sizeof(int16_t),
@@ -331,7 +331,7 @@ void aInterleaveImpl(uint16_t left, uint16_t right) {
         *d++ = r6;
         *d++ = l7;
         *d++ = r7;
- --count;
+        --count;
     }
     if (ge_mixer_probe) {
         ge_mixer_n_interleave++;

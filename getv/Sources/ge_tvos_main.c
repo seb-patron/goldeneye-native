@@ -51,9 +51,6 @@
 
 #include "gfx_pc.h"
 #include "gfx_opengl.h"
-#ifdef RAPI_METAL
-#include "gfx_metal.h"
-#endif
 #include "gfx_sdl.h"
 #include "gfx_rendering_api.h"
 #include "gfx_window_manager_api.h"
@@ -342,50 +339,6 @@ int SDL_main(int argc, char *argv[])
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-#ifndef GE_PLATFORM_DESKTOP
-    /* The launcher, forced on. On desktop, ge_mac_main.c's main() calls geConfigInit() then
-     * gePortLauncherRun() BEFORE calling SDL_main() (this function) -- see its own comment on
-     * why the order matters: 76 GETV_* gates are read once into a static on first use, so the
-     * launcher has to run, and finish resolving every setting, before anything else touches
-     * them. tvOS/iOS have no such wrapper -- libSDL2main.a's real main() calls
-     * UIApplicationMain() and only reaches SDL_main() itself -- so this is that same call
-     * sequence, run from the one entry point these platforms actually give the app, as early
-     * as it can possibly go (before even the stub-table poisoning below).
-     *
-     * GETV_LAUNCHER=1 with overwrite=0: there is no --launcher argv on a sideloaded app and
-     * no shell to set the env from, so the launcher has to default to on rather than be
-     * reachable only by a flag nothing can pass. overwrite=0 lets a value already read from
-     * goldeneye.cfg (once one exists on-device) win, same convention geConfigInit() itself
-     * uses everywhere else. gePortLauncherRun() no longer execv()s on this platform (see
-     * relaunch()'s GE_PLATFORM_DESKTOP guard) -- it returns 0 and this function falls through
-     * into the game below, in the same still-pristine process, exactly like desktop's own
-     * execv-failed fallback already does. */
-    setenv("GETV_LAUNCHER", "1", 0);
-    {
-        extern int geConfigInit(int argc, char **argv);
-        /* Native SwiftUI launcher (GeNativeLauncher.swift), not gePortLauncherRun()'s
-         * ImGui one -- see that file's header comment for why: the ImGui path renders
-         * through SDL's own window/Metal-layer plumbing, which on real iOS hardware kept
-         * confining the UI to a small fraction of the screen despite several real,
-         * separately-fixed bugs. SwiftUI has no equivalent failure mode on either
-         * platform. @_cdecl gives this the literal C symbol name, so a plain extern
-         * declaration is enough -- no bridging header needed for C calling into Swift. */
-        extern int gePortNativeLauncherRun(void);
-        int rc = geConfigInit(argc, argv);
-        if (rc < 0) return 0;   /* --help / --write-config / --list-cheats: none reachable
-                                   here, kept only so this matches main()'s contract exactly */
-        if (rc > 0) return rc;
-        if (gePortNativeLauncherRun() != 0) return 0;
-    }
-#endif
-
-    /* iOS only (no-op everywhere else, including tvOS) -- see ge_virtual_controller.mm's
-     * header comment for why this needs nothing else: SDL's own iOS/tvOS joystick backend
-     * already treats a connected GCVirtualController exactly like a physical pad. Started
-     * here, before port_input.c's own SDL_INIT_GAMECONTROLLER call later in boot, so the
-     * virtual pad is already a live GCController by the time SDL enumerates. */
-    { extern void gePortVirtualControllerInit(void); gePortVirtualControllerInit(); }
-
     printf("[getv] GoldenEye tvOS harness starting\n");
 
     /* Must run before any game code: it lays down the 0xFF poison the stub tables are
@@ -418,13 +371,8 @@ int SDL_main(int argc, char *argv[])
     { extern void gePortMacWindowConfig(void); gePortMacWindowConfig(); }
 #endif
 
-    // Fast3D brings up SDL and the window itself, plus the GL context (RAPI_GL) or the
-    // CAMetalLayer (RAPI_METAL) -- see gfx_sdl2.c and gfx_metal.mm respectively.
-#ifdef RAPI_METAL
-    gfx_init(&gfx_sdl, &gfx_metal_api, "GoldenEye 007");
-#else
+    // Fast3D brings up SDL, the GL ES context and the window itself.
     gfx_init(&gfx_sdl, &gfx_opengl_api, "GoldenEye 007");
-#endif
     printf("[getv] Fast3D up: %dx%d internal, %dx%d output, supersample %u\n",
            gfx_current_dimensions.width, gfx_current_dimensions.height,
            gfx_output_dimensions.width, gfx_output_dimensions.height,

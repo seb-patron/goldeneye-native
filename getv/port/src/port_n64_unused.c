@@ -2,7 +2,7 @@
  *
  * Why this file exists, rather than the linker sorting it out
  * ------------------------------------------------------------
- * build_mac.sh passes -dead_strip, and that flag is necessary rather than an
+ * build_mac.sh passes -dead_strip, and that flag is load-bearing rather than an
  * optimisation: ld64 dead-strips before it checks for undefined symbols, so a reference
  * from an unreachable function is not an error. Four references rely on that today.
  * Linking the archive without -dead_strip produces exactly:

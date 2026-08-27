@@ -280,12 +280,14 @@ static void key_resolution(const char *v, int over)
 
 static void key_aspect(const char *v, int over)
 {
-    /* gfx_pc.c:1468 derives the aspect from the actual framebuffer dimensions
-     * (`gfx_adjust_x_for_aspect_ratio`), so the renderer needs no aspect setting - it
-     * needs a correctly-shaped window. This key therefore picks a default window shape
-     * and validates any explicit `resolution` against it. It does not introduce a
-     * second, independent aspect control; two of those would aspect-correct twice,
-     * which gfx_pc.c:3478 warns about explicitly. */
+    /* This key only ever picks/validates a WINDOW SHAPE; it does not decide what the
+     * renderer does with that shape. That is the separate `widescreen` key
+     * (GETV_WIDESCREEN, configWidescreen in port_support.c): on, gfx_pc.c's ge_scale() /
+     * gfx_adjust_x_for_aspect_ratio() fill the window at its own aspect; off, they
+     * pillarbox to the console's 4:3 regardless of window shape, same as before that gate
+     * existed. Setting a 16:9 window with widescreen off is a legitimate combination (a
+     * pillarboxed 4:3 image inside a wider window) so this key deliberately does not
+     * touch GETV_WIDESCREEN itself. */
  const char *win = getenv("GETV_WINDOW");
  int aw = 0, ah = 0;
 
@@ -700,6 +702,12 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "supersample") == 0) { key_supersample(val, over); return 1; }
  if (strcmp(key, "controls") == 0)    { key_controls(val, over); return 1; }
  if (strcmp(key, "filtering") == 0)   { key_filtering(val, over); return 1; }
+ if (strcmp(key, "widescreen") == 0)  { key_bool_gate("GETV_WIDESCREEN", key, val, over); return 1; }
+ /* hd_textures: off by default (configHDTextures, port_support.c) -- unlike widescreen and
+  * filtering above, this path has had no compiler available to verify it against. texpack
+  * is a bare directory path, same pass-through shape as moddir below. */
+ if (strcmp(key, "hd_textures") == 0) { key_bool_gate("GETV_HD_TEXTURES", key, val, over); return 1; }
+ if (strcmp(key, "texpack") == 0)     { put("GETV_TEXPACK", val, over); return 1; }
 
     /* ---- gamepad / bindings / deadzone / invert-look -------------------------- */
  if (strcmp(key, "gamepad") == 0) { key_gamepad(val, over); return 1; }

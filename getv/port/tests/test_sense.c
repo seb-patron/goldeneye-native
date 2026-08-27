@@ -59,7 +59,7 @@ int gePortSenseLine(float fx, float fz, float tx, float tz)
  *
  * A second, independent fake world would let the ray and the body disagree for reasons that are
  * about the test rather than about the code -- and the whole point of this pair of functions is
- * That they see the same obstacles and answer differently because one has width. The line asks
+ * that they see the same obstacles and answer differently BECAUSE ONE HAS WIDTH. The line asks
  * "does a segment cross this plane inside its z span"; this asks "does a BODY of GE_BODY_RADIUS,
  * centred here, overlap it". That difference is the entire feature.
  *
@@ -260,7 +260,7 @@ int main(void)
     check("alertness 0: not seen",             (m & GE_NOTICE_SEEN) == GE_NOTICE_SEEN, 0);
     fake_alertness = 100;
 
-    /* the one that matters most. With no facing accessor, absent must not read as facing-away:
+    /* THE ONE THAT MATTERS MOST. With no facing accessor, absent must not read as facing-away:
      * they lead to opposite behaviour, and a build that reports "nobody is looking" because it
      * cannot tell is the dangerous failure. */
     fake_facing_ok = 0;

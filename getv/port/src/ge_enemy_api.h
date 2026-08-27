@@ -6,11 +6,11 @@
  * room it is not looking at.
  *
  * This is the other half: who is actually here right now, how hurt they are, whether they have
- * Noticed anyone, and -- the part that matters most for deciding to retreat -- where they think
+ * noticed anyone, and -- the part that matters most for deciding to retreat -- WHERE THEY THINK
  * THEIR TARGET IS. The game already tracks all of it per character; none of it was reachable from
  * a bot or a mod.
  *
- * Why the belief fields are the interesting ones
+ * WHY THE BELIEF FIELDS ARE THE INTERESTING ONES
  *
  * `believed_*` is the enemy's own record of where it last knew its target to be, and `saw_*_ago`
  * says how stale that is. The gap between what an enemy believes and what is true is the entire
@@ -26,7 +26,7 @@
  * A bot that only knows enemy POSITIONS can fight. A bot that knows what enemies believe can
  * disengage, flank, and bait -- and those are the behaviours that read as intelligent.
  *
- * The source IS installed, not linked
+ * THE SOURCE IS INSTALLED, NOT LINKED
  *
  * The live data lives in ChrRecord (bondtypes.h:2454-2591), and the port layer is compiled
  * without the decomp's include path, so it cannot name that type. The established bridge in this
@@ -58,7 +58,7 @@ extern "C" {
 #define GE_ENEMY_F_X          0   /* prop->pos.x                                          */
 #define GE_ENEMY_F_Y          1
 #define GE_ENEMY_F_Z          2
-#define GE_ENEMY_F_DAMAGE     3   /* chr->damage -- accumulated, NOT remaining health   */
+#define GE_ENEMY_F_DAMAGE     3   /* chr->damage    -- accumulated, NOT remaining health   */
 #define GE_ENEMY_F_MAXDAMAGE  4   /* chr->maxdamage -- what it takes to kill them          */
 #define GE_ENEMY_F_ALERTNESS  5   /* chr->alertness, 0..255                                */
 #define GE_ENEMY_F_HEARING    6   /* chr->hearingscale -- rises when shot at               */

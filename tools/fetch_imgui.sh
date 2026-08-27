@@ -64,97 +64,41 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPS="$HERE/../deps"
 SRC="$DEPS/imgui-$VERSION"
 
-# TARGET selects which platform's library this run produces -- "host" (the default,
-# original behaviour, unchanged) builds for whatever this Mac/Linux box is; "tvos"/"tvsim"
-# and "ios"/"iossim" cross-compile for the Apple TV and iPhone/iPad device and Simulator
-# respectively, all four with a Metal renderer backend instead of OpenGL2 (none of these
-# platforms have desktop GL at all, GLES or not -- see gfx_metal.mm's header comment for
-# why the game renderer went the same way). Each target gets its own prefix and its own
-# SOURCES list below; nothing about the host path changes.
-#
-#   ./fetch_imgui.sh          host build (as before)
-#   ./fetch_imgui.sh tvos     tvOS device, arm64-apple-tvos17.0
-#   ./fetch_imgui.sh tvsim    tvOS simulator, arm64-apple-tvos17.0-simulator
-#   ./fetch_imgui.sh ios      iOS device, arm64-apple-ios15.0
-#   ./fetch_imgui.sh iossim   iOS simulator, arm64-apple-ios15.0-simulator
-TARGET="${1:-host}"
-CXX="${CXX:-c++}"
-TARGETFLAGS=()
-SDLINC=()
-BACKEND_RENDERER=opengl2   # or metal, set below
-
-case "$TARGET" in
-  host)
-    # The build script to name in the closing hint. Printing the macOS one on Linux is a
-    # small thing that costs a real minute to anyone following the message on the host
-    # that most needs it.
-    case "$(uname -s)" in
-      Darwin) BUILDSCRIPT=build_mac.sh; PREFIX="$HOME/.n64tvos/imgui-mac";   SDL="$HOME/.n64tvos/sdl2-mac"   ;;
-      Linux)  BUILDSCRIPT=build_linux.sh;  PREFIX="$HOME/.n64tvos/imgui-linux"; SDL="$HOME/.n64tvos/sdl2-linux" ;;
-      *) echo "unsupported host: $(uname -s)" >&2; exit 1 ;;
-    esac
-    # Host arch, asked of the kernel rather than of uname, for the reason documented at
-    # the top of getv/build_mac.sh: under an x86_64 Homebrew bash in Rosetta, uname -m
-    # reports the process architecture and the library would be built for the wrong slice.
-    if [ "$(uname -s)" = "Darwin" ]; then
-      ARCH="$(uname -m)"
-      if [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then ARCH="arm64"; fi
-      TARGETFLAGS=( -target "${ARCH}-apple-macos13.0" -isysroot "$(xcrun -sdk macosx --show-sdk-path)" )
-    fi
-    ;;
-  tvos)
-    BUILDSCRIPT=build.sh
-    PREFIX="$HOME/.n64tvos/imgui-tvos"
-    SDL="$HOME/.n64tvos/sdl2-tvos"
-    BACKEND_RENDERER=metal
-    TARGETFLAGS=( -target arm64-apple-tvos17.0 -isysroot "$(xcrun -sdk appletvos --show-sdk-path)" )
-    ;;
-  tvsim)
-    BUILDSCRIPT=build_sim.sh
-    PREFIX="$HOME/.n64tvos/imgui-tvsim"
-    SDL="$HOME/.n64tvos/sdl2-tvsim"
-    BACKEND_RENDERER=metal
-    TARGETFLAGS=( -target arm64-apple-tvos17.0-simulator -isysroot "$(xcrun -sdk appletvsimulator --show-sdk-path)" )
-    ;;
-  ios)
-    BUILDSCRIPT=build_ios.sh
-    PREFIX="$HOME/.n64tvos/imgui-ios"
-    SDL="$HOME/.n64tvos/sdl2-ios"
-    BACKEND_RENDERER=metal
-    TARGETFLAGS=( -target arm64-apple-ios15.0 -isysroot "$(xcrun -sdk iphoneos --show-sdk-path)" )
-    ;;
-  iossim)
-    BUILDSCRIPT=build_ios_sim.sh
-    PREFIX="$HOME/.n64tvos/imgui-iossim"
-    SDL="$HOME/.n64tvos/sdl2-iossim"
-    BACKEND_RENDERER=metal
-    TARGETFLAGS=( -target arm64-apple-ios15.0-simulator -isysroot "$(xcrun -sdk iphonesimulator --show-sdk-path)" )
-    ;;
-  *) echo "unknown target: $TARGET (want host, tvos, tvsim, ios or iossim)" >&2; exit 1 ;;
+# The build script to name in the closing hint. Printing the macOS one on Linux is a
+# small thing that costs a real minute to anyone following the message on the host that
+# most needs it.
+case "$(uname -s)" in
+  Darwin) BUILDSCRIPT=build_mac.sh; PREFIX="$HOME/.n64tvos/imgui-mac";   SDL="$HOME/.n64tvos/sdl2-mac"   ;;
+  Linux)  BUILDSCRIPT=build_linux.sh;  PREFIX="$HOME/.n64tvos/imgui-linux"; SDL="$HOME/.n64tvos/sdl2-linux" ;;
+  *) echo "unsupported host: $(uname -s)" >&2; exit 1 ;;
 esac
 
+CXX="${CXX:-c++}"
+
 # ImGui's SDL2 backend includes <SDL.h>. The port links a private static SDL2 built by
-# `./getv/build_mac.sh sdl` (or build.sh/build_sim.sh for tvOS) into a space-free prefix;
-# a system/Homebrew SDL2 is not a substitute for the host build (brew's is
-# x86_64-under-Rosetta on this machine and its headers could disagree with the library we
-# actually link), and there is no system SDL2 at all to fall back to when cross-compiling.
-if [ -d "$SDL/include/SDL2" ]; then
-  SDLINC=( -I "$SDL/include" -I "$SDL/include/SDL2" )
-elif [ "$TARGET" = "host" ] && command -v sdl2-config >/dev/null 2>&1; then
+# `./getv/build_mac.sh sdl` into a space-free prefix; a system/Homebrew SDL2 is not a
+# substitute here (brew's is x86_64-under-Rosetta on this machine and its headers could
+# disagree with the library we actually link).
+SDLINC=()
+if   [ -d "$SDL/include/SDL2" ]; then SDLINC=( -I "$SDL/include" -I "$SDL/include/SDL2" )
+elif command -v sdl2-config >/dev/null 2>&1; then
   # Space-safe: one flag per word is fine, sdl2-config never emits paths with spaces on a
   # sane install, and this is only the fallback for a host that has no private SDL2 yet.
   SDLINC=( $(sdl2-config --cflags) )
 else
   echo "no SDL2 headers found." >&2
-  echo "  expected $SDL/include/SDL2" >&2
-  case "$TARGET" in
-    host)  echo "  run './getv/build_mac.sh sdl' first" >&2 ;;
-    tvos)   echo "  build getv/deps/sdl2-tvos and symlink it into ~/.n64tvos/sdl2-tvos first" >&2 ;;
-    tvsim)  echo "  build getv/deps/sdl2-tvsim and symlink it into ~/.n64tvos/sdl2-tvsim first" >&2 ;;
-    ios)    echo "  build ~/.n64tvos/sdl2-ios first (see tools/fetch_imgui.sh's ios case)" >&2 ;;
-    iossim) echo "  build ~/.n64tvos/sdl2-iossim first (see tools/fetch_imgui.sh's ios case)" >&2 ;;
-  esac
+  echo "  expected $SDL/include/SDL2 -- run './getv/build_mac.sh sdl' first" >&2
   exit 1
+fi
+
+# Host arch, asked of the kernel rather than of uname, for the reason documented at the top
+# of getv/build_mac.sh: under an x86_64 Homebrew bash in Rosetta, uname -m reports the
+# process architecture and the library would be built for the wrong slice.
+TARGETFLAGS=()
+if [ "$(uname -s)" = "Darwin" ]; then
+  ARCH="$(uname -m)"
+  if [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then ARCH="arm64"; fi
+  TARGETFLAGS=( -target "${ARCH}-apple-macos13.0" -isysroot "$(xcrun -sdk macosx --show-sdk-path)" )
 fi
 
 mkdir -p "$DEPS"
@@ -196,34 +140,22 @@ SOURCES=(
   "$SRC/imgui_widgets.cpp"
   "$SRC/imgui_demo.cpp"
   "$SRC/backends/imgui_impl_sdl2.cpp"
+  "$SRC/backends/imgui_impl_opengl2.cpp"
 )
-if [ "$BACKEND_RENDERER" = "metal" ]; then
-  # tvOS has no desktop GL (imgui_impl_opengl2.cpp's fixed-function calls don't exist on
-  # GLES either) -- Metal is the only renderer backend that makes sense there, same
-  # reasoning as gfx_metal.mm. imgui_impl_metal.mm is Objective-C++ and needs -fobjc-arc;
-  # the .cpp members below do not, and passing it to them is harmless but pointless.
-  SOURCES+=( "$SRC/backends/imgui_impl_metal.mm" )
-else
-  SOURCES+=( "$SRC/backends/imgui_impl_opengl2.cpp" )
-fi
 
 ok=0; fail=0
 for f in "${SOURCES[@]}"; do
-  ext="${f##*.}"
-  b="$(basename "$f" ".$ext")"
+  b="$(basename "$f" .cpp)"
   [ -f "$f" ] || { fail=$((fail+1)); echo "  MISSING: $f"; continue; }
-  extraflags=()
-  [ "$ext" = "mm" ] && extraflags=( -fobjc-arc )
   if "$CXX" -c "$f" -o "$OBJDIR/$b.o" \
        ${TARGETFLAGS[@]+"${TARGETFLAGS[@]}"} \
        -std=c++17 -O2 -fno-exceptions -fno-rtti \
        -I "$SRC" -I "$SRC/backends" ${SDLINC[@]+"${SDLINC[@]}"} \
-       ${extraflags[@]+"${extraflags[@]}"} \
        -DGL_SILENCE_DEPRECATION -w
   then
     ok=$((ok+1))
   else
-    fail=$((fail+1)); echo "  FAILED: $b.$ext"
+    fail=$((fail+1)); echo "  FAILED: $b.cpp"
   fi
 done
 
@@ -240,22 +172,10 @@ ar rcs "$PREFIX/lib/libimgui.a" "$OBJDIR"/*.o || exit 1
 # later #include into a confusing "file not found" against a prefix that looks installed.
 cp "$SRC/imgui.h" "$SRC/imconfig.h" "$SRC/imgui_internal.h" \
    "$SRC/imstb_rectpack.h" "$SRC/imstb_textedit.h" "$SRC/imstb_truetype.h" \
-   "$SRC/backends/imgui_impl_sdl2.h" \
+   "$SRC/backends/imgui_impl_sdl2.h" "$SRC/backends/imgui_impl_opengl2.h" \
    "$PREFIX/include/" || exit 1
-if [ "$BACKEND_RENDERER" = "metal" ]; then
-  cp "$SRC/backends/imgui_impl_metal.h" "$PREFIX/include/" || exit 1
-else
-  cp "$SRC/backends/imgui_impl_opengl2.h" "$PREFIX/include/" || exit 1
-fi
 cp "$SRC/LICENSE.txt" "$PREFIX/IMGUI-LICENSE.txt" 2>/dev/null
 
-echo "dear imgui $VERSION ($TARGET, $BACKEND_RENDERER): $ok objects -> $PREFIX/lib/libimgui.a"
-case "$TARGET" in
-  host)
-    echo "rebuild the game to pick it up: ./getv/$BUILDSCRIPT all"
-    echo "then run it with: GETV_IMGUI=1 ./getv/$BUILDSCRIPT run"
-    ;;
-  tvos|tvsim|ios|iossim)
-    echo "rebuild the game to pick it up: GETV_RENDERER=metal ./getv/$BUILDSCRIPT all"
-    ;;
-esac
+echo "dear imgui $VERSION: $ok objects -> $PREFIX/lib/libimgui.a"
+echo "rebuild the game to pick it up: ./getv/$BUILDSCRIPT all"
+echo "then run it with: GETV_IMGUI=1 ./getv/$BUILDSCRIPT run"

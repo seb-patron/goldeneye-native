@@ -1,32 +1,32 @@
 /* Who owns the heading this frame: the route, or the fight.
  *
- * Derived from the three measurements, not from a scheme. Routing alone reaches waypoint 10 alive.
+ * DERIVED FROM THE THREE MEASUREMENTS, not from a scheme. Routing alone reaches waypoint 10 alive.
  * Stop-and-shoot reaches 4 at the same end health. Firing on the move reaches 4 and dies.
  *
  * The second and third are the informative pair. If STOPPING were the cost, firing while moving
  * should have recovered most of the six lost waypoints. It recovered none -- the same waypoint 4.
  * So the cost is not the trigger and not the stop. It is the only thing both fight modes share:
- * The turn TO face the target.
+ * THE TURN TO FACE THE TARGET.
  *
  * And that also explains the death. Once the aim owns the heading, "moving" means moving along the
  * aim heading, which is straight at the guard. Stop-and-shoot at least does not close the distance,
  * which is why it survives at the same health while making the same progress.
  *
- * Why not strafe. The obvious fix is to face the target and translate along the route, and the
+ * WHY NOT STRAFE. The obvious fix is to face the target and translate along the route, and the
  * engine does not offer it. In the default single-controller styles bondview2.c:5637-5663 sets
  * tankTurnLeftSpeed AND digitalStepLeft from the same button, so a sidestep also rotates; and in
  * aim mode digitalStep is disabled and canNaturalTurn goes false. Facing and movement are coupled
  * and cannot be separated from the input side. This was the first design and the code refuted it.
  *
- * What the engine does offer IS auto-AIM. bondview.h:551-555 keeps separate autoaim_target_x and
+ * WHAT THE ENGINE DOES OFFER IS AUTO-AIM. bondview.h:551-555 keeps separate autoaim_target_x and
  * autoaim_target_y with a time constant, so a shot does not need the player pointed at the target.
  * The turn was never buying accuracy that the engine was not already providing.
  *
- * SO the policy IS: DO not turn. Hold the route heading, and pull the trigger when the target is
+ * SO THE POLICY IS: DO NOT TURN. Hold the route heading, and pull the trigger when the target is
  * inside the cone auto-aim can close. The trigger is nearly free; the turn costs six waypoints and
  * eventually a life.
  *
- * And the heading has exactly one writer. A route turn and an engagement turn that each write a
+ * AND THE HEADING HAS EXACTLY ONE WRITER. A route turn and an engagement turn that each write a
  * heading in the same frame means the last writer wins and the bot walks wherever the loser was
  * not pointing. Latching each of them separately does not fix that -- it makes two correct
  * decisions that still disagree. This function returns the heading, and it is the only thing that

@@ -7,7 +7,7 @@ still plausible-looking. A radius that is 6.7x too large does not error, it just
 bot the room is full. The join was already verified (340/340 enum members, 342/342 Train props);
 this checks the MAGNITUDES, which is a different question and the one that bit.
 
-IT DELIBERATELY DOES NOT ASSERT THAT EVERY PROP FITS ITS ROOM. Reasoning from "prop wider than
+⚠️ IT DELIBERATELY DOES NOT ASSERT THAT EVERY PROP FITS ITS ROOM. Reasoning from "prop wider than
 the walkable floor => the scale is wrong" is what produced a false alarm on Train: the floor tiles
 cover a carriage INTERIOR, while roller doors, hatch fittings and hull furniture sit on the
 structure outside it and are legitimately wider than anything you can stand on. Demanding that

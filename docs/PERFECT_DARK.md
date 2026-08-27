@@ -122,7 +122,7 @@ Attribute to `perfect_dark @ 514bf7a`, `port/include/preprocess/common.h`.
 **Effort: small. Value: high.**
 
 `vendor/pd-port/src/include/platform.h` is 100 lines defining `PLATFORM_{WIN32,POSIX,LINUX,OSX,
-Nswitch}`, `PLATFORM_{X86_64,X86,arm,64bit}`, `PLATFORM_{big,little}_ENDIAN`, `PD_BSWAP{16,32,64}`,
+NSWITCH}`, `PLATFORM_{X86_64,X86,ARM,64BIT}`, `PLATFORM_{BIG,LITTLE}_ENDIAN`, `PD_BSWAP{16,32,64}`,
 `PD_BE{16,32,64}`, `PD_LE{16,32,64}`, `PD_BEPTR`, `PD_LEPTR` and `PD_CONSTRUCTOR`. The
 `PLATFORM_TVOS` block at `:17-24` is this project's own local modification, not Perfect Dark's.
 
@@ -225,7 +225,7 @@ Perfect Dark declares bitfield groups in both orders under `#ifdef PLATFORM_BIG_
 `src/include/types.h:329-339` (`struct packedpad`), `:3451-3476` (`union soundnumhack`), and in
 `include/PR/gbi.h` for `Tri` (`:1037-1045`), `Gdma` (`:1322-1336`), `Gtri` (`:1341-1350`),
 `Gtri4` (`:1352-1390`), `GunkC0` (`:1568-1594`) and `Gvtx` (`:1596-1612`). `Gtri4` additionally
-inserts `pad2[4]`/`pad3[4]` under `PLATFORM_64BIT`. A necessary warning sits at `gbi.h:1329`:
+inserts `pad2[4]`/`pad3[4]` under `PLATFORM_64BIT`. A load-bearing warning sits at `gbi.h:1329`:
 changing signedness mid-int breaks the bitfield even on big-endian platforms.
 
 The `GE_SUBWORD2/3/4` macros at `vendor/ge-decomp/src/bondtypes.h:25-52` are the same idea,
@@ -300,7 +300,7 @@ What Perfect Dark has that is structurally absent here:
   This port has no range invalidation.
 - **A widescreen aspect system** - `gfx_adjust_x_for_aspect_ratio` (`gfx_pc.cpp:1037-1041`) and
   `gfx_update_aspect_mode` (`:1636-1660`), driven by custom GBI commands
-  `G_ASPECT_{wide,left,right,center}_EXT` that the game emits per element.
+  `G_ASPECT_{WIDE,LEFT,RIGHT,CENTER}_EXT` that the game emits per element.
 - **Display-mode enumeration, fullscreen modes, refresh-rate query and swap-interval control**
   in the window-manager API.
 

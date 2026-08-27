@@ -7,7 +7,7 @@
  * agreeing, and it did not agree, so the hold released and re-applied within a frame or two and
  * the bot rocked inside a six degree band while barely moving.
  *
- * Two causes, and they turn out TO BE one.
+ * TWO CAUSES, AND THEY TURN OUT TO BE ONE.
  *
  * geSenseAheadForBody walks gePortCanStandAt forward in steps of GE_BODY_RADIUS starting at
  * d = GE_BODY_RADIUS. That first sample sits exactly one body radius ahead of the asker, which is
@@ -22,10 +22,10 @@
  * within the sample cell, so sub-unit drift flips it. A false positive that is stable would have
  * been merely wrong; one that sits exactly on a boundary alternates.
  *
- * SO the walk starts clear OF the asker. The first sample goes at a full body diameter, which is
+ * SO THE WALK STARTS CLEAR OF THE ASKER. The first sample goes at a full body DIAMETER, which is
  * the nearest point whose body-sized volume cannot contain the asker's own centre.
  *
- * And the query IS quantised, which is what makes the guarantee a guarantee rather than a hope.
+ * AND THE QUERY IS QUANTISED, which is what makes the guarantee a guarantee rather than a hope.
  * Position is snapped to a cell and heading to an arc before anything is sampled, so any two
  * queries within one cell produce bit-identical inputs and therefore bit-identical output. "Same
  * standing position, same answer" then holds by construction, and so does the case that actually
@@ -36,7 +36,7 @@
  * instability wearing a smoother coat, and it cannot be unit tested without simulating a history.
  * This can: two positions in a cell, one call each, compare.
  *
- * What this does not change. It does not touch geSenseAheadForBody, which stays as it is and stays
+ * WHAT THIS DOES NOT CHANGE. It does not touch geSenseAheadForBody, which stays as it is and stays
  * mac's. This is a wrapper, so the swap is one call site in ge_bot_route.c and reverting it is the
  * same edit backwards.
  *
@@ -143,7 +143,7 @@ int geSenseAheadForBodyStable(float x, float z, float heading_deg, float reach,
     blocked = (out->what & GE_SENSE_SOLID) != 0;
     moved = (ge_last_qx != qx) || (ge_last_qz != qz) || (ge_last_qh != qh);
 
-    /* A flip IS only A flip when the query did not change. If the bot moved to another cell the
+    /* A FLIP IS ONLY A FLIP WHEN THE QUERY DID NOT CHANGE. If the bot moved to another cell the
      * world genuinely differs and a different answer is correct, not unstable. Counting those
      * would report movement as noise and make the figure meaningless. */
     ge_calls++;

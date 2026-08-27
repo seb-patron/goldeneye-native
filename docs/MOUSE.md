@@ -24,7 +24,7 @@ counts/frame     2      6     12     30     63
 before        ~0     ~0     ~0    0.35   3.50   deg/frame
 ```
 
-Magnitude is now remapped from [1, max] onto [deadzone, max], so full scale stays full scale
+Magnitude is now remapped from [1, MAX] onto [DEADZONE, MAX], so full scale stays full scale
 and the smallest real movement produces the smallest real turn. **Applied only to the mouse**;
 a physical stick keeps its deadzone, which it needs.
 
@@ -62,12 +62,12 @@ twitchy, 200 leaves a 10x spread between slow and fast.
 | 30 | 2.2 | 210.0 | 4.9 |
 | 63 | 4.7 | 210.0 | 10.3 |
 
-**The remaining spread is the game's own acceleration curve, not a defect.** GoldenEye ramps
+⚠️ **The remaining spread is the game's own acceleration curve, not a defect.** GoldenEye ramps
 turn speed with deflection, so slow movement stays slow -- which is what gives fine aim at 0.2
 in/sec and a fast whip at 2.2. Flattening it would mean overriding the game's aim model, which
 is a much larger decision than a sensitivity constant and is not being made here.
 
-**210 deg/sec is a hard ceiling** -- it is the game's maximum turn rate at full deflection,
+⚠️ **210 deg/sec is a hard ceiling** -- it is the game's maximum turn rate at full deflection,
 measured at 3.54 deg/frame. Past 30 counts/frame the accumulator spreads the surplus over
 following frames rather than losing it, which is why 63 reads slower per count than 30: the
 turn is not lost, it is delivered over more frames.

@@ -5,7 +5,7 @@
  * part that has to happen before any of it -- machines finding each other and agreeing on who
  * is which slot and when to begin.
  *
- * Full mesh, not A star
+ * FULL MESH, NOT A STAR
  *
  * Every machine must hear every other machine's input directly. In lockstep no peer can relay
  * for another without adding a hop to the one thing that must arrive inside the input delay, and
@@ -16,14 +16,14 @@
  * tools/netsim.py has modelled it this way from the start, with each machine sending to all
  * others. The star was the transport deviating from its own specification.
  *
- * Why there IS A hello
+ * WHY THERE IS A HELLO
  *
  * Learning a peer's address is not the same as having a path to it. A UDP endpoint behind a home
  * router generally will not accept a datagram from an address it has never sent to, so each
  * machine sends a HELLO to every peer it learns about. That outbound packet is what opens the
  * return path. It carries no data and its only job is to have been sent.
  *
- * Why the session starts ON A signal
+ * WHY THE SESSION STARTS ON A SIGNAL
  *
  * Everyone must prime the same window and begin together. The host waits until the expected
  * number of players is present and then tells everybody to start, rather than each machine

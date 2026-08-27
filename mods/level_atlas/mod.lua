@@ -18,12 +18,12 @@ local printed = false
 local SLOT = 0
 
 function onFrame(frame)
- -- Once, and late enough that the level is placed. Asking at frame 1 gets a half-built world
- -- and prints a confident, wrong atlas.
+    -- Once, and late enough that the level is placed. Asking at frame 1 gets a half-built world
+    -- and prints a confident, wrong atlas.
     if printed or frame < 600 then return end
     printed = true
 
- -- ge.world() returns the level NAME as a string, not a table.
+    -- ge.world() returns the level NAME as a string, not a table.
     local lvl = ge.world()
     if not lvl then
         ge.log("level_atlas: no world loaded -- set GETV_WORLD_DIR and GETV_BOT_ROUTE_LEVEL")
@@ -44,7 +44,7 @@ function onFrame(frame)
         return
     end
 
- -- "Where is the nearest key?"
+    -- "Where is the nearest key?"
     local key = ge.prop_near("Key", st.x, st.y, st.z)
     if key then
         ge.log(string.format("  nearest key: %.0f,%.0f,%.0f  room %d  node %d",
@@ -53,7 +53,7 @@ function onFrame(frame)
         ge.log("  nearest key: this level has none")
     end
 
- -- "Which door leads out of here?"
+    -- "Which door leads out of here?"
     local door = ge.prop_near("Door", st.x, st.y, st.z)
     if door then
         local dx, dz = door.x - st.x, door.z - st.z
@@ -61,7 +61,7 @@ function onFrame(frame)
                              math.sqrt(dx * dx + dz * dz), door.room, door.node))
     end
 
- -- "What is in this room?"
+    -- "What is in this room?"
     if st.room and st.room >= 0 then
         local here = ge.props_in_room(st.room)
         local tally = {}
@@ -72,13 +72,13 @@ function onFrame(frame)
                              #parts > 0 and table.concat(parts, ", ") or "nothing placed"))
     end
 
- -- "What does the first objective want, and where is it?"
- -- Objectives are 0-indexed here, matching the game's own numbering rather than Lua's.
+    -- "What does the first objective want, and where is it?"
+    -- Objectives are 0-indexed here, matching the game's own numbering rather than Lua's.
     for i = 0, ge.objectives() - 1 do
         local obj = ge.objective(i)
         if obj then
- -- steps == 0 means the objective exists and cannot be routed to, which is worth
- -- saying out loud: it is the difference between "done" and "unreachable".
+            -- steps == 0 means the objective exists and cannot be routed to, which is worth
+            -- saying out loud: it is the difference between "done" and "unreachable".
             ge.log(string.format("  objective %d: difficulty %d, %d target(s), %s",
                                  obj.index, obj.difficulty, obj.targets,
                                  obj.steps > 0
@@ -88,20 +88,20 @@ function onFrame(frame)
         end
     end
 
- -- ================================================================= SENSING
- --
- -- The interaction half. Everything above answers "what does this level contain"; this answers
- -- "what is against me, and who is looking" -- which is what a bot actually acts on.
- --
- -- Skipped rather than guessed when the build reports no heading. Assuming a facing would print
- -- a confident reading of the wrong direction, which is worse than printing nothing.
+    -- ================================================================= SENSING
+    --
+    -- The interaction half. Everything above answers "what does this level contain"; this answers
+    -- "what is against me, and who is looking" -- which is what a bot actually acts on.
+    --
+    -- Skipped rather than guessed when the build reports no heading. Assuming a facing would print
+    -- a confident reading of the wrong direction, which is worse than printing nothing.
     if st.angle == nil then
         ge.log("  sensing: this build reports no heading -- skipped")
         return
     end
 
- -- What is ahead, and how far. The BODY test rather than the ray: a ray fits through gaps a
- -- player does not, so the ray version can call a corridor clear that cannot be entered.
+    -- What is ahead, and how far. The BODY test rather than the ray: a ray fits through gaps a
+    -- player does not, so the ray version can call a corridor clear that cannot be entered.
     local c = ge.sense_ahead_body(st.x, st.z, st.angle, 300)
     local what = {}
     if c.wall   then what[#what + 1] = "WALL"   end
@@ -112,24 +112,24 @@ function onFrame(frame)
                          c.clear and "clear" or table.concat(what, " "),
                          c.clear and "" or string.format(" at %.0fu", c.distance)))
 
- -- THE DOOR BIT DOES NOT MEAN "A DOOR IS IN FRONT OF YOU".
- --
- -- geSenseLine reports WALL, DOOR and OBJECT together whenever the ray merely GRAZES a doorway
- -- edge, so the mask says what the line TOUCHED, not what is ahead. the Mac build's bot acted on
- -- this bit and drove into a wall with the action button held for an entire run while its real
- -- target sat at bearing -60.
- --
- -- This line used to say "that is a DOOR, an opportunity to a bot" from the bit alone, which is
- -- the same mistake one layer up: a mod reading the atlas would have believed it. Now it only
- -- claims a door when the door bit arrives ALONE. A door reported together with a wall is a
- -- grazed edge and is reported as exactly that, because "I cannot tell" and "there is a door"
- -- lead to opposite actions.
- --
- -- Confirming against the prop table is what the bot now does (a real door, within the
- -- engine's own 200 units, and near the bearing to the TARGET rather than to the current
- -- heading). The atlas deliberately does not repeat that here: it reports what the sensor said
- -- and who else agrees, and a second, subtly different door test living in a mod is how two
- -- answers to one question start disagreeing.
+    -- 🔴 THE DOOR BIT DOES NOT MEAN "A DOOR IS IN FRONT OF YOU".
+    --
+    -- geSenseLine reports WALL, DOOR and OBJECT together whenever the ray merely GRAZES a doorway
+    -- edge, so the mask says what the line TOUCHED, not what is ahead. mac-getv's bot acted on
+    -- this bit and drove into a wall with the action button held for an entire run while its real
+    -- target sat at bearing -60.
+    --
+    -- This line used to say "that is a DOOR, an opportunity to a bot" from the bit alone, which is
+    -- the same mistake one layer up: a mod reading the atlas would have believed it. Now it only
+    -- claims a door when the door bit arrives ALONE. A door reported together with a wall is a
+    -- grazed edge and is reported as exactly that, because "I cannot tell" and "there is a door"
+    -- lead to opposite actions.
+    --
+    -- ⚠️ Confirming against the prop table is what the bot now does (a real door, within the
+    -- engine's own 200 units, and near the bearing to the TARGET rather than to the current
+    -- heading). The atlas deliberately does not repeat that here: it reports what the sensor said
+    -- and who else agrees, and a second, subtly different door test living in a mod is how two
+    -- answers to one question start disagreeing.
     if c.door and not c.wall and not c.object then
         ge.log("    a DOOR alone -- an obstacle to a planner, an opportunity to a bot with a hand")
     elseif c.door then
@@ -137,17 +137,17 @@ function onFrame(frame)
                .. " confirm against the prop table before acting on it")
     end
 
- -- Which way is clear, as a TURN rather than a bearing: the useful question is how far to
- -- turn, not where north is.
- --
- -- THE BODY VERSION, not ge.clearest_heading. A line has no width, so a gap narrower than
- -- the player passes the line test and the sweep hands it back as the best way out -- and a
- -- reader who acts on it walks into the one direction it cannot fit through, with the report
- -- insisting it chose correctly. The sensor lies; the policy is fine.
- --
- -- The second return is how far that heading is actually clear for. Printed, because "turn
- -- +60" with 40 units behind it and "turn +60" with 300 are different advice and the bearing
- -- alone cannot tell them apart.
+    -- Which way is clear, as a TURN rather than a bearing: the useful question is how far to
+    -- turn, not where north is.
+    --
+    -- 🔴 THE BODY VERSION, not ge.clearest_heading. A line has no width, so a gap narrower than
+    -- the player passes the line test and the sweep hands it back as the best way out -- and a
+    -- reader who acts on it walks into the one direction it cannot fit through, with the report
+    -- insisting it chose correctly. The sensor lies; the policy is fine.
+    --
+    -- The second return is how far that heading is actually clear for. Printed, because "turn
+    -- +60" with 40 units behind it and "turn +60" with 300 are different advice and the bearing
+    -- alone cannot tell them apart.
     local best, room = ge.clearest_heading_body(st.x, st.z, st.angle, 90, 300)
     local turn = best - st.angle
     while turn > 180 do turn = turn - 360 end
@@ -155,11 +155,11 @@ function onFrame(frame)
     ge.log(string.format("  clearest: %+.0f deg, clear for %.0fu%s", turn, room or 0,
                          math.abs(turn) < 1 and " (straight ahead is fine)" or ""))
 
- -- Am I against something, as opposed to predicting one? History, not geometry.
- -- Three states, not two. The first version printed "moving freely" whenever it was not stuck,
- -- so a player standing still read as walking -- and it read that way even before anything fed
- -- the detector, when the honest answer was "no data at all". Not-stuck and moving are
- -- different claims.
+    -- Am I against something, as opposed to predicting one? History, not geometry.
+    -- Three states, not two. The first version printed "moving freely" whenever it was not stuck,
+    -- so a player standing still read as walking -- and it read that way even before anything fed
+    -- the detector, when the honest answer was "no data at all". Not-stuck and moving are
+    -- different claims.
     local stuck, travel = ge.is_stuck(SLOT, 8)
     local contact
     if stuck then
@@ -171,15 +171,15 @@ function onFrame(frame)
     end
     ge.log(string.format("  contact: %s (%.0fu travelled recently)", contact, travel))
 
- -- Could see me, versus is looking at me. THE GAP IS THE NUMBER THAT MATTERS: many with a line
- -- and few looking is a room you can cross.
+    -- Could see me, versus is looking at me. THE GAP IS THE NUMBER THAT MATTERS: many with a line
+    -- and few looking is a room you can cross.
     local could, looking = ge.watchers(SLOT)
     ge.log(string.format("  seen by: %d could (line of sight), %d actually looking", could, looking))
     if could > 0 and looking == 0 then
         ge.log("    nobody is facing you -- that is a room you can cross")
     end
 
- -- What could be acted on without moving.
+    -- What could be acted on without moving.
     local use = ge.usable(st.x, st.y, st.z)
     if #use == 0 then
         ge.log("  usable: nothing within reach")

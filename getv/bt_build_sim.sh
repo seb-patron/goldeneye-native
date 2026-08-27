@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build and run Goldeneye-Native on the tvOS SIMULATOR.
 #
-# why this exists
+# WHY THIS EXISTS
 # ---------------
 # tvOS blocks devicectl from screenshotting a real Apple TV, so every visual question
 # this port has hit -- "is it centred?", "is the font legible?" -- has had to go through
@@ -20,7 +20,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
-# per-SLOT build isolation. Parallel builds used to share build-sim/obj and libge.a, so
+# PER-SLOT BUILD ISOLATION. Parallel builds used to share build-sim/obj and libge.a, so
 # two concurrent `build_sim.sh lib` runs silently clobbered each other's objects and
 # archive -- which shows up as an inexplicably changed "N built" count or a link error in
 # a file nobody touched. Set GETV_SLOT=<name> to get a private object dir, archive,
@@ -152,14 +152,14 @@ cmd_lib() {
     echo "  bt: -ftrivial-auto-var-init=$GETV_AUTOVARINIT"
   fi
 
-  # opt-IN debug menu. `-DLEFTOVERDEBUG` above already compiles the whole ~1,100-line
+  # OPT-IN DEBUG MENU. `-DLEFTOVERDEBUG` above already compiles the whole ~1,100-line
   # debug menu into the binary, but `boss.c:565` gates the C-Up + C-Down trigger on
   # `DEBUGMENU`, which is defined NOWHERE in the tree -- so nothing can ever open it.
   # Defining it buys: free camera, background/props toggles, portal-cull toggle, position
   # display, all-levels unlock, and `obj load`/`weapon load` (an asset-presence test that
   # is inert on N64 but genuinely useful to us).
   #
-  # opt-IN, not default, and this is deliberate. With debugmenu defined the else-chain in
+  # OPT-IN, NOT DEFAULT, and this is deliberate. With DEBUGMENU defined the else-chain in
   # boss.c routes **START** into debug_menu_processor, which is disruptive during normal
   # play and would silently change every lane's measurements. Turn it on per-run:
   #
@@ -207,7 +207,7 @@ cmd_lib() {
 
   build_port_layer
 
-  # A failed compile must not leave its previous object behind.
+  # A FAILED COMPILE MUST NOT LEAVE ITS PREVIOUS OBJECT BEHIND.
   # `ar rcs .../obj/*.o` never prunes, so a stale .o silently outlived the source that
   # produced it: one slot shipped a binary whose UsetuparchZ.o was absent from the archive
   # entirely while the build still reported "762 built, 0 failed". The counts were telling

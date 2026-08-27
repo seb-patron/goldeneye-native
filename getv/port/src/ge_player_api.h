@@ -8,9 +8,9 @@
  * ---------------------------------------------------------------- how it attaches
  *
  * Through GoldenEye's own demo-playback hook, joySetPlaybackFunc() (src/joy.c:360), not through
- * the port's device layer. That choice is necessary:
+ * the port's device layer. That choice is load-bearing:
  *
- *   - it runs ON the game thread, exactly once per frame, from joyConsumeSamplesWrapper()
+ *   - it runs ON THE GAME THREAD, exactly once per frame, from joyConsumeSamplesWrapper()
  *     (joy.c:412 <- boss.c:594). The port's own GETV_SCRIPT path injects into GePadState, which
  *     is filled by osContGetReadData on the RETRACE thread at field rate -- the wrong clock for
  *     one action per simulation step.

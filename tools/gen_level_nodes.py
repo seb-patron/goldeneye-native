@@ -2,10 +2,10 @@
 """S6: one table that maps a node id to a position, so a route can be read.
 
 WHY THIS EXISTS. Route paths name node ids and nothing maps an id back to a place. Validating a
-route, or a wall set against a route, is impossible without it -- the Mac build could not check walls
+route, or a wall set against a route, is impossible without it -- mac-getv could not check walls
 against real routes for exactly this reason.
 
-AND THE FIRST THING THIS FOUND IS THAT A BARE ID IS AMBIGUOUS. Train has 104 engine waypoints
+🔴 AND THE FIRST THING THIS FOUND IS THAT A BARE ID IS AMBIGUOUS. Train has 104 engine waypoints
 numbered from 0 and 682 floor tiles numbered from 0. `path: [74, 75, 76]` in a route is waypoint
 74; tile 74 is a different place entirely. Any table keyed on a plain integer silently answers the
 wrong question for one of the two, and answers it confidently.
@@ -14,13 +14,13 @@ So every node here carries a NAMESPACE, and the file also publishes a `uid` -- n
 local id -- for consumers that need a single flat integer. The bases are far apart and stated in
 the file, so a uid can be decoded by eye when something looks wrong at 2am.
 
-THE ENGINE'S GRAPH IS THE REAL ONE. padhalllv.c is a complete two-level pathfinder the guards
+⚠️ THE ENGINE'S GRAPH IS THE REAL ONE. padhalllv.c is a complete two-level pathfinder the guards
 have used all along, and its nodes come from g_CurrentSetup.pathwaypoints -- `waypoint {padID,
 *neighbours, groupNum, dist}` with waygroups above. Those ids mean something to the engine. The
 tile graph is OUR reconstruction of the same space and its ids mean nothing outside our tools, so
 the two are labelled differently rather than merged into one anonymous pool.
 
-ASSET SPACE, with levelscale published beside it, matching gen_level_walls.py. Every position in
+⚠️ ASSET SPACE, with levelscale published beside it, matching gen_level_walls.py. Every position in
 this file is asset; runtime = asset / levelscale.
 """
 import argparse
@@ -57,7 +57,7 @@ def main():
         stem = f[:-5]
         if any(k in stem for k in ("nuance", ".mp", "_general", "_prop", "_engine")):
             continue
-        # .nodes IS IN this list because IT was not, and the tool consumed its own output as a
+        # ⚠️ .nodes IS IN THIS LIST BECAUSE IT WAS NOT, and the tool consumed its own output as a
         # level -- writing train.nodes.nodes.json with zero of everything. A generator that scans
         # the directory it writes into has to exclude its own extension or it grows a new empty
         # file on every run.

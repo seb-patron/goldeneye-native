@@ -273,6 +273,14 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     bool color_alpha_same = (shader_id & 0xfff) == ((shader_id >> 12) & 0xfff);
     bool color_alpha_same2 = ((shader_id >> CC_C2_RGB_SHIFT) & 0xffff) == ((shader_id >> CC_C2_ALPHA_SHIFT) & 0xffff);
 
+    printf("[getv][diag] build_pipeline shader_id=0x%llx tex0=%d tex1=%d num_inputs=%d "
+           "2cyc=%d alpha=%d fog=%d cc=[%d %d %d %d] ac=[%d %d %d %d] rgb=(%d,%d,%d)\n",
+           (unsigned long long) shader_id, used_textures[0], used_textures[1], num_inputs,
+           two_cycle, opt_alpha, opt_fog, c[0][0], c[0][1], c[0][2], c[0][3],
+           c[1][0], c[1][1], c[1][2], c[1][3],
+           (int) ((shader_id >> 0) & 0xff), (int) ((shader_id >> 8) & 0xff), (int) ((shader_id >> 16) & 0xff));
+    fflush(stdout);
+
     // ---- Vertex layout: position(4), [texCoord(2)], [fog(4)], input1..N(3 or 4) --
     // same order gfx_pc.c always produces (mirrors gfx_opengl.c's attrib push order).
     size_t num_floats = 4;
@@ -400,10 +408,28 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
         m_append_line(fs, &fs_len, "  float __r = fract(sin(dot(sin(__rv), float3(12.9898, 78.233, 37.719))) * 143758.5453);");
         m_append_line(fs, &fs_len, "  texel.w *= floor(__r + 0.5);");
     }
-    if (opt_alpha) {
-        m_append_line(fs, &fs_len, "  return texel;");
-    } else {
-        m_append_line(fs, &fs_len, "  return float4(texel, 1.0);");
+    {
+        const char *e = getenv("GETV_DEBUGCOLOR");
+        if (e && *e == '2' && (used_textures[0] || used_textures[1])) {
+            m_append_line(fs, &fs_len, "  return float4(in.texCoord.x, in.texCoord.y, 0.0, 1.0);");
+        } else if (e && *e == '3' && used_textures[0]) {
+            m_append_line(fs, &fs_len, "  return texVal0;");
+        } else if (e && *e == '4' && num_inputs >= 1) {
+            m_append_line(fs, &fs_len, opt_alpha ? "  return in.input1;" : "  return float4(in.input1, 1.0);");
+        } else if (e && *e == '6') {
+            char l[128];
+            snprintf(l, sizeof l, "  return float4(%g, %g, %g, 1.0);",
+                     (double) (((shader_id >> 0) & 0xff) / 255.0),
+                     (double) (((shader_id >> 8) & 0xff) / 255.0),
+                     (double) (((shader_id >> 16) & 0xff) / 255.0));
+            m_append_line(fs, &fs_len, l);
+        } else if (e && *e == '1') {
+            m_append_line(fs, &fs_len, "  return float4(1.0, 0.0, 1.0, 1.0);");
+        } else if (opt_alpha) {
+            m_append_line(fs, &fs_len, "  return texel;");
+        } else {
+            m_append_line(fs, &fs_len, "  return float4(texel, 1.0);");
+        }
     }
     m_append_line(fs, &fs_len, "}");
     fs[fs_len] = '\0';
@@ -540,6 +566,9 @@ static void gfx_metal_set_sampler_parameters(int tile, bool linear_filter, uint3
 
 static void gfx_metal_apply_depth_state(void) {
     if (!mtl_encoder) return;
+    static int force_no_depth = -1;
+    if (force_no_depth < 0) { const char *e = getenv("GETV_NODEPTH"); force_no_depth = (e && *e == '1'); }
+    if (force_no_depth) { [mtl_encoder setDepthStencilState:mtl_depth_states[0][0][0]]; return; }
     [mtl_encoder setDepthStencilState:mtl_depth_states[cur_depth_test][cur_depth_mask][cur_zmode_decal]];
     if (cur_zmode_decal) {
         [mtl_encoder setDepthBias:-2.0f slopeScale:-2.0f clamp:0.0f];
@@ -574,6 +603,16 @@ static void gfx_metal_set_scissor(int x, int y, int width, int height) {
     NSUInteger sy = (NSUInteger)MAX(0, MIN(y, (int)dh));
     NSUInteger sw = (NSUInteger)MAX(0, MIN(width, (int)dw - (int)sx));
     NSUInteger sh = (NSUInteger)MAX(0, MIN(height, (int)dh - (int)sy));
+    {
+        static int n;
+        if (n < 8) { n++;
+            printf("[getv][diag] set_scissor in=(%d,%d,%d,%d) drawable=%lux%lu clamped=(%lu,%lu,%lu,%lu) encoder=%p\n",
+                   x, y, width, height, (unsigned long) dw, (unsigned long) dh,
+                   (unsigned long) sx, (unsigned long) sy, (unsigned long) sw, (unsigned long) sh,
+                   (__bridge void *) mtl_encoder);
+            fflush(stdout);
+        }
+    }
     MTLScissorRect sr = { sx, sy, sw, sh };
     [mtl_encoder setScissorRect:sr];
 }
@@ -585,6 +624,18 @@ static void gfx_metal_set_use_alpha(bool use_alpha) {
 
 static void gfx_metal_draw_triangles(float buf_vbo[], size_t buf_vbo_len, size_t buf_vbo_num_tris) {
     if (!mtl_encoder || !cur_prg) return;
+    {
+        static int n;
+        if (n < 12 && buf_vbo_num_tris > 20) { n++;
+            printf("[getv][diag] draw n_tris=%zu vbo_len=%zu pos0=(%.3f %.3f %.3f %.3f) "
+                   "depth(test=%d mask=%d decal=%d) prg=%p tex0=%p\n",
+                   buf_vbo_num_tris, buf_vbo_len,
+                   (double) buf_vbo[0], (double) buf_vbo[1], (double) buf_vbo[2], (double) buf_vbo[3],
+                   (int) cur_depth_test, (int) cur_depth_mask, (int) cur_zmode_decal,
+                   (__bridge void *) cur_prg->pipeline, (void *) metal_tex[0]);
+            fflush(stdout);
+        }
+    }
     size_t bytes = sizeof(float) * buf_vbo_len;
     if (mtl_vbo_offset + bytes > VBO_POOL_BYTES) {
         sys_fatal("metal vertex buffer pool exhausted this frame (%zu > %d)", mtl_vbo_offset + bytes, VBO_POOL_BYTES);
@@ -685,6 +736,13 @@ static void gfx_metal_start_frame(void) {
     frame_count++;
     @autoreleasepool {
         CGSize sz = mtl_layer.drawableSize;
+        if (frame_count == 1 || frame_count == 61) {
+            extern struct GfxDimensions gfx_current_dimensions;
+            printf("[getv][diag] drawableSize=%gx%g contentsScale=%g gfx_current_dimensions=%ux%u\n",
+                   sz.width, sz.height, (double) mtl_layer.contentsScale,
+                   gfx_current_dimensions.width, gfx_current_dimensions.height);
+            fflush(stdout);
+        }
         if (sz.width < 1 || sz.height < 1) return;
         gfx_metal_ensure_depth_target((uint32_t)sz.width, (uint32_t)sz.height);
 

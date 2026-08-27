@@ -1,6 +1,6 @@
 /* Navigate by DOORS and OBJECTIVES rather than by waypoints.
  *
- * Why this exists alongside ge_bot_route
+ * WHY THIS EXISTS ALONGSIDE ge_bot_route
  *
  * The route follower walks a graph of pads, and pads are not places to walk: measured with the
  * teleport probe, 139 of Train's 180 nodes cannot be stood on at all, and across the twenty solo
@@ -52,7 +52,7 @@
  * of it. */
 #define GE_BD_DOOR_REACH 180.0f
 
-/* and the door must BE ON screen. The same function requires PROPFLAG_ONSCREEN before it will
+/* 🔑 AND THE DOOR MUST BE ON SCREEN. The same function requires PROPFLAG_ONSCREEN before it will
  * consider the press at all, so walking past a door with USE held does nothing however close it
  * is -- the bot has to be LOOKING at it. Within this many degrees counts as looking; wider than
  * the frustum would let a bot claim it is facing something the renderer has culled. */
@@ -171,7 +171,7 @@ void gePortBotDoorsFrame(int frame)
                                   + ((tz - pr.z) * (tz - pr.z))));
         total = d1 + d2;
 
-        /* the next door ON the way, not the best door overall.
+        /* THE NEXT DOOR ON THE WAY, not the best door overall.
          *
          * Scoring on total path length picks whichever door happens to sit nearest the
          * objective, which on Train was one 9,351 units away -- the bot set off across the level

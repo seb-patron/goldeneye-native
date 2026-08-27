@@ -221,7 +221,7 @@ ground-colour defect. A decode where `d != blksz` is using some other texture's 
 ## The scripting API
 
 Everything a mod can reach lives in one global table, `ge`. Nothing below reaches into the game:
-mods read knowledge, read state, and post input --  the same shape the C bots and a network peer
+mods read knowledge, read state, and post input — the same shape the C bots and a network peer
 have, which is why a bot can be written entirely in Lua (`mods/route_bot`).
 
 ### Hooks you define
@@ -229,7 +229,7 @@ have, which is why a bot can be written entirely in Lua (`mods/route_bot`).
 | hook | when |
 | --- | --- |
 | `onFrame(frame)` | every rendered frame |
-| `onEvent(name, a, b, c)` | a derived event fired --  see below |
+| `onEvent(name, a, b, c)` | a derived event fired — see below |
 
 Events are **derived**, not posted by the game: the port compares each frame to the last and emits
 the differences. The names and payloads are `level_change(stage, old)`, `player_spawn(slot)`,
@@ -273,19 +273,19 @@ player is dead. Treating the first as the second walks you into a full-health gu
 
 **Index is not id.** `ge.waypoint_at(i)` takes a position in the table; `ge.waypoint(id)` takes the
 game's own number. Ids are sparse, and synthetic spawn and portal nodes are numbered above every
-natural one. Iterate by index, follow a route by id --  a route step names an id.
+natural one. Iterate by index, follow a route by id — a route step names an id.
 
 **`guards_near` and `enemies_near` answer different questions.** The first is where guards *start*,
 from the extraction. The second is who is *actually there*, alive, now. Reasoning about a level
 from the first is reasoning from a roster that stopped being true the moment anyone fired.
 
 **`ge.threat_at` is not `ge.enemies_near`.** It counts enemies whose *last known target position*
-is near a point --  who is converging on it, not who is standing on it. A spot can be crowded and
+is near a point — who is converging on it, not who is standing on it. A spot can be crowded and
 safe, or empty and lethal because three guards are walking to it. It scores a destination, which is
 what to ask before committing to a waypoint.
 
 **`ge.post_input` posts for the NEXT tick and returns false if you were late.** A false return is a
-refusal, not a warning: the tick already ran. Worth reporting rather than swallowing --  in netplay
+refusal, not a warning: the tick already ran. Worth reporting rather than swallowing — in netplay
 the same condition is a desync.
 
 **`ge.enemy_count()` returns two values.** The second says whether a live-enemy source is installed
@@ -347,7 +347,7 @@ runtime-only and may grow. Anything that sizes a buffer in bytes for a struct th
 a latent bug - that exact mistake halved every stage's display-list capacity for months, silently,
 with no terminator and no error when it overflowed.
 
-**Link order is necessary.** The build produces a static archive rather than linking objects
+**Link order is load-bearing.** The build produces a static archive rather than linking objects
 directly, and that is not a packaging preference. A direct object link pulls in files the port
 compiles but never calls, and fails on around thirty N64 linker-script and hardware symbols. For
 the same reason `-dead_strip` is required at the link step: `ld64` strips before it checks for

@@ -4,39 +4,39 @@
 # arbitrary, because most of it is explained there and not repeated.
 #
 # ############################################################################
-# # Untested. no linux machine has ever run this script or compiled this tree.
+# # UNTESTED. NO LINUX MACHINE HAS EVER RUN THIS SCRIPT OR COMPILED THIS TREE.
 # ############################################################################
 #
 # It was written on macOS from docs/PORTING.md sections 9 and 11 and checked only with
 # `bash -n`. Nothing below is a claim that it works. Four things need checking before
 # anything else, in this order, because each one will stop the build outright:
 #
-#  1. getv/Sources/ge_tvos_main.c:88-107 -- the crash handler reads the faulting PC out of
-#  a Darwin arm64 ucontext (`_STRUCT_ARM_THREAD_STATE64`, `uc->uc_mcontext->__ss`,
-#  `__darwin_arm_thread_state64_get_pc`). Those identifiers do not exist on glibc, and
-#  The block is not behind any #ifdef. the harness will not compile until this is
-#  BRANCHED. PORTING.md section 6 sizes it at half a day: backtrace(), dladdr() and
-#  sigaction() are all present on glibc, so only the register dump needs the branch
-#  (`uc->uc_mcontext.gregs[REG_RIP]` on x86_64, `uc->uc_mcontext.pc` on aarch64).
-#  That file is shared verbatim with the tvOS targets, so whoever branches it must not
-#  regress them.
+#   1. getv/Sources/ge_tvos_main.c:88-107 -- the crash handler reads the faulting PC out of
+#      a Darwin arm64 ucontext (`_STRUCT_ARM_THREAD_STATE64`, `uc->uc_mcontext->__ss`,
+#      `__darwin_arm_thread_state64_get_pc`). Those identifiers do not exist on glibc, and
+#      the block is not behind any #ifdef. THE HARNESS WILL NOT COMPILE UNTIL THIS IS
+#      BRANCHED. PORTING.md section 6 sizes it at half a day: backtrace(), dladdr() and
+#      sigaction() are all present on glibc, so only the register dump needs the branch
+#      (`uc->uc_mcontext.gregs[REG_RIP]` on x86_64, `uc->uc_mcontext.pc` on aarch64).
+#      That file is shared verbatim with the tvOS targets, so whoever branches it must not
+#      regress them.
 #
-#  2. vendor/ge-decomp/src/libultra/gu/{sinf,cosf}.c:33-34 -- `#pragma weak sinf = __sinf`
-#  and the cosf pair. Mach-O has no weak aliases so clang warns and ignores them; ELF
-#  honours them, which is exactly what they ask for. That means libge.a would carry
-#  weak global `sinf`, `cosf`, `fsin` and `fcos` competing with libm's. Both files
-#  #define fsin/fcos on the very next line, so the pragmas are already redundant for
-#  this port; PORTING.md section 7 says to wrap all four in #ifndef GE_PORT_NATIVE.
-#  This is the one item where "ELF is closer to what the decomp expected" is a hazard
-#  rather than a convenience.
+#   2. vendor/ge-decomp/src/libultra/gu/{sinf,cosf}.c:33-34 -- `#pragma weak sinf = __sinf`
+#      and the cosf pair. Mach-O has no weak aliases so clang warns and ignores them; ELF
+#      honours them, which is exactly what they ask for. That means libge.a would carry
+#      weak global `sinf`, `cosf`, `fsin` and `fcos` competing with libm's. Both files
+#      #define fsin/fcos on the very next line, so the pragmas are already redundant for
+#      this port; PORTING.md section 7 says to wrap all four in #ifndef GE_PORT_NATIVE.
+#      This is the one item where "ELF is closer to what the decomp expected" is a hazard
+#      rather than a convenience.
 #
-#  3. SDL2 discovery. This script asks pkg-config, then sdl2-config, then a prefix built
-#  by `./build_linux.sh sdl`. Whether the distro's SDL2 development package is present
-#  is the single most likely reason a first run stops before compiling anything.
+#   3. SDL2 discovery. This script asks pkg-config, then sdl2-config, then a prefix built
+#      by `./build_linux.sh sdl`. Whether the distro's SDL2 development package is present
+#      is the single most likely reason a first run stops before compiling anything.
 #
-#  4. The compiler. `-Wno-everything` is clang-only and it is not cosmetic -- see
-#  warn_flags() below. Under gcc the warning set genuinely differs. Prefer clang for
-#  the first build so the only variable is the platform.
+#   4. The compiler. `-Wno-everything` is clang-only and it is not cosmetic -- see
+#      warn_flags() below. Under gcc the warning set genuinely differs. Prefer clang for
+#      the first build so the only variable is the platform.
 #
 # The remaining Linux-specific items in PORTING.md section 11 are already satisfied in
 # tree and need nothing from this script: getv/port/include/{PR,platform_info.h} are
@@ -51,20 +51,20 @@
 # No Metal, no D3D, no GLES. Same renderer the tvOS and Mac builds use, so a regression
 # seen here is a regression there. Only the platform bindings differ:
 #
-#  macOS Linux
-#  GL OpenGL 2.1 compat (NSOpenGL) OpenGL 2.1 compat (GLX/EGL via SDL2)
-#  loader OpenGL.framework exports all libGL exports all; GL_GLEXT_PROTOTYPES
-#  defines -DGE_PLATFORM_MAC + DESKTOP -DGE_PLATFORM_DESKTOP only
-#  link -framework OpenGL/Cocoa/... -lGL -lm -ldl -lpthread + SDL2's own libs
+#            macOS                        Linux
+#   GL       OpenGL 2.1 compat (NSOpenGL)  OpenGL 2.1 compat (GLX/EGL via SDL2)
+#   loader   OpenGL.framework exports all  libGL exports all; GL_GLEXT_PROTOTYPES
+#   defines  -DGE_PLATFORM_MAC + DESKTOP   -DGE_PLATFORM_DESKTOP only
+#   link     -framework OpenGL/Cocoa/...   -lGL -lm -ldl -lpthread + SDL2's own libs
 #
-# GE_PLATFORM_DESKTOP is the necessary define, not GE_PLATFORM_MAC. It carries the
+# GE_PLATFORM_DESKTOP is the load-bearing define, not GE_PLATFORM_MAC. It carries the
 # keyboard-as-port-0 device (port_input.c) and the resizable 1280x960 window
 # (port_support.c, ge_tvos_main.c). Without it this build would come up at a fixed
 # 1920x1080 with no keyboard, which is the tvOS arrangement. GE_PLATFORM_MAC is now only
 # the macOS user-data directory and one diagnostic string, and defining it here would
 # write saves to a $HOME/Library path that does not belong on this platform.
 #
-# GLEW is not used. gfx_opengl.c pulls it in only under __MINGW32__ or
+# GLEW is deliberately not used. gfx_opengl.c pulls it in only under __MINGW32__ or
 # OSX_BUILD, and defines GL_GLEXT_PROTOTYPES otherwise, which is the right answer against
 # a normal Linux libGL. Do not add -DOSX_BUILD to "get the extensions".
 #
@@ -123,7 +123,7 @@ else CXX=c++
 fi
 case "$("$CC" --version 2>/dev/null | head -1)" in
   *clang*) CC_KIND=clang ;;
-  *) CC_KIND=gcc ;;
+  *)       CC_KIND=gcc ;;
 esac
 
 # The warning contract, which is a correctness requirement rather than tidiness. The
@@ -216,12 +216,12 @@ cmd_sdl() {
 # --------------------------------------------------------------------- game objects
 # Identical to build_mac.sh's CFLAGS except for the target triple and sysroot, which have
 # no Linux equivalent and are simply absent: the native compiler already targets the host
-# and already knows where its headers are. Every remaining flag matters and is
+# and already knows where its headers are. Every remaining flag is load-bearing and is
 # documented at length in build_sim.sh:
-#  -fms-extensions anonymous struct/union members the decomp relies on
-#  -include ge_port_decls.h prototypes; IDO allowed implicit declarations
-#  -Wno-everything -Werror=return-type see warn_flags()
-#  -fno-strict-aliasing the decomp punts types through pointers constantly
+#   -fms-extensions            anonymous struct/union members the decomp relies on
+#   -include ge_port_decls.h   prototypes; IDO allowed implicit declarations
+#   -Wno-everything -Werror=return-type   see warn_flags()
+#   -fno-strict-aliasing       the decomp punts types through pointers constantly
 # The port layer's third-party sources (Fast3D, the audio mixer) are not vendored in this
 # repository -- see docs/THIRD_PARTY.md. Without them the compile fails with a long list
 # of missing headers and nothing that points at the cause, so check once and say so.
@@ -384,7 +384,7 @@ GE_JOBS="${GETV_JOBS:-6}"
 # breaks on the spaces in this repo's own path (".../Code Projects/..."). One flag per
 # line, read back into an array, is space-safe and array-safe.
 #
-# The read loop is not `mapfile`, which is bash 4 only. Every current Linux
+# The read loop is deliberately not `mapfile`, which is bash 4 only. Every current Linux
 # distribution ships bash 5, so this is portability kept rather than portability needed --
 # but it costs nothing and it keeps this file diffable against build_mac.sh, where macOS's
 # stock bash 3.2 makes it mandatory.
@@ -426,7 +426,7 @@ cmd_lib() {
   (cd "$DECOMP" && { find src -name '*.c' \
              -not -path 'src/libultra/*' -not -path 'src/libultrare/*' \
              -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
-           # Held back; mirrors build_mac.sh, build_sim.sh and build.sh exactly.
+           # Held back on purpose; mirrors build_mac.sh, build_sim.sh and build.sh exactly.
            # usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64 hardware and dev-host
            # files: compiling them turns logging stubs into code that writes real RCP/PI
            # registers or talks to an SGI host. They used to fail to build, and that
@@ -441,10 +441,10 @@ cmd_lib() {
   # setup/e and setup/j are the PAL and Japanese setup tables. They hold the same eight
   # filenames as setup/u, and uniquify_asset_symbols.py namespaces by file stem, so seven of
   # the eight end up defining identical globals in all three directories -- UsetupcradZ_padlist
-  # And so on. Compiling all three lets the linker bind Cradle, Silo, destruction, Jungle,
-  # Train, Statue and the multiplayer Archives to whichever copy it saw first, which is
+  # and so on. Compiling all three lets the linker bind CRADLE, SILO, DESTRUCTION, JUNGLE,
+  # TRAIN, STATUE and the multiplayer ARCHIVES to whichever copy it saw first, which is
   # alphabetically e/, the PAL data, in a VERSION_US build. The same applies to the top-level
-  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is left
+  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is deliberately left
   # unprefixed. Nothing outside those two directories references their symbols and
   # file_resource_table.inc.c asks for the bare name, so a US build simply must not compile
   # them. Namespacing them instead would keep seven dead translation units in the binary.
@@ -458,16 +458,16 @@ cmd_lib() {
   #
   # This build is GCC too. It was found on Windows with GCC 16 and these flags belong here
   # for the same reason, whether or not this host's GCC currently happens to order things
-  # favourably. Clang emits in source order, and that is why macOS never showed it.
+  # favourably. Clang emits in source order, which is why macOS never showed it.
   #
-  # Assets only: the game batch is code, and the only place adjacency of
-  # top-level data matters is the level data.
+  # Assets only, deliberately: the game batch is code, and the only place adjacency of
+  # top-level data is load-bearing is the level data.
   (cd "$DECOMP" && find assets -name '*.c' ! -name '*.inc.c' \
       ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' | sort) \
     | run_batch "linux assets" "${CFLAGS[@]}" -fno-toplevel-reorder -fno-zero-initialized-in-bss
 
   # -DNDEBUG is passed to the mixer only, exactly as the other three builds do. Do not
-  # widen it: SUPPORT_CHECK in gfx_pc.c is an assert() and is armed.
+  # widen it: SUPPORT_CHECK in gfx_pc.c is an assert() and is deliberately armed.
   (cd "$DECOMP" && find src/libultra/audio src/libultrare/audio -name '*.c' 2>/dev/null | sort) \
     | run_batch "linux audio" "${CFLAGS[@]}" -DGE_AUDIO_MIXER -DNDEBUG \
         -I src/libultra -I src/libultrare -I "$HERE/port/audio"
@@ -491,7 +491,7 @@ cmd_app() {
   # a packaging preference. Linking build-linux/obj/*.o directly fails with ~30 undefined
   # symbols (`_codeSegmentRomStart`, `__osGetFpcCsr`, `crashRenderFrame`, ...). Every one
   # of them is an N64 linker-script or hardware symbol referenced only by src/init.c,
-  # src/sched.c and src/rmon.c -- files this port compiles but never links.
+  # src/sched.c and src/rmon.c -- files this port compiles but deliberately never links.
   # A static archive pulls a member only when it resolves an undefined symbol, so those
   # three objects are never dragged in; a direct object link has no such filter.
   #
@@ -525,7 +525,7 @@ cmd_app() {
   local f orphans=0 manifest="$BUILD/objects.txt"
   if [ -s "$manifest" ]; then
     # Match in one pass. The obvious per-file form,
-    #  printf '%s\n' "$keep" | grep -qxF "$f"
+    #     printf '%s\n' "$keep" | grep -qxF "$f"
     # is wrong under the `set -o pipefail` above: grep -q exits at the first hit, printf
     # dies of SIGPIPE, and the pipeline reports 141 -- a failure -- for exactly the files
     # that DID match. It silently dropped about a third of the archive.
@@ -590,7 +590,7 @@ cmd_app() {
   # -rdynamic puts the static functions into .dynsym, which is what dladdr() reads.
   # Without it the crash handler in Sources/ge_tvos_main.c resolves every frame to
   # "./goldeneye(+0xe2a1e)" and a fault is unreadable. Mach-O needs no equivalent: its
-  # symbol table is always present, so this only matters here.
+  # symbol table is always present, which is why this only matters here.
   "$CC" -o "$BIN" -rdynamic \
     "${roots[@]}" "$BUILD/libge.a" \
     ${LUALIBS[@]+"${LUALIBS[@]}"} ${IMGUILIBS[@]+"${IMGUILIBS[@]}"} \
@@ -627,7 +627,7 @@ case "${1:-}" in
                        echo "SDL_LIBS=${SDL_LIBS[*]}"; }
         echo "WARN=$(warn_flags | tr '\n' ' ')"
         echo "BUILD=$BUILD"; echo "BIN=$BIN" ;;
-  *) echo "usage: $0 {sdl|lib|port|app|all|run|env}"
+  *)    echo "usage: $0 {sdl|lib|port|app|all|run|env}"
         echo "  sdl  = build SDL2 2.30.9 static from deps/ into $SDL (only if the"
         echo "         distro package is missing or too old)"
         echo "  lib  = compile game + assets + audio + port layer for this host"

@@ -96,7 +96,7 @@ def decode(path):
 # N64 pad bits (PR/os.h) -> GE_IN_* (ge_player_api.h), obtained by INVERTING the forward mapping
 # the port already uses in ge_player_api.c rather than by inventing one.
 #
-# byte order IS derived, not assumed. The record is {s8 stick_x, s8 stick_y, u8 button_low,
+# BYTE ORDER IS DERIVED, NOT ASSUMED. The record is {s8 stick_x, s8 stick_y, u8 button_low,
 # u8 button_high} and the u16 is (button_high << 8) | button_low -- low byte FIRST in memory, which
 # is not what a big-endian target would lead you to expect. Two independent checks settle it:
 #   * bits 0x0040 and 0x0080 are assigned to no button on a real N64 pad, so they must never be set
@@ -119,7 +119,7 @@ N64_TO_GE = [
     (0x0100, "GE_IN_DPAD_RIGHT"),   # R_JPAD
 ]
 
-# L_TRIG IS the aim button IN these demos, and that is settled by the decomp, not inferred from
+# L_TRIG IS THE AIM BUTTON IN THESE DEMOS, and that is settled by the decomp, not inferred from
 # frequency alone. bondview2.c:5546-5558 assigns the single-controller styles two ways:
 #
 #   KISSY / GOODNIGHT   shoot = A_BUTTON, aim = Z_TRIG,          inv = L_TRIG | R_TRIG
@@ -129,7 +129,7 @@ N64_TO_GE = [
 # (shoot), A is 0.1% (inventory), L_TRIG is 2.8% (aim). So the demos were recorded on a default
 # style and L_TRIG carries GE_IN_AIM.
 #
-# the port already does this correctly. ge_player_api.c:126 sets
+# THE PORT ALREADY DOES THIS CORRECTLY. ge_player_api.c:126 sets
 # aim = swapped ? Z_TRIG : (L_TRIG | R_TRIG), which is right for a default single-controller
 # style. The Z_TRIG assignment further down sits inside the GE_STYLE_IS_TWO_PAD branch and
 # applies only to the 2.x styles. This table exists to DECODE recorded demos into GE_IN_*,

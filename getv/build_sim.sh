@@ -9,8 +9,8 @@
 # directly measurable.
 #
 # The simulator is a different platform from the device, not a flag on it:
-#  device -> -target arm64-apple-tvos17.0 -sdk appletvos (platform 3)
-#  simulator -> -target arm64-apple-tvos17.0-simulator -sdk appletvsimulator (platform 8)
+#   device    -> -target arm64-apple-tvos17.0            -sdk appletvos        (platform 3)
+#   simulator -> -target arm64-apple-tvos17.0-simulator  -sdk appletvsimulator (platform 8)
 # Linking a device SDL2 into a simulator binary fails at link time with a platform
 # mismatch, which is why deps/sdl2-tvsim exists separately from the device build.
 #
@@ -31,14 +31,6 @@ DD="$BUILD-dd"
 PROJ_NAME="GoldeneyeNativeSim${SLOT:+$SLOT}"
 SPEC="$HERE/project-sim${SLOT:+-$SLOT}.yml"
 SDK="$(xcrun -sdk appletvsimulator --show-sdk-path)"
-# Optional Dear ImGui, same arrangement as build.sh/build_mac.sh. Run
-# tools/fetch_imgui.sh tvsim once to enable it.
-IMGUI="$HOME/.n64tvos/imgui-tvsim"
-IMGUIFLAGS=(); IMGUILIBS=()
-if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
-  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
-  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
-fi
 # A space-free path. The repo lives under ".../Code Projects/...", and an unquoted
 # HEADER_SEARCH_PATHS entry containing a space is silently split by xcodebuild, which
 # presents as "SDL.h file not found" even though the path is right there in project.yml.
@@ -48,13 +40,6 @@ SDL="${N64TVOS_PREFIX:-$HOME/.n64tvos}/sdl2-tvsim"
 TARGET="arm64-apple-tvos17.0-simulator"
 BUNDLE_ID="org.goldeneyenative.getv"
 SIM_NAME="${GETV_SIM:-Apple TV 4K (3rd generation)}"
-# GETV_RENDERER=gl|metal (default gl). Same switch as build.sh/build_mac.sh; composes
-# with GETV_SLOT for free since slot already isolates BUILD/DD/PROJ_NAME/SPEC.
-RENDERER="${GETV_RENDERER:-gl}"
-case "$RENDERER" in
-  gl|metal) ;;
-  *) echo "unknown GETV_RENDERER: $RENDERER (want gl or metal)" >&2; exit 1 ;;
-esac
 
 # Pick the NEWEST runtime that hosts this device name. The list is grouped by
 # "-- tvOS X.Y --" headers in ascending order, and the first match would be tvOS 16.1 --
@@ -118,39 +103,17 @@ build_port_layer() {
     -target "$TARGET" -isysroot "$SDK"
     -I "$HERE/port" -I "$HERE/port/include" -I "$HERE/port/fast3d" -I "$HERE/port/src"
     -I "$SDL/include" -I "$SDL/include/SDL2"
-    -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DWAPI_SDL2
-    $([ "$RENDERER" = "metal" ] && echo -DRAPI_METAL || echo -DRAPI_GL)
+    -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DRAPI_GL -DWAPI_SDL2
     # Without these, gfx_opengl.c never includes an OpenGLES header and every
     # GLuint/GLint is an unknown type. Must match build.sh or the sim build is
-    # not a valid proxy for the device build. Metal needs neither -- see build.sh's
-    # own comment on this same branch.
-    $([ "$RENDERER" = "gl" ] && echo "-DUSE_GLES -DTVOS_SUPERSAMPLE")
+    # not a valid proxy for the device build.
+    -DUSE_GLES -DTVOS_SUPERSAMPLE
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
-    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
   )
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c "$HERE"/port/audio/*.c; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.c}").o"
     if clang "${PORTFLAGS[@]}" -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
-    else pfail=$((pfail+1)); rm -f "$o"; echo "  sim port FAILED: $(basename "$f")"; fi
-  done
-  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
-    [ -e "$f" ] || continue
-    local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
-    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
-    else pfail=$((pfail+1)); rm -f "$o"; echo "  sim port FAILED: $(basename "$f")"; fi
-  done
-  # C++ in the port layer -- ge_imgui.cpp, gfx_sdl2.c's gePortImgui*() calls need SOME
-  # definition to link against even when there is nothing to draw yet. No IMGUIFLAGS/
-  # GE_WITH_IMGUI here: there is no fetched ImGui prefix for tvOS (fetch_imgui.sh only
-  # targets macOS/Linux), so this compiles to the empty stub bodies its own header
-  # promises -- exactly the same "present but inert" shape build_mac.sh gets for free
-  # when ImGui isn't installed there either. A real ImGui-on-Metal launcher is later
-  # work; this loop's job today is just making the symbols exist.
-  for f in "$HERE"/port/src/*.cpp; do
-    [ -e "$f" ] || continue
-    local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
-    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
     else pfail=$((pfail+1)); rm -f "$o"; echo "  sim port FAILED: $(basename "$f")"; fi
   done
   echo "sim port layer: $pok built, $pfail failed"
@@ -187,11 +150,11 @@ cmd_lib() {
   # all-levels unlock, and `obj load`/`weapon load`, an asset-presence test that is inert
   # on N64 but useful here.
   #
-  # Opt-in rather than default. With DEBUGMENU defined the else-chain in
+  # Opt-in rather than default, deliberately. With DEBUGMENU defined the else-chain in
   # boss.c routes START into debug_menu_processor, which is disruptive during normal play
   # and would silently change any measurement taken from the build. Turn it on per-run:
   #
-  #  GETV_DEBUGMENU=1 ./build_sim.sh lib
+  #     GETV_DEBUGMENU=1 ./build_sim.sh lib
   #
   # It changes code generation, so toggling it requires a rebuild, and any number
   # measured under it is not comparable to one measured without it.
@@ -211,7 +174,7 @@ cmd_lib() {
   done < <(cd "$DECOMP" && { find src -name '*.c' \
              -not -path 'src/libultra/*' -not -path 'src/libultrare/*' \
              -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
-           # Held back. usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64
+           # Held back on purpose. usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64
            # hardware and dev-host files: compiling them turns logging stubs into code
            # that writes real RCP/PI registers or talks to an SGI host. They used to fail
            # to build, which was the guard. Switching -w -> -Wno-everything (needed
@@ -277,30 +240,12 @@ cmd_app() {
   # project is shared, and a failed run must not leave it half-substituted.
   # Generate in $HERE under a different project name, so $(SRCROOT) still resolves to
   # the real source tree (Sources/ and port/ are SRCROOT-relative in project.yml).
-  # project.yml carries the LITERAL text `${N64TVOS_PREFIX}/sdl2-tvos` -- that is xcodegen's
-  # own variable, substituted by xcodegen itself at generate time, not by this shell. A pattern
-  # built from bash's *expanded* N64TVOS_PREFIX (the old form of this line) searches for a
-  # string that never appears in the file and silently never matches -- this check catching it
-  # ("SDL substitution FAILED") is the only reason that was ever visible. `\$` keeps the `$`
-  # literal for both bash's double-quote parsing and sed's BRE (where `$`/`{`/`}` are otherwise
-  # unspecial mid-pattern anyway, but explicit is cheaper than relying on that).
-  sed -e "s|\${N64TVOS_PREFIX}/sdl2-tvos|$SDL|g" \
+  sed -e "s|${N64TVOS_PREFIX:-$HOME/.n64tvos}/sdl2-tvos|$SDL|g" \
       -e "s|\$(SRCROOT)/build/libge.a|\$(SRCROOT)/$(basename "$BUILD")/libge.a|" \
       -e "s|^name: Goldeneye-Native$|name: $PROJ_NAME|" \
       "$HERE/project.yml" > "$SPEC"
   grep -q "sdl2-tvsim" "$SPEC" || { echo "SDL substitution FAILED"; return 1; }
   grep -q "$(basename "$BUILD")/libge.a" "$SPEC" || { echo "libge.a path substitution FAILED"; return 1; }
-  # Same ${GETV_RAPI_DEFINE} xcodegen substitution as build.sh, so this slot's Xcode
-  # target picks the renderer this slot's libge.a was just built with.
-  export GETV_RAPI_DEFINE
-  GETV_RAPI_DEFINE="$([ "$RENDERER" = "metal" ] && echo RAPI_METAL || echo RAPI_GL)"
-  export GETV_IMGUI_LIB="${IMGUILIBS[0]:-}"
-  # Regenerating over an EXISTING $PROJ_NAME.xcodeproj (e.g. a second `app` run in the
-  # same slot) can leave the scheme's buildable "supported platforms" empty -- xcodebuild
-  # -showdestinations then reports it directly, and a plain `build` with only -sdk (no
-  # -destination) fails outright with "Found no destinations for the scheme", which
-  # names the symptom, not the cause. A full delete-then-regenerate is reliably clean.
-  rm -rf "$HERE/$PROJ_NAME.xcodeproj"
   ( cd "$HERE" && xcodegen generate --spec "$(basename "$SPEC")" >/dev/null 2>&1 ) || {
       echo "xcodegen failed"; return 1; }
   xcodebuild -project "$HERE/$PROJ_NAME.xcodeproj" -scheme Goldeneye-Native \
@@ -316,7 +261,7 @@ case "${1:-}" in
   boot) cmd_boot ;;
   shot) cmd_shot "${2:-}" ;;
   run)  cmd_run ;;
-  env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "SLOT=${SLOT:-<none>}"; echo "BUILD=$BUILD"; echo "SIM=$(sim_udid)"; echo "RENDERER=$RENDERER" ;;
-  *) echo "usage: $0 {lib|port|app|boot|run|shot [path]|env}"
+  env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "SLOT=${SLOT:-<none>}"; echo "BUILD=$BUILD"; echo "SIM=$(sim_udid)" ;;
+  *)    echo "usage: $0 {lib|port|app|boot|run|shot [path]|env}"
         echo "  port = recompile getv/port/** only and re-archive (seconds, not ~20 min)" ;;
 esac

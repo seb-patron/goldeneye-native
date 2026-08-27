@@ -102,9 +102,9 @@ if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0002-assets
 else
   (
     cd "$DECOMP"
-    python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/chr --recurse
-    python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/gun --recurse
-    python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/prop --recurse
+    python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/chr   --recurse
+    python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/gun   --recurse
+    python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/prop  --recurse
     python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/setup
     python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/setup/u
     python3 "$HERE/tools/uniquify_asset_symbols.py" assets/obseg/stan

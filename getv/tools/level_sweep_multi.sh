@@ -65,7 +65,7 @@ export SIMCTL_CHILD_GETV_LIGHTTRACE="$LIGHTTRACE"
 # frames below 6 and every 60th thereafter, unlike LIGHTTRACE which prints every frame.
 export SIMCTL_CHILD_GETV_ROOMTRACE="$ROOMTRACE"
 # Six stages are multiplayer-only (GE_GAME_FACTS.md 3): COMPLEX 31, TEMPLE 38,
-# basement 45, stack 46, library 48, caves 50. prop.c synthesises the setup filename as
+# BASEMENT 45, STACK 46, LIBRARY 48, CAVES 50. prop.c synthesises the setup filename as
 # "Usetup<code>Z" at 1 player and "Ump_setup<code>Z" at 2 or more, and the solo form of
 # those six does not exist -- not on disk, not in the ROM manifest. Run solo they load
 # geometry and no setup at all: no props, no guards, no Bond spawn. The resulting
@@ -86,7 +86,7 @@ done
 echo
 echo "================ AGGREGATING ================"
 arch -arm64 /usr/bin/python3 "$HERE/sweep_aggregate.py" "$BASE" \
- --n "$N" --ss "$SS" --skipintro "$SKIPINTRO" --lighttrace "$LIGHTTRACE" \
- --sim "${GETV_SIM:-default}" --slot "$SLOT" --mp "${MP:-off}"
+  --n "$N" --ss "$SS" --skipintro "$SKIPINTRO" --lighttrace "$LIGHTTRACE" \
+  --sim "${GETV_SIM:-default}" --slot "$SLOT" --mp "${MP:-off}"
 echo
 echo "board -> $BASE/board.md"

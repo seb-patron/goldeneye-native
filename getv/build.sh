@@ -15,25 +15,6 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
 BUILD="$HERE/build"
 SDK="$(xcrun -sdk appletvos --show-sdk-path)"
-# Optional Dear ImGui, same arrangement as build_mac.sh: absent is the normal case (run
-# tools/fetch_imgui.sh tvos once to enable it), and without it ge_imgui.cpp/ge_launcher.cpp
-# compile to their own empty-stub bodies via the #else branches already in both files.
-IMGUI="$HOME/.n64tvos/imgui-tvos"
-IMGUIFLAGS=(); IMGUILIBS=()
-if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
-  IMGUIFLAGS=( -DGE_WITH_IMGUI -I "$IMGUI/include" )
-  IMGUILIBS=( "$IMGUI/lib/libimgui.a" )
-fi
-# GETV_RENDERER=gl|metal (default gl). metal selects port/fast3d/gfx_metal.mm -- see
-# build_mac.sh's own header comment for the full rationale; this is the same switch,
-# same default, on the tvOS device target. Only one physical Apple TV exists to deploy
-# to, so unlike build_mac.sh this does NOT give metal its own BUILD dir -- switching
-# renderers here always means a fresh cmd_lib anyway.
-RENDERER="${GETV_RENDERER:-gl}"
-case "$RENDERER" in
-  gl|metal) ;;
-  *) echo "unknown GETV_RENDERER: $RENDERER (want gl or metal)" >&2; exit 1 ;;
-esac
 
 # Established by the port work; see the goldeneye_decomp_port memory for why each
 # one is needed. -ferror-limit=0 matters: the default of 20 silently truncates and
@@ -71,7 +52,7 @@ CFLAGS=(
 # port/audio/ge_mixer.c is the RSP, port_audio.c is the audio manager, port_audio_bank.c
 # converts the banks, and assets/music/ge_audio_segment.c carries the five ROM segments
 # that were previously a zeroed 5x1024 stub. musicSeqPlayerInit() is called from the
-# harness again. If audio ever has to be disabled, put both files back here and re-skip
+# harness again. If audio ever has to be disabled, put both files back here AND re-skip
 # musicSeqPlayerInit(); doing only half of that reintroduces exactly the half-real state
 # the rule warns about.
 #
@@ -85,7 +66,7 @@ CFLAGS=(
 #
 # audi.c is not in this list because it does not compile at all: it is the N64 audio
 # thread, and port_audio.c replaces it wholesale.
-GE_HELD_BACK_RE='ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c'  # see build_sim.sh: -Wno-everything let the N64 hardware files compile; exclude by name
+GE_HELD_BACK_RE='ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c'  # see build_sim.sh: -Wno-everything let the N64 hardware files compile; exclude by name
 
 sources() {
   (cd "$DECOMP" && { find src -name '*.c' \
@@ -130,7 +111,7 @@ audio_sources() {
 }
 
 # The decomp extracts every asset to C source under assets/ (1,324 files, 34 MB). On the
-# N64 those objects were placed in ROM segments and DMA'd in at runtime, so the
+# N64 those objects were placed in ROM segments and DMA'd in at runtime, which is why the
 # game refers to _xxxSegmentRomStart/End. Compiled natively they are ordinary linked-in
 # data with real pointers -- no ROM loader and no offset-to-pointer conversion is needed
 # for this class of asset.
@@ -166,7 +147,7 @@ cmd_lib() {
   done < <(audio_sources)
   printf 'libultra audio: %d built, %d failed\n' "$uok" "$ufail"
 
-  # The software rsp. Not built with cflags: it is port code, it wants
+  # The software RSP. Deliberately NOT built with CFLAGS: it is port code, it wants
   # the system <string.h>/<stdint.h>, and the decomp's include/ shadows those.
   if clang -target arm64-apple-tvos17.0 -isysroot "$SDK" \
        -I "$HERE/port/include" -I "$HERE/port/audio" \
@@ -196,10 +177,10 @@ cmd_lib() {
     echo "failing list -> $BUILD/failing.txt"
   fi
 
-  # The port layer: Fast3D (from sm64ex -- not Perfect Dark, whose Fast3D was
+  # The port layer: Fast3D (from sm64ex -- NOT Perfect Dark, whose Fast3D was
   # rewritten for PD's custom 12-byte vertex; GoldenEye uses the standard N64 Vtx,
   # same as SM64) plus the host shims it needs.
-  # NOTE: GE's include/ is absent here. The decomp ships its own
+  # NOTE: GE's include/ is deliberately absent here. The decomp ships its own
   # math.h/string.h/stdlib.h/stddef.h which shadow the system headers; port/include
   # exposes only PR/ via a symlink.
   local PORTFLAGS=(
@@ -211,49 +192,20 @@ cmd_lib() {
     -DTARGET_N64 -DGE_PORT_NATIVE
     # port_vi.c includes PR/os.h, which defines nothing without this
     -D_LANGUAGE_C=1
-    # Backend selection. sm64ex wraps whole files in these: without RAPI_GL/RAPI_METAL
-    # and WAPI_SDL2, gfx_opengl.c/gfx_metal.mm and gfx_sdl2.c compile to EMPTY objects
-    # and report success, then the link fails on the missing gfx_*_api / gfx_sdl structs.
-    -DWAPI_SDL2
-    $([ "$RENDERER" = "metal" ] && echo -DRAPI_METAL || echo -DRAPI_GL)
-    # GL ES-only concerns: tvOS is GL ES only there, and supersampling is the sole route
-    # to a sharper image because tvOS exposes exactly one 1920x1080 mode. Metal needs
-    # neither -- USE_GLES gates GL ES headers gfx_metal.mm never includes, and
-    # TVOS_SUPERSAMPLE's offscreen-framebuffer path is GL-specific (gfx_metal.mm has no
-    # supersample path yet at all -- known v1 gap, see its header comment).
-    $([ "$RENDERER" = "gl" ] && echo "-DUSE_GLES -DTVOS_SUPERSAMPLE")
+    # Backend selection. sm64ex wraps whole files in these: without RAPI_GL and
+    # WAPI_SDL2 gfx_opengl.c and gfx_sdl2.c compile to EMPTY objects and report
+    # success, then the link fails on the missing gfx_opengl_api / gfx_sdl structs.
+    -DRAPI_GL -DWAPI_SDL2
+    # tvOS is GL ES only, and supersampling is the sole route to a sharper image
+    # because tvOS exposes exactly one 1920x1080 mode.
+    -DUSE_GLES -DTVOS_SUPERSAMPLE
     -Wno-everything -Werror=return-type -ferror-limit=0 -O1
-    ${IMGUIFLAGS[@]+"${IMGUIFLAGS[@]}"}
   )
   local pok=0 pfail=0
   for f in "$HERE"/port/fast3d/*.c "$HERE"/port/src/*.c; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.c}").o"
     if clang "${PORTFLAGS[@]}" -c "$f" -o "$o" 2>/dev/null; then
-      pok=$((pok+1))
-    else
-      pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
-    fi
-  done
-  # Objective-C++: gfx_metal.mm. Always compiled, both renderers -- inert (empty body)
-  # under -DRAPI_GL, exactly symmetric with gfx_opengl.c under -DRAPI_METAL. Same ARC
-  # flag as build_mac.sh's equivalent loop.
-  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
-    [ -e "$f" ] || continue
-    local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
-    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then
-      pok=$((pok+1))
-    else
-      pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
-    fi
-  done
-  # C++ in the port layer -- see build_sim.sh's identical loop for why this is needed
-  # (gfx_sdl2.c's gePortImgui*() calls) and why no IMGUIFLAGS/GE_WITH_IMGUI: no fetched
-  # ImGui prefix exists for tvOS, so this links the empty stub bodies for now.
-  for f in "$HERE"/port/src/*.cpp; do
-    [ -e "$f" ] || continue
-    local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
-    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -c "$f" -o "$o" 2>/dev/null; then
       pok=$((pok+1))
     else
       pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
@@ -286,28 +238,6 @@ DEV_XCODEBUILD="634383e218b182eaad97337eeade7c82e9e231cf"  # NOT the same id as 
 BUNDLE_ID="org.goldeneyenative.getv"
 
 cmd_app() {
-  # project.yml's GCC_PREPROCESSOR_DEFINITIONS reads this via xcodegen's own ${VAR}
-  # substitution (same mechanism already used there for ${N64TVOS_PREFIX} and
-  # ${DEVELOPMENT_TEAM}) so ge_tvos_main.c's Xcode-compiled copy picks the SAME
-  # renderer libge.a was just built with -- exported, not just set, so the subshell
-  # xcodegen runs in below inherits it.
-  export GETV_RAPI_DEFINE
-  GETV_RAPI_DEFINE="$([ "$RENDERER" = "metal" ] && echo RAPI_METAL || echo RAPI_GL)"
-  # project.yml's HEADER_SEARCH_PATHS/OTHER_LDFLAGS reference the literal ${N64TVOS_PREFIX}
-  # too, and xcodegen's substitution has no concept of bash's ${VAR:-default} -- an unset
-  # N64TVOS_PREFIX resolves to an empty string there, not to ~/.n64tvos, which is exactly
-  # how ge_tvos_main.c stopped finding SDL.h. build_sim.sh never hits this: its sed pass
-  # already replaces the whole ${N64TVOS_PREFIX}/sdl2-tvos substring with a literal path
-  # before xcodegen ever sees it. This script calls xcodegen on the raw project.yml, so it
-  # has to export the default itself.
-  export N64TVOS_PREFIX="${N64TVOS_PREFIX:-$HOME/.n64tvos}"
-  # project.yml's OTHER_LDFLAGS references ${GETV_IMGUI_LIB} the same way -- one more
-  # library path, or an empty (and harmless) linker argument when ImGui was never fetched.
-  export GETV_IMGUI_LIB="${IMGUILIBS[0]:-}"
-  # See build_sim.sh's identical rm -- regenerating over an existing xcodeproj can leave
-  # the scheme's buildable "supported platforms" empty, which surfaces later as an
-  # opaque "Found no destinations" build failure. Delete-then-regenerate is clean.
-  rm -rf "$HERE/Goldeneye-Native.xcodeproj"
   ( cd "$HERE" && xcodegen generate ) || return 1
   # Build the named scheme. Passing -destination without a scheme makes xcodebuild a
   # silent no-op that reports success and produces nothing.

@@ -3,24 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ge_gpu_timer.h"
-
-/* ARB_timer_query is a desktop-GL extension (GLES has its own EXT_disjoint_timer_query, queried
- * differently) and, like ge_gl_debug.c, this whole file is a GETV_GPUTIME=1-gated diagnostic
- * that is off by default and has never shipped enabled on tvOS. Gated on GE_PLATFORM_DESKTOP,
- * not USE_GLES, for the same reason as ge_gl_debug.c: tvOS has no <OpenGL/gl3.h> regardless of
- * which game renderer (GL ES or Metal) was chosen, so this has to be a platform check. Same
- * "empty when the capability isn't present" shape as ge_imgui.h rather than a second GLES
- * implementation of a debug tool. */
-#ifndef GE_PLATFORM_DESKTOP
-
-int geGpuTimerEnabled(void) { return 0; }
-void geGpuTimerFrameBegin(void) { }
-void geGpuTimerFrameEnd(void) { }
-void geGpuTimerRecordSwap(double ms) { (void) ms; }
-
-#else
-
 /* GL headers follow the same rule as gfx_opengl.c: GLEW where it is used to load entry points,
  * the platform's own headers otherwise. Including <GL/glew.h> unconditionally builds on Windows
  * and fails everywhere else, which is how this file arrived. */
@@ -48,8 +30,10 @@ void geGpuTimerRecordSwap(double ms) { (void) ms; }
 #endif
 #include <SDL.h>
 
+#include "ge_gpu_timer.h"
+
 /* Ring depth. Three is the smallest that reliably has a finished result to collect while two are
- * still in flight; four gives a frame of slack on a driver that runs further ahead. It is not a
+ * still in flight; four gives a frame of slack on a driver that runs further ahead. It is NOT a
  * count of simultaneously active queries -- GL permits exactly one GL_TIME_ELAPSED query at a
  * time, so the ring exists purely so a FINISHED result can be read without waiting on a live one. */
 #define GE_GT_RING 4
@@ -183,11 +167,11 @@ void geGpuTimerFrameEnd(void)
          *                           compositor; look at present path, not at draw calls
          *   both low             -> the time is somewhere else entirely and neither is the cause
          */
-        /* "GPU timeline", not "GPU busy", and the distinction is not pedantry.
-         * GL_TIME_ELAPSED measures wall time between two markers on the GPU'S TIMELINE. If the
+        /* "GPU timeline", not "GPU busy", and the distinction IS not pedantry.
+         * GL_TIME_ELAPSED measures wall time between two markers ON THE GPU'S TIMELINE. If the
          * GPU spends part of that window waiting -- for a buffer to free, for the compositor, for
          * work to arrive -- that waiting is inside the number. So a large value proves the time is
-         * spent GPU-SIDE rather than in our thread; it does not prove the hardware is saturated.
+         * spent GPU-SIDE rather than in our thread; it does NOT prove the hardware is saturated.
          *
          * Measured here: 6 ms at 1280x960 and 6 ms at 320x240, twelve times fewer pixels. A
          * genuinely fill-rate-saturated GPU cannot be indifferent to that, so on this machine the
@@ -214,5 +198,3 @@ void geGpuTimerRecordSwap(double ms)
     ge_gt_swap_n++;
     if (ms > ge_gt_swap_max) { ge_gt_swap_max = ms; }
 }
-
-#endif /* GE_PLATFORM_DESKTOP */

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goldeneye-Native</title>
+<meta name="description" content="GoldenEye 007 compiled as a native program for Windows, macOS and Linux. No emulator, no recompiler. Bring your own ROM.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav">
+      <a href="index.html" class="current">Overview</a>
+      <a href="build.html">Build it</a>
+      <a href="faq.html">FAQ</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native" class="nav-icon" aria-label="GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-bg"><img src="assets/images/screenshot-04.jpg" alt="" loading="eager"></div>
+  <div class="wrap">
+    <p class="eyebrow">NATIVE &middot; MIT &middot; BRING YOUR OWN ROM</p>
+    <h1>GoldenEye 007.<br><em>Compiled, not emulated.</em></h1>
+    <p class="lede">Rare's game, 100% decompiled, built native for Windows, macOS and Linux &mdash; with a modern platform layer underneath.</p>
+    <div class="hero-actions">
+      <a class="btn" href="build.html">Build it</a>
+      <a class="link-more" href="https://github.com/SegfaultEvan/goldeneye-native">View source <span class="chev">&#8250;</span></a>
+    </div>
+  </div>
+  <div class="scroll-cue"><span>Scroll</span><span class="bar"></span></div>
+</section>
+
+<section class="scrolly-track">
+  <div class="scrolly-stage">
+    <div class="scrolly-media">
+      <div class="frame">
+        <img data-step-media="0" src="assets/images/screenshot-01.jpg" alt="Silo, viewed from the walkway beside the missile">
+        <img data-step-media="1" src="assets/images/screenshot-02.jpg" alt="Two-player split screen, each with its own radar">
+        <img data-step-media="2" src="assets/images/launcher-controls.png" alt="The launcher's Controls page">
+        <div class="code-shot" data-step-media="3"><pre style="margin:0;background:none;border:none;padding:0"><code><span class="kw">function</span> onWeaponFire(weapon)
+    ge.log(<span class="cm">"fired: "</span> .. weapon)
+<span class="kw">end</span>
+
+<span class="kw">function</span> onPlayerSpawn(player)
+    <span class="kw">local</span> x, y, z = ge.player_pos(player)
+    ge.log(<span class="cm">"spawned at "</span> .. x .. <span class="cm">","</span> .. y)
+<span class="kw">end</span></code></pre></div>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="scrolly-copy">
+        <div class="scrolly-step" data-step="0">
+          <h3>27 stages.<br>All of them boot clean.</h3>
+          <p>Every loadable level renders and exits without a crash or a hang &mdash; measured, not assumed.</p>
+        </div>
+        <div class="scrolly-step" data-step="1">
+          <h3>Split screen.<br>All 64 characters.</h3>
+          <p>Radar, every watch page, saves that persist. Co-op in the campaign, too &mdash; something the original never had.</p>
+        </div>
+        <div class="scrolly-step" data-step="2">
+          <h3>One launcher.<br>Every setting.</h3>
+          <p>Level, ruleset, cheats, resolution and field of view, before you play &mdash; no config file editing.</p>
+        </div>
+        <div class="scrolly-step" data-step="3">
+          <h3>Code you can<br>actually read.</h3>
+          <p>Lua mods with a live read API into game state, no rebuild required &mdash; because this is C, not a ROM.</p>
+        </div>
+      </div>
+    </div>
+    <div class="scrolly-progress"><i></i><i></i><i></i><i></i></div>
+  </div>
+</section>
+
+<section class="act-alt">
+  <div class="wrap statement">
+    <p><strong>An emulator hands you the console's limits along with the game.</strong> This is the game's own C, compiled for your CPU &mdash; which is what makes mouse look, a real resolution, and mods that run alongside it possible at all.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="stats-row">
+      <div class="stat"><div class="n" data-count="27">0</div><div class="l">Playable stages</div></div>
+      <div class="stat"><div class="n" data-count="3">0</div><div class="l">Native platforms today</div></div>
+      <div class="stat"><div class="n" data-count="64">0</div><div class="l">Multiplayer characters</div></div>
+      <div class="stat"><div class="n" data-count="0">0</div><div class="l">Bytes of game data shipped</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="act-alt">
+  <div class="wrap">
+    <p class="roadmap-label">Available now</p>
+    <div class="platform-row">
+      <div class="p"><div class="p-name">Windows</div><div class="p-status">&#9679; Native</div></div>
+      <div class="p"><div class="p-name">macOS</div><div class="p-status">&#9679; Native</div></div>
+      <div class="p"><div class="p-name">Linux</div><div class="p-status">&#9679; Native</div></div>
+    </div>
+    <p class="roadmap-label">On the roadmap</p>
+    <div class="roadmap-row">
+      <div class="p"><div class="p-name">Apple TV</div><div class="p-status">Metal backend done</div></div>
+      <div class="p"><div class="p-name">iOS</div><div class="p-status">Not started</div></div>
+      <div class="p"><div class="p-name">Android</div><div class="p-status">Not started</div></div>
+      <div class="p"><div class="p-name">VR</div><div class="p-status">Hooks only</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="legal-act">
+  <div class="wrap center">
+    <h2>Bring your own ROM</h2>
+    <p>Nothing in this project contains game data, and nothing ever will. Your own legal NTSC (US) cartridge, dumped to a file &mdash; the build reads it once, at extraction time.</p>
+    <table class="rom-table" style="margin:0 auto;max-width:420px;text-align:left">
+      <tr><td>Size</td><td>12,582,912 bytes</td></tr>
+      <tr><td>Byte order</td><td>Big-endian <code>z64</code></td></tr>
+      <tr><td>Header magic</td><td><code>80371240</code></td></tr>
+    </table>
+    <p style="margin-top:24px"><a class="link-more" href="build.html">Full requirements and the honest status of every platform <span class="chev">&#8250;</span></a></p>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-links">
+      <a href="https://github.com/SegfaultEvan/goldeneye-native">Source</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/SegfaultEvan/goldeneye-native/issues">Issues</a>
+    </div>
+    <p class="foot-note">
+      Built by Evan King (<a href="https://github.com/SegfaultEvan">@SegfaultEvan</a>). The game's C
+      source is the work of the <a href="https://github.com/n64decomp/007">n64decomp/007</a>
+      decompilation project. GoldenEye 007 was made by Rare. This project is not affiliated with,
+      endorsed by, or connected to Nintendo, Rare, MGM, Danjaq or EON Productions. Not an emulator:
+      no MIPS interpreter and no dynamic recompiler. Not static recompilation. Not a fork of the
+      Xbox 360 remaster.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

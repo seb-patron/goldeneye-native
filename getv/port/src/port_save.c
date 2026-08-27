@@ -17,7 +17,7 @@
  * The whole save is 512 bytes, which fits a 4 K EEPROM exactly.
  * smallSave  = 4 + 4 + 24            =  32 B = blocks 0..3
  * save_data  = 0x60 (verified below) =  96 B, five slots = 480 B = blocks 4..63
- * --------
+ *                                          --------
  *                                            512 B = 64 blocks of 8 = EEP4K
  * `save_data` contains no pointers (`src/game/file.h:7-21` is all s32/u8/u16 plus a
  * `u8 times[76]`), so it is 0x60 natively too; this is not bug family 1.3. The port layer
@@ -217,9 +217,9 @@ static void geSaveFlush(void)
     }
  fflush(f);
  fclose(f);
- /* the save has never worked ON Windows, and IT failed silently.
+ /* 🔴 THE SAVE HAS NEVER WORKED ON WINDOWS, AND IT FAILED SILENTLY.
   *
-  * Posix rename() atomically replaces the destination. Windows rename() refuses when the
+  * POSIX rename() atomically REPLACES the destination. Windows rename() REFUSES when the
   * destination exists, with EEXIST -- so every flush after the file first appeared failed.
   * Measured on a 900-frame Train run: 112 attempts, 112 failures, 0 successes, every one
   * reporting "File exists". No save data has ever persisted on this platform.
@@ -230,7 +230,7 @@ static void geSaveFlush(void)
   * SUCCESS path prints only under ge_eep_debug while the FAILURE path always prints, so the log
   * filled with failures and never carried a baseline to compare them against.
   *
-  * It was a real performance cost too, not just noise: 112 doomed write+rename pairs each
+  * ⚠️ It was a real performance cost too, not just noise: 112 doomed write+rename pairs each
   * followed by an unconditional printf, on a box where a flushed stdout line costs about 24 ms.
   *
   * MoveFileExA with MOVEFILE_REPLACE_EXISTING is the Windows equivalent of POSIX rename -- it

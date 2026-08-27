@@ -26,7 +26,7 @@ extern "C" {
 
 /* Called once from gfx_sdl_init() after the GL context exists.
  *   window -- SDL_Window*
- *   glctx -- SDL_GLContext (itself a void*)
+ *   glctx  -- SDL_GLContext (itself a void*)
  * Reads GETV_IMGUI. Anything other than a set, non-empty, non-"0" value leaves the
  * overlay off and this call is then the only cost the feature has at runtime. */
 void gePortImguiInit(void *window, void *glctx);

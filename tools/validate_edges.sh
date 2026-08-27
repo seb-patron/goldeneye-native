@@ -5,7 +5,7 @@
 # with bondviewTestLineUnobstructed, and the engine is the authority. This replaces assumption
 # with measurement for the whole graph.
 #
-# Needs a packed world that already contains the synthetic nodes -- spawn, doors, portals --
+# ⚠️ Needs a packed world that already contains the synthetic nodes -- spawn, doors, portals --
 # so run it AFTER gen_level_routes and pack_world, then regenerate routes with the verdicts.
 # Validating a pack without them measures a graph nobody routes on.
 set -u

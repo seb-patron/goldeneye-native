@@ -17,13 +17,13 @@
 # No Metal backend. This uses the same renderer the tvOS build uses, so a regression
 # seen here is a regression there. Only the platform bindings differ:
 #
-#  tvOS device / sim macOS
-#  GL OpenGL ES 3.0 (EAGL) OpenGL 2.1 compat (NSOpenGL)
-#  defines -DUSE_GLES -DTVOS_SUPERSAMPLE (neither) -DGE_PLATFORM_MAC
-#  shaders #version 100 ESSL #version 120 GLSL (already in gfx_opengl.c)
-#  FBO SDL's own FBO, blit-resolved framebuffer 0, no supersample
-#  entry libSDL2main -> UIApplicationMain -> SDL_main main() -> SDL_main
-#  window full-screen UIWindow resizable NSWindow
+#            tvOS device / sim            macOS
+#   GL       OpenGL ES 3.0 (EAGL)         OpenGL 2.1 compat (NSOpenGL)
+#   defines  -DUSE_GLES -DTVOS_SUPERSAMPLE  (neither) -DGE_PLATFORM_MAC
+#   shaders  #version 100 ESSL            #version 120 GLSL   (already in gfx_opengl.c)
+#   FBO      SDL's own FBO, blit-resolved framebuffer 0, no supersample
+#   entry    libSDL2main -> UIApplicationMain -> SDL_main   main() -> SDL_main
+#   window   full-screen UIWindow          resizable NSWindow
 #
 # macOS's legacy GL profile is intentional: gfx_opengl.c's shader generator emits
 # `#version 120` with attribute/varying, which a 3.2 core profile rejects outright. Do
@@ -39,28 +39,12 @@
 # space-free path. The repo lives under ".../Code Projects/...", and a space in a header
 # search path breaks the build in ways that are hard to trace.
 #
-# GETV_RENDERER=gl|metal (default gl, i.e. today's behaviour, byte-for-byte unchanged).
-# metal selects port/fast3d/gfx_metal.mm -- a native Metal backend behind the same
-# GfxRenderingAPI, the tvOS/iOS unlock (GL ES is deprecated there and our fast3d wants
-# desktop GL 2.1, which does not exist on tvOS at all). See docs/ROADMAP.md "Phase 3" and
-# docs/REUSE_AUDIT.md. It gets its own BUILD dir and binary name (build-mac-metal/,
-# goldeneye-metal) so it can never collide with or regress the gl path's objects.
-#
-# usage: GETV_RENDERER=metal ./build_mac.sh {sdl|lib|port|app|all|run|env}
+# usage: ./build_mac.sh {sdl|lib|port|app|all|run|env}
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DECOMP="$HERE/../vendor/ge-decomp"
-RENDERER="${GETV_RENDERER:-gl}"
-case "$RENDERER" in
-  gl|metal) ;;
-  *) echo "unknown GETV_RENDERER: $RENDERER (want gl or metal)" >&2; exit 1 ;;
-esac
-if [ "$RENDERER" = "metal" ]; then
-  BUILD="$HERE/build-mac-metal"
-else
-  BUILD="$HERE/build-mac"
-fi
+BUILD="$HERE/build-mac"
 SDL="$HOME/.n64tvos/sdl2-mac"
 # Optional Lua mod scripting. Built by tools/fetch_lua.sh into the same out-of-repo prefix
 # SDL2 uses, because deps/ is not tracked. Absent is the normal case: without it the build
@@ -77,7 +61,7 @@ fi
 # it the build omits -DGE_WITH_IMGUI and getv/port/src/ge_imgui.cpp compiles to empty entry
 # points, so gfx_sdl2.c needs no #ifdef and nothing else in the tree knows.
 #
-# The overlay is additionally off at runtime unless GETV_IMGUI=1, so having the library
+# The overlay is additionally OFF at runtime unless GETV_IMGUI=1, so having the library
 # installed does not change how the game behaves.
 IMGUI="$HOME/.n64tvos/imgui-mac"
 IMGUIFLAGS=(); IMGUILIBS=()
@@ -107,11 +91,7 @@ case "${MACARCH:-$HOSTARCH}" in
   *) echo "unsupported host arch: ${MACARCH:-$HOSTARCH}" >&2; exit 1 ;;
 esac
 TARGET="${MACARCH}-apple-macos13.0"
-if [ "$RENDERER" = "metal" ]; then
-  BIN="$BUILD/goldeneye-metal"
-else
-  BIN="$BUILD/goldeneye"
-fi
+BIN="$BUILD/goldeneye"
 
 # --------------------------------------------------------------------------- SDL2
 cmd_sdl() {
@@ -133,14 +113,14 @@ cmd_sdl() {
 
 # --------------------------------------------------------------------- game objects
 # Identical to build_sim.sh's CFLAGS except for the target triple and sysroot. Every
-# one of these matters and is documented at length in build_sim.sh:
-#  -fms-extensions anonymous struct/union members the decomp relies on
-#  -include ge_port_decls.h prototypes; IDO allowed implicit declarations
-#  -Wno-everything -Werror=return-type not -w. `-w` defeats -Werror in both orders,
-#  and the accidental-$v0-return family is caught only when
-#  this flag actually takes effect.
-#  -ferror-limit=0 the default 20 truncates and flatters the count
-#  -fno-strict-aliasing the decomp punts types through pointers constantly
+# one of these is load-bearing and is documented at length in build_sim.sh:
+#   -fms-extensions            anonymous struct/union members the decomp relies on
+#   -include ge_port_decls.h   prototypes; IDO allowed implicit declarations
+#   -Wno-everything -Werror=return-type   not -w. `-w` defeats -Werror in both orders,
+#                              and the accidental-$v0-return family is caught only when
+#                              this flag actually takes effect.
+#   -ferror-limit=0            the default 20 truncates and flatters the count
+#   -fno-strict-aliasing       the decomp punts types through pointers constantly
 # The port layer's third-party sources (Fast3D, the audio mixer) are not vendored in this
 # repository -- see docs/THIRD_PARTY.md. Without them the compile fails with a long list
 # of missing headers and nothing that points at the cause, so check once and say so.
@@ -170,7 +150,6 @@ require_thirdparty() {
   for f in \
     port/fast3d/gfx_cc.c port/fast3d/gfx_cc.h \
     port/fast3d/gfx_opengl.c port/fast3d/gfx_opengl.h \
-    port/fast3d/gfx_metal.mm port/fast3d/gfx_metal.h \
     port/fast3d/gfx_pc.c port/fast3d/gfx_pc.h \
     port/fast3d/gfx_rendering_api.h port/fast3d/gfx_screen_config.h \
     port/fast3d/gfx_sdl.h port/fast3d/gfx_sdl2.c \
@@ -213,8 +192,7 @@ build_port_layer() {
     -target "$TARGET" -isysroot "$SDK"
     -I "$HERE/port" -I "$HERE/port/include" -I "$HERE/port/fast3d" -I "$HERE/port/src"
     -I "$SDL/include" -I "$SDL/include/SDL2"
-    -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DWAPI_SDL2
-    $([ "$RENDERER" = "metal" ] && echo -DRAPI_METAL || echo -DRAPI_GL)
+    -DTARGET_N64 -DGE_PORT_NATIVE -D_LANGUAGE_C=1 -DRAPI_GL -DWAPI_SDL2
     -DGE_PLATFORM_MAC
     -DGE_PLATFORM_DESKTOP
     # Desktop GL on macOS is deprecated-but-present; silence only that, so a real
@@ -243,16 +221,6 @@ build_port_layer() {
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.cpp}").o"
     if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
-    else pfail=$((pfail+1)); rm -f "$o"; echo "  mac port FAILED: $(basename "$f")"; fi
-  done
-  # Objective-C++: gfx_metal.mm. Always compiled, both renderers -- under -DRAPI_GL its
-  # whole body is inert (the file is one big #ifdef RAPI_METAL), exactly symmetric with
-  # gfx_opengl.c compiling to nothing under -DRAPI_METAL. ARC (-fobjc-arc) manages the
-  # id<MTL...> objects; only needed under metal but harmless (a no-op) under gl.
-  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
-    [ -e "$f" ] || continue
-    local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
-    if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then pok=$((pok+1))
     else pfail=$((pfail+1)); rm -f "$o"; echo "  mac port FAILED: $(basename "$f")"; fi
   done
   # The harness. Shared verbatim with the tvOS app target (getv/Sources) -- it is plain
@@ -285,7 +253,7 @@ GE_JOBS="${GETV_JOBS:-6}"
 # breaks on the spaces in this repo's own path (".../Code Projects/..."). One flag per
 # line, read back into an array, is space-safe and array-safe.
 #
-# The read loop is not `mapfile`. macOS ships bash 3.2 as /bin/bash and
+# The read loop is deliberately not `mapfile`. macOS ships bash 3.2 as /bin/bash and
 # mapfile arrived in bash 4, so on a stock machine every compile in the batch would fail
 # and the build would report "0 built" with no other diagnostic. `while IFS= read -r`
 # is portable to 3.2 and behaves identically here.
@@ -326,7 +294,7 @@ cmd_lib() {
   (cd "$DECOMP" && { find src -name '*.c' \
              -not -path 'src/libultra/*' -not -path 'src/libultrare/*' \
              -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
-           # Held back; mirrors build_sim.sh and build.sh exactly.
+           # Held back on purpose; mirrors build_sim.sh and build.sh exactly.
            # usb.c/rmon.c/sched.c/ramrom.c/init.c/indy_* are N64 hardware and dev-host
            # files: compiling them turns logging stubs into code that writes real RCP/PI
            # registers or talks to an SGI host. They used to fail to build, and that
@@ -334,10 +302,6 @@ cmd_lib() {
            # defeats -Werror=return-type) also suppresses clang's default-error
            # diagnostics, so all seven started compiling and the count moved 165/10 ->
            # 172/3 -- a weaker guard, not progress. Excluding them by name is explicit.
-           # tlb_manage.c manages the N64's TLB, which a native build does not have. It has never
-           # compiled here -- three type conflicts against the native headers -- so it was already
-           # absent from the binary, and excluding it by name only stops the build reporting a
-           # failure on every run. A build that always fails once teaches people to ignore failures.
            # This list must stay in step with the two tvOS scripts or the Mac build stops
            # being a valid proxy for them, which is the whole point of this target.
            find src/libultra/gu -name '*.c'; } | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c)$' | sort) \
@@ -346,10 +310,10 @@ cmd_lib() {
   # setup/e and setup/j are the PAL and Japanese setup tables. They hold the same eight
   # filenames as setup/u, and uniquify_asset_symbols.py namespaces by file stem, so seven of
   # the eight end up defining identical globals in all three directories -- UsetupcradZ_padlist
-  # And so on. Compiling all three lets the linker bind Cradle, Silo, destruction, Jungle,
-  # Train, Statue and the multiplayer Archives to whichever copy it saw first, which is
+  # and so on. Compiling all three lets the linker bind CRADLE, SILO, DESTRUCTION, JUNGLE,
+  # TRAIN, STATUE and the multiplayer ARCHIVES to whichever copy it saw first, which is
   # alphabetically e/, the PAL data, in a VERSION_US build. The same applies to the top-level
-  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is left
+  # `stagesetup UsetuplenZ`, which the engine looks up by name and so is deliberately left
   # unprefixed. Nothing outside those two directories references their symbols and
   # file_resource_table.inc.c asks for the bare name, so a US build simply must not compile
   # them. Namespacing them instead would keep seven dead translation units in the binary.
@@ -358,7 +322,7 @@ cmd_lib() {
     | run_batch "mac assets" "${CFLAGS[@]}"
 
   # -DNDEBUG is passed to the mixer only, exactly as the tvOS builds do. Do not widen it:
-  # SUPPORT_CHECK in gfx_pc.c is an assert() and is armed.
+  # SUPPORT_CHECK in gfx_pc.c is an assert() and is deliberately armed.
   (cd "$DECOMP" && find src/libultra/audio src/libultrare/audio -name '*.c' 2>/dev/null | sort) \
     | run_batch "mac audio" "${CFLAGS[@]}" -DGE_AUDIO_MIXER -DNDEBUG \
         -I src/libultra -I src/libultrare -I "$HERE/port/audio"
@@ -382,12 +346,12 @@ cmd_app() {
   # symbols (`__codeSegmentRomStart`, `___osGetFpcCsr`, `_crashRenderFrame`,
   # `__libm_qnan_f`, ...). Every one of them is an N64 linker-script or hardware symbol
   # referenced only by src/init.c, src/sched.c and src/rmon.c -- files this port compiles
-  # but never links. A static archive pulls a member only when it resolves
+  # but deliberately never links. A static archive pulls a member only when it resolves
   # an undefined symbol, so those three objects are never dragged in; a direct object
   # link has no such filter and drags in everything.
   #
   # This is the arrangement build.sh and build_sim.sh use, and the reason project.yml
-  # says "No -force_load yet: the harness pulls in only what it calls."
+  # says "No -force_load yet: the harness deliberately pulls in only what it calls."
   # Before adding -force_load here, note that assets/obseg/bg/{u,e,j}/ contain colliding
   # bare symbols (`header`, `room_data_table`) which are harmless today only because
   # those objects are never pulled.
@@ -415,7 +379,7 @@ cmd_app() {
   local f orphans=0 manifest="$BUILD/objects.txt"
   if [ -s "$manifest" ]; then
     # Match in one pass. The obvious per-file form,
-    #  printf '%s\n' "$keep" | grep -qxF "$f"
+    #     printf '%s\n' "$keep" | grep -qxF "$f"
     # is wrong under the `set -o pipefail` above: grep -q exits at the first hit, printf
     # dies of SIGPIPE, and the pipeline reports 141 -- a failure -- for exactly the files
     # that DID match. It silently dropped about a third of the archive.
@@ -501,9 +465,9 @@ case "${1:-}" in
   all)  cmd_lib && cmd_app ;;
   run)  shift; cmd_run "$@" ;;
   env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "BUILD=$BUILD"
-        echo "BIN=$BIN"; echo "RENDERER=$RENDERER" ;;
-  *) echo "usage: GETV_RENDERER=gl|metal $0 {sdl|lib|port|app|all|run|env}  (default gl)"
-        echo "  sdl  = build SDL2 2.30.9 arm64 from deps/ into $SDL (once, shared by both renderers)"
+        echo "BIN=$BIN" ;;
+  *)    echo "usage: $0 {sdl|lib|port|app|all|run|env}"
+        echo "  sdl  = build SDL2 2.30.9 arm64 from deps/ into $SDL (once)"
         echo "  lib  = compile game + assets + audio + port layer for arm64 macOS"
         echo "  port = recompile getv/port/** and the harness only (seconds)"
         echo "  app  = link $BIN"

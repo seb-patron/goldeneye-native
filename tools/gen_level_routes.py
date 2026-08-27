@@ -120,7 +120,7 @@ def augment_with_regions(know):
 def bfs(graph, start, goal, pos=None):
     """Cheapest node sequence from start to goal, or None. Weighted by DISTANCE.
 
-    This was breadth-first, and the comment defending it -- that the edges are already short
+    🔑 This was breadth-first, and the comment defending it -- that the edges are already short
     hops, so fewest hops is a good proxy -- stopped being true the moment synthetic nodes were
     added. A spawn node links to whatever is nearest and a portal or door node links across a
     room, so the graph now carries edges from 40 to 1300 units and BFS PRICES THEM THE SAME.
@@ -189,7 +189,7 @@ EYE_HEIGHT = 150.0
 # down the corridor from one through a wall, and those demand opposite behaviour. The rooms come
 # from stan, the game's own standing-tile geometry, via gen_level_rooms.py.
 #
-# across all levels: 1108 same-room, 2149 adjacent, 5011 separated. That is the distribution you
+# ACROSS ALL LEVELS: 1108 same-room, 2149 adjacent, 5011 separated. That is the distribution you
 # would expect and the classification is sound.
 #
 # I twice called it broken before measuring properly, both times from Dam alone, which returns
@@ -388,7 +388,7 @@ def path_is_clear(walls, a, b, headroom=180.0):
     any edge of the triangle projected onto XZ -- because a wall is vertical and its projection is
     what a walking body meets.
 
-    The height filter is what stops this rejecting everything. Floors and ceilings are in the
+    ⚠️ The height filter is what stops this rejecting everything. Floors and ceilings are in the
     same triangle soup as walls, and a floor's projection covers the whole room, so without a
     vertical overlap test every path in the level reads as blocked. Only geometry spanning the
     walker's own band can stop them.
@@ -430,7 +430,7 @@ def inject_spawn_node(know, graph, level, spawns, rooms_for_walls=None, links=3)
     This adds the node the extractor could not know about, because the answer only exists at
     runtime. Nodes are given indices above every existing one so nothing renumbers.
 
-    THE EDGES ARE AN ASSUMPTION AND ARE MARKED ONE. Proximity is not walkability: a node four
+    ⚠️ THE EDGES ARE AN ASSUMPTION AND ARE MARKED ONE. Proximity is not walkability: a node four
     hundred units away through a wall is nearer than one six hundred away down the corridor, and
     nothing here can tell them apart -- the same-room test that would is unavailable, since the
     stan room the player reports and the room ids the waypoints carry are different numbering
@@ -512,7 +512,7 @@ def load_walkable_verdicts(out_dir, level):
 def prune_unwalkable(graph, measured):
     """Drop edges the engine refused.
 
-    Only where the measurement actually looked. The validator has a distance cutoff, so an
+    ⚠️ Only where the measurement actually looked. The validator has a distance cutoff, so an
     edge it never examined is absent from the set and must NOT be read as refused -- that would
     silently delete every long-range link in the graph and look like a successful prune.
     """
@@ -593,12 +593,12 @@ def prune_by_height(graph, rooms, know, max_step=40.0):
     The line test cannot catch that -- it is a plan-view test, and a floor twelve feet down has
     an unobstructed line to the railing above it.
 
-    waypoint_floor, from the Windows build's extractor, is the height of the floor DIRECTLY BENEATH each
+    waypoint_floor, from the Surface's extractor, is the height of the floor DIRECTLY BENEATH each
     node, which is the number this needs. Not the node's own y: a pad can sit above its floor, and
     comparing pad heights compares two things that are each some distance off the surface a body
     would stand on.
 
-    Only prunes where BOTH ends have a floor recorded. A node with no floor beneath it is
+    ⚠️ Only prunes where BOTH ends have a floor recorded. A node with no floor beneath it is
     already the more interesting problem -- 33 to 240 per level cannot be stood on at all -- and
     treating "unknown" as "too steep" would delete the graph around exactly those places instead
     of leaving them visible.
@@ -631,7 +631,7 @@ def prune_by_height(graph, rooms, know, max_step=40.0):
 def level_scales():
     """levelscale per level, parsed from the decomp so there is one copy of these constants.
 
-    asset = runtime * levelscale. The measured spawns come out of the RUNNING GAME and are
+    🔑 asset = runtime * levelscale. The measured spawns come out of the RUNNING GAME and are
     runtime; every JSON here is asset space. Train's spawn reads x=779 where its tile map ends at
     x=213, so an unconverted spawn starts the route outside the level and the nearest node is
     thousands of units away -- which the distance guard then correctly refuses, leaving no spawn
@@ -659,7 +659,7 @@ BLOCKING_PROPS = ("StandardProp", "Glass", "TintedGlass", "Alarm", "Cctv",
 def subtract_props_from_tiles(know, rooms, graph):
     """Remove floor tiles a solid prop stands on.
 
-    THE TILE MESH IS FLOOR GEOMETRY AND PROPS SIT ON TOP OF IT. A tile with a crate on it is
+    🔑 THE TILE MESH IS FLOOR GEOMETRY AND PROPS SIT ON TOP OF IT. A tile with a crate on it is
     still a tile, so the router happily plans through furniture and the follower walks into it --
     which is exactly what stopped the bot two waypoints into Train, with the navmesh insisting
     there was floor there and being right about the floor.
@@ -668,12 +668,12 @@ def subtract_props_from_tiles(know, rooms, graph):
     scale. That is the honest version of what is available: a prop wider than its tile still
     overhangs its neighbours and this will not catch that.
 
-    SO THIS IS A FLOOR, NOT A CEILING. It removes the tile a crate stands on, not the space a
+    ⚠️ SO THIS IS A FLOOR, NOT A CEILING. It removes the tile a crate stands on, not the space a
     crate occupies. Real extents -- scaled and rotation-aware through obj->mtx -- would subtract
-    the footprint properly, and that is the Windows build's S1a. This is the part that can be done
+    the footprint properly, and that is the Surface's S1a. This is the part that can be done
     correctly today rather than approximately.
 
-    And it must not disconnect the level. A tile removed from a corridor one tile wide severs
+    ⚠️ And it must not disconnect the level. A tile removed from a corridor one tile wide severs
     the route entirely, which is worse than routing through a crate -- so a removal that would
     orphan its neighbours is refused and counted.
     """
@@ -727,7 +727,7 @@ def subtract_props_from_tiles(know, rooms, graph):
 def tile_graph_as_waypoints(know, rooms):
     """Replace the PAD waypoint set with the FLOOR TILE mesh.
 
-    THIS IS THE FIX FOR THE THING THAT BLOCKED THE BOT ALL WEEK. Pads are prop markers, not
+    🔑 THIS IS THE FIX FOR THE THING THAT BLOCKED THE BOT ALL WEEK. Pads are prop markers, not
     places to walk: measured with the teleport probe, 139 of Train's 180 pads cannot be stood on,
     and across the twenty solo levels it runs 33 to 240 each. A follower handed targets a body
     cannot occupy is short by however far the pad sits off the floor, every time, and no amount of
@@ -741,7 +741,7 @@ def tile_graph_as_waypoints(know, rooms):
 
     Pads keep doing what they are for: marking props, doors and spawns.
 
-    Tile ids are the extractor's and pad indices are ours, and they overlap. Tiles are offset
+    ⚠️ Tile ids are the extractor's and pad indices are ours, and they overlap. Tiles are offset
     past the highest pad index so a route step can never be ambiguous about which set it names --
     two id spaces sharing a range is how a graph silently routes through the wrong nodes.
     """
@@ -787,7 +787,7 @@ def inject_door_nodes(know, graph, max_link=200.0):
     """Put the level's doors in the graph, because that is how you get between rooms.
 
     The waypoint set comes from PADS and a door is a PROP, so doorways were missing from the
-    graph entirely -- and a doorway is the single most necessary place in a level. The result
+    graph entirely -- and a doorway is the single most load-bearing place in a level. The result
     is routes that cut from a node in one room to a node in another along a line no body can
     walk, and a bot that presses into the wall beside the door forever.
 
@@ -800,7 +800,7 @@ def inject_door_nodes(know, graph, max_link=200.0):
     opening. That second link is what makes a door a passage rather than a dead end hanging off
     one room.
 
-    Doors are not walls but they are not free either: a locked door still stops a bot, and
+    ⚠️ Doors are not walls but they are not free either: a locked door still stops a bot, and
     nothing here knows which are locked. That shows up as a route that stalls at a real doorway,
     which is a much better failure than one that stalls at a blank wall -- and the follower
     presses the action button when it stalls.
@@ -915,7 +915,7 @@ def link_spawn_through_portals(know, graph, rooms, spawn_index, spawn_pos, spawn
             "portal": por.get("portal"),
             "rooms": pair,
         })
-        # validate both ends. An unchecked link from the spawn to a portal is a straight line
+        # ⚠️ VALIDATE BOTH ENDS. An unchecked link from the spawn to a portal is a straight line
         # across a room the spawn may not open onto, and a weighted router will happily take it
         # because it is one long cheap hop -- Bunker 1 chose spawn -> portal at 1342 units over
         # spawn -> door at 555 and then walked into the wall the long line crosses. Distance
@@ -982,7 +982,7 @@ def measured_spawn_node(know, graph, level, spawns):
     if best is None:
         return None
 
-    # A nearest node that is nowhere near the spawn means the graph does not cover where the
+    # ⚠️ A nearest node that is nowhere near the spawn means the graph does not cover where the
     # player starts, and Dam is exactly that case: its spawn is 27,850 units from the assumed
     # one and its waypoints are not in world coordinates at all. Snapping to the nearest node
     # would produce a confident route through the wrong space. Refuse instead, loudly.
@@ -1079,7 +1079,7 @@ def main():
         rp = os.path.join(out_dir, level + ".rooms.json")
         rooms = load(rp) if os.path.exists(rp) else None
 
-        # prefer the portal graph. GoldenEye's renderer is portal-based and the background model
+        # PREFER THE PORTAL GRAPH. GoldenEye's renderer is portal-based and the background model
         # carries a portal_data_table naming the two rooms each portal joins -- the game's own
         # answer to "can these rooms see into each other", which is precisely what the exposure
         # test is asking. Everything before this inferred adjacency from tile links or from the
@@ -1114,7 +1114,7 @@ def main():
         # the router would avoid exactly the doorways this pass exists to add.
         # (assigned below, once the graph is final)
 
-        # route ON tiles, not pads, when the extractor has given us a mesh. Everything downstream
+        # ROUTE ON TILES, NOT PADS, when the extractor has given us a mesh. Everything downstream
         # -- spawn injection, doors, portals, the height gate, the engine verdicts -- works on
         # whatever graph it is handed, so this is a swap rather than a rewrite.
         # Convert the measured spawn into ASSET space before it meets any JSON geometry.
@@ -1146,7 +1146,7 @@ def main():
                 print("  %-10s props block %d tile(s); %d kept to avoid severing the graph"
                       % (level, _rm, _kept))
 
-        # strip any synthetic nodes from A previous run first.
+        # 🔑 STRIP ANY SYNTHETIC NODES FROM A PREVIOUS RUN FIRST.
         #
         # They are persisted back into the knowledge file so pack_world can see them, which means
         # a second run finds them already there and appends MORE on top -- and every index above
@@ -1195,7 +1195,7 @@ def main():
 
         # Replace assumption with measurement, last, so it prunes the synthetic links too --
         # those are the ones proximity got wrong.
-        # Uses the Windows build's walkable_verdicts module rather than a second copy of the same
+        # Uses the Surface's walkable_verdicts module rather than a second copy of the same
         # logic here. We each built half of this independently -- their reader against my
         # validator -- and two implementations of one rule is how they drift apart.
         # Heights first: an edge that climbs a storey is wrong whatever the line test says, and

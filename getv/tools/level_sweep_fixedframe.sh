@@ -77,7 +77,7 @@ UDID="$(sim_udid)"
 APP="$GETV/build-sim-$SLOT-dd/Build/Products/Release-appletvsimulator/Goldeneye-Native.app"
 [ -d "$APP" ] || { echo "no app at $APP"; exit 1; }
 
-# This must be an export, not a `${var:+name=val}` command prefix. Bash recognises
+# This must be an export, not a `${VAR:+NAME=VAL}` command prefix. Bash recognises
 # assignment prefixes before parameter expansion, so the expanded string is treated as a
 # command: an MP run then dies with "SIMCTL_CHILD_GETV_MP=2: command not found" and an
 # 85-byte log that the parser scores as SILENT-HANG, making the six MP-only arenas look
@@ -96,7 +96,7 @@ printf 'id\tname\tstage_load\tframe_loop\tgfx_tasks\ttris_sub\ttris_drawn\tframe
 
 # Identical to level_sweep.sh's, deliberately: both sweeps must go through the same
 # pixel counter or a coverage comparison between them is meaningless.
-# `arch -arm64` is necessary. This Mac's shell is x86_64 under Rosetta,
+# `arch -arm64` is load-bearing. This Mac's shell is x86_64 under Rosetta,
 # /usr/bin/python3 inherits the parent's architecture, and the installed PIL is
 # arm64-only, so without it every level silently reports "-" instead of a number.
 COVERAGE_PY='

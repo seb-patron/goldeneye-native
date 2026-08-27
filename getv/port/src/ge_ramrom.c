@@ -25,7 +25,7 @@
  * 0x0040 and 0x0080 are assigned to no button on a real N64 pad: they are clear in all 32,469
  * records under this order and set in 173 under the other.
  *
- * What this does not DO, stated because the difference decides how to read its output: it feeds
+ * WHAT THIS DOES NOT DO, stated because the difference decides how to read its output: it feeds
  * recorded INPUT. It does not reproduce the N64's frame pacing. The seed block carries a
  * speedframes field that the original passes to updateFrameCounters, and nothing here consumes it.
  * So a divergence reported below is not by itself a port bug -- this is the instrument that finds
@@ -149,7 +149,7 @@ static void ge_rr_init(void)
     }
     fclose(fh);
 
-    /* validate before driving anything. A wrong file, or a right file read with a wrong header
+    /* VALIDATE BEFORE DRIVING ANYTHING. A wrong file, or a right file read with a wrong header
      * length, produces plausible sticks and garbage buttons -- it looks like it is working.
      *
      * The stored filesize is the demo's unpadded length and the file on disk is padded up to a
@@ -206,7 +206,7 @@ static int ge_rr_next_block(void)
     bytes = (unsigned long) ge_rr_cmds * 4ul * (unsigned long) count;
     if (ge_rr_pos + 4ul + bytes > ge_rr_len) { return 0; }
 
-    /* the seed comparison, and the reason it is counted rather than announced.
+    /* THE SEED COMPARISON, and the reason it is counted rather than announced.
      *
      * The recorded seed is ONE BYTE per block, so two unrelated runs agree by chance about once
      * every 256 blocks. A single matching block therefore proves nothing, and reporting "seed

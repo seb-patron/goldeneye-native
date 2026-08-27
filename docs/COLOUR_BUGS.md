@@ -37,7 +37,7 @@ Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680:
   byte-identical frame. `GETV_LIGHTTRACE` then showed why: **there are no RGBA32 uploads at
   all** in the scene. The probe was inert, which is the useful result.
 
-### Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
+### 🔴 Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
 
 **The census has no coverage.** Five levels compared at mode 0 and mode 1 gave byte-identical
 frames, which reads like proof of safety and is not: `GETV_LIGHTTRACE` reports **zero RGBA16

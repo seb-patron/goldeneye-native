@@ -8,17 +8,17 @@
   happened, only during a live session, and it reports THAT two machines disagree rather than how
   long they agreed or where they parted.
 
-  THE LONG-RUN TEST NEEDS NO SECOND MACHINE. Two peers fed identical inputs are, for the
+  🔑 THE LONG-RUN TEST NEEDS NO SECOND MACHINE. Two peers fed identical inputs are, for the
   determinism question, the same thing as ONE binary run twice. Delivering identical inputs is the
   network's job and tools/netsim.py already models that half; whether the simulation is
   reproducible GIVEN them is a separate property, and nothing tested it.
 
-  NECESSARY, NOT SUFFICIENT. A pass means the simulation reproduces itself from the same inputs.
+  ⚠️ NECESSARY, NOT SUFFICIENT. A pass means the simulation reproduces itself from the same inputs.
   It says nothing about whether the transport delivers them, and it does not exercise two hosts, so
   it cannot see a divergence that only a different CPU or compiler would produce. A FAILURE is
   decisive though: a machine that cannot reproduce itself will never agree with another.
 
-  AND THE PASS IS GUARDED AGAINST BEING VACUOUS. If the fingerprint never changed, two runs
+  ⚠️ AND THE PASS IS GUARDED AGAINST BEING VACUOUS. If the fingerprint never changed, two runs
   would match trivially and the test would report success while checking nothing. The distinct-value
   count is therefore reported and a run whose fingerprint barely moves is called out, because "the
   sequences agreed" and "there was a sequence" are different claims.
@@ -73,7 +73,7 @@ $distinct = ($a | Sort-Object -Unique).Count
 $ratio = [double]$distinct / $a.Count
 Write-Host ("  distinct fingerprints: {0} of {1} ({2:P0})" -f $distinct, $a.Count, $ratio)
 if ($ratio -lt 0.5) {
-    Write-Host " THE FINGERPRINT BARELY MOVES. Two runs matching proves little here -- the" -ForegroundColor Yellow
+    Write-Host "  ⚠️ THE FINGERPRINT BARELY MOVES. Two runs matching proves little here -- the" -ForegroundColor Yellow
     Write-Host "     signal is nearly constant, so agreement is close to automatic." -ForegroundColor Yellow
 }
 
@@ -82,17 +82,17 @@ $first = -1
 for ($i = 0; $i -lt $n; $i++) { if ($a[$i] -ne $b[$i]) { $first = $i; break } }
 
 if ($a.Count -ne $b.Count) {
-    Write-Host (" sample COUNTS differ ({0} vs {1}) -- the runs did not even simulate the same " -f $a.Count, $b.Count) -ForegroundColor Yellow
+    Write-Host ("  ⚠️ sample COUNTS differ ({0} vs {1}) -- the runs did not even simulate the same " -f $a.Count, $b.Count) -ForegroundColor Yellow
     Write-Host "     number of frames, which is a divergence in itself." -ForegroundColor Yellow
 }
 
 if ($first -lt 0) {
-    Write-Host ("`n IDENTICAL across all {0} frames." -f $n) -ForegroundColor Green
+    Write-Host ("`n  ✅ IDENTICAL across all {0} frames." -f $n) -ForegroundColor Green
     exit 0
 }
 # Locating the FIRST divergence is the whole value over ge_net.c's desync report: it names the
 # frame to go and look at, rather than telling you the machines disagree by now.
-Write-Host ("`n DIVERGES at frame index {0}: A={1} B={2}" -f $first, $a[$first], $b[$first]) -ForegroundColor Red
+Write-Host ("`n  🔴 DIVERGES at frame index {0}: A={1} B={2}" -f $first, $a[$first], $b[$first]) -ForegroundColor Red
 for ($j = [Math]::Max(0, $first - 2); $j -lt [Math]::Min($n, $first + 3); $j++) {
     $mark = if ($j -eq $first) { "  <-- first difference" } else { "" }
     Write-Host ("     idx {0,-6} A={1}  B={2}{3}" -f $j, $a[$j], $b[$j], $mark)

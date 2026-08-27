@@ -80,15 +80,15 @@ int main(void)
 
     printf("\nthe guarantee itself: jitter inside a cell must not change the query\n");
 
-    /* this IS the acceptance test, and the first version of it asserted something false.
+    /* THIS IS THE ACCEPTANCE TEST, and the first version of it asserted something false.
      *
      * It started at x=1000 and drifted 0.9 per step, expecting fifteen steps to leave the query
      * unchanged. 1000 sits in the cell spanning 992 to 1008, so step nine reached 1008.1 and
      * crossed into the next one. That is the quantiser working, not failing: cells have
      * boundaries, and any drift long enough will cross one.
      *
-     * SO the guarantee IS narrower than "drift IS stable" and has TO BE stated that way. What
-     * Holds is that two positions IN the same cell are the same query. A bot crossing a boundary
+     * SO THE GUARANTEE IS NARROWER THAN "DRIFT IS STABLE" AND HAS TO BE STATED THAT WAY. What
+     * holds is that two positions IN THE SAME CELL are the same query. A bot crossing a boundary
      * still sees the answer change, but at most once per crossing and bounded by how fast it
      * moves, instead of alternating every frame. That is the difference between an avoidance
      * hold that can be held and one that cannot.

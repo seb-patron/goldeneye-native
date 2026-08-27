@@ -107,7 +107,7 @@ static float ge_s15_16(uint32_t v)
  * coefficient block is 8 words rather than 4 -- ints first, then fracs.
  *
  *   shade   w4 = R.i G.i B.i A.i        w6  = R.f G.f B.f A.f
- *           W5 = DRDX.i ... DADX.i      w7  = DRDX.f ...
+ *           w5 = DRDX.i ... DADX.i      w7  = DRDX.f ...
  *           w8 = DRDE.i ...             w10 = DRDE.f ...
  *           w9 = DRDY.i ...             w11 = DRDY.f ...
  *
@@ -241,9 +241,9 @@ static int ge_decode(struct GeSkyTri *out)
          * later silently pairs S's integer with DSDX's fraction, and the resulting values
          * stay plausibly small, so this has to be cross-checked against the emitter rather
          * than eyeballed. sky.c emits
-         *   H0 S.i T.i | h1 W.i | h2 DSDX.i DTDX.i | h3 DWDX.i
-         *   H4 S.f T.f | h5 W.f | h6 DSDX.f DTDX.f | h7 DWDX.f
-         *   H8 DSDE.i  | h9 DWDE.i | h10 DSDY.i | h11 DWDY.i | h12..15 their fracs
+         *   h0 S.i T.i | h1 W.i | h2 DSDX.i DTDX.i | h3 DWDX.i
+         *   h4 S.f T.f | h5 W.f | h6 DSDX.f DTDX.f | h7 DWDX.f
+         *   h8 DSDE.i  | h9 DWDE.i | h10 DSDY.i | h11 DWDY.i | h12..15 their fracs
          * The texture group carries four values per word pair (sp254[0..3]), not three:
          * S, T, W and a fourth the sky never uses. */
         sh.s    = ge_attr(ge_halves, tbase + 0, tbase +  4, 1);
@@ -331,8 +331,8 @@ static int ge_decode(struct GeSkyTri *out)
  *
  * Derived from the microcode. vendor/pd-port/src/rsp/gsp.s is an annotated copy of the
  * same microcode GoldenEye runs:
- *     imm_rdphalf_1:     sw t8, sp_n04(sp) -- stash one word, back to main_loop
- *     imm_rdphalf_cont:  li v0, 0 -- falls through to:
+ *     imm_rdphalf_1:     sw t8, sp_n04(sp)          -- stash one word, back to main_loop
+ *     imm_rdphalf_cont:  li v0, 0                   -- falls through to:
  *     imm_rdphalf_2:     lw t9, sp_n04(sp)  ->  dispatch_rdp_novirtaddr
  *     dispatch_rdp_novirtaddr:  sw t9,0(s7); sw t8,4(s7); s7 += 8
  * So a RDPHALF_1 + (RDPHALF_CONT | RDPHALF_2) pair emits exactly one 64-bit RDP word,

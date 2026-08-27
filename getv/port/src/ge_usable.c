@@ -9,7 +9,7 @@
  * implementation reads that rather than inventing an engine list. It also means "usable" stays a
  * question about the LEVEL, which is where a modder would expect to change it.
  *
- * It therefore describes what is PLACED, not what is currently interactive: a door already
+ * ⚠️ It therefore describes what is PLACED, not what is currently interactive: a door already
  * open still appears. Runtime state needs the engine, and when a readable list turns up this
  * should move onto it. The distinction matters for a bot that would otherwise keep pressing use
  * on a door it has already opened.

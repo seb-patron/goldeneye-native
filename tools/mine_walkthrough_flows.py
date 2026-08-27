@@ -21,7 +21,7 @@ lines. The connector may be an arrow glyph or an ascii equivalent. The scan star
 CONNECTOR and walks BACKWARDS to pick up the head label, which is the part the structural miner
 loses, then forwards to the tail.
 
-A CHAIN OF ONE IS NOT A CHAIN. Two labels minimum, and the labels must be short enough to be
+⚠️ A CHAIN OF ONE IS NOT A CHAIN. Two labels minimum, and the labels must be short enough to be
 labels rather than sentences that happen to sit near an arrow -- otherwise a paragraph containing a
 stray arrow is emitted as a five-stage pipeline, which reads as a finding and is noise.
 
@@ -44,7 +44,7 @@ from mine_walkthroughs_deep import CAVEAT, CAVEAT_WINDOW, HEADING, load_attribut
 # A line that is nothing but a connector. Vertical chains use these between their stages.
 # A line that is nothing but a connector.
 #
-# the vertical bar here IS U+2502, not the ascii pipe. The first version matched only "|", which
+# THE VERTICAL BAR HERE IS U+2502, NOT THE ASCII PIPE. The first version matched only "|", which
 # the corpus never uses -- it draws with box-drawing verticals. Every branching diagram therefore
 # failed at its first connector and was left entirely uncovered, which is why the fan-out graphs
 # were still sitting in the remainder after four passes.
@@ -100,7 +100,7 @@ def chain_at(lines, i):
         return None
     # The head gets the SAME parallel split as every other stage. Without it a fan-out whose top
     # row holds three labels is recorded as one stage literally named
-    # "level          actors        simulation", which is not a stage name and not anything else
+    # "LEVEL          ACTORS        SIMULATION", which is not a stage name and not anything else
     # either. The forward walk already split these; the head walk did not, so the two ends of one
     # chain disagreed about what a row means.
     head_par = parallel_labels(lines[head])
@@ -118,8 +118,8 @@ def chain_at(lines, i):
         if is_connector(lines[j]):
             j += 1
             continue
-        # DO not exclude heading-SHAPED lines here. heading matches any all-CAPS line of five or
-        # more characters, and these chains label their stages in caps: contact, retreat, corner,
+        # DO NOT EXCLUDE HEADING-SHAPED LINES HERE. HEADING matches any ALL-CAPS line of five or
+        # more characters, and these chains label their stages in caps: CONTACT, RETREAT, CORNER,
         # REPOSITION. Excluding them rejected every stage after the head, dropped each chain below
         # the two-stage minimum, and discarded it whole -- so entire combat and traversal loops
         # were invisible while the arrows between them sat in the uncovered remainder.
@@ -127,8 +127,8 @@ def chain_at(lines, i):
         # A stage is only accepted when the preceding non-blank line was a connector, and that is
         # what distinguishes it from a section heading. The shape of the text never could.
         if is_label(lines[j]) or parallel_labels(lines[j]):
-            # A fan-OUT puts several stages ON one line, and they run in parallel rather than in
-            # sequence. camera, weapon and animation under one junction are three branches of the
+            # A FAN-OUT PUTS SEVERAL STAGES ON ONE LINE, and they run in parallel rather than in
+            # sequence. CAMERA, WEAPON and ANIMATION under one junction are three branches of the
             # same step, and flattening them into three sequential stages would assert an order the
             # drawing explicitly does not show.
             par = parallel_labels(lines[j])

@@ -5,7 +5,7 @@ A negative claim is the most falsifiable thing in the corpus. "There is no alter
 the train" is refuted by a single cycle in the room graph, and nothing about it is a matter of
 degree. That makes these worth checking even though there are few of them.
 
-MOST OF THEM ARE NOT GEOMETRIC, AND THAT IS THE MAIN RESULT HERE. Of 42 descriptive
+⚠️ MOST OF THEM ARE NOT GEOMETRIC, AND THAT IS THE MAIN RESULT HERE. Of 42 descriptive
 constraints, the majority assert something about PERCEPTION or KNOWLEDGE rather than shape:
 
     the player cannot easily predict the exact visibility boundary
@@ -56,7 +56,7 @@ ALTERNATE = re.compile(r"\bno alternate route|no other route|only one route\b", 
 INACCESSIBLE = re.compile(r"\bcannot (?:normally )?(?:enter|travel|walk|go)\b|"
                           r"\bnever (?:enter|reach)\b", re.I)
 
-# A claim has to be about the level before a level-wide measure can settle it. These cues mark a
+# A claim has to be ABOUT THE LEVEL before a level-wide measure can settle it. These cues mark a
 # statement as global. Without this, a three-word fragment lifted from a section on where to place
 # enemies -- "no lateral movement" -- is compared against Caverns' overall aspect ratio and reported
 # as contradicted. That is the local-versus-level-wide category error that produced a bogus 12%

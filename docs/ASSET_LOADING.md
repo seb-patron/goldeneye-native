@@ -10,7 +10,7 @@ Written 2026-08-19 by `getv-assets`. All paths relative to repo root unless abso
 ## 0. The headline
 
 > **Almost every FUNCTION on the level-load path is already real code. The holes are
-> data and two non-COMPILING translation units, not missing logic.**
+> DATA and TWO NON-COMPILING TRANSLATION UNITS, not missing logic.**
 
 32 functions on the path were checked against `getv/port/src/ge_link_stubs.c`. **Zero of
 them are stubs.** The only stubbed symbols on the path are data:
@@ -30,7 +30,7 @@ the single most important thing to internalise:
 |---|---|---|---|
 | **stan** (collision tiles) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/stan/*.c`, 29 files, all compile, all link | effectively ready |
 | **setup** (objects/AI/pads) | 1172-packed ROM blob | **decompiled C with real pointers**, `assets/obseg/setup/*.c` (+ `e/ j/ u/` variants), 50 objects built, 2 TUs fail | nearly ready, 2 gaps + a variant-selection hazard |
-| **bg** (room geometry) | raw segment dma'd + per-room 1172 chunks | **decompiled C with real pointers, not linked AT all, and structurally incompatible with the loader** | the real work |
+| **bg** (room geometry) | raw segment DMA'd + per-room 1172 chunks | **decompiled C with real pointers, NOT LINKED AT ALL, and structurally incompatible with the loader** | the real work |
 
 The 1172 decompressor is **not on the stan or setup path at all** in this build, and is
 only on the bg path for per-room chunks (§3.4).
@@ -50,7 +50,7 @@ lv.c:341  lvlStageLoad(stage)
    +-- texReset()                                  image.c        [real]
    +-- load_font_tables()                                         [real]
    |
-   +-- lv.c:438  load_bg_file(g_CurrentStageToLoad) ---------- BG + STAN
+   +-- lv.c:438  load_bg_file(g_CurrentStageToLoad)   ---------- BG + STAN
    |     |
    |     |  bg.c:794
    |     +-- scan levelinfotable[] (bg.c:183) for levelID -> levelentry_index
@@ -63,8 +63,8 @@ lv.c:341  lvlStageLoad(stage)
    |     |      ob.c:150/206  fileGetIndex(name) -> file_resource_table[] index
    |     |                    romCopy(target, &fileentry->hw_address[offset], len)
    |     |                    port_assets.c:123 romCopy = memcpy + range guard
-   |     |      GUARDED BY  `if (rom_size != 0)` -- rom_size is 0 for every bg
-   |     |                  file (see §3.2), so this call IS A silent NO-OP
+   |     |      GUARDED BY  `if (rom_size != 0)`  -- rom_size is 0 for every bg
+   |     |                  file (see §3.2), so THIS CALL IS A SILENT NO-OP
    |     |
    |     +-- bg.c:829  ptr_bgdata_room_fileposition_list =
    |     |                 BG_SEG_TO_PTR(ptr_bg_data, ((s32*)ptr_bg_data)[1])
@@ -72,7 +72,7 @@ lv.c:341  lvlStageLoad(stage)
    |     +-- bg.c:833  ptr_bg_data = mempAllocBytesInBank(size, MEMPOOL_STAGE)
    |     +-- bg.c:834  obLoadBGFileBytesAtOffset(bgname, ptr_bg_data, 0, size)
    |     |
-   |     +-- bg.c:836  gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4) ----- STAN
+   |     +-- bg.c:836  gptr_stan = _fileNameLoadToBank(stanname, 2, 0, 4)   ----- STAN
    |     |      ob.c:196  -> fileIndexLoadToBank(fileGetIndex(name), ...)
    |     |      ob.c:233  GE_PORT_NATIVE shortcut: gePortObsegSize(hw)==0
    |     |                => "this is native linked C data", return hw_address
@@ -86,7 +86,7 @@ lv.c:341  lvlStageLoad(stage)
    |
    +-- lv.c:518  init_load_objpos_table()          initobjects.c:43   [real]
    +-- lv.c:521  init_guards()
-   +-- lv.c:523  proplvreset2(stage)   prop.c:1216 -------------- SETUP
+   +-- lv.c:523  proplvreset2(stage)   prop.c:1216   -------------- SETUP
    |     |
    |     +-- prop.c:1239  setup_text_pointers[stageId]        STUB (NULL object)
    |     +-- prop.c:1253  synthesise "Usetup<lvl>Z" or "Ump_setup<lvl>Z"
@@ -278,7 +278,7 @@ Both compiled natively by the same compiler → offset 8 on both. Consistent.
 `tile_0` sits at 0x14 = 20 bytes in, which matches `8 + 8 + 4`. Confirms the header
 layout too.
 
-### 4.2 `stagesetup` and the setup record structs - asset layout, but also safe. verified.
+### 4.2 `stagesetup` and the setup record structs - asset layout, but ALSO SAFE. VERIFIED.
 
 `stagesetup` (bondtypes.h:3997) is 10 pointers. On the N64 the file stored 10 × `u32`
 offsets. In this build `assets/obseg/setup/UsetupdamZ.c` is:

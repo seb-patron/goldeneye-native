@@ -19,7 +19,7 @@
   DISAGREE that is itself the finding, because it means the process is blocked rather than
   computing (which is exactly how the stdout-flush stall was found).
 
-  stdout goes to NUL by default. Redirecting it to a file costs ~24 ms per flushed line on this
+  ⚠️ stdout goes to NUL by default. Redirecting it to a file costs ~24 ms per flushed line on this
   box and swamps everything else being measured. Use -KeepLog when the output is the point.
 
 .EXAMPLE
@@ -69,7 +69,7 @@ for ($i = 0; $i -lt ($Runs + 1); $i++) {
     $sw.Stop()
     if ($p.ExitCode -ne 0) { throw "run $i exited $($p.ExitCode)" }
 
-    # the first run IS discarded, not averaged in. It pays for cold file cache on the assets and
+    # ⚠️ THE FIRST RUN IS DISCARDED, not averaged in. It pays for cold file cache on the assets and
     # for shader/pipeline warm-up, and including it drags the mean toward a number no later run
     # will ever reproduce. Reported anyway, because a first run that is wildly slower is a real
     # fact about how this thing starts.

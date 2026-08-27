@@ -33,10 +33,10 @@ WHAT IS EXTRACTED AND WHY EACH EARNS ITS PLACE:
 
 TWO RULES CARRIED OVER FROM THE STRUCTURAL MINER, both learned the hard way:
 
-  * Prescriptive text IS marked, not mixed IN. These documents contain design guidance as well as
+  * PRESCRIPTIVE TEXT IS MARKED, NOT MIXED IN. These documents contain design guidance as well as
     description, and advice recorded as a claim about a level becomes a falsehood the moment
     anyone queries it -- invented by the tool, not asserted by the author.
-  * Author caveats are carried. Where the author qualifies a passage, everything in that passage
+  * AUTHOR CAVEATS ARE CARRIED. Where the author qualifies a passage, everything in that passage
     inherits the qualification. The Train carriage coordinates are the standing example: listed,
     then explicitly disclaimed as a reconstruction on the next line.
 

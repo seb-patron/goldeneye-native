@@ -33,7 +33,7 @@ walkthrough can make. Thresholds are printed with the results, and --sweep varie
 holds at 85% across aspect 2.0-3.5 and chamber 1.5-3.0, so it is not an artefact of where the lines
 were drawn.
 
-AN UNSATISFIED CHAIN IS NOT AUTOMATICALLY THE DOCUMENT BEING WRONG. It can equally be the room
+⚠️ AN UNSATISFIED CHAIN IS NOT AUTOMATICALLY THE DOCUMENT BEING WRONG. It can equally be the room
 extractor splitting one space into several, or this file's classifier calling a corridor a room.
 Both failure directions are stated with every result rather than being resolved silently in favour
 of the tool.
@@ -65,12 +65,12 @@ NODE_KINDS = {
     "wide": "chamber", "small": "room", "tight": "corridor", "narrow passage": "corridor",
 }
 
-# why the checkable sample stays small, recorded so nobody tries to grow it by loosening the map.
+# WHY THE CHECKABLE SAMPLE STAYS SMALL, recorded so nobody tries to grow it by loosening the map.
 #
 # 690 distinct labels block a chain from being checked, and the top of that list is decisive:
 # player (43 chains), enemy (15), objective (12), cover, escape, move, start. Those chains are
 # TACTICAL sequences -- what the player does -- and a room graph can neither confirm nor refute
-# them. The long tail is level-specific proper nouns: tower, satellite, machinery, fence. Those
+# them. The long tail is level-specific proper nouns: TOWER, SATELLITE, MACHINERY, FENCE. Those
 # name particular places rather than kinds of space, and checking them would need a mapping from
 # place names to room ids that this project does not have.
 #
@@ -109,12 +109,12 @@ def classify(level, aspect_corridor=2.5, chamber_share=2.0):
     sizes = [len(v) for v in tiles.values()]
     mean_size = (sum(sizes) / float(len(sizes))) if sizes else 1.0
 
-    # kinds are not mutually exclusive, and making them exclusive produced a false accusation.
+    # KINDS ARE NOT MUTUALLY EXCLUSIVE, and making them exclusive produced a false accusation.
     #
     # The first version tested aspect, then size, then degree, then fell through to "room". That
     # makes "room" a RESIDUAL category of low-degree spaces, because any space with three or more
     # connections was captured as a junction first. Two such residual rooms are rarely adjacent, so
-    # "room -> door -> room" came out unsatisfiable on Basement -- the most trivially true claim a
+    # "ROOM -> DOOR -> ROOM" came out unsatisfiable on Basement -- the most trivially true claim a
     # walkthrough can make, reported as contradicted by the geometry.
     #
     # The documents do not use these words exclusively. A junction room is still a room; a large
@@ -214,7 +214,7 @@ def main():
     fl = json.load(open(os.path.join(LEVELS, "_walkthrough.flows.json"), encoding="utf-8"))
 
     if a.sweep:
-        # I chose these thresholds, SO the result has TO survive changing them. A rate that moves
+        # I CHOSE THESE THRESHOLDS, SO THE RESULT HAS TO SURVIVE CHANGING THEM. A rate that moves
         # with the threshold is a property of the classifier rather than of the documents.
         print("SENSITIVITY SWEEP")
         print("%-8s %-8s %8s %10s %7s" % ("aspect", "chamber", "checked", "satisfied", "rate"))

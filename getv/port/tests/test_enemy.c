@@ -103,7 +103,7 @@ int main(void)
 
     printf("ge_enemy_api against a fake source\n\n");
 
-    /* with NO source installed, everything must be safe and report an empty world. A bot written
+    /* WITH NO SOURCE INSTALLED, everything must be safe and report an empty world. A bot written
      * against this API has to run unchanged on a build whose game-side shim has not landed. */
     check("no source: installed",     geEnemySourceInstalled(), 0);
     check("no source: count",         geEnemyCount(), 0);
@@ -129,7 +129,7 @@ int main(void)
     check("installed",                geEnemySourceInstalled(), 1);
     check("count",                    geEnemyCount(), 6);
 
-    /* health IS inverted AT the boundary. The game stores damage taken; a caller asking how hurt
+    /* HEALTH IS INVERTED AT THE BOUNDARY. The game stores damage taken; a caller asking how hurt
      * a guard is must not have to know that, and getting it backwards reads a dying guard as
      * healthy. */
     check("byId(12) found",           geEnemyById(12, &e), 1);
@@ -137,7 +137,7 @@ int main(void)
     checkf("byId(12) max_health",     e.max_health, 100.0f);
     check("byId(99) absent",          geEnemyById(99, &e), 0);
 
-    /* partial data stays partial. Slot 5 provides position only, so health must be reported as
+    /* PARTIAL DATA STAYS PARTIAL. Slot 5 provides position only, so health must be reported as
      * ABSENT rather than as zero -- a guard whose health cannot be read is not a dead guard. */
     check("byId(16) found",           geEnemyById(16, &e), 1);
     check("byId(16) has position",    (e.fields & GE_EN_POSITION) != 0, 1);
@@ -167,14 +167,14 @@ int main(void)
     check("near: max=2 keeps closest", near[0].id, 11);
     check("near: max=2 second",       near[1].id, 16);
 
-    /* threat IS about belief, not proximity. This is the whole point of the API.
+    /* THREAT IS ABOUT BELIEF, NOT PROXIMITY. This is the whole point of the API.
      *
      * The origin has NO living enemy standing on it, but three living enemies believe their target
      * is there: 11, 14, and 15 -- 15 being 9000 units away, which is precisely the guard that is
      * about to arrive and the one a proximity query would miss. Meanwhile (900,900) has nobody
      * near it and exactly one enemy converging on it.
      *
-     * NOT counted, and both exclusions are necessary:
+     * NOT counted, and both exclusions are load-bearing:
      *   13 believes the origin too, but is dead.
      *   16 is alive and believes nothing -- it reports GE_EN_POSITION only. An enemy whose belief
      *      cannot be read must not be counted as holding one. This assertion said 4 when it was

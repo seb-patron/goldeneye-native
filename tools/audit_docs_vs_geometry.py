@@ -22,14 +22,14 @@ WHAT IS CHECKED, and how each maps onto something measured:
   enumerated spaces   a list of N named spaces is a claim about how many distinct spaces exist.
   flow chains         a traversal sequence of room-kind labels asserts that such a walk exists.
 
-THE HARD PART IS NOT MEASURING, IT IS DECIDING WHAT COUNTS AS AGREEMENT. A previous audit on
+⚠️ THE HARD PART IS NOT MEASURING, IT IS DECIDING WHAT COUNTS AS AGREEMENT. A previous audit on
 this project compared local statements against level-wide totals and reported that 12% of the
 documents' counts agreed, which was a libel produced by a category error rather than a finding. So
 every check here states its threshold in the output, and anything whose threshold would be
 arbitrary is reported as UNVERIFIABLE rather than scored. A claim that cannot be checked is not
 evidence against the document.
 
-AND VOCABULARY IS NOT GEOMETRY. environment.type says "institutional_interior" or
+⚠️ AND VOCABULARY IS NOT GEOMETRY. environment.type says "institutional_interior" or
 "tropical_terrain". Nothing in the tile data can confirm or refute a description of what a place
 looks like, and inventing a proxy for it -- room size, prop mix -- would be measuring something
 else and reporting it under this name. Those fields are counted and listed, never scored.
@@ -198,7 +198,7 @@ def check_verticality(claim, g):
 def check_bool(field, claim, m):
     want = str(claim).lower() in ("true", "yes", "1")
     if field.endswith("branching"):
-        # branching means route choice, not room degree, and the difference decided a verdict.
+        # BRANCHING MEANS ROUTE CHOICE, NOT ROOM DEGREE, and the difference decided a verdict.
         #
         # Counting rooms of degree>=3 marked Train's "branching: 0" as a disagreement on 10
         # junctions. But Train has 2 independent cycles across 57 rooms: those junctions are

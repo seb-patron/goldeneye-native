@@ -5,7 +5,7 @@
 .DESCRIPTION
   WHY INTERLEAVED, AND WHY THE OBVIOUS METHOD IS WRONG. Benchmarking A five times, then B five
   times, is confounded on this machine and the confound is SYSTEMATIC rather than random. Frame
-  rate decays monotonically within every run of five as the Windows build heats: 105 -> 85 fps on one,
+  rate decays monotonically within every run of five as the Surface heats: 105 -> 85 fps on one,
   111 -> 91 on the next. Whichever build is measured SECOND is penalised by a thermal state the
   first one created, and no amount of repetition fixes it because it is a bias, not noise.
 
@@ -17,7 +17,7 @@
   of those differences is the answer. A median difference smaller than the spread of the
   differences means "no measurable effect" -- which is a real and useful result, not a failure.
 
-  It reports CPU time per frame as the primary figure. Wall time includes everything the
+  ⚠️ It reports CPU time per frame as the primary figure. Wall time includes everything the
   laptop is doing; CPU time is the program. When a change is meant to affect COMPUTATION, CPU
   time is the number that should move, and if it does not then the change did not do what it
   claimed regardless of what the wall clock says.

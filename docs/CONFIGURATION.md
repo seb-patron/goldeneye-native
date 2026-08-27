@@ -108,6 +108,47 @@ Two independent mechanisms exist behind this key - the renderer's `configFilteri
 `GETV_POINT_FILTER` gate - and they do not mean the same thing. The key sets both consistently so
 they cannot disagree.
 
+### `widescreen`
+
+`on` or `off` (`1`/`0`, `true`/`false`). Default `on`.
+
+The console's own render path (`gfx_pc.c`'s `ge_scale()`/`gfx_adjust_x_for_aspect_ratio()`)
+deliberately pillarboxes to the N64's native 4:3 rather than stretching a wider window - correct
+for avoiding distortion, but with no way to ask for an actually-wider view until this key existed.
+`on` fills the real window at its own aspect instead, with a wider field of view rather than a
+stretched image; `off` restores the original letterboxed framing byte-for-byte. Single-player
+only - split-screen's per-viewport aspect is untouched either way, since it has not been audited
+against an arbitrary host window.
+
+Sets `GETV_WIDESCREEN`, read by both the renderer (`configWidescreen`, `port_support.c`) and the
+game layer (`lv.c`'s per-player aspect write).
+
+### `hd_textures` / `texpack`
+
+`hd_textures` is `on` or `off`, default **off**. `texpack` is a directory path, default
+`hdtextures` (resolved next to the executable if no such folder exists relative to the working
+directory - same `GETV_EXEDIR` fallback `moddir` uses).
+
+When on, every N64 texture is looked up in the pack directory by content hash before upload - a
+file named `<hash>.png` there replaces the console's own texture; anything not present in the pack
+renders exactly as it did before this key existed. The hash is FNV-1a 64 over the raw N64 texel
+bytes plus format/size, so it is stable across runs and does not depend on where the source data
+sits in memory. `GETV_TEXPACK_DUMP=<dir>` (environment only, not a config key - it is a developer
+tool, not a player setting; **not** `GETV_TEXDUMP`, which is [`image.c`'s own unrelated gate](MODDING.md)
+- a byte count, not a path) writes a same-named `.ppm` baseline the first time each texture is
+decoded, which is how a pack gets started: dump, convert the ones worth upscaling to `.png`, drop
+them back in named by hash.
+
+**Off by default, unlike `filtering` and `widescreen` above.** Those two were verified by tracing
+the actual call order and checking the arithmetic by hand; this one has not had a compiler
+available to run any verification against and is offered as written-and-reasoned-through rather
+than measured. An empty pack directory is a no-op either way, so turning it on without a pack
+installed costs nothing beyond one failed file lookup per unique texture - but "costs little if
+wrong" and "verified correct" are different claims, and only the first one currently holds.
+
+Sets `GETV_HD_TEXTURES` and `GETV_TEXPACK`, read by `configHDTextures` and the pack-directory
+resolver in `port_support.c`.
+
 ### `framerate`
 
 `30`, `50`, `60`, or `off` (`0`, `uncapped` and `unlimited` are accepted for the last). Default
@@ -389,7 +430,7 @@ and `GETV_HORDE_GROWTH` (1). When a guard dies, replacements spawn where it fell
 engine's own `chrSpawnAtCoord`, inheriting the dead guard's body and AI list; the wave
 number rises every `wave_kills` kills and adds `growth` to the spawn count, up to the cap.
 
-**Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
+⚠️ **Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
 `(guard count + 10)` entries and the engine declines to spawn with fewer than three free, so
 the real ceiling belongs to the level. A refused spawn leaves the wave smaller rather than
 failing.

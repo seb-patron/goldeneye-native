@@ -47,7 +47,7 @@ extern int  gePortPlayerPos(int idx, f32 *out);
  * This list used to stop at GOODNIGHT, reasoning that the two-controller styles are forced back to
  * HONEY at three or more players (front.c:4800-4803). The rule is real; the conclusion was wrong
  * in the case that matters. The guard is `numplayers >= 3`, so at one or two players a 2.x style
- * Survives untouched -- and this port defaults TO 2.2 galore, so in practice every slot is on one.
+ * survives untouched -- and THIS PORT DEFAULTS TO 2.2 GALORE, so in practice every slot is on one.
  *
  * Naming all nine is not enough on its own: see gePlayerSlotIsDrivable, where treating "two pad"
  * as "cannot be driven" disabled every bot on every level. Two-pad is a routing fact, not a
@@ -126,7 +126,7 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
     u16 aim   = swapped ? Z_TRIG   : (u16)(L_TRIG | R_TRIG);
     u16 inv   = swapped ? (u16)(L_TRIG | R_TRIG) : A_BUTTON;
 
-    /* the two-CONTROLLER styles split fire and aim across two pads, and this function fills one.
+    /* THE TWO-CONTROLLER STYLES SPLIT FIRE AND AIM ACROSS TWO PADS, and this function fills one.
      *
      * This is the BUTTON half of the two-pad problem and is separate from the stick half. The
      * playback loop routes the walk axis to whichever pad the engine reads for movement; this
@@ -137,8 +137,8 @@ static u16 ge_intent_to_buttons(int slot, unsigned int want)
      * them into two separate locals (bondview2.c:5345-5359); sp104 becomes insightaimmode at 5365,
      * sp10C becomes triggerOn at 5535:
      *
-     *     Plenty 2.1 / galore 2.2  : pad1 Z_TRIG = shoot, pad2 Z_TRIG = aim
-     *     Domino 2.3 / goodhead 2.4: pad1 Z_TRIG = aim,   pad2 Z_TRIG = shoot
+     *     PLENTY 2.1 / GALORE 2.2  : pad1 Z_TRIG = SHOOT, pad2 Z_TRIG = aim
+     *     DOMINO 2.3 / GOODHEAD 2.4: pad1 Z_TRIG = AIM,   pad2 Z_TRIG = shoot
      *
      * So on Domino and Goodhead the plain mapping sends FIRE to pad 1's Z_TRIG and the game reads
      * AIM: insightaimmode goes true and canNaturalTurn = !insightaimmode (5385) goes false, which
@@ -441,7 +441,7 @@ int gePlayerSlotCount(void) { return (int) getPlayerCount(); }
  * Both read the SLOT. cur_player_get_control_type() reads g_CurrentPlayer, a per-viewport
  * cursor, so asking it about slot 2 while slot 0 is being drawn returns slot 0's answer.
  *
- * gePlayerSlotIsDrivable returns 1 for the two-controller styles, and that is a deliberate
+ * ⚠️ gePlayerSlotIsDrivable returns 1 for the two-controller styles, and that is a deliberate
  * disagreement with the earlier reading that a 2.x slot cannot be steered. It could not be, once:
  * those styles read MOVEMENT from a second controller at playernum + getPlayerCount(), so a
  * caller writing only the slot's own pad drove the turn and never the walk. ge_playback now

@@ -15,7 +15,7 @@ mods/
 `mods/crt_screen` is the example, and it is a real feature rather than a toy: it is what
 draws the scanlines, the aperture mask, the curved tube and the vignette. It ships enabled.
 
-It is a mod on purpose. Untick it on the launcher's Mods page and the scanlines go away --
+It is a mod on purpose. Untick it on the launcher's Mods page and the scanlines go away —
 which demonstrates the whole system in one action, in a way that a mod printing a line to a
 log never could. Copy the folder, rename it, and you have a working mod.
 
@@ -28,7 +28,7 @@ All three are optional. A mod that defines none of them still runs its chunk bod
 load, which is enough for one-shot configuration.
 
 ```lua
-function onFrame(frame)          end -- once per rendered frame, after the game has ticked
+function onFrame(frame)          end   -- once per rendered frame, after the game has ticked
 function onPlayerSpawn(player)   end
 function onWeaponFire(weapon)    end
 ```
@@ -36,11 +36,11 @@ function onWeaponFire(weapon)    end
 ## API
 
 ```lua
-ge.log(text) -- prints with a [getv][lua] prefix
-ge.stage() -- current stage id
-ge.player_count() -- 1 to 4
-ge.player_pos(i) -- x, y, z for player i (0-3), or nil if that slot is empty
-ge.postfx{ ... } -- the post-process pass; see below
+ge.log(text)            -- prints with a [getv][lua] prefix
+ge.stage()              -- current stage id
+ge.player_count()       -- 1 to 4
+ge.player_pos(i)        -- x, y, z for player i (0-3), or nil if that slot is empty
+ge.postfx{ ... }        -- the post-process pass; see below
 ```
 
 ### `ge.postfx`
@@ -50,13 +50,13 @@ applies to the finished frame, and returns what was actually applied after clamp
 
 ```lua
 local fx = ge.postfx {
-    crt      = true, -- master switch for the four CRT terms
-    scanline = 0.28, -- 0..1
-    mask     = 0.18, -- 0..1, aperture grille
-    curve    = 0.025, -- 0..0.1, barrel distortion
-    vignette = 0.22, -- 0..1
-    lines    = 240, -- virtual scanline count, independent of window size
-    fxaa     = false, -- edge antialiasing
+    crt      = true,   -- master switch for the four CRT terms
+    scanline = 0.28,   -- 0..1
+    mask     = 0.18,   -- 0..1, aperture grille
+    curve    = 0.025,  -- 0..0.1, barrel distortion
+    vignette = 0.22,   -- 0..1
+    lines    = 240,    -- virtual scanline count, independent of window size
+    fxaa     = false,  -- edge antialiasing
 }
 ```
 
@@ -64,7 +64,7 @@ Every field is optional and anything omitted keeps its current value, so a mod c
 number without restating the rest. Called with no table it only reports, which makes
 `ge.postfx().crt` a way to ask what is currently on.
 
-Values are **read every frame, not latched at startup**, so this works from `onFrame()` too --
+Values are **read every frame, not latched at startup**, so this works from `onFrame()` too —
 an effect can change while the game runs.
 
 Brightness is compensated automatically for whatever the scanlines and mask absorb, so raising

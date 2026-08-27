@@ -9,7 +9,7 @@ a triangle-intersection test against the exported wall polygons passes lines tha
 the nearest standable tile, so it answers yes almost everywhere. The engine is the authority and
 neither approximation is close enough.
 
-So the check moves to runtime. the Mac build's harness boots each level, walks every edge through
+So the check moves to runtime. mac-getv's harness boots each level, walks every edge through
 `gePortProbeWalkable` and writes the verdicts; this reads them back and drops what the engine
 refused. That turns the graph from assumed to measured, and the division is by CAPABILITY rather
 than by lane: producing the verdicts needs a machine that can run the game at speed, consuming
@@ -27,7 +27,7 @@ of inferred.
 
 THE MASK IS RECORDED AND CHECKED
 
-`gePortProbeWalkable` takes a collision-type mask and it changes the answer. the Mac build measured
+`gePortProbeWalkable` takes a collision-type mask and it changes the answer. mac-getv measured
 that including CDTYPE_DOORS turns Bunker 1's spawn into a sealed corridor 120 units wide -- a
 convincing wrong answer, because a player walks through a door by opening it. A verdicts file
 whose mask is unknown cannot be trusted later, so it is stored and surfaced.

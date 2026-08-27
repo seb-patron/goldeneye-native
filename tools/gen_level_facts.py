@@ -7,18 +7,18 @@ says: 6 principal cars, 29 m each, 4 m wide, 239 m end to end, topology linear, 
 no lateral escape. Nothing consumed any of it. The engine-wide documents were mined (S8); these
 were ingested and left.
 
-THE POINT IS NOT TO REPUBLISH THE CLAIMS, IT IS TO CHECK THEM. We have measured geometry for
+🔑 THE POINT IS NOT TO REPUBLISH THE CLAIMS, IT IS TO CHECK THEM. We have measured geometry for
 every level -- floor tiles, doors, waypoints, extents -- so a document that says "6 cars, 29 m
 each" is a testable assertion, not a fact to be trusted. Where the two agree, the document earns
 some credibility and we gain a UNIT CONVERSION we did not have. Where they disagree, one of them is
 wrong and it is worth knowing which before a bot acts on either.
 
-EVERY CLAIM STAYS status="unverified" UNLESS THIS TOOL ACTUALLY CHECKED IT. A claim that was
+⚠️ EVERY CLAIM STAYS status="unverified" UNLESS THIS TOOL ACTUALLY CHECKED IT. A claim that was
 compared and matched becomes "agrees"; one that was compared and did not becomes "disagrees". The
 three states are kept distinct because "we checked and it held" and "nobody has looked" are
 different things and collapsing them is how a fan-written number becomes ground truth by attrition.
 
-OUTPUT STAYS OUT OF GIT. Derived from material we may not redistribute; build/ is ignored and
+⚠️ OUTPUT STAYS OUT OF GIT. Derived from material we may not redistribute; build/ is ignored and
 .gitignore names the intent. What is emitted is numbers, short labels and verdicts -- not prose.
 """
 import argparse
@@ -77,12 +77,12 @@ def main():
         # A level described as N cars of L metres has a stated total length. Our floor mesh has a
         # measured dominant-axis extent in asset units. The RATIO of those two is a metres-per-unit
         # figure -- and if the documents are describing the same world we do, that ratio should be
-        # consistent across levels. One level agreeing could be luck; several agreeing is a
+        # CONSISTENT ACROSS LEVELS. One level agreeing could be luck; several agreeing is a
         # conversion, and any that disagree are worth naming.
         m = rec["measured"]
         for b in blocks:
             c = b["claim"]
-            # prefer A total, and never just the first match. Train carries both
+            # ⚠️ PREFER A TOTAL, AND NEVER JUST THE FIRST MATCH. Train carries BOTH
             # `approx_total_train_length_m` (239, the whole level) and `car_length_m` (29, one
             # carriage), and both end in _length_m. Taking the first key the dict happened to
             # yield compared ONE CARRIAGE against the level's full extent and reported a 12x
@@ -107,7 +107,7 @@ def main():
                 })
         out_levels[lv] = rec
 
-    # calibrate against the engine, not against cross-LEVEL agreement.
+    # 🔑 CALIBRATE AGAINST THE ENGINE, NOT AGAINST CROSS-LEVEL AGREEMENT.
     #
     # The original plan was to compare metres-per-unit across levels and call a tight spread a
     # conversion. That is not available: exactly ONE level in the whole corpus carries a

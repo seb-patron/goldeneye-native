@@ -66,7 +66,7 @@ int main(void)
     check("threat, half patience -> hold",      ge_br_should_advance(1, GE_BR_MAX_HOLD / 2), 0);
     check("threat, one shy       -> hold",      ge_br_should_advance(3, GE_BR_MAX_HOLD - 1), 0);
 
-    /* the property that matters. At the cap it commits, and it stays committed however long the
+    /* THE PROPERTY THAT MATTERS. At the cap it commits, and it stays committed however long the
      * contest lasts and however many enemies are converging. */
     check("threat, at cap        -> advance",   ge_br_should_advance(1, GE_BR_MAX_HOLD), 1);
     check("threat, past cap      -> advance",   ge_br_should_advance(9, GE_BR_MAX_HOLD + 500), 1);

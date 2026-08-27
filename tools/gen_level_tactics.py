@@ -189,7 +189,7 @@ def parse_objectives(setup_text):
             for (p, o, t, d) in _records(setup_text, OBJ_START_TYPE)]
 
 
-# the completion flags are off BY eight bits, and IT IS not yet known whose fault that IS.
+# THE COMPLETION FLAGS ARE OFF BY EIGHT BITS, AND IT IS NOT YET KNOWN WHOSE FAULT THAT IS.
 #
 # 48 of the game's 80 objectives have no tagged target, so they cannot be routed to. Their
 # completion is a flag instead, and the chain that would resolve them is:
