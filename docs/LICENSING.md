@@ -218,7 +218,7 @@ comparing `vendor/sm64ex/src/pc/gfx/` against `getv/port/fast3d/`:
 | `gfx_cc.h` | 58 | 104 | 55 | 94% |
 | `gfx_rendering_api.h` | 36 | 36 | 34 | 94% |
 | `gfx_pc.h`, `gfx_opengl.h`, `gfx_sdl.h`, `gfx_screen_config.h`, `gfx_window_manager_api.h` | 83 | 83 | 83 | 100% |
-| `src/pc/mixer.c` → `audio/ge_mixer.c` | 871 | 1,244 | 852 | 97% |
+| `src/pc/mixer.c` -> `audio/ge_mixer.c` | 871 | 1,244 | 852 | 97% |
 
 The port has grown these files substantially - `gfx_pc.c` is three times its upstream length -
 but it has **not** displaced them. Between 86% and 100% of upstream's text is still present
@@ -282,7 +282,7 @@ it covers only the Fast3D engine. The other two headers are inherited from an up
 states nothing at all, and sm64ex's own non-Fast3D code descends from the Super Mario 64
 decompilation, which likewise carries no licence.
 
-Both headers are small and neither is load-bearing. Rewriting them from the interfaces this port
+Both headers are small and neither is necessary. Rewriting them from the interfaces this port
 actually uses would remove them from the question at low cost, and is worth considering
 independently of whatever is decided about Fast3D.
 
@@ -429,6 +429,7 @@ formality - it is what makes the table in section 3 verifiable by someone who wa
 | N64 audio microcode in software | sm64ex `src/pc/mixer.c` (Emill) | `getv/port/audio/ge_mixer.c`. The file header names its origin and lists its four changes. |
 | RSP microcode reference | `perfect-dark-pc-port/perfect_dark`, `src/rsp/gsp.s` - an annotated copy of the same microcode GoldenEye runs | Read, not copied. Cited at `getv/port/fast3d/gfx_pc.c:2144`, `:3168`, `:4944` and `getv/port/fast3d/ge_sky_rdp.c:332`. |
 | stb_image v2.19 | `nothings/stb`, Sean Barrett | `getv/port/include/stb/stb_image.h`, licence notice intact in-file. |
+| Typed byteswap with fail-loud default (`GE_SWAP`) | `perfect-dark-pc-port/perfect_dark` @ `514bf7a`, `port/include/preprocess/common.h` (`PD_SWAPPED_VAL`/`PD_SWAP_VAL`). MIT, (c) 2022 Ryan Dwyer. | `getv/port/include/ge_typed_swap.h`, own implementation of the `_Generic`-dispatch technique, notice and cite in the file header. |
 
 ### Exact upstream revisions
 

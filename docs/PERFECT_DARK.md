@@ -115,14 +115,16 @@ so every new conversion site is a fresh opportunity to swap the wrong width with
 The `swapUnk` arm turns exactly that mistake into a runtime assertion. Roughly thirty lines, no
 behavioural change to correct code.
 
-Attribute to `perfect_dark @ 514bf7a`, `port/include/preprocess/common.h`.
+**Done, 2026-08-26.** `getv/port/include/ge_typed_swap.h` (`GE_SWAP`). Attributed at the file
+header and in `docs/LICENSING.md` section 6, per `perfect_dark @ 514bf7a`,
+`port/include/preprocess/common.h`.
 
 ### 2.3 A unified platform header
 
 **Effort: small. Value: high.**
 
 `vendor/pd-port/src/include/platform.h` is 100 lines defining `PLATFORM_{WIN32,POSIX,LINUX,OSX,
-NSWITCH}`, `PLATFORM_{X86_64,X86,ARM,64BIT}`, `PLATFORM_{BIG,LITTLE}_ENDIAN`, `PD_BSWAP{16,32,64}`,
+Nswitch}`, `PLATFORM_{X86_64,X86,arm,64bit}`, `PLATFORM_{big,little}_ENDIAN`, `PD_BSWAP{16,32,64}`,
 `PD_BE{16,32,64}`, `PD_LE{16,32,64}`, `PD_BEPTR`, `PD_LEPTR` and `PD_CONSTRUCTOR`. The
 `PLATFORM_TVOS` block at `:17-24` is this project's own local modification, not Perfect Dark's.
 
@@ -162,14 +164,26 @@ patching: `struct ptrmarker { u32 ptr_src; uintptr_t ptr_host; }` at
 `struct marker { u32 src_offset; u32 dst_offset; u32 parent_src_offset; enum contenttype type; }`
 at `port/src/preprocess/filemodel.c:38-43`.
 
-**Why this matters here specifically.** This port's `modelPromoteNodeOffsetsToPointers` cannot
-promote in place - the file slots are 4 bytes and host pointers are 8 - and has been reduced to
-a survey that returns without modifying anything. Models do not render as a result. Perfect
-Dark's answer is a two-pass transcode: emit a new, larger buffer with 8-byte slots still holding
-offsets, record `src_offset -> dst_offset` in a marker table (`filemodel.c` passes 1-4,
-`convertModel` at `:1060-1072`), resolve in pass 4 (`resolvePointer` at `:844-852`), then let the
-existing unmodified promote code do the base-add. Alignment is re-imposed per content type from
-a table at `filemodel.c:50-74`, applied at `:553`.
+**Correction, checked 2026-08-26: the premise below is stale.** This section originally said
+`modelPromoteNodeOffsetsToPointers` had been reduced to a survey that returns without modifying
+anything, so models do not render. Reading the live function (`model.c:8135-8143`) shows that is
+no longer true: under `GE_PORT_NATIVE` it calls a real `ge_model_convert(fileramaddr, node,
+"model")` rather than a no-op, and every screenshot taken this session across multiple stages
+shows correctly rendered geometry with no corruption. Whether `ge_model_convert()` predates this
+document or landed after it wasn't determined, but either way **this port already has a working
+answer to the problem this item describes**, via a different mechanism than Perfect Dark's. The
+technique below is left in place as a worked reference in case `ge_model_convert()` turns out to
+have gaps the screenshots didn't exercise (it has not been read in detail against the two-pass
+transcode below) - but it should not be treated as unclaimed, highest-value work without first
+reading `ge_model_convert()` and finding an actual defect in it.
+
+**Why this mattered originally, and what Perfect Dark's answer looks like.** This port's
+`modelPromoteNodeOffsetsToPointers` cannot promote in place - the file slots are 4 bytes and host
+pointers are 8. Perfect Dark's answer is a two-pass transcode: emit a new, larger buffer with
+8-byte slots still holding offsets, record `src_offset -> dst_offset` in a marker table
+(`filemodel.c` passes 1-4, `convertModel` at `:1060-1072`), resolve in pass 4 (`resolvePointer`
+at `:844-852`), then let the existing unmodified promote code do the base-add. Alignment is
+re-imposed per content type from a table at `filemodel.c:50-74`, applied at `:553`.
 
 `filemodel.c` is 1,114 lines and specific to Perfect Dark's model format, so **the technique
 transfers and the code does not**. But it is a proven route past the exact wall this port is
@@ -225,7 +239,7 @@ Perfect Dark declares bitfield groups in both orders under `#ifdef PLATFORM_BIG_
 `src/include/types.h:329-339` (`struct packedpad`), `:3451-3476` (`union soundnumhack`), and in
 `include/PR/gbi.h` for `Tri` (`:1037-1045`), `Gdma` (`:1322-1336`), `Gtri` (`:1341-1350`),
 `Gtri4` (`:1352-1390`), `GunkC0` (`:1568-1594`) and `Gvtx` (`:1596-1612`). `Gtri4` additionally
-inserts `pad2[4]`/`pad3[4]` under `PLATFORM_64BIT`. A load-bearing warning sits at `gbi.h:1329`:
+inserts `pad2[4]`/`pad3[4]` under `PLATFORM_64BIT`. A necessary warning sits at `gbi.h:1329`:
 changing signedness mid-int breaks the bitfield even on big-endian platforms.
 
 The `GE_SUBWORD2/3/4` macros at `vendor/ge-decomp/src/bondtypes.h:25-52` are the same idea,
@@ -286,21 +300,25 @@ identifier: Perfect Dark's `create_and_load_new_shader(uint64_t shader_id0, uint
 
 What Perfect Dark has that is structurally absent here:
 
-- **A framebuffer subsystem** - `create_framebuffer`, `update_framebuffer_parameters`,
-  `start_draw_to_framebuffer`, `copy_framebuffer`, `resolve_msaa_color_buffer`,
-  `select_texture_fb`, `get_framebuffer_texture_id`, backed by
-  `static std::map<int, FBInfo> framebuffers` (`gfx_pc.cpp:246`). This port hand-rolled a
-  single-purpose FBO for supersampling only (`gfx_opengl.c:712-760`, under `TVOS_SUPERSAMPLE`).
-- **MSAA, anisotropic filtering, mipmap filtering and three-point filtering** -
-  `enum FilteringMode { FILTER_NONE, FILTER_LINEAR, FILTER_THREE_POINT }` and the surrounding
-  block at `gfx_rendering_api.h:41-56`. None of it present here.
+- **Correction, checked 2026-08-26: the paragraph below is stale.** MSAA, anisotropic
+  filtering and three-point filtering were already fully implemented at the time of this
+  check (`GETV_MSAA`/`GETV_ANISO`/`GETV_FILTERING`, engine + config + launcher UI); mipmaps
+  was the one genuine gap and has since been implemented the same way. This port's
+  framebuffer/post-processing pipeline has also grown well past a single supersampling FBO --
+  it is MSAA-aware, composes with FXAA and scanline/mask effects, and resolves a multisampled
+  target before the post shader runs (`gfx_opengl.c`, `pp_fbo`/`pp_color`, not the
+  `gfx_opengl.c:712-760` line range this originally cited, which is now stale too). It is
+  still a different shape than PD's generic `create_framebuffer`-style CRUD API, and the LRU
+  texture cache with range invalidation genuinely remains absent (see below) -- but "none of
+  it present here" was not an accurate description even before this check, let alone after.
 - **An LRU texture cache with explicit invalidation** - `gfx_texture_cache_clear/delete/
   delete_range` (`gfx_pc.cpp:510-609`), keyed on
   `TextureCacheKey{texture_addr, palette_addrs[2], fmt, siz, palette_index}` (`gfx_pc.h:22-36`).
-  This port has no range invalidation.
+  This port has no range invalidation -- confirmed still true 2026-08-26, a hash+pool that
+  wraps and overwrites the oldest entry on overflow.
 - **A widescreen aspect system** - `gfx_adjust_x_for_aspect_ratio` (`gfx_pc.cpp:1037-1041`) and
   `gfx_update_aspect_mode` (`:1636-1660`), driven by custom GBI commands
-  `G_ASPECT_{WIDE,LEFT,RIGHT,CENTER}_EXT` that the game emits per element.
+  `G_ASPECT_{wide,left,right,center}_EXT` that the game emits per element.
 - **Display-mode enumeration, fullscreen modes, refresh-rate query and swap-interval control**
   in the window-manager API.
 
@@ -604,21 +622,21 @@ buffer.
 
 | # | item | effort | value | attribute to |
 |---|---|---|---|---|
-| 1 | Deferred-relocation model transcode; unblocks `modelPromoteNodeOffsetsToPointers` | large | **highest** | `514bf7a` `port/src/preprocess/{filemodel,common}.c`, `src/lib/model.c` |
-| 2 | `_Generic` typed byteswap with fail-loud default | small | high | `514bf7a` `port/include/preprocess/common.h` |
+| 1 | ~~Deferred-relocation model transcode~~ - **stale, see §2.4**: `ge_model_convert()` already solves this a different way | n/a | n/a | superseded |
+| 2 | ~~`_Generic` typed byteswap with fail-loud default~~ - **done, 2026-08-26**: `getv/port/include/ge_typed_swap.h` (`GE_SWAP`), verified standalone (all typed arms round-trip correctly, the default arm asserts on an unhandled type). Not yet used at any real conversion site - see the header's own "what this does not do" note. | n/a | n/a | done, `514bf7a` `port/include/preprocess/common.h` |
 | 3 | Unified `platform.h` for endian, arch and bswap | small | high | `514bf7a` `src/include/platform.h` |
-| 4 | Crash handler with Darwin PC and backtrace | small | high | `514bf7a` `port/src/crash.c` |
-| 5 | Two-player co-op bring-up: force the count at `boss.c:489`, reuse multiplayer spawns | small-medium | high | GoldenEye-native; no Perfect Dark code required |
+| 4 | Crash handler with Darwin PC and backtrace | small | high | `514bf7a` `port/src/crash.c` -- **not applicable to Windows**, checked 2026-08-26: it is POSIX `backtrace()`/`dladdr()`/signal-based, none of which exist there. A Windows equivalent needs SEH/`MiniDumpWriteDump`, which is a different design PD's own doc does not address. Still real work for whoever owns the Mac build. |
+| 5 | ~~Two-player co-op bring-up~~ - **stale, checked 2026-08-26**: already done. `boss.c:501-518` already reads `gePortCoopPlayers()` (`GETV_COOP=<n>`) and forces the count; see `docs/COOP.md`, whose own opening line is "Co-op movement works... playable." | n/a | n/a | superseded |
 | 6 | Segment tag bit for model-blob GDLs | medium | medium-high | `514bf7a` `port/src/preprocess/gbi.c`, `port/fast3d/gfx_pc.cpp` |
-| 7 | Config system with self-registering modules | small | medium | `514bf7a` `port/src/config.c` |
+| 7 | ~~Config system with self-registering modules~~ - **not worth it, checked 2026-08-26**: `ge_config.c` is a real, working 1375-line config system with 53 key handlers, and every feature added this session (widescreen, HD textures, FOV, anisotropic, MSAA, mipmaps) went through it without friction. PD's design avoids a central table; this one has a central table and no measured pain from it. Replacing 1375 working lines to avoid a downside that has not actually cost anything here is a worse trade than the status quo. | n/a | n/a | not applicable |
 | 8 | `gbiex.h` as the opcode checklist for `gsp3D` gaps | small | medium | `514bf7a` `src/include/gbiex.h` |
-| 9 | Field-of-view slider; GoldenEye already has `viSetFovY` | small | medium | `514bf7a` `port/src/optionsmenu.c:1334`, `src/include/lib/vi.h` |
-| 10 | Fail-loud growth budgets in asset conversion | small | medium | `514bf7a` `port/src/romdata.c:590-606` |
-| 11 | VFS and mod / asset-override system | medium | medium | `514bf7a` `port/src/{fs,mod}.c` |
-| 12 | `osPfs*` Controller Pak suite | medium | medium | `514bf7a` `port/src/libultra.c` |
-| 13 | Bitfield order-flip audit against Perfect Dark's set | medium | medium | `514bf7a` `src/include/types.h`, `include/PR/gbi.h` |
+| 9 | ~~Field-of-view slider~~ - **stale, checked 2026-08-26**: already done. `GETV_FOV` (`fr.c:711-725`, applied to the projection argument, not the stored fovy, so aim-zoom scaling is untouched), a config key (`ge_config.c:700`) and a real launcher slider (`ge_launcher.cpp:1674`) all exist. Verified live: FOV 100 vs 160 produces a large, real difference in the rendered frame. | n/a | n/a | superseded |
+| 10 | ~~Fail-loud growth budgets in asset conversion~~ - **not applicable, checked 2026-08-26**: PD's version verifies a preprocessing size-multiplier estimate, which assumes PD's preprocess/ pipeline this port does not have (section 2.1). The nearest analog, `port_assets.c`'s `romCopy` clamp, already does the right thing for what it actually guards -- an over-long read that real N64 hardware would harmlessly satisfy from adjacent cartridge space. Converting it to a hard abort, which is what "fail loud" would mean here, trades a benign, hardware-accurate clamp for a crash. Not a gap to close. | n/a | n/a | not applicable |
+| 11 | ~~VFS and mod / asset-override system~~ - **mostly covered, checked 2026-08-26**: `ge_lua.c` (1233 lines) is a working mod-scripting host, and this session's own hash-based HD-texture-pack system (`ge_texpack_dir`, `fs_walk`/`fs_load_file` in `port_support.c`) is a working asset-override VFS with its own path-prefix resolution -- different syntax than PD's `$S`/`$E`/`$H`, same job. Not a byte-for-byte match to PD's design, but not an open gap either. | n/a | n/a | mostly covered |
+| 12 | ~~`osPfs*` Controller Pak suite~~ - **not worth it, checked 2026-08-27, this time conclusively**: `osPfsChecker` -- not a libultra call GoldenEye makes, a function retail GoldenEye's own source *defines*, `vendor/ge-decomp/src/joy.c:173-176` -- unconditionally `return PFS_ERR_INCONSISTENT;`, no hardware access at all. `joyRumblePakInit` right below it calls `osPfsInit` and only proceeds past `PFS_ERR_ID_FATAL`/`PFS_ERR_DEVICE`. Controller Pak support is disabled in the **retail 1997 game source**, independent of anything a port provides -- a real `osPfs*` implementation would be observably identical to the current stub, because GoldenEye's own logic never reaches the code that would exercise it. Not "unclear value" as this row previously said; zero value, provably. | n/a | n/a | not applicable |
+| 13 | ~~Bitfield order-flip audit against Perfect Dark's set~~ - **done, checked 2026-08-26**: audited every bitfield-packing struct in `vendor/ge-decomp` (a dozen or so, not hundreds -- most textual bitfield-syntax hits were ternaries, not real bitfields). No live, unhandled endian bug found: this codebase has already independently invented and applied the fix multiple times (`GE_NIB`/`GE_TRIPLE_NIB` in `stan.c`, a named-field fix in `image.c`, a direct-assignment fix in `lv.c`), and every other candidate is dead code, single-field (no cross-field order to get wrong), or self-consistent by construction (written and read by the same native compiler, so bit-order is irrelevant). One real finding: `stan.h` had a set of doubly-wrong, unused macros duplicating the pre-`GE_NIB` bug -- removed, see the commit. | n/a | n/a | done, GoldenEye-native, no PD code involved |
 | 14 | External and HD texture packs | medium | low-medium | **`pd-ext`** `e5484de` `port/src/ext_tex.c` |
-| 15 | Framebuffer subsystem, three-point filtering, mipmaps, anisotropy, MSAA | large | medium | `514bf7a` `port/fast3d/*` (MIT, Emill and MaikelChan) |
+| 15 | ~~Framebuffer subsystem, three-point filtering, mipmaps, anisotropy, MSAA~~ - **mostly stale, checked 2026-08-26**: three-point filtering, anisotropy and MSAA were already fully implemented (engine + config + launcher UI) before this row was checked -- none of it from Perfect Dark, three-point cites mupen64plus-libretro directly in the source. Mipmaps was a genuinely open gap, a `key_todo_flag` placeholder with no consumer; implemented directly (`glGenerateMipmap` + mipmap `GL_TEXTURE_MIN_FILTER` variants), same treatment as the other three. **Still genuinely open**: the framebuffer subsystem (this port has its own post-processing FBO pipeline already, a different shape than PD's `create_framebuffer`-style CRUD, and no current use case needs PD's version) and the LRU texture cache with range invalidation (this port's cache is a hash+pool that wraps and overwrites the oldest entry on overflow, with no explicit invalidation call at all) -- left alone rather than touched blind, since cache-eviction correctness has a much higher blast radius than a new, additive rendering option. | n/a for the done parts; medium for the still-open framebuffer/texture-cache pieces | n/a / medium | mostly done, GoldenEye-native; texture-cache item still `514bf7a` `port/fast3d/gfx_pc.cpp:510-609` if picked up |
 | 16 | Widescreen `G_ASPECT_*_EXT` | large | medium | `514bf7a` `port/fast3d/gfx_pc.cpp:1636-1660`, `src/include/gbiex.h` |
 | 17 | In-game options menu | large | medium | `514bf7a` `port/src/optionsmenu.c` |
 | 18 | Full co-op: AI, objectives, cutscenes | very large | high | GoldenEye-native authoring; Perfect Dark `src/setups/` is the scale reference |

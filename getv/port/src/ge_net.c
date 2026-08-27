@@ -172,6 +172,10 @@ void geNetClose(void)
 int geNetIsOpen(void) { return ge_net.open; }
 unsigned long geNetDelay(void) { return ge_net.delay; }
 
+/* -1 when no session is open, matching every other accessor here rather than returning a
+ * stale slot number from a session that already closed. */
+int geNetLocalSlot(void) { return ge_net.open ? ge_net.local_slot : -1; }
+
 void geNetSetSlotKind(int slot, GeNetSlotKind kind)
 {
     if (slot < 0 || slot >= GE_NET_MAX_PEERS) { return; }

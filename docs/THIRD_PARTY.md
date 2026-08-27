@@ -226,6 +226,21 @@ because `gfx_opengl.c` emits `#version 120` shaders, and the GL3 backend uncondi
 restore the bound shader program or array buffer itself (its own source says so), so
 `ge_imgui.cpp` saves and clears both around the draw. Both files carry that reasoning in full.
 
+**Tracy 0.14.1 (BSD-3-Clause).** Fetched and built by `tools/fetch_deps_windows.ps1` into
+`~/.n64tvos/tracy-win`, never vendored, same terms as Lua and ImGui. Backs the frame-cost
+profiling `getv/port/include/ge_tracy.h` wraps -- see that file's own header for why the wrapper
+exists and where its one deliberate deviation from upstream's disabled-branch macro is.
+`TracyClient.cpp` is a literal unity build (it `#include`s the client/common sources itself), so
+compiling that one file is the entire client library; only the C API header (`tracy/TracyC.h`)
+and its two dependency headers are copied out, since this port's own code is C and the C++ macro
+API is unused. BSD-3-Clause imposes nothing on the rest of the tree, and the build works without
+it -- absent `libtracy.a`, `GE_WITH_TRACY` is not defined and ge_tracy.h's own fallback macros
+make every instrumented call site a no-op. It is additionally inert unless `TRACY_ENABLE` was
+also defined at compile time, which only happens together with `GE_WITH_TRACY`. Upstream is
+`https://github.com/wolfpld/tracy/archive/refs/tags/v0.14.1.zip`, sha256
+`908f3a2917fa86a247abfcf85dcf04bad1db6986a4d40f94b70512f3e9e98d5b`, checked by the fetch script
+before anything is compiled into the game.
+
 **`Graslu/1964GEPD` -- GPL-2.0, quarantined (checked 2026-08-24).** A fork of Joel Middendorf's
 1964 emulator (1999-2002) carrying GoldenEye and Perfect Dark fixes, notably around input and
 frame pacing. It joins GoldenRecomp, `cblock85/GoldenEye64Recomp` and `chrissotraidis/goldenpad`

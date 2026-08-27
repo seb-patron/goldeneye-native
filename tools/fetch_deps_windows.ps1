@@ -143,6 +143,41 @@ if (-not (Test-Path "$imguiPrefix\lib\libimgui.a")) {
   $objs | ForEach-Object { Remove-Item $_ -ErrorAction SilentlyContinue }
 }
 
+# ---------------------------------------------------------------- 6. Tracy (optional)
+# Profiling. REUSE_AUDIT.md: "Frame cost is currently unattributed: there is no measurement
+# separating game tick, render, audio and AI." getv/port/include/ge_tracy.h is what every call
+# site includes instead of <tracy/TracyC.h> directly, so a checkout that has not run this step
+# still compiles -- its macros are no-ops without GE_WITH_TRACY, same shape as GE_WITH_IMGUI.
+#
+# TracyClient.cpp is a literal unity build: it #includes the client, common and (optionally)
+# libbacktrace sources itself, so compiling this one file is the entire client library. Every
+# TracyC.h macro is ALSO a no-op unless TRACY_ENABLE is defined for the translation unit that
+# includes it -- not just for TracyClient.cpp -- which is why build_windows.ps1 must add
+# -DTRACY_ENABLE to the game/port flags themselves, not only to this compile.
+$tracyPrefix = Join-Path $Prefix 'tracy-win'
+if (-not (Test-Path "$tracyPrefix\lib\libtracy.a")) {
+  Step "Tracy 0.14.1 (profiler client)"
+  $sha = '908f3a2917fa86a247abfcf85dcf04bad1db6986a4d40f94b70512f3e9e98d5b'
+  Invoke-WebRequest -Uri 'https://github.com/wolfpld/tracy/archive/refs/tags/v0.14.1.zip' -OutFile "$tmp\tracy.zip" -UseBasicParsing
+  $got = (Get-FileHash "$tmp\tracy.zip" -Algorithm SHA256).Hash.ToLower()
+  if ($got -ne $sha) { throw "tracy checksum mismatch`n  expected $sha`n  got      $got" }
+  Expand-Archive -Path "$tmp\tracy.zip" -DestinationPath "$tmp\tracysrc" -Force
+  $t = "$tmp\tracysrc\tracy-0.14.1\public"
+  New-Item -ItemType Directory -Force -Path "$tracyPrefix\lib","$tracyPrefix\include\tracy" | Out-Null
+  & $gxx -std=c++17 -O2 -w -DTRACY_ENABLE -fno-exceptions -I"$t" -c "$t\TracyClient.cpp" -o "$tmp\tracyclient.o"
+  if (Test-Path "$tmp\tracyclient.o") {
+    & $ar rcs "$tracyPrefix\lib\libtracy.a" "$tmp\tracyclient.o"
+  }
+  # Only the C API and its two dependency headers -- this port's own code is C, and Tracy.hpp
+  # (the C++ macro API) is not used anywhere here. Checked by reading TracyC.h's own #include
+  # lines rather than assumed: it wants ../common/TracyApi.h and ../common/TracyFormat.h,
+  # both self-contained (no further local includes of their own).
+  Copy-Item "$t\tracy\TracyC.h" "$tracyPrefix\include\tracy\" -Force
+  New-Item -ItemType Directory -Force -Path "$tracyPrefix\include\common" | Out-Null
+  Copy-Item "$t\common\TracyApi.h","$t\common\TracyFormat.h" "$tracyPrefix\include\common\" -Force
+  Remove-Item "$tmp\tracy.zip","$tmp\tracysrc","$tmp\tracyclient.o" -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 # ---------------------------------------------------------------- report
 Write-Output ""
 Write-Output "gcc        : $(if (Test-Path "$Mingw\bin\gcc.exe") { (& $gcc -dumpversion) } else { 'MISSING' })"
@@ -150,5 +185,6 @@ Write-Output "SDL2       : $(if (Test-Path "$Mingw\include\SDL2\SDL.h") { 'ok' }
 Write-Output "GLEW       : $(if (Test-Path "$Mingw\lib\libglew32.a") { 'ok' } else { 'MISSING' })"
 Write-Output "Lua        : $(if (Test-Path "$luaPrefix\lib\liblua.a") { 'ok (mods enabled)' } else { 'absent (mods disabled)' })"
 Write-Output "Dear ImGui : $(if (Test-Path "$imguiPrefix\lib\libimgui.a") { 'ok (overlay + launcher enabled)' } else { 'absent (overlay + launcher disabled)' })"
+Write-Output "Tracy      : $(if (Test-Path "$tracyPrefix\lib\libtracy.a") { 'ok (profiling enabled)' } else { 'absent (profiling disabled)' })"
 Write-Output ""
 Write-Output "next: powershell -NoProfile -ExecutionPolicy Bypass -File getv\build_windows.ps1 -Target all"

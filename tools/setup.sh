@@ -51,6 +51,9 @@ if [ -d vendor/ge-decomp/.git ]; then
 else
     git clone --depth 1 https://github.com/n64decomp/007 vendor/ge-decomp
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0001-source.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0003-port-accessors.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0004-platform-info-native-endian.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0005-stan-dead-endian-macros.patch" )
     echo "cloned and patched"
 fi
 

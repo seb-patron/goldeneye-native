@@ -362,6 +362,7 @@ not-implemented notice rather than silently doing nothing.
 | `depth_bits` | 16-32, clamped | Requested depth-buffer width. Note that the driver decides: on Apple silicon the context comes back 32-bit whatever is asked for, including 16, so this cannot currently be used to reproduce N64 z-fighting. The obtained width is printed at startup as `[getv][gl] depth buffer N-bit`. |
 | `anisotropic` | 0-16, clamped | Anisotropic filtering, off by default. Clamped again at runtime to the driver's own maximum, since asking for more than the hardware offers is a GL error rather than a silent downgrade: on this machine 64 becomes 16. Applied only where the game already chose linear filtering, so the HUD, the watch faces and text keep point sampling and stay sharp. |
 | `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
+| `mipmaps` | 0 \| 1 | Trilinear filtering, off by default. Distant textures blend toward a mip level instead of shimmering; `anisotropic` is what sharpens that back up at grazing angles, so the two are meant to be tuned together. Only affects minification -- GL has no magnification mipmap mode, so close-up textures are unaffected. |
 
 
 
@@ -392,8 +393,8 @@ startup and a checkbox that silently does nothing is worse than one that says so
 
 **Profiles.** *Faithful* is the default and clears the enhancements rather than merely not
 setting them, so switching back cannot leave one behind. *GoldenEye+* raises FOV, MSAA,
-anisotropic filtering and supersampling -- only things this port has implemented and
-verified. It enables nothing from the reserved-and-inert list.
+anisotropic filtering, mipmapping and supersampling -- only things this port has implemented
+and verified. It enables nothing from the reserved-and-inert list.
 
 Two testing gates, both off by default:
 
@@ -430,7 +431,7 @@ and `GETV_HORDE_GROWTH` (1). When a guard dies, replacements spawn where it fell
 engine's own `chrSpawnAtCoord`, inheriting the dead guard's body and AI list; the wave
 number rises every `wave_kills` kills and adds `growth` to the spawn count, up to the cap.
 
-⚠️ **Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
+**Spawning can be refused, and that is not an error.** `g_ChrSlots` is allocated with only
 `(guard count + 10)` entries and the engine declines to spawn with fewer than three free, so
 the real ceiling belongs to the level. A refused spawn leaves the wave smaller rather than
 failing.
@@ -468,7 +469,6 @@ output destroys the ability to check the port is right. Enhancements are options
 | Key | Accepts | Intended effect |
 |---|---|---|
 | `preset` | `faithful` \| `enhanced` | One switch for the whole set below. |
-| `mipmaps` | 0 \| 1 | Mipmapping and LOD bias. |
 | `fog_per_pixel` | 0 \| 1 | Per-pixel fog. N64 fog is per-vertex. |
 | `muzzle_lights` | 0 \| 1 | Dynamic lighting on muzzle flashes. |
 | `audio_3d` | 0 \| 1 | Positional audio / HRTF. Alias `hrtf`. |

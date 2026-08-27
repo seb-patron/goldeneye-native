@@ -772,9 +772,7 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "msaa") == 0) {
  key_int("GETV_MSAA", key, val, over, 0, 8); return 1;
     }
- if (strcmp(key, "mipmaps") == 0) {
- key_todo_flag("GETV_MIPMAPS", key, val, over, "mipmapping + LOD bias"); return 1;
-    }
+ if (strcmp(key, "mipmaps") == 0) { key_bool_gate("GETV_MIPMAPS", key, val, over); return 1; }
  if (strcmp(key, "fog_per_pixel") == 0) {
  key_todo_flag("GETV_FOG_PERPIXEL", key, val, over,
  "per-pixel fog (N64 fog is per-VERTEX; FRIGATE is the one fogless level)");

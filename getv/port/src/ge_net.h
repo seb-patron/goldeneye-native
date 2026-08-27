@@ -88,6 +88,9 @@ int  geNetIsOpen(void);
 void geNetSetSlotKind(int slot, GeNetSlotKind kind);
 GeNetSlotKind geNetSlotKind(int slot);
 
+/* This machine's own slot, or -1 if no session is open. */
+int geNetLocalSlot(void);
+
 /* Called once per tick, before the game simulates it.
  *
  * Publishes the local slot's input for tick+delay, drains anything that has arrived, and
