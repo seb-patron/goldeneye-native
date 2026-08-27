@@ -278,6 +278,19 @@ static void key_resolution(const char *v, int over)
     }
 }
 
+static void key_crosshair_color(const char *v, int over)
+{
+    unsigned r, g, b;
+    /* Mirrors port_support.c's own sscanf("%2x%2x%2x", ...) exactly, same reasoning as
+     * key_resolution above: a value this layer accepts is a value that layer parses too. */
+    if (strlen(v) != 6 || sscanf(v, "%2x%2x%2x", &r, &g, &b) != 3) {
+        ge_err("crosshair_color=\"%s\" is not RRGGBB hex (e.g. FF0000 for red, "
+               "00FF00 for green, FFFFFF for the retail default)%s", v, "");
+        return;
+    }
+    put("GETV_CROSSHAIR_COLOR", v, over);
+}
+
 static void key_aspect(const char *v, int over)
 {
     /* This key only ever picks/validates a WINDOW SHAPE; it does not decide what the
@@ -773,6 +786,7 @@ static int apply(const char *key_in, const char *val, int over)
  key_int("GETV_MSAA", key, val, over, 0, 8); return 1;
     }
  if (strcmp(key, "mipmaps") == 0) { key_bool_gate("GETV_MIPMAPS", key, val, over); return 1; }
+ if (strcmp(key, "crosshair_color") == 0) { key_crosshair_color(val, over); return 1; }
  if (strcmp(key, "fog_per_pixel") == 0) {
  key_todo_flag("GETV_FOG_PERPIXEL", key, val, over,
  "per-pixel fog (N64 fog is per-VERTEX; FRIGATE is the one fogless level)");

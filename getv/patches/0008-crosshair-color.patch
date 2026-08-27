@@ -1,0 +1,18 @@
+--- a/src/game/gunfire.c
++++ b/src/game/gunfire.c
+@@ -7147,7 +7147,14 @@
+ #ifdef VERSION_EU
+         halfedxy[1] = halfedxy[1] * g_GunSightAspectRatio;
+ #endif
+-        display_image_at_position(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0x6E, (crosshairimage->level > 0), 0);
++        /* GETV_CROSSHAIR_COLOR (port_support.c): retail always passed 0xFF,0xFF,0xFF here
++         * (the texture's own colour, unmodified by the RDP multiply). ge_crosshair_r/g/b
++         * default to the same 0xFF,0xFF,0xFF, so an unset env var is byte-for-byte the
++         * original call. */
++        extern unsigned char ge_crosshair_r, ge_crosshair_g, ge_crosshair_b;
++        display_image_at_position(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1,
++                                   ge_crosshair_r, ge_crosshair_g, ge_crosshair_b, 0x6E,
++                                   (crosshairimage->level > 0), 0);
+         *gdl = sp54;
+     }
+ }

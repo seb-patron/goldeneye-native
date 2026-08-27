@@ -83,6 +83,20 @@ else
     || die "0005-stan-dead-endian-macros.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0007-load-trace.patch" ) 2>/dev/null; then
+  echo "0007-load-trace.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0007-load-trace.patch" ) \
+    || die "0007-load-trace.patch failed to apply"
+fi
+
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0008-crosshair-color.patch" ) 2>/dev/null; then
+  echo "0008-crosshair-color.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0008-crosshair-color.patch" ) \
+    || die "0008-crosshair-color.patch failed to apply"
+fi
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."

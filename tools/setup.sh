@@ -54,6 +54,8 @@ else
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0003-port-accessors.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0004-platform-info-native-endian.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0005-stan-dead-endian-macros.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0007-load-trace.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0008-crosshair-color.patch" )
     echo "cloned and patched"
 fi
 

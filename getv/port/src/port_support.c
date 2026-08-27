@@ -211,6 +211,34 @@ static void ge_widescreen_env_init(void)
     }
 }
 
+/* GETV_CROSSHAIR_COLOR=RRGGBB -- gunfire.c's gunDrawSight() passes this straight through as
+ * the RDP primitive colour it multiplies crosshairimage's decoded texels by, in place of the
+ * retail 0xFF,0xFF,0xFF ("show the texture's own colour unmodified"). Defaults to white,
+ * byte-for-byte the current behaviour, so an unset variable changes nothing.
+ *
+ * How cleanly it recolours depends on the baked N64 asset under the tint, which has not been
+ * confirmed here: a white or grey source recolours cleanly under a multiply, a source with its
+ * own baked hue only partially. This ships the mechanism the 1997 code already exposed at that
+ * call site rather than blocking on resolving it, and the launcher's colour picker makes the
+ * real answer visible immediately, which is the more direct check anyway. */
+unsigned char ge_crosshair_r = 0xFF;
+unsigned char ge_crosshair_g = 0xFF;
+unsigned char ge_crosshair_b = 0xFF;
+
+__attribute__((constructor))
+static void ge_crosshair_color_env_init(void)
+{
+    const char *e = getenv("GETV_CROSSHAIR_COLOR");
+    if (e && *e) {
+        unsigned int r, g, b;
+        if (sscanf(e, "%2x%2x%2x", &r, &g, &b) == 3) {
+            ge_crosshair_r = (unsigned char) r;
+            ge_crosshair_g = (unsigned char) g;
+            ge_crosshair_b = (unsigned char) b;
+        }
+    }
+}
+
 /* 1 = ge_upload_texture() (gfx_pc.c) checks GETV_TEXPACK for an override of every texture
  * before uploading the N64 decoder's own output; 0 = never checks, byte-for-byte the
  * current behaviour. Defaults OFF, unlike configFiltering/configWidescreen above -- both

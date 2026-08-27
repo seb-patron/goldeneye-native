@@ -6,13 +6,26 @@ That is the same arrangement the Perfect Dark port uses, and the same warning ap
 
 > **Re-cloning `vendor/` loses the work unless the patches are re-applied.**
 
-There are three, split by *when* they can be applied rather than by subject.
+Split by *when* they can be applied rather than by subject.
 
 | Patch | Size | Covers | Applied |
 |---|---|---|---|
 | `0001-source.patch` | 1.4 MB, 140 files | `src/` (131), `include/` (8), `tools/` (1) | immediately after cloning the decomp |
 | `0002-assets.patch` | 212 KB, 8 files | generated asset sources | at the end of the asset pipeline |
 | `0003-port-accessors.patch` | 44 KB, 1 file | `src/game/objective_status.c` | after `0001`, any time before building |
+| `0004-platform-info-native-endian.patch` | 1 file | `include/platform_info.h` | after `0001` |
+| `0005-stan-dead-endian-macros.patch` | 1 file | `src/game/stan.h` | after `0001` |
+| `0007-load-trace.patch` | 1 file | asset load tracing | after `0001` |
+| `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c` | after `0001` |
+
+**Every patch here must be registered in both `tools/setup.sh` and `tools/setup-mac.sh`.** A
+patch that is committed but never applied by the setup scripts is invisible: the tree builds,
+nothing complains, and the change simply is not there. That has now happened twice, to `0003`
+and then to `0007`, which is twice more than it should. If you add a patch, add it to both
+scripts in the same commit.
+
+`0006` is a Windows-side patch that has not been taken here, which is why the numbering skips
+it. The sequence is a record of what exists, not a promise that it is contiguous.
 
 `0003` carries every accessor the port layer calls into the decomp: player position and angle,
 the enemy readout, prop extents, standability and path clearance, the engine's navigation graph,
