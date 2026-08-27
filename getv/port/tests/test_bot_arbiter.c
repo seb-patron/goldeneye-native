@@ -79,6 +79,7 @@ int main(void)
     check(a.advance == 0, "cornered: it holds instead of walking into the guard");
     check(a.fire == 1, "but it does fight back");
     check(a.reason == GE_ARB_CORNERED, "reported as cornered");
+    check(a.retreat == 0, "full health: holds and fights, does not back away");
 
     printf("\nthe recorded health fall 1.00 .88 .69 .39 .11 dead\n");
     s = base();
@@ -89,10 +90,12 @@ int main(void)
     a = geBotArbitrate(&s);
     check(a.reason == GE_ARB_SURVIVING, "below 0.40 health survival outranks progress");
     check(a.advance == 0, "and it stops spending health on waypoints");
+    check(a.retreat == 1, "measured live: standing still still lost 1.00 -> dead, so it backs away too");
 
     s.health = 0.80f;
     a = geBotArbitrate(&s);
     check(a.reason == GE_ARB_FIRING_ON_ROUTE, "healthy at the same bearing, it presses on");
+    check(a.retreat == 0, "and does not back away from something it is not losing to");
 
     printf("\nthe seventh latch: a target dead behind must not oscillate\n");
 

@@ -1448,8 +1448,17 @@ steer:
             if (!act.advance) {
                 /* Never advance on a heading the fight owns -- this is the specific rule that
                  * turned "fire on the move" from waypoint-4-and-dead into a survivable branch:
-                 * advancing along an aim-owned heading walks straight at the guard. */
-                in.stick_y = 0;
+                 * advancing along an aim-owned heading walks straight at the guard.
+                 *
+                 * act.retreat: walk BACKWARD along that same aim-owned heading instead of
+                 * holding. The heading still points at the target (act.heading, applied above),
+                 * so a negative stick_y is a straight retreat, not a turn -- no separate lateral
+                 * input needed, and no interaction with the single-controller strafe/turn
+                 * coupling ge_bot_arbiter.h's header comment documents for the sideways case.
+                 * No clearance check on the space behind the bot: advancing toward the route
+                 * target does not get one either, and gePortNavTick's own obstacle handling
+                 * takes back over the instant this branch is not active. */
+                in.stick_y = act.retreat ? (signed char) -GE_BR_WALK : 0;
             }
 
             if (act.fire) {

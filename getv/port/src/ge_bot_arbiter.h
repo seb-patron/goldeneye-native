@@ -35,7 +35,7 @@ typedef struct GeBotSituation {
      * file is pure and has no stan lookup to call; ge_sense_stable or geSenseLine is the natural
      * source.
      *
-     * ⚠️ ZERO MEANS "DO NOT FIRE", NOT "UNKNOWN". A first draft of this comment said has_los
+     * ZERO MEANS "DO NOT FIRE", NOT "UNKNOWN". A first draft of this comment said has_los
      * defaults to clear unless the caller sets it, which C cannot actually do: a zero-initialised
      * int and an explicit "no line of sight" are both the value 0, and nothing here can tell them
      * apart. Rather than add a third state, the zero value was given the SAFE meaning, matching how
@@ -49,12 +49,18 @@ typedef struct GeBotAction {
     float       heading;      /* the ONLY heading; nothing else may write one */
     int         fire;
     int         advance;      /* 0 means hold position: never advance on an aim-owned heading */
+    int         retreat;      /* 1 means walk backward along the SAME heading rather than hold;
+                               * only ever set alongside advance==0. A separate field rather than
+                               * a third value of advance for the same reason has_los stayed a
+                               * plain int above: an overloaded sentinel is a state nothing here
+                               * can name, and a caller that has not wired this up simply never
+                               * sees it set, which is a visible gap rather than a silent one. */
     GeBotReason reason;
 } GeBotAction;
 
 GeBotAction geBotArbitrate(const GeBotSituation *s);
 
-/* ⚠️ WHAT THIS DOES NOT MODEL, stated once here rather than discovered by watching a bot miss a
+/* WHAT THIS DOES NOT MODEL, stated once here rather than discovered by watching a bot miss a
  * shot it should have kept.
  *
  * THE LOCK-ON SETTLE TIMER. bondviewUpdateXAutoAimTime keeps a target locked for 25-30 ticks

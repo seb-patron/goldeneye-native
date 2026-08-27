@@ -98,6 +98,7 @@ GeBotAction geBotArbitrate(const GeBotSituation *s)
     a.heading = s->route_heading;
     a.fire = 0;
     a.advance = 1;
+    a.retreat = 0;
     a.reason = GE_ARB_ROUTING;
 
     if (!s->has_target) {
@@ -128,6 +129,18 @@ GeBotAction geBotArbitrate(const GeBotSituation *s)
          * walks into the guard. Progress is already lost in this branch; the life need not be. */
         a.advance = 0;
         a.reason = (s->health <= GE_ARB_LOW_HEALTH) ? GE_ARB_SURVIVING : GE_ARB_CORNERED;
+        /* NOT YET MEASURED THE WAY THE REST OF THIS FILE IS -- flagged rather than dressed up as
+         * derived. Standing and firing back (the policy above, unchanged) was correct against the
+         * three encounters this file's own header documents. Measured live against a fourth,
+         * tougher one (a guard holding a contested Train waypoint): health fell 1.00 -> 0.14 over
+         * roughly 1800 frames of standing and returning fire, and kept falling from there to dead.
+         * Standing still was not the fix for THAT encounter; it only slowed the loss.
+         *
+         * Retreat only below GE_ARB_LOW_HEALTH, not merely CORNERED -- a fully healthy bot that is
+         * simply close to a target is not yet losing anything by turning to fight it, and backing
+         * away from every close encounter would cost the six waypoints stop-and-shoot already
+         * proved not worth paying except when health is actually the constraint. */
+        a.retreat  = (s->health <= GE_ARB_LOW_HEALTH) ? 1 : 0;
         return a;
     }
 
