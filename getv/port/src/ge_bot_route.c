@@ -1100,6 +1100,46 @@ have_target:
         return;
     }
 
+    /* WALL ID 3829. Measured, not guessed: the bot has spent thousands of frames pressing the
+     * action button at (-1392 -200), room 5, against nothing -- no Door prop exists within 700
+     * units of that point, checked directly against the level's own extracted data. This is not
+     * a geometry problem to solve again. It is a known bad point, on the record, and the fix is
+     * to say so and steer away from it, the same way a person who has hit the same wall three
+     * times stops trying the same door and starts walking around the building.
+     *
+     * A short table, not one point, because the same class of defect will have other instances
+     * on other levels and this is where the next one gets added: measured centre, a radius wide
+     * enough to matter, walk directly away while inside it. No pathfinding here on purpose --
+     * this is a wall sign, not a router. The router (geWorldNextPortal, gePortLocalPath) is what
+     * decides where to go once outside the sign's radius. */
+    {
+        static const struct { float x, z, r; const char *why; } ge_br_no_go[] = {
+            { -1392.0f, -200.0f, 260.0f, "train: no door within 700u, use never opens anything here" },
+        };
+        int gi;
+        for (gi = 0; gi < (int) (sizeof ge_br_no_go / sizeof ge_br_no_go[0]); gi++) {
+            float nx = ge_br_no_go[gi].x - st.x, nz = ge_br_no_go[gi].z - st.z;
+            float nd2 = nx * nx + nz * nz;
+            if (nd2 < ge_br_no_go[gi].r * ge_br_no_go[gi].r) {
+                float nb = (float) (atan2((double) -nx, (double) -nz) * 180.0 / 3.14159265358979);
+                float ne = ge_br_norm180(nb - ge_br_heading);
+                float nsx = (float) ge_br_sign_of() * ne * GE_BR_TURN_GAIN;
+                if (nsx >  GE_BR_STICK_MAX) { nsx =  GE_BR_STICK_MAX; }
+                if (nsx < -GE_BR_STICK_MAX) { nsx = -GE_BR_STICK_MAX; }
+                memset(&in, 0, sizeof in);
+                in.stick_x = (signed char) nsx;
+                in.stick_y = (signed char) (GE_BR_WALK * (1.0f - (float) fabs((double) ne) / 180.0f));
+                gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
+                if (ge_br_trace && (frame % 20) == 0) {
+                    printf("[getv][botroute] inside no-go zone (%.0f from %s) -- walking away, not"
+                           " re-deriving\n", (double) sqrt((double) nd2), ge_br_no_go[gi].why);
+                    fflush(stdout);
+                }
+                return;
+            }
+        }
+    }
+
 steer:
     bearing = (float) (atan2((double) dx, (double) dz) * 180.0 / 3.14159265358979);
     err = ge_br_norm180(bearing - ge_br_heading);
@@ -1342,7 +1382,14 @@ steer:
             ge_br_stuck++;
             /* Try the door first. Turning away from a closed door is the wrong move and it looks
              * exactly like the right one -- the bot makes progress along a wall and comes back.
-             * Trying the button costs 45 ticks and settles it. */
+             * Trying the button costs 45 ticks and settles it.
+             *
+             * Gating this on a real nearby Door prop was tried: the level data proves the sensor's
+             * DOOR bit is unreliable here (no Door prop within 700 units of where this fires on
+             * Train), so the gate is factually correct -- and it reproducibly made progress WORSE,
+             * 6.8m against 13.4m, identically across two runs. Not diagnosed before time ran out.
+             * Reverted rather than shipped; the finding (the sensor bit is wrong here) stands even
+             * though this particular fix for it does not. */
             if (ge_br_stuck == GE_BR_STUCK_TICKS / 2) {
                 ge_br_use = GE_BR_USE_TICKS;
                 if (ge_br_trace) {
