@@ -186,10 +186,10 @@ diff --git a/include/stdlib.h b/include/stdlib.h
 index 5342979..c60dc98 100644
 --- a/include/stdlib.h
 +++ b/include/stdlib.h
-@@ -16,6 +16,14 @@ typedef struct ldiv_t
+@@ -16,6 +16,23 @@ typedef struct ldiv_t
  lldiv_t lldiv(long long, long long);
  ldiv_t  ldiv(long, long);
- 
+
 +/* This header SHADOWS the system <stdlib.h> (found via -I include), and everything the
 + * real SGI header declared is parked below inside `#if 0`. Anything the port calls must
 + * be declared HERE or it is an implicit-declaration error under C99 -- and an implicit
@@ -197,6 +197,15 @@ index 5342979..c60dc98 100644
 + * implicit `int` return truncates the pointer. Signatures must match libc exactly. */
 +extern char *getenv(const char *);
 +extern long  strtol(const char *, char **, int);
++/* atof: declared here per this file's own rule above. Its absence cost a full day: a
++ * standability sweep (GETV_STAND_WIDTH/HEIGHT/FOOT, objective_status.c) called atof with no
++ * prototype in scope, which C resolves as an IMPLICIT declaration returning int. libSystem's
++ * real atof still ran and left a double in the FP return register, but the caller read the
++ * INTEGER return register instead -- so every width from 20 down to 4 silently became whatever
++ * garbage happened to be sitting in that register, never the number that was typed. The
++ * standability answer never moving when the body size was swept was real; the width itself
++ * moving was the part that was never true. */
++extern double atof(const char *);
 +
  #endif
  
