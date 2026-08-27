@@ -12,6 +12,9 @@ id_ed25519*
 *credentials*.json
 
 # Local editor/tool state
+# ImGui rewrites this on exit with the window positions and sizes from that session, so a
+# tracked copy changes on every run and carries one machine's layout to everyone else.
+imgui.ini
 
 # Dependencies / build output
 node_modules/
@@ -206,9 +209,8 @@ core.*
 # Anchored to the root with a leading slash, deliberately: docs/images/ is tracked and must
 # stay that way, and a bare *.png would swallow it.
 #
-# docs/COLLABORATION.md is explicit that this belongs here rather than in
-# .git/info/exclude -- that file is per-clone and does not travel, which is how twelve
-# unpublished files reached the other machine once already.
+# This belongs here rather than in .git/info/exclude: that file is per-clone and does not
+# travel, which is how twelve unpublished files reached the other machine once already.
 /*.log
 /*.bmp
 /*.png
