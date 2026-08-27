@@ -29,6 +29,7 @@
  *   GETV_BOT_ROUTE_TRACE=1      log progress once a second
  */
 #include <math.h>
+#include "ge_bot_nav.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,7 @@ extern int gePortNavAt(int index, int *out_pad, float *out_pos, int *out_group);
 extern int gePortNavNearest(float x, float z);
 extern int gePortNavRoute(int from, int to, int *out, int max);
 extern int gePortPlayerPos(int idx, float *out);
+extern int gePortTileAt(float x, float z, int *out_id, int *out_room);
 extern int gePortOpenDoorAhead(int idx, float to_x, float to_z);
 extern int gePortObstacleEdge(float x0, float z0, float x1, float z1,
                               float *out_left, float *out_right);
@@ -385,6 +387,8 @@ static int ge_br_edge_heading(float x, float z, float tx, float tz, float *out_d
  * arbiter judges the target close enough to demand it, which reproduces the OLD stop-and-face
  * behaviour above for a direct A/B against the new default. */
 static int   ge_br_fight = 0;
+static float ge_br_nav_aim_x, ge_br_nav_aim_z;   /* mirrors gePortNavTick's last aim, for the door check */
+static float ge_br_nav_target_x, ge_br_nav_target_z;   /* wp.x/wp.z, or the portal point when crossing rooms */
 static int   ge_br_target_id = -1;    /* chrnum of the guard being fought, -1 for none */
 /* The mission's own objective, separately from guard combat.
  *
@@ -942,6 +946,15 @@ void gePortBotRouteFrame(int frame)
         step.threats = 0;
         wp.id = step.to;
         wp.x = there[0]; wp.y = there[1]; wp.z = there[2];
+        /* FOUND LIVE, THE HARD WAY: this branch never set wp.room, and wp is a plain
+         * uninitialised local (line 822) reused call after call. The room-crossing check
+         * added above reads wp.room to decide whether to steer at a portal -- with garbage
+         * in it, that decision flapped on effectively every tick, and the 40-unit hysteresis
+         * gate in gePortNavTick treats every flap as a brand new target, resetting the whole
+         * state machine before it can move at all. Measured: the bot never left the spawn
+         * room, 10634 lines, alternating between two targets 2400 units apart. gePortTileAt
+         * is the same stan-lookup ge_cli.c already uses for this exact purpose. */
+        if (!gePortTileAt(wp.x, wp.z, NULL, &wp.room)) { wp.room = GE_WORLD_NO_ROOM; }
         goto have_target;
     }
 
@@ -1057,32 +1070,47 @@ have_target:
     /* ROUTE ON ROOMS FOR STEERING ONLY -- NEVER FOR ARRIVAL.
      *
      * dist and the ARRIVE check above already ran against the real route target, so step
-     * advancement is untouched by any of this. What follows only changes which way dx/dz point
-     * the TURN, for exactly the reason the Python CLI driver stopped fighting Train's first
-     * carriage: the route waypoint can sit in a room the bot is not currently in, and the
-     * straight-line bearing to it then points through whatever is between -- a wall, a crate row
-     * the pad graph has never heard of, or the carriage divider itself. geWorldNextPortal finds
-     * the doorway to aim at instead, using the same portal graph tools/ge_rooms.py already
-     * proved on this exact case: Train room 5 to room 7 goes via room 6, portal at (-1431 -196),
-     * verified against this function bit for bit before it was wired in here.
+     * advancement is untouched by any of this. What follows only changes what gePortNavTick
+     * below is asked to walk toward, for exactly the reason the Python CLI driver stopped
+     * fighting Train's first carriage: the route waypoint can sit in a room the bot is not
+     * currently in, and a straight line to it then points through whatever is between -- a
+     * wall, a crate row the pad graph has never heard of, or the carriage divider itself.
+     * geWorldNextPortal finds the doorway to aim at instead, using the same portal graph
+     * tools/ge_rooms.py already proved on this exact case: Train room 5 to room 7 goes via
+     * room 6, portal at (-1431 -196), verified against this function bit for bit before it
+     * was wired in here.
      *
      * Deliberately NOT substituted into wp itself, and deliberately not given its own arrival
      * radius -- both were the shape of the bug that cost an earlier attempt at this. Once the
      * bot's own room changes, geWorldNextPortal naturally stops returning the same portal (the
      * BFS is asked fresh every tick, it is cheap enough), so there is nothing here to fall out of
-     * sync when the room updates. */
-    if (wp.room != GE_WORLD_NO_ROOM && st.room >= 0 && st.room != wp.room) {
-        extern int geWorldNextPortal(int fromRoom, int goalRoom, float *out_x, float *out_z);
-        float px, pz;
-        if (geWorldNextPortal(st.room, wp.room, &px, &pz)) {
-            dx = px - st.x;
-            dz = pz - st.z;
-            if (ge_br_trace && (frame % 60) == 0) {
-                printf("[getv][botroute] room %d -> %d: steering at the portal (%.0f %.0f)"
-                       " instead of the route target\n", st.room, wp.room, (double) px, (double) pz);
-                fflush(stdout);
+     * sync when the room updates.
+     *
+     * FOUND LIVE: this used to assign dx/dz here and stop. gePortNavTick a few lines down then
+     * ran unconditionally against wp.x/wp.z, overwriting dx/dz regardless of room -- so the
+     * portal point was computed, printed, and never actually steered toward. The nav state
+     * machine was handed a target on the other side of a wall with no way to know the wall was
+     * there, and its skirt/tangent search read the wall as an obstacle it could approach but
+     * never round: exactly the frozen-after-a-1-2-unit-creep signature measured at Train
+     * (-1454 -236), room 6 -> 1, 11347 of 11419 samples in. nav_tx/nav_tz is what actually
+     * reaches gePortNavTick now. */
+    {
+        float nav_tx = wp.x, nav_tz = wp.z;
+        if (wp.room != GE_WORLD_NO_ROOM && st.room >= 0 && st.room != wp.room) {
+            extern int geWorldNextPortal(int fromRoom, int goalRoom, float *out_x, float *out_z);
+            float px, pz;
+            if (geWorldNextPortal(st.room, wp.room, &px, &pz)) {
+                nav_tx = px;
+                nav_tz = pz;
+                if (ge_br_trace && (frame % 60) == 0) {
+                    printf("[getv][botroute] room %d -> %d: steering at the portal (%.0f %.0f)"
+                           " instead of the route target\n", st.room, wp.room, (double) px, (double) pz);
+                    fflush(stdout);
+                }
             }
         }
+        ge_br_nav_target_x = nav_tx;
+        ge_br_nav_target_z = nav_tz;
     }
     /* Extending this to the objective target's room (mirroring the Python CLI driver's actual
      * breakthrough) was tried and reverted: it regressed to 6.1m against this version's 13.4m,
@@ -1100,44 +1128,31 @@ have_target:
         return;
     }
 
-    /* WALL ID 3829. Measured, not guessed: the bot has spent thousands of frames pressing the
-     * action button at (-1392 -200), room 5, against nothing -- no Door prop exists within 700
-     * units of that point, checked directly against the level's own extracted data. This is not
-     * a geometry problem to solve again. It is a known bad point, on the record, and the fix is
-     * to say so and steer away from it, the same way a person who has hit the same wall three
-     * times stops trying the same door and starts walking around the building.
+    /* ONE NAVIGATION DECISION, not five that can disagree.
      *
-     * A short table, not one point, because the same class of defect will have other instances
-     * on other levels and this is where the next one gets added: measured centre, a radius wide
-     * enough to matter, walk directly away while inside it. No pathfinding here on purpose --
-     * this is a wall sign, not a router. The router (geWorldNextPortal, gePortLocalPath) is what
-     * decides where to go once outside the sign's radius. */
+     * This used to be a hard-coded no-go zone (one bad point, found and blocked by hand), a
+     * sensor-triggered avoidance hold, and a stuck/detour timer with its own escalation -- three
+     * independently triggered systems, each added to fix one measured symptom, each able to
+     * overwrite the others' steering in the same frame. Watched live: the no-go zone's repulsor
+     * and the objective standoff's attractor were caught pulling opposite ways in the same spot,
+     * neither winning, while a guard shot the bot standing still between them.
+     *
+     * gePortNavTick (ge_bot_nav.c) replaces all three. It is a faithful, simplified port of
+     * Perfect Dark's chrNavTickMain -- the state machine guards themselves run, which does not
+     * have this failure mode by construction: one mode variable, one branch runs per tick, and
+     * its own retry/give-up counters (five ticks per attempt, matching the source) are what the
+     * stuck timer was reaching for by hand. */
     {
-        static const struct { float x, z, r; const char *why; } ge_br_no_go[] = {
-            { -1392.0f, -200.0f, 260.0f, "train: no door within 700u, use never opens anything here" },
-        };
-        int gi;
-        for (gi = 0; gi < (int) (sizeof ge_br_no_go / sizeof ge_br_no_go[0]); gi++) {
-            float nx = ge_br_no_go[gi].x - st.x, nz = ge_br_no_go[gi].z - st.z;
-            float nd2 = nx * nx + nz * nz;
-            if (nd2 < ge_br_no_go[gi].r * ge_br_no_go[gi].r) {
-                float nb = (float) (atan2((double) -nx, (double) -nz) * 180.0 / 3.14159265358979);
-                float ne = ge_br_norm180(nb - ge_br_heading);
-                float nsx = (float) ge_br_sign_of() * ne * GE_BR_TURN_GAIN;
-                if (nsx >  GE_BR_STICK_MAX) { nsx =  GE_BR_STICK_MAX; }
-                if (nsx < -GE_BR_STICK_MAX) { nsx = -GE_BR_STICK_MAX; }
-                memset(&in, 0, sizeof in);
-                in.stick_x = (signed char) nsx;
-                in.stick_y = (signed char) (GE_BR_WALK * (1.0f - (float) fabs((double) ne) / 180.0f));
-                gePlayerPost(ge_br_slot, gePlayerTick() + 1, &in, 1);
-                if (ge_br_trace && (frame % 20) == 0) {
-                    printf("[getv][botroute] inside no-go zone (%.0f from %s) -- walking away, not"
-                           " re-deriving\n", (double) sqrt((double) nd2), ge_br_no_go[gi].why);
-                    fflush(stdout);
-                }
-                return;
-            }
-        }
+        extern void gePortNavTick(GeNavState *nav, float px, float pz, float target_x,
+                                  float target_z, float *out_aim_x, float *out_aim_z);
+        static GeNavState nav;
+        float aim_x, aim_z;
+
+        gePortNavTick(&nav, st.x, st.z, ge_br_nav_target_x, ge_br_nav_target_z, &aim_x, &aim_z);
+        dx = aim_x - st.x;
+        dz = aim_z - st.z;
+        ge_br_nav_aim_x = aim_x;
+        ge_br_nav_aim_z = aim_z;
     }
 
 steer:
@@ -1216,355 +1231,6 @@ steer:
      * by what is there. A door is not an obstacle to something with a hand; a crate is not a wall
      * you turn away from if there is a gap beside it; a body will move on its own.
      */
-    {
-        GeSenseContact c;
-
-        /* GE_SENSE_SOLID, not "anything": the line starts at the bot's own feet, so its own
-         * collision sets GE_SENSE_BODY on every reading and testing for "not clear" makes every
-         * direction on every level look blocked. */
-        /* An avoidance manoeuvre already under way runs to completion, whatever the sensor says
-         * this frame.
-         *
-         * The hold used to live inside the branch below, so it only applied while the sensor kept
-         * reporting a contact. The sensor does not: it flickers clear and back within a frame or
-         * two, and on those frames the plain steering ran instead with a different sign. The
-         * recorder shows the result as alternating input on consecutive frames -- +56 with
-         * movement, then -80 without -- which leaves the heading rocking inside a six degree band
-         * and the position moving one unit in ten seconds. Two controllers, each correct in
-         * isolation, cancelling.
-         *
-         * Committing means committing to the whole manoeuvre, not to as much of it as the sensor
-         * happens to agree with. */
-        if (ge_br_avoid > 0) {
-            float turn2 = ge_br_norm180(ge_br_avoid_h - ge_br_heading);
-            float sx3 = -turn2 * GE_BR_TURN_GAIN;
-
-            ge_br_avoid--;
-            if (sx3 >  GE_BR_STICK_MAX) { sx3 =  GE_BR_STICK_MAX; }
-            if (sx3 < -GE_BR_STICK_MAX) { sx3 = -GE_BR_STICK_MAX; }
-            in.stick_x = (signed char) sx3;
-            in.stick_y = (signed char) (GE_BR_WALK * 0.6f);
-
-        } else if (geSenseAheadForBody(st.x, st.z, ge_br_heading, GE_BR_LOOKAHEAD, &c)
-            && ((c.what & GE_SENSE_SOLID) || (c.what & GE_SENSE_DOOR))) {
-
-            /* Commit TO A response and hold IT.
-             *
-             * Deciding afresh every tick is what pinned the bot: 53 units from a doorway the
-             * sensor alternated DOOR and OBJECT, so it alternated "walk through" and "steer
-             * aside", turned between 278 and 330 degrees for the rest of the run, and travelled
-             * nowhere. Same failure as re-picking the detour side every frame, and the same fix:
-             * choose once, hold long enough for the manoeuvre to finish, then look again.
-             *
-             * A door wins over an object when both are seen, because a doorway usually has a
-             * frame beside it and the frame is what reads as OBJECT. Steering away from a door
-             * because of its own frame is precisely the wrong move. */
-            ge_br_logf((int) frame, "contact", ge_br_last_target, gePortNavNearestPad(st.x, st.z),
-                       st.x, st.z, ge_br_heading, bearing, c.distance, 0, 0,
-                       (c.what & GE_SENSE_DOOR) ? "door"
-                       : (c.what & GE_SENSE_WALL) ? "wall"
-                       : (c.what & GE_SENSE_OBJECT) ? "object" : "body");
-            if ((c.what & GE_SENSE_DOOR) && ge_br_door_ahead(&st, bearing)) {
-                /* Walk INTO it while pressing use. Stopping to open a door and then deciding to
-                 * walk is two decisions where the game wants one, and the door shuts again. */
-                in.buttons |= GE_IN_USE;
-                in.stick_y = (signed char) GE_BR_WALK;
-                in.stick_x = 0;                 /* straight at it: a door opens where it is */
-                ge_br_use = GE_BR_USE_TICKS;    /* hold, so one frame of OBJECT cannot cancel it */
-                if (ge_br_trace && (frame % 60) == 0) {
-                    printf("[getv][botroute] door %.0fu ahead -- opening and walking through\n",
-                           (double) c.distance);
-                    fflush(stdout);
-                }
-            } else {
-                /* Wall, crate or body: steer to the nearest heading that is actually open rather
-                 * than to a side picked from the sign of the error. Full circle, because a bot in
-                 * a corner has its heading pointed at the obstacle by definition. */
-                /* BODY-AWARE. The line version has no width, so the crate/wall gap the bot
-                 * keeps wedging itself into passes it and gets reported as the clearest heading
-                 * available -- the router then commits to the one direction it cannot fit
-                 * through, and the trace says it chose correctly every time. */
-                float edge_h = 0.0f;
-                int   edge_ok = ge_br_use_edges
-                              ? ge_br_edge_heading(st.x, st.z, wp.x, wp.z, &edge_h)
-                              : 0;
-                int   engine_said = 0;
-                float open_h = ge_br_use_clear
-                             ? ge_br_clear_heading(st.x, st.z, bearing, &engine_said)
-                             : 0.0f;
-                ge_br_logf((int) frame, "edgetry", ge_br_last_target,
-                           gePortNavNearestPad(st.x, st.z), st.x, st.z,
-                           ge_br_heading, bearing, 0.0f, 0, 0,
-                           edge_ok ? "hit" : "no-block-reported");
-                if (edge_ok) {
-                    open_h = edge_h;
-                    engine_said = 1;
-                    ge_br_logf((int) frame, "edge", ge_br_last_target,
-                               gePortNavNearestPad(st.x, st.z), st.x, st.z,
-                               ge_br_heading, bearing, edge_h, 0, 0, "round-the-edge");
-                }
-                if (!engine_said) {
-                    /* Centred on the bearing, not on the current heading.
-                     *
-                     * Sweeping from where the bot faces answers "which way is open from here" --
-                     * the right question for an atlas, the wrong one for a follower. The nearest
-                     * opening to its nose can be the opposite side from its waypoint, and the
-                     * avoidance branch then overwrites the steering with the opposite sign: the
-                     * recorder caught the steering asking -66 while the posted stick was +80,
-                     * cancelling, with the heading frozen for the rest of the run.
-                     *
-                     * Centred on the bearing, avoiding an obstacle and pursuing the waypoint can
-                     * no longer disagree about which way is left. */
-                    open_h = geSenseClearestHeadingForBody(st.x, st.z,
-                                                           ge_br_recentre ? bearing : ge_br_heading,
-                                                           180.0f, GE_BR_LOOKAHEAD, NULL);
-                }
-                float turn = ge_br_norm180(open_h - ge_br_heading);
-
-                /* Hold this heading for the manoeuvre rather than re-deciding next tick. */
-                ge_br_avoid_h = open_h;
-                ge_br_avoid = GE_BR_AVOID_TICKS;
-
-                if (turn != 0.0f) {
-                    float sx2 = -turn * GE_BR_TURN_GAIN;
-                    if (sx2 >  GE_BR_STICK_MAX) { sx2 =  GE_BR_STICK_MAX; }
-                    if (sx2 < -GE_BR_STICK_MAX) { sx2 = -GE_BR_STICK_MAX; }
-                    in.stick_x = (signed char) sx2;
-
-                    /* Keep walking while turning, but slower the sharper the turn: driving at
-                     * full speed into the thing being avoided is how the bot got wedged. */
-                    {
-                        float ease = 1.0f - ((float) fabs((double) turn) / 180.0f);
-                        if (ease < 0.15f) { ease = 0.15f; }
-                        in.stick_y = (signed char) (GE_BR_WALK * ease);
-                    }
-                }
-                if (ge_br_trace && (frame % 60) == 0) {
-                    printf("[getv][botroute] %s%s%s %.0fu ahead -- steering %+.0f deg to open ground\n",
-                           (c.what & GE_SENSE_WALL) ? "wall " : "",
-                           (c.what & GE_SENSE_OBJECT) ? "object " : "",
-                           (c.what & GE_SENSE_BODY) ? "body " : "",
-                           (double) c.distance, (double) turn);
-                    fflush(stdout);
-                }
-            }
-        }
-    }
-
-    /* Detour when scraping geometry.
-     *
-     * A route promises its waypoints are connected, not that the straight line between them is
-     * clear -- and the spawn is not on the graph at all. Nothing in the state readout says
-     * "blocked", so it is inferred: commanded forward, aligned, and not moving is a combination
-     * that cannot happen on open floor.
-     *
-     * The response is the cheap half of a bug-following walk: turn a fixed amount and keep
-     * walking so the bot slides along rather than pressing in. The side is chosen once and held
-     * for the whole detour, because re-deciding each tick oscillates against the wall.
-     *
-     * Not a pathfinder. It clears a scraped wall; it will not solve a concave dead end. */
-    {
-        float moved = (st.x - ge_br_px) * (st.x - ge_br_px)
-                    + (st.z - ge_br_pz) * (st.z - ge_br_pz);
-
-        if (ge_br_use > 0) {
-            /* Press USE and keep walking into it. Both matter: the button opens the door and the
-             * forward pressure carries the bot through as soon as it swings, without waiting for
-             * another stuck cycle to notice the way is now clear. */
-            ge_br_use--;
-            in.buttons |= GE_IN_USE;
-            in.stick_y = (signed char) GE_BR_WALK;
-        } else if (ge_br_detour > 0) {
-            ge_br_detour--;
-            in.stick_x = (signed char) (ge_br_detour_sign * GE_BR_STICK_MAX);
-            in.stick_y = (signed char) GE_BR_WALK;
-        } else if (in.stick_y > 0 && moved < (GE_BR_MOVE_EPSILON * GE_BR_MOVE_EPSILON)) {
-            ge_br_stuck++;
-            /* Try the door first. Turning away from a closed door is the wrong move and it looks
-             * exactly like the right one -- the bot makes progress along a wall and comes back.
-             * Trying the button costs 45 ticks and settles it.
-             *
-             * Gating this on a real nearby Door prop was tried: the level data proves the sensor's
-             * DOOR bit is unreliable here (no Door prop within 700 units of where this fires on
-             * Train), so the gate is factually correct -- and it reproducibly made progress WORSE,
-             * 6.8m against 13.4m, identically across two runs. Not diagnosed before time ran out.
-             * Reverted rather than shipped; the finding (the sensor bit is wrong here) stands even
-             * though this particular fix for it does not. */
-            if (ge_br_stuck == GE_BR_STUCK_TICKS / 2) {
-                ge_br_use = GE_BR_USE_TICKS;
-                if (ge_br_trace) {
-                    printf("[getv][botroute] stuck at (%.0f %.0f) -- trying the action button\n",
-                           (double) st.x, (double) st.z);
-                    fflush(stdout);
-                }
-            }
-            if (ge_br_stuck >= GE_BR_STUCK_TICKS) {
-                /* Ask the floor which way is open rather than guessing.
-                 *
-                 * Picking a side from the sign of the heading error is a coin toss against real
-                 * geometry. gePortProbeStandable is the engine's own stan query -- the one spawn
-                 * placement uses -- so candidate directions can be tested for floor first.
-                 *
-                 * Swept narrowest-first from straight ahead, so a bot in a doorway prefers a
-                 * small correction and does not spin when both sides are open.
-                 *
-                 * Standable is not reachable: a tile through a wall still answers yes. A better
-                 * guess, not a path, and the detour timer bounds the commitment. */
-                extern int gePortProbeStandable(float x, float y, float z, float radius,
-                                                float *out_y, int *out_room);
-                extern int gePortProbeWalkable(float from_x, float from_z,
-                                               float to_x, float to_z);
-                /* The full circle, not a forward cone.
-                 *
-                 * A cone of +/-110 degrees cannot consider retreating, and a bot pressed into a
-                 * corner has its heading pointed at the wall by definition -- so every direction
-                 * it can see is blocked and it reports no floor anywhere while standing on plenty
-                 * of it. Measured: 108 of 108 detours came back empty with the cone.
-                 *
-                 * Ordered by how far each option turns from straight ahead, so the bot still
-                 * prefers the small correction and only turns round when nothing else is open. */
-                static const float sweep[12] = {
-                     35.0f,  -35.0f,  70.0f,  -70.0f, 110.0f, -110.0f,
-                    145.0f, -145.0f, 180.0f,    0.0f,  20.0f,  -20.0f
-                };
-                const float reach = 220.0f;
-                int i, chose = 0;
-
-                /* Baseline from the FLOOR under the bot, not from its position.
-                 *
-                 * gePlayerStateGet reports the body position and the stan query reports the
-                 * tile it is standing on, and on Bunker 1 those differ by 157 units -- pos.y=329
-                 * against selfy=172. Comparing a probed floor height against the body height
-                 * therefore shows a 157-unit cliff in EVERY direction, so the walkability test
-                 * rejected all twelve and reported the bot boxed in while it stood on open floor.
-                 *
-                 * Probing from the floor makes the comparison like-for-like. Falls back to the
-                 * body position if there is somehow no tile underneath, which should not happen
-                 * to a standing player and is not worth failing over. */
-                float base_y = st.y;
-                {
-                    float fy0;
-                    if (gePortProbeStandable(st.x, st.y, st.z, 60.0f, &fy0, NULL)) {
-                        base_y = fy0;
-                    }
-                }
-
-                for (i = 0; i < 12 && !chose; i++) {
-                    float a = (ge_br_heading + sweep[i]) * 3.14159265358979f / 180.0f;
-                    float sn = (float) sin((double) a), cs = (float) cos((double) a);
-                    float fy = base_y, prev_y = base_y;
-                    int step, walkable = 1;
-
-                    /* Walk the ray; do not just probe its end.
-                     *
-                     * A probe at the far end asks "is there floor there", and the tile beyond a
-                     * wall answers yes -- which chose the first sweep direction every time.
-                     *
-                     * Sampling along the ray approximates reachability instead: a wall appears as
-                     * a gap with no standable tile, a drop as a height jump between neighbours.
-                     * Every sample must be standable and within one step-up of the last.
-                     *
-                     * Not a proof -- samples are 55 units apart and a thin wall between two of
-                     * them is invisible. A better guess, bounded by the detour timer. */
-                    /* Walls first, and this is the term that was missing.
-                     *
-                     * The sampled version below asks stan, and stan does not know about walls --
-                     * it snaps to the nearest standable tile rather than testing a point, so it
-                     * answered yes in every direction while the bot could not cross x=-1361. A
-                     * floor map of this spawn showed 840x840 units of open floor and no wall
-                     * anywhere. gePortProbeWalkable is the engine's own line test with CDTYPE_BG,
-                     * so it sees the geometry that actually refuses the move. */
-                    if (!gePortProbeWalkable(st.x, st.z, st.x + sn * reach, st.z + cs * reach)) {
-                        continue;
-                    }
-
-                    /* Then the floor, which the line test does not check: an unobstructed line
-                     * can still cross a hole or a drop, and stan is the right authority for
-                     * where the ground is and how high. The two answer different questions and
-                     * both are needed. */
-                    for (step = 1; step <= 4 && walkable; step++) {
-                        float d = reach * ((float) step / 4.0f);
-                        float sy;
-                        if (!gePortProbeStandable(st.x + sn * d, prev_y, st.z + cs * d,
-                                                  60.0f, &sy, NULL)) {
-                            walkable = 0;
-                            break;
-                        }
-                        /* GE_BR_MAX_STEP is a step, not a cliff: the engine will not carry a
-                         * walking body up more than this, and letting it through picks floors
-                         * that are only reachable by falling. */
-                        if (sy - prev_y > GE_BR_MAX_STEP || prev_y - sy > GE_BR_MAX_DROP) {
-                            walkable = 0;
-                            break;
-                        }
-                        prev_y = sy;
-                        fy = sy;
-                    }
-
-                    if (walkable) {
-                        ge_br_detour_sign = (sweep[i] < 0.0f) ? -1.0f : 1.0f;
-                        chose = 1;
-                        if (ge_br_trace) {
-                            printf("[getv][botroute] blocked at (%.0f %.0f) -- floor found at "
-                                   "%+.0f deg, y=%.0f, detouring %s\n",
-                                   (double) st.x, (double) st.z, (double) sweep[i], (double) fy,
-                                   (ge_br_detour_sign < 0.0f) ? "left" : "right");
-                            fflush(stdout);
-                        }
-                    }
-                }
-
-                if (!chose) {
-                    /* No floor anywhere in the sweep means the bot is in a pocket the graph did
-                     * not model. Turning towards the target is the least-bad move and it is worth
-                     * SAYING so, because silently detouring here looks like ordinary progress. */
-                    ge_br_detour_sign = (err < 0.0f) ? -1.0f : 1.0f;
-                    if (ge_br_trace) {
-                        /* Self-probe: if the query cannot find floor where the bot is STANDING,
-                         * the fault is in how it is being called, not in the level. */
-                        float selfy = st.y;
-                        int selfok = gePortProbeStandable(st.x, st.y, st.z, 60.0f, &selfy, NULL);
-                        printf("[getv][botroute] blocked at (%.0f %.0f y=%.0f) -- NO floor swept; "
-                               "self-probe=%d selfy=%.0f\n",
-                               (double) st.x, (double) st.z, (double) st.y, selfok, (double) selfy);
-                        fflush(stdout);
-                    }
-                }
-
-                /* escalate ON repeat, DO not just retry. Same spot as the last detour (within
-                 * GE_BR_STUCK_REPEAT_RADIUS) means the previous commitment was not enough to
-                 * clear whatever this is, and pursuit will otherwise walk the bot straight back
-                 * in exactly DETOUR_TICKS frames to try the identical sweep and get the identical
-                 * answer. A different spot means a different problem and gets a clean slate. */
-                if (ge_br_stuck_last_valid) {
-                    float ddx = st.x - ge_br_stuck_last_x, ddz = st.z - ge_br_stuck_last_z;
-                    if (ddx * ddx + ddz * ddz
-                        <= GE_BR_STUCK_REPEAT_RADIUS * GE_BR_STUCK_REPEAT_RADIUS) {
-                        if (ge_br_stuck_repeat < GE_BR_STUCK_ESCALATE_MAX - 1) {
-                            ge_br_stuck_repeat++;
-                        }
-                    } else {
-                        ge_br_stuck_repeat = 0;
-                    }
-                }
-                ge_br_stuck_last_x = st.x;
-                ge_br_stuck_last_z = st.z;
-                ge_br_stuck_last_valid = 1;
-
-                ge_br_detour = GE_BR_DETOUR_TICKS * (1 + ge_br_stuck_repeat);
-                if (ge_br_trace && ge_br_stuck_repeat > 0) {
-                    printf("[getv][botroute] same trap again (%d in a row) -- detour held for %d "
-                           "ticks instead of %d\n",
-                           ge_br_stuck_repeat + 1, ge_br_detour, GE_BR_DETOUR_TICKS);
-                    fflush(stdout);
-                }
-                ge_br_stuck = 0;
-            }
-        } else {
-            ge_br_stuck = 0;
-        }
-    }
-
     /* Ask the door, the way the guards do -- on A timer, not on A sensor verdict.
      *
      * First attempt put this inside the branch that fires when the sensor says DOOR, and it never
@@ -1572,17 +1238,17 @@ steer:
      * The guards do not wait to be told there is a door either. chraction.c:9202 sweeps for one
      * every tenth tick no matter what it thinks is ahead, and lets the sweep answer.
      *
-     * The sweep is aimed at where the bot is TRYING to go rather than where it faces, because a
-     * bot wedged against a crate is facing the crate and the door is the thing past it.
+     * Aimed at gePortNavTick's own current aim point, not a synthetic projection along the
+     * heading -- PD's own version (chrOpenDoor, called from chrNavTickMain) sweeps toward
+     * waydata->aimposobj, the state machine's actual target, for the same reason: a bot wedged
+     * against a crate is facing the crate, and the door is on the way to wherever the nav state
+     * machine has decided to go around it, which is not necessarily where the body is pointed.
      *
      * Reports LOCKED, and does not open it. A locked door is not an obstacle to be steered
      * around -- it is an errand: a guard is carrying the key and has to be dealt with first.
      */
     if ((frame % 10) == 0) {
-        float rad = bearing * 3.14159265f / 180.0f;
-        float ax = st.x + sinf(rad) * 150.0f;
-        float az = st.z + cosf(rad) * 150.0f;
-        int r = gePortOpenDoorAhead(ge_br_slot, ax, az);
+        int r = gePortOpenDoorAhead(ge_br_slot, ge_br_nav_aim_x, ge_br_nav_aim_z);
 
         if (r == -2 && ge_br_locked_seen == 0) {
             ge_br_locked_seen = 1;
