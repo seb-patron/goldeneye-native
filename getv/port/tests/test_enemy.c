@@ -174,7 +174,7 @@ int main(void)
      * about to arrive and the one a proximity query would miss. Meanwhile (900,900) has nobody
      * near it and exactly one enemy converging on it.
      *
-     * NOT counted, and both exclusions are load-bearing:
+     * NOT counted, and both exclusions are necessary:
      *   13 believes the origin too, but is dead.
      *   16 is alive and believes nothing -- it reports GE_EN_POSITION only. An enemy whose belief
      *      cannot be read must not be counted as holding one. This assertion said 4 when it was

@@ -35,13 +35,13 @@ if (-not (Test-Path $gcc)) { throw "gcc not found at $gcc -- pass -Mingw <prefix
 # real compile exits 1, and NOTHING is printed -- a valid file fails exactly like a broken one.
 #
 # That signature cost three separate wrong conclusions on this machine, including "this
-# environment cannot compile" told to another agent twice. An empty failure is the symptom; this
-# line is the cure.
+# environment cannot compile" written down twice before the real cause was found. An empty
+# failure is the symptom; this line is the cure.
 if ($env:PATH -notlike "*$Mingw\bin*") { $env:PATH = "$Mingw\bin;$env:PATH" }
 
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 
-# Mirrors $portFlags in build_windows.ps1. The forced-include of ge_win_compat.h is load-bearing:
+# Mirrors $portFlags in build_windows.ps1. The forced-include of ge_win_compat.h is required:
 # without it the decomp's PR headers do not supply s32/u16/OSContPad and every file fails on the
 # base types, which reads as a broken toolchain rather than a missing flag.
 $flags = @(

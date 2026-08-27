@@ -85,7 +85,7 @@ class Follower:
         # Forward speed falls off with heading error and reaches zero past the alignment limit,
         # so the bot pivots rather than arcing away when it is badly off.
         #
-        # THIS IS THE LOAD-BEARING PART OF THE LAW. Turning radius is speed divided by turn
+        # THIS IS THE PART OF THE LAW THAT ACTUALLY MATTERS. Turning radius is speed divided by turn
         # rate: at full speed that is about 114 units here, far outside a tight arrival radius,
         # so a bot that walks flat out while turning cannot reach its own waypoint and orbits it
         # instead. Scaling speed by alignment shrinks the radius exactly when it needs to be
@@ -133,7 +133,7 @@ def simulate(route_steps, follower, max_ticks=20000, dead_reckon=False):
             # here while the comment claimed it kept the last estimate, so a stationary bot was
             # handed ground truth -- and that is exactly the state the real one cannot escape.
             # The model therefore passed dead reckoning 61/61 while the shipped bot deadlocked
-            # on Bunker 1 for 1100 frames with the stick hard over, which mac-getv measured.
+            # on Bunker 1 for 1100 frames with the stick hard over, measured on a live run.
             #
             # A stale estimate persists here now, as it does in C: wrong, and staying wrong
             # until the bot actually moves.

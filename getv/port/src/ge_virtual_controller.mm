@@ -60,7 +60,7 @@ void gePortVirtualControllerInit(void)
          * player tapped Start Mission. The thumbstick wins because port_input.c's own
          * geControllerIsReal() gate requires LEFTX/LEFTY/RIGHTX axes before it will
          * bind a pad to a port at all -- the d-pad alone would not even pass that
-         * check, so it was never load-bearing here. */
+         * check, so the d-pad binding was never actually used here. */
         GCVirtualControllerConfiguration *config = [[GCVirtualControllerConfiguration alloc] init];
         config.elements = [NSSet setWithArray:@[
             GCInputLeftThumbstick, GCInputRightThumbstick,

@@ -736,7 +736,7 @@ Two details worth knowing, because both look like mistakes and are not:
   objects for `init.c`, `sched.c` and `rmon.c` are never dragged in. Linking `build-mac/obj/*.o`
   directly has no such filter and fails with around 30 undefined N64 linker-script and hardware
   symbols.
-- **`-dead_strip` is load-bearing, not an optimisation.** Without it the link fails on six
+- **`-dead_strip` is required, not an optimisation.** Without it the link fails on six
   undefined symbols - `osEepromRead`, `osEepromWrite`, `osViSetMode`, `osPiReadIo` and the two
   `_{e,j}fontchardataSegmentRomStart` linker-script symbols - every one referenced only from a
   function this port never calls. `ld64` dead-strips before it checks for undefined symbols, so a

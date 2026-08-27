@@ -107,7 +107,7 @@ def globals_of(rel):
 # tentative definition, so the object lands where the "declaration" is rather than where its
 # initialiser is.
 #
-# In the stan assets that is load-bearing and wrong. Every generated stan file opens with
+# In the stan assets that matters and is wrong. Every generated stan file opens with
 #
 #     StandTile Tbg_sev_all_p_stanZ_tile_0;      <- under a "// forward declarations" comment
 #     StandFileHeader Tbg_sev_all_p_stanZ = { NULL, &..._tile_0, ... };

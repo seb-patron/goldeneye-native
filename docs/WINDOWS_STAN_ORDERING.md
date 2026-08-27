@@ -1,19 +1,18 @@
 # Windows: the world did not render
 
-Resolved 2026-08-24. This is the record for the bug `docs/WINDOWS_HANDOFF.md` was written to
-hand over: on Windows the game ran, characters and props rendered and animated, and the level
-geometry did not.
+Resolved 2026-08-24. On Windows the game ran, characters and props rendered and animated, and
+the level geometry did not.
 
-The cause was not in the renderer, the culler, or any of the four suspects the handoff listed.
-It was the **order GCC emits `.data` in**, which shattered the stan tile run that the engine
-walks by pointer arithmetic.
+The cause was not in the renderer or the culler, and not any of the usual toolchain suspects
+(bitfield layout, endianness, LLP64 struct drift). It was the **order GCC emits `.data` in**,
+which shattered the stan tile run that the engine walks by pointer arithmetic.
 
 ---
 
 ## 1. What the measurement said
 
-The handoff's first instruction was to run the macOS reference on Windows and diff it. That
-split the search immediately, though not the way it predicted.
+The standard first move on a rendering discrepancy is to run the macOS reference build on
+Windows and diff the two. That split the search immediately, though not the way it predicted.
 
 ```
 set GETV_STAGE=9
@@ -30,7 +29,7 @@ goldeneye.exe > cull.log 2>&1
 | `cur` | infront=4/8 nvtx=326 | 8/8 nvtx=0 |
 
 `BEHIND=0`, so nothing was being culled away. The player was simply in **room 0**, which on
-this level has no portals and no geometry — `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
+this level has no portals and no geometry -- `GETV_ROOMTRACE=1` showed `pri=NULL vtx=NULL
 adj=0`, so the portal walk had nowhere to go and the draw list contained one empty room.
 
 `g_BgCurrentRoom` comes from `bondviewGetCurrentPlayersRoom()` (bondview2.c), which reads
@@ -44,7 +43,7 @@ The line that named the cause was already being printed:
 ```
 
 **One tile.** The entire level's stan was a single tile, and the player's tile pointer
-(`...218`) was the zero word 32 bytes past it — not a tile at all, which is why `room` read 0.
+(`...218`) was the zero word 32 bytes past it -- not a tile at all, which is why `room` read 0.
 
 ---
 
@@ -101,10 +100,10 @@ and `extern` added to the forward declaration in all 29 files under
 ```
 
 Scoped to assets deliberately. The game batch is code; the only place adjacency of top-level
-data is load-bearing is the level data. `src/snd.c`'s "declaration order matters" comment is
+data actually matters is the level data. `src/snd.c`'s "declaration order matters" comment is
 about stack locals for matching and is unrelated.
 
-Verified at the object level before rebuilding — header first, then tiles contiguous at
+Verified at the object level before rebuilding -- header first, then tiles contiguous at
 exactly their byte sizes, nothing in `.bss`:
 
 ```
@@ -132,12 +131,12 @@ is 329 against macOS's 331, a two-triangle difference at the same frame index.
 
 Downstream symptoms that were the same bug and are now gone without being touched:
 
-- **`[getv][nostan]` unplaced objects: 4 → 0.** Objects whose pad lookup returned a null stan
+- **`[getv][nostan]` unplaced objects: 4 -> 0.** Objects whose pad lookup returned a null stan
   were failing because the tile walk could not reach their tiles.
-- **The weapon and right hand render.** `WINDOWS_HANDOFF.md` recorded `hinv=1/0` as "the right
-  hand is invisible, so no weapon is drawn" and listed it as a known harness gap. `hinv=1/0`
-  is `hand_invisible[0]=1, [1]=0` — the **left** hand hidden, which is correct for a
-  one-handed PP7. The frame capture shows the PP7 drawn with the ammo HUD reading `7 | 93`.
+- **The weapon and right hand render.** `hinv=1/0` had been recorded as "the right hand is
+  invisible, so no weapon is drawn" and logged as a known harness gap. `hinv=1/0` is actually
+  `hand_invisible[0]=1, [1]=0` -- the **left** hand hidden, which is correct for a one-handed
+  PP7. The frame capture shows the PP7 drawn with the ammo HUD reading `7 | 93`.
 
 ---
 

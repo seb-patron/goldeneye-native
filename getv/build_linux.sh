@@ -57,7 +57,7 @@
 #   defines  -DGE_PLATFORM_MAC + DESKTOP   -DGE_PLATFORM_DESKTOP only
 #   link     -framework OpenGL/Cocoa/...   -lGL -lm -ldl -lpthread + SDL2's own libs
 #
-# GE_PLATFORM_DESKTOP is the load-bearing define, not GE_PLATFORM_MAC. It carries the
+# GE_PLATFORM_DESKTOP is the define that actually matters, not GE_PLATFORM_MAC. It carries the
 # keyboard-as-port-0 device (port_input.c) and the resizable 1280x960 window
 # (port_support.c, ge_tvos_main.c). Without it this build would come up at a fixed
 # 1920x1080 with no keyboard, which is the tvOS arrangement. GE_PLATFORM_MAC is now only
@@ -216,7 +216,7 @@ cmd_sdl() {
 # --------------------------------------------------------------------- game objects
 # Identical to build_mac.sh's CFLAGS except for the target triple and sysroot, which have
 # no Linux equivalent and are simply absent: the native compiler already targets the host
-# and already knows where its headers are. Every remaining flag is load-bearing and is
+# and already knows where its headers are. Every remaining flag is required and is
 # documented at length in build_sim.sh:
 #   -fms-extensions            anonymous struct/union members the decomp relies on
 #   -include ge_port_decls.h   prototypes; IDO allowed implicit declarations
@@ -461,7 +461,7 @@ cmd_lib() {
   # favourably. Clang emits in source order, which is why macOS never showed it.
   #
   # Assets only, deliberately: the game batch is code, and the only place adjacency of
-  # top-level data is load-bearing is the level data.
+  # top-level data actually matters is the level data.
   (cd "$DECOMP" && find assets -name '*.c' ! -name '*.inc.c' \
       ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' | sort) \
     | run_batch "linux assets" "${CFLAGS[@]}" -fno-toplevel-reorder -fno-zero-initialized-in-bss

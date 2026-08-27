@@ -160,6 +160,34 @@ index e7222e0..937d72b 100644
      typedef u32 size_t;
      typedef s32 ssize_t;
      typedef u32 uintptr_t;
+diff --git a/include/platform_info.h b/include/platform_info.h
+index c6ba892..3000800 100644
+--- a/include/platform_info.h
++++ b/include/platform_info.h
+@@ -1,7 +1,22 @@
+ #ifndef PLATFORM_INFO_H
+ #define PLATFORM_INFO_H
+ 
+-#ifdef TARGET_N64
++/* GE_PORT_NATIVE wins over TARGET_N64 when both are defined, which they are for every
++ * native port build (build_windows.ps1's game batch passes both). TARGET_N64 stays set on
++ * those builds for unrelated asset-format reasons, but this header cannot tell that apart
++ * from a real N64 target unless it checks for GE_PORT_NATIVE explicitly -- and the old
++ * unconditional check made IS_BIG_ENDIAN/IS_64_BIT wrong on every native build, always
++ * reporting the N64's own big-endian, 32-bit shape.
++ *
++ * That is not hypothetical: PR/gbi.h's Gfx union gates its bitfield struct views (Gdma,
++ * Gtri, Gsettile, ...) on `IS_BIG_ENDIAN && !IS_64_BIT`, so those wrong values were exposing
++ * struct layouts that assume big-endian bit order and 4-byte pointers -- wrong twice over on
++ * a little-endian, 8-byte-pointer host. lightfixture.c and unk_092E50.c both document this
++ * trap and route around it by reading raw words and shifting instead of using the views; no
++ * code anywhere in this tree actually dereferences the affected union members (verified by
++ * grepping every member name gbi.h declares there), so correcting the values here changes
++ * nothing for code that already works and removes the trap for anything written next. */
++#if defined(TARGET_N64) && !defined(GE_PORT_NATIVE)
+ #define IS_64_BIT 0
+ #define IS_BIG_ENDIAN 1
+ #else
 diff --git a/include/stdarg.h b/include/stdarg.h
 index 3303fdc..82b3924 100644
 --- a/include/stdarg.h
@@ -30891,13 +30919,17 @@ index 498f54c..90d7596 100644
          D_800413C4 = 0.0f;
          D_800413C8 = D_800413CC;
 diff --git a/src/game/stan.h b/src/game/stan.h
-index d786087..78209d0 100644
+index d786087..f6625f2 100644
 --- a/src/game/stan.h
 +++ b/src/game/stan.h
-@@ -4,6 +4,52 @@
+@@ -4,20 +4,60 @@
  
  #include <bondtypes.h>
  
+-// RGB? I've called them 'triple' because I don't really know what RGB is
+-// No parens around params
+-#define STAN_TRIPLE_TO_PNT_INDEX(tile, tripleIndex) (tile->hdrTail >> (8 - 4*tripleIndex) & 0xF)
+-#define STAN_POINT_COUNT(tile) (tile->tail.half & 0xF)
 +/* ---------------------------------------------------------------------------
 + * StandTile bitfield endianness.
 + *
@@ -30931,7 +30963,11 @@ index d786087..78209d0 100644
 +#else
 +#define GE_NIB(half, beShift)  (((half) >> (beShift)) & 0xF)
 +#endif
-+
+ 
+-#define STAN_MID_SPECIAL(tile) (tile->mid.half & 0xF)
+-#define STAN_MID_R(tile) ((tile->mid.half >> 0x04) & 0xF)
+-#define STAN_MID_G(tile) ((tile->mid.half >> 0x08) & 0xF)
+-#define STAN_MID_B(tile) ((tile->mid.half >> 0x0C) & 0xF)
 +/* The packed tile name/id. On the N64 the first 32-bit word of a tile is laid out
 + * as [ idHi:16 | idLo:8 | room:8 ] and the code reaches into it with
 + * `*(u16 *)tile` and `((u8 *)tile)[2]`. Here it is the `u32 id : 24` bitfield plus
@@ -30943,10 +30979,22 @@ index d786087..78209d0 100644
 +#define GE_STAN_IDLO(tile)      ((tile)->id & 0xFF)
 +#define GE_STAN_VISITED(tile)   (((tile)->id >> 23) & 1)
 +#define GE_STAN_VISIT_FLIP(tile) ((tile)->id ^= 0x800000u)
-+
- // RGB? I've called them 'triple' because I don't really know what RGB is
- // No parens around params
- #define STAN_TRIPLE_TO_PNT_INDEX(tile, tripleIndex) (tile->hdrTail >> (8 - 4*tripleIndex) & 0xF)
+ 
+-#define STAN_TAIL_POINT_COUNT(tile) (tile->tail.half & 0xF)/*canonically getsides()*/
+-#define STAN_TAIL_C(tile) ((tile->tail.half >> 0x04) & 0xF)
+-#define STAN_TAIL_D(tile) ((tile->tail.half >> 0x08) & 0xF)
+-#define STAN_TAIL_E(tile) ((tile->tail.half >> 0x0C) & 0xF)
++/* STAN_TRIPLE_TO_PNT_INDEX / STAN_POINT_COUNT / STAN_MID_* / STAN_TAIL_* used to live here:
++ * raw shifts on tile->mid.half / tile->tail.half, the same pattern the endianness comment
++ * above exists to warn about, and never migrated to GE_NIB. Removed rather than fixed in
++ * place -- they were also unused (grep the tree before reaching for these names again) and
++ * independently wrong a second way, per stan.c:3049-3051: "the STAN_TAIL_* macro NAMES...
++ * are shifted by one relative to the struct members." Every real call site already reads
++ * GE_NIB(tile->tail.half, N) or GE_NIB(tile->mid.half, N) directly (stan.c:944,2242,3052-3054
++ * and others); that is the correct replacement, not a like-for-like port of these. */
+ 
+ struct move_bond_collision {
+     struct coord3d bondCollision;
 diff --git a/src/game/tex.c b/src/game/tex.c
 index 12c3ec1..4f54700 100644
 --- a/src/game/tex.c

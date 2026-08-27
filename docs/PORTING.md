@@ -61,8 +61,8 @@ This is a recommendation with reasons, not a preference:
   every Windows code path on `__MINGW32__` and nothing else. Under MSVC or clang-cl
   those files silently compile the *non*-Windows branch: `FOR_WINDOWS` is 0, GLEW is
   never included, and `glewInit()` at `gfx_opengl.c:784-788` never runs. The build
-  succeeds and then dies at the first GL 1.2+ entry point. Both files are owned by
-  other work in progress and were deliberately not edited; if you want an MSVC build, widening
+  succeeds and then dies at the first GL 1.2+ entry point. Both files are still in flux
+  elsewhere and were deliberately not edited here; if you want an MSVC build, widening
   those two gates to `defined(_WIN32)` is the first change to make.
 - `vendor/ge-decomp/include/PR/ultratypes.h:83-84` needs `__UINTPTR_TYPE__` and
   `__INTPTR_TYPE__`. MSVC does not define them; clang and GCC do.
@@ -140,11 +140,11 @@ macOS behaviour is unchanged; the proof is recorded in section 9.
 **Still outstanding, deliberately not changed:** `getv/port/src/port_audio.c:389-394`
 writes the `GETV_AUDIO_WAV` debug dump to `$HOME/Documents/getv_audio.wav` and decides
 whether a supplied path is absolute with `e[0] == '/'`. It is a debug-only gate in a
-file that was being changed concurrently. One line of work whenever it is next touched.
+file that is still in flux elsewhere. One line of work whenever it is next touched.
 
 ## 5. The renderer and window backend
 
-Both files were being changed concurrently and were read, not edited.
+Both files are still in flux elsewhere and were read, not edited.
 
 - `getv/port/fast3d/gfx_sdl2.c` - SDL2 throughout. Its only non-portable include is
   `<unistd.h>` at `:37`, which MinGW provides.
@@ -165,7 +165,7 @@ Estimate: **1 day**, mostly building GLEW static for the same triple as everythi
 ## 6. The crash handler
 
 `getv/Sources/ge_tvos_main.c:57-113` is the most Apple-specific code in the tree, and
-it is also load-bearing - it is what cracked the Perfect Dark TCC crash
+it also mattered - it is what cracked the Perfect Dark TCC crash
 and it is the primary debugging tool on this port.
 
 Non-portable pieces:
@@ -223,7 +223,7 @@ on the next line, so the pragmas are already redundant for the port; wrapping al
 in `#ifndef GE_PORT_NATIVE` is the same fix already applied to `spectrum.c`, and it is
 provable on macOS because the current behaviour is "ignored" either way.
 
-`objective_status.c` was being changed concurrently and was not edited.
+`objective_status.c` is still in flux elsewhere and was not edited.
 
 Estimate: **1 hour**, plus whatever it takes to agree on
 `objective_status.c`.
@@ -232,7 +232,7 @@ Estimate: **1 hour**, plus whatever it takes to agree on
 
 This is the item most likely to be mistaken for a compiler problem.
 
-`getv/build_mac.sh:239-252` documents that `-dead_strip` is load-bearing rather than an
+`getv/build_mac.sh:239-252` documents that `-dead_strip` is required rather than an
 optimisation: ld64 dead-strips **before** it checks for undefined symbols, so a
 reference from an unreachable function is not an error. Neither `lld-link /OPT:REF` nor
 GNU `ld --gc-sections` is guaranteed to behave that way - unresolved externals are
@@ -303,7 +303,7 @@ the port layer, and the macOS build is unchanged at 167/1, 746/0, 40/0, 24/0.
 `getv/port/fs/fs.h` was described here as likewise dead. It is not: `gfx_pc.c:30` and
 `port_support.c:17` both include it, so removing it breaks the build. It is one of the
 fifteen fetched third-party files and stays. Whether its declarations are ever implemented
-is a separate question; the header itself is load-bearing today.
+is a separate question; the header itself is still required today.
 
 Estimate: **1 hour.**
 

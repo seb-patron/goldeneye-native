@@ -1,14 +1,14 @@
-/* The player API: one seam, four consumers.
+/* The player API: one seam, every consumer.
  *
- * A bot, a network peer, a reinforcement-learning agent and an LLM over MCP all want the same
- * two things -- put controller input into a player slot on a numbered tick, and read out what
- * happened. This is that seam. Everything else wraps it; nothing wraps anything else.
- * See docs/PLAYER_API.md for the design and the evidence behind it.
+ * A bot, a network peer, a scripted replay -- anything that is not a human hand on a pad --
+ * wants the same two things: put controller input into a player slot on a numbered tick, and
+ * read out what happened. This is that seam. Everything else wraps it; nothing wraps anything
+ * else. See docs/PLAYER_API.md for the design and the evidence behind it.
  *
  * ---------------------------------------------------------------- how it attaches
  *
  * Through GoldenEye's own demo-playback hook, joySetPlaybackFunc() (src/joy.c:360), not through
- * the port's device layer. That choice is load-bearing:
+ * the port's device layer. That choice matters:
  *
  *   - it runs ON THE GAME THREAD, exactly once per frame, from joyConsumeSamplesWrapper()
  *     (joy.c:412 <- boss.c:594). The port's own GETV_SCRIPT path injects into GePadState, which
@@ -37,7 +37,7 @@
  * policies or from a network peer. ramromreplay.c:323,331 already uses that flip to let a human
  * abort a demo.
  *
- * A bot, a network peer and an RL agent are therefore the same thing, differing only in where
+ * A bot and a network peer are therefore the same thing, differing only in where
  * the four pad structs come from.
  *
  * ---------------------------------------------------------------- the unit is (input, delta)
@@ -123,7 +123,7 @@ unsigned long gePlayerTick(void);
  * a desync, and a caller that cannot tell the difference between "applied" and "too late" has
  * no way to detect it. Post ahead of time, not on the frame you want it.
  *
- * `tick == 0` means "the next tick", which is the common case for a local bot or an RL agent
+ * `tick == 0` means "the next tick", which is the common case for a local bot
  * stepping synchronously.
  *
  * `hold_ticks` is how long the input stays applied. See the note on the 2-frame rule below;
@@ -153,10 +153,10 @@ unsigned int gePlayerSeedFingerprint(void);
  *
  * Deliberately a flags word rather than a struct full of zeroes. Health, armour, angle, weapon
  * and ammo need accessors that can only be written where `struct player` is visible -- inside
- * the decompilation -- and that is a coordinated change with the other machine. Until it lands,
- * a caller must be able to tell "this field is not available in this build" from "this field is
- * genuinely zero". Returning 0 for an unavailable health would be a silent lie and would train
- * an agent on it. */
+ * the decompilation -- so exposing a new one means adding it on the decomp side too. Until it
+ * lands, a caller must be able to tell "this field is not available in this build" from "this
+ * field is genuinely zero". Returning 0 for an unavailable health would be a silent lie that the
+ * caller has no way to catch. */
 #define GE_ST_POSITION  (1u << 0)
 #define GE_ST_ROOM      (1u << 1)
 #define GE_ST_ANGLE     (1u << 2)

@@ -100,7 +100,7 @@ static s32 geCustomFxParams[6 * 8 + 2] = {
  *   GETV_AUDIO_DEBUG=N    report every N audio frames. 1 = every frame, 60 ~= once
  *                         per two seconds of video. Any other non-zero value works.
  *
- * The load-bearing numbers are rmsL/rmsR and pk. RMS is computed over the same buffer
+ * The numbers that matter are rmsL/rmsR and pk. RMS is computed over the same buffer
  * that is passed to SDL_QueueAudio, after the mixer has run, so a non-zero RMS is
  * proof that non-silent PCM reached the device -- not an inference from "the sequence
  * player says it is playing".
