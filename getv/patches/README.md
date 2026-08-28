@@ -15,8 +15,11 @@ Split by *when* they can be applied rather than by subject.
 | `0003-port-accessors.patch` | 44 KB, 1 file | `src/game/objective_status.c` | after `0001`, any time before building |
 | `0004-platform-info-native-endian.patch` | 1 file | `include/platform_info.h` | after `0001` |
 | `0005-stan-dead-endian-macros.patch` | 1 file | `src/game/stan.h` | after `0001` |
+| `0006-fov-live-setter.patch` | 1 file | `src/fr.c` | after `0001` |
 | `0007-load-trace.patch` | 1 file | asset load tracing | after `0001` |
 | `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c` | after `0001` |
+| `0009-freerun-divider.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
+| `0010-state-dump-player-position.patch` | 1 file | `src/game/objective_status.c` | after `0003`, whose copy of the file it edits |
 
 **Every patch here must be registered in both `tools/setup.sh` and `tools/setup-mac.sh`.** A
 patch that is committed but never applied by the setup scripts is invisible: the tree builds,
@@ -24,8 +27,9 @@ nothing complains, and the change simply is not there. That has now happened twi
 and then to `0007`, which is twice more than it should. If you add a patch, add it to both
 scripts in the same commit.
 
-`0006` is a Windows-side patch that has not been taken here, which is why the numbering skips
-it. The sequence is a record of what exists, not a promise that it is contiguous.
+The sequence is a record of what exists rather than a promise that it stays contiguous, so a
+gap is not automatically a mistake. Check it against both setup scripts before assuming either
+way.
 
 `0003` carries every accessor the port layer calls into the decomp: player position and angle,
 the enemy readout, prop extents, standability and path clearance, the engine's navigation graph,

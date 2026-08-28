@@ -1,0 +1,39 @@
+--- a/src/game/objective_status.c
++++ b/src/game/objective_status.c
+@@ -1530,18 +1530,30 @@
+     /* Every player, not g_CurrentPlayer. That pointer is swapped as each viewport is drawn,
+      * so in split screen it names whichever player was rendered last -- reading it made
+      * co-op look motionless when the truth was that consecutive samples described different
+-     * players. g_playerPointers is the stable array. */
++     * players. g_playerPointers is the stable array.
++     *
++     * Through gePortPlayerPos rather than reading the struct here, because this printed
++     * player->pos and that field is a decoy: it is zeroed at spawn and almost nothing writes
++     * it, so it hands back a plausible frozen coordinate instead of nothing. gePortPlayerPos
++     * has read prop->pos for exactly this reason since the co-op investigation, and its
++     * comment says so, but this copy was never changed with it.
++     *
++     * What that cost: tools/playtest.py reads these lines, so every solo stage reported the
++     * player motionless under scripted input. Measured on DAM, holding the stick forward for
++     * 660 frames, this line printed 16233.9,538.8,19700.8 on every sample while the same
++     * player, read through the API in the same frame, went from 20197.6,60.3,16902.1 with no
++     * input to 16678.8,60.1,17320.7 with the stick held. The input was working the whole
++     * time. Two copies of "where is the player" is the actual defect; there is now one. */
+     {
+-        extern struct player *g_playerPointers[4];
++        extern int gePortPlayerPos(int idx, f32 *out);
+         s32 p;
+         for (p = 0; p < 4; p++) {
+-            if (g_playerPointers[p] == NULL) {
++            f32 pos[3];
++            if (!gePortPlayerPos((int) p, pos)) {
+                 continue;
+             }
+             printf(" p%d=%.1f,%.1f,%.1f", (int) p,
+-                   (double) g_playerPointers[p]->pos.x,
+-                   (double) g_playerPointers[p]->pos.y,
+-                   (double) g_playerPointers[p]->pos.z);
++                   (double) pos[0], (double) pos[1], (double) pos[2]);
+         }
+     }
+     printf(" objectives=%d status=", (int) objective_count);

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # One command to get everything except the ROM.
 #
+# tools/install.sh supersedes this for most people: it does everything here AND the asset
+# pipeline, the namespacing pass and the build, which is the part that was left as four manual
+# steps out of docs/SETUP.md and is really twenty-odd commands in a fixed order. This script
+# stays because "fetch the dependencies and stop" is still the right thing when you intend to
+# drive the rest by hand.
+#
 # Fetches the third-party port-layer sources, the decompilation, Lua and Dear ImGui, applies
 # the source patch, and builds SDL2 on macOS. Stops before the ROM, which you have to supply
 # yourself and which nothing here will ever download.
@@ -54,8 +60,11 @@ else
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0003-port-accessors.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0004-platform-info-native-endian.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0005-stan-dead-endian-macros.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0006-fov-live-setter.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0007-load-trace.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0008-crosshair-color.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0009-freerun-divider.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0010-state-dump-player-position.patch" )
     echo "cloned and patched"
 fi
 

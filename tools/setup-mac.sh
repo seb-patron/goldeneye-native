@@ -83,6 +83,13 @@ else
     || die "0005-stan-dead-endian-macros.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0006-fov-live-setter.patch" ) 2>/dev/null; then
+  echo "0006-fov-live-setter.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0006-fov-live-setter.patch" ) \
+    || die "0006-fov-live-setter.patch failed to apply"
+fi
+
 if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0007-load-trace.patch" ) 2>/dev/null; then
   echo "0007-load-trace.patch: already applied"
 else
@@ -95,6 +102,20 @@ if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0008-crossh
 else
   ( cd "$DECOMP" && git apply "$HERE/getv/patches/0008-crosshair-color.patch" ) \
     || die "0008-crosshair-color.patch failed to apply"
+fi
+
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0009-freerun-divider.patch" ) 2>/dev/null; then
+  echo "0009-freerun-divider.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0009-freerun-divider.patch" ) \
+    || die "0009-freerun-divider.patch failed to apply"
+fi
+
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0010-state-dump-player-position.patch" ) 2>/dev/null; then
+  echo "0010-state-dump-player-position.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0010-state-dump-player-position.patch" ) \
+    || die "0010-state-dump-player-position.patch failed to apply"
 fi
 
 # ---------------------------------------------------------------------- 4. the ROM
