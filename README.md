@@ -1,22 +1,36 @@
 # Goldeneye-Native
 
-**GoldenEye 007, compiled as a native program for Windows, macOS and Linux.** Not an
-emulator. Not a static recompilation. The game's own C source, from the
-[`n64decomp/007`](https://github.com/n64decomp/007) decompilation, built directly for your
-machine with a modern platform layer underneath it: SDL2, OpenGL, mouse and keyboard,
-arbitrary resolution, and a Fast3D display-list renderer in place of the N64's RCP.
+**A native PC port of GoldenEye 007, built from the decompiled source, for Windows, macOS and
+Linux.** Not an emulator, and not a static recompilation. It is the game's own C, from the
+[`n64decomp/007`](https://github.com/n64decomp/007) decompilation, compiled straight to an
+executable for your machine, with a modern platform layer underneath: SDL2, OpenGL or Metal,
+mouse and keyboard, any resolution you like, and a Fast3D display-list renderer standing in for
+the N64's RCP.
 
-There is no MIPS interpreter and no dynamic recompiler. The binary *is* the game. Every
-system in it is ordinary C that can be read, changed and rebuilt, which is the whole
-difference: things an emulator can only work around from the outside, this can fix at the
+There is no MIPS interpreter and no dynamic recompiler anywhere in it. The binary *is* the
+game. Every system is ordinary C that can be read, changed and rebuilt, and that is the whole
+difference: the things an emulator can only work around from the outside, this fixes at the
 source.
+
+Which is not an abstract claim. GoldenEye's most famous problem is that it counts time in whole
+video frames, so running it faster runs the *game* faster: guards firing at double rate,
+ammunition draining, AI stepping quicker than it was tuned for. Every emulator inherits that,
+because it is in the game rather than in the hardware. **Here it is fixed.** The world holds 60
+video fields a second while the renderer runs at 486, measured against a real clock rather than
+a frame counter. There is a whole section on it below, including the two attempts that looked
+like they had worked and had not.
+
+What that unlocks is the rest of this page: uncapped high-refresh play with correct game speed,
+true widescreen that widens the view instead of stretching it, mouse look, HD texture packs,
+Lua mods, bots that drive the game's own AI, split-screen with all 64 characters, horde mode,
+and a launcher to pick it all from.
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
 | | |
 |---|---|
 | **macOS** | Apple Silicon and Intel. Builds and plays. |
-| **Linux** | x86-64. Builds and plays. |
+| **Linux** | x86-64 and arm64. Builds and renders. Verified on Debian 12 aarch64. |
 | **Windows** | x86-64, mingw-w64. Builds and plays. |
 | **tvOS / iOS** | Bring-up. Builds and deploys to real hardware, with a native Metal renderer. |
 
@@ -31,14 +45,15 @@ Apple targets viable as desktop GL and GL ES are deprecated out from under them.
 - **Widescreen that actually widens the view.** Not a stretched 4:3 image and not a
   pillarbox: the projection is recomputed for the window's real aspect, so a 16:9 window
   shows more of the room to either side. Split screen is corrected the same way.
-- **It renders fast.** 881 frames per second at 1280x960 on an M1, measured steady-state
-  with the frame cap and vsync released. The renderer has not been the bottleneck for a
-  while.
-- **Simulation decoupled from rendering.** `GETV_SIMDIV` runs the game one tick in n while
-  drawing every frame, and the fields the simulation skips are accumulated and handed to the
-  tick that runs, so game time stays real. `GETV_INTERP` then interpolates the camera between
-  ticks. At a quarter-rate simulation the measured judder is gone: frames where the camera
-  did not move at all drop from 75.2% to 0.0%, with the same spread as a full-rate run.
+- **The frame-rate problem, solved rather than worked around.** GoldenEye counts in whole
+  video fields, so running it faster used to run the *game* faster. That is fixed. Set
+  `framerate = off` and the renderer free-runs while the world keeps its own time: measured
+  on Dam, 60.8 fields per second against the correct 60.0, at 406 frames per second. The
+  number that matters there is the first one, and it is the one a frame counter cannot see.
+  There is a whole section on this below, including the two traps that cost the most.
+- **It renders fast.** 394 to 433 frames per second at 1280x960 on an M1, three runs, with
+  the cap and vsync released. The spread is the honest report; the renderer has not been the
+  bottleneck for a while.
 - **Multiplayer.** Split screen, radar, all 64 selectable characters.
 - **Bots that use the game's own AI.** GoldenEye already ships a behaviour VM with 250 AI
   opcodes driving every guard in the campaign. The bots drive that rather than replacing it,
@@ -58,31 +73,107 @@ Apple targets viable as desktop GL and GL ES are deprecated out from under them.
   RDP already multiplied the sight texture by a colour at that call site and retail always
   passed white, so this changes the value rather than adding a pass.
 - **The cheats the game already had**, by name, from the launcher or a config file.
+- **HD texture packs, with parallax.** Drop PNGs named by content hash into a folder and
+  they replace the N64 originals as they decode. `GETV_TEXPACK_DUMP` writes the baseline
+  first, so a pack starts as a copy of what the game already produced with individual files
+  swapped out, rather than a guessing game about what to name things. A pack that also ships
+  `<hash>_h.png` height maps gets parallax displacement on top, which GoldenEye+ turns on and
+  97 Console leaves off, so the same installed pack means different things under the two.
+  No pack is the normal case and costs nothing.
+- **A GoldenEye+ profile.** One switch that turns on everything this port added and verified:
+  HD textures, parallax, FXAA, MSAA 4x, anisotropic 8x, mipmaps, supersampling, a smaller
+  reticle, and uncapped frames on the real clock. It is a profile and not a fork, so every
+  item under it stays individually toggleable, and `97 Console` clears the same set rather
+  than merely not setting it. `preset = plus` in the config file, or the launcher.
+- **A reticle sized for a monitor.** The 1997 sight was 32 pixels against a 320x240 field of
+  view on a CRT across a room. At 1280x960 on a desk it covers a good deal more of what you
+  are aiming at than it used to. `crosshair_scale` moves it, GoldenEye+ asks for 0.6, and
+  1.0 is the retail size exactly. It is applied after the aspect corrections, so the shape
+  never changes and only the size does.
+- **Two renderers.** OpenGL everywhere, and a native Metal backend on Apple hardware.
+  `GETV_RENDERER=metal` picks it; both build from the same tree and each gets its own binary.
 - **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
-  anisotropic filtering, adjustable field of view, and three texture filters including the
-  N64's real three-point sampling.
+  anisotropic filtering, FXAA, adjustable field of view, and three texture filters including
+  the N64's real three-point sampling. Off by default because faithful is the default; the
+  GoldenEye+ profile is the one clearly labelled door they all live behind.
 
-Fourteen unit tests cover the parts that are testable without a window: the bot arbiter and
-policy, the input queue, the discovery parser, sense stability, fire cadence and the field
-integrator.
+Sixteen unit test files, 418 checks, covering the parts that are testable without a window:
+the bot arbiter and policy, the input queue, the discovery parser, sense stability, fire
+cadence, the field integrator, the config parser and the mouse arithmetic. They run on macOS
+and Linux with `getv/port/tests/run_tests.sh` and on Windows with the PowerShell twin beside
+it. A test that exits cleanly having asserted nothing is treated as a failure, because three
+of them used to print only on failure and scored zero checks while looking exactly like the
+twelve doing real work.
 
 ## On frame timing, and a thank you
 
-The most-cited problem with GoldenEye above its original frame rate is real, and
-**[Graslu](https://github.com/Graslu) raised it publicly and was right to.**
+GoldenEye runs above 60 frames per second here with correct game speed. That is the headline,
+and it is worth being precise about what it means: the game advances `currentFrameCounter` in
+whole video fields, a correct build advances it by 60 per real second however many frames it
+drew, and this one does.
 
-The short version: `waitForNextFrame()` is already real-time based, so the clock does not
-drift. What breaks is everything the game counts *per iteration* rather than per second, and
-122 of the 135 files under `src/game` do per-frame work. Real hardware managed 20 to 30
-frames per second, and automatic fire rates, turret delay and guard reaction stepping were
-tuned against that. Run the same loop at a locked 60 and they simply happen more often.
+The problem was real and **[Graslu](https://github.com/Graslu) raised it publicly and was
+right to.** `waitForNextFrame()` was already real-time based, so the clock never drifted. What
+broke is everything the game counts *per iteration* rather than per second, and 122 of the 135
+files under `src/game` do per-frame work. Real hardware managed 20 to 30 frames a second, and
+automatic fire rates, turret delay and guard reaction stepping were tuned against that. Run the
+same loop at a locked 60 and they simply happen more often.
 
-**Where this port stands.** Two of the three pieces are done. The simulation is separated from
-the draw: `GETV_SIMDIV` ticks the game one frame in n while every frame still renders, and the
-video fields the skipped ticks would have consumed are accumulated and handed to the tick that
-runs, so the mission clock and animation stay on real time rather than running at 1/n speed.
-Interpolation landed on top of that, so a lower-rate simulation no longer judders. Measured on
-a scripted walk, the share of frames where the camera did not move at all:
+Getting here took three attempts, and the reason the first two failed is more useful than the
+fix. Both were measured with a frame counter, which cannot see this defect at all: game time
+per rendered frame is preserved by construction, so comparing state at a fixed frame number
+looks perfect while the game runs thirteen times too fast. Every number below is what the
+game's own clock did against a real millisecond clock instead.
+
+Measured on DAM, ten seconds each:
+
+| `framerate` | clock | fields/sec (60.0 is correct) | fps |
+|---|---|---|---|
+| `60` (default) | synthetic | **60.0** | 60 |
+| `120` | synthetic | 117.6 | 118 |
+| uncapped | synthetic | 811.9 | 812 |
+| `120` | real | 60.3 | 60 |
+| **`off`** | **real** | **60.5** | **456** |
+
+The synthetic counter advances a fixed amount per call, so one rendered frame *is* one video
+field by construction and the world runs exactly as fast as the renderer. That is why a frame
+cap above 60 is refused rather than accepted and quietly played wrong, and why the tick divider
+does not rescue it: the divider changes how often the simulation ticks and hands the skipped
+fields to the tick that runs, so total game time per real second still follows the render rate.
+
+**`framerate = off` is the setting that works, and it now implies the real timebase.** On the
+real clock a field is a unit of real time, and `waitForNextFrame`'s free-run path stops blocking
+on the field boundary, so the renderer runs ahead while the world keeps its own time. A cap does
+not free-run, which is why `120` with the real clock still delivers 60 fps and is refused too.
+
+The cost is reproducibility. Elapsed fields become load-dependent, so two runs are no longer
+frame-for-frame comparable, which is why 60 and the synthetic clock remain the default.
+
+### The two profiles are two different frame rates
+
+They are worth quoting separately, because GoldenEye+ renders at twice the linear resolution
+before it draws anything else. Same machine, same stage, 1280x960 on an M1 with vsync
+released, three runs each, median with the spread:
+
+| profile | fields/sec (60.0 is correct) | fps |
+|---|---|---|
+| 97 Console, as shipped | 59.2 | 59 (the 60 cap doing its job) |
+| 97 Console, uncapped | 61.0 | **486** (449-504) |
+| GoldenEye+ | 61.0 | **182** (180-182) |
+| GoldenEye+ with an HD pack installed | 60.8 | 177 (177-179) |
+
+The profile costs roughly two thirds of the frame rate, and almost all of that is
+supersampling: at 2x it renders 2560x1920 and downsamples, which is four times the pixels
+before MSAA, anisotropic filtering and FXAA are considered. A texture pack costs about another
+3%. The pack measured here was the game's own textures upscaled 2x, which is what a real one
+costs in memory and bandwidth without pretending to be art.
+
+The first column is the point. Every uncapped row sits at 60.8 to 61.0 fields a second, so the
+world runs at the right speed in all of them, whether the renderer is managing 486 frames or
+177.
+
+Interpolation covers the gap between ticks. Measured on a scripted walk, the share of rendered
+frames on which the camera did not move at all:
 
 | | still frames | spread of step |
 |---|---|---|
@@ -90,14 +181,16 @@ a scripted walk, the share of frames where the camera did not move at all:
 | quarter-rate, no interpolation | 75.2% | 0.6541 |
 | **quarter-rate, interpolated** | **0.0%** | **0.1843** |
 
-A quarter-rate simulation now renders as smoothly as a full-rate one, and travels the same
-distance while doing it. Divider 1 is byte-identical with interpolation on and off.
+**One trap worth recording, because it produced visible flicker.** The tick divider must be 1
+under free-run. The interpolation alpha is `phase / divider`, so a divider greater than 1 blends
+the camera against a fraction of a frame phase rather than a fraction of elapsed time, and under
+a real clock those are unrelated. Elapsed time already gates the simulation there, so dividing
+again on top of it is not merely redundant. Fixed in `0009-freerun-divider.patch`.
 
-What is left is the third piece: fire rates, reload timing, turret delay and reaction stepping
-still count iterations rather than seconds, so each one needs converting and checking against
-retail behaviour. Until that is done `framerate = 30` remains the setting that matches the
-cadence the game was authored for, and the config layer still declines anything above 60. The
-full analysis is in [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md).
+**Still open:** the frame-quantised systems. Automatic fire is converted and time-based by
+default on both the player and the AI side, but the rest still advance once per update rather
+than per second. The clock work above is what makes their rate correct rather than the divider
+holding them there.
 
 No code from the 1964 or Mouse Injector lineage is used here. Those are GPL-2.0 and
 quarantined; see [`docs/REUSE_AUDIT.md`](docs/REUSE_AUDIT.md). The credit above is for
@@ -138,10 +231,38 @@ and what you run afterwards is a native executable.
 **Does it support mouse and keyboard?** Yes, and it is the default. Mouse look with
 sensitivity and Y-invert, WASD movement, ESC to release the cursor.
 
-**Does it run at 60fps? Can it run higher?** It renders at 60 by default and the resolution is
-arbitrary. The renderer itself is far quicker than that: 881 fps at 1280x960 on an M1 with the
-cap and vsync off. The reason the config still declines anything above 60 is gameplay, not
-throughput, and that is covered above.
+**Does it run at 60fps? Can it run higher?** Yes to both. It renders at 60 by default. For a
+high-refresh display set `framerate = off`, which uncaps the renderer and switches to the real
+timebase so the world keeps its own time: measured on Dam at 1280x960 on an M1 with vsync
+released, 60.8 fields per second against the correct 60.0, at 406 frames per second, with a
+394 to 433 spread over three runs. Frame rates vary a good deal by stage, so treat that as one
+stage's number rather than the renderer's ceiling. A frame cap above 60 is refused, because on the default clock one rendered frame is one
+video field and the game would simply run fast. See the frame-timing section above.
+
+**Can I use HD texture packs?** Yes. A pack is a folder of PNGs named by content hash, and
+the game will write you the baseline to start from: `GETV_TEXPACK_DUMP=<dir>` dumps each
+texture the first time it decodes, so a pack begins as a copy of what the game already produced
+with individual files replaced by an upscaler. Set `hd_textures = 1` and point `texpack` at the
+folder. A pack that also ships `<hash>_h.png` height maps gets parallax displacement on top
+under GoldenEye+. No pack installed is the normal case and costs nothing.
+
+**What is GoldenEye+?** One switch, `preset = plus`, for everything this port has added and
+verified: supersampling, MSAA, anisotropic filtering, mipmaps, HD textures, parallax, FXAA, a
+smaller reticle sized for a monitor rather than a 1997 CRT, and uncapped frames on the real
+clock. It is a profile and not a fork, so every item under it stays individually toggleable and
+faithful stays the default. It fills gaps rather than displacing anything, so a setting you
+wrote yourself always wins and the rest of the profile still arrives.
+
+**Is there an installer, or do I have to build it by hand?** `bash tools/install.sh` does the
+whole thing on macOS and Linux: dependencies, the decompilation, every patch, the asset
+pipeline in the order it has to happen in, and the build. Re-running it is safe and is how you
+resume if something stops it. It will not download a ROM and it will not run `sudo`.
+
+**Does it work with a controller?** Yes, alongside keyboard and mouse rather than instead of
+them. Xbox, PlayStation and generic pads all work through SDL2, bindings are configurable by
+name, and there is a deadzone trimmer for a worn stick. All eight of the original control
+styles are there, including the two-controller 2.x layouts, which map onto one modern pad's
+two sticks.
 
 **Is there widescreen?** Yes, and it widens the view rather than stretching or cropping it.
 The projection is recomputed for the window's real aspect ratio, so a 16:9 window shows more
@@ -224,15 +345,22 @@ scripted input and reads the machine-readable run state the game emits under `GE
 whether the player reached gameplay at all, how far they moved, how many objectives the
 mission has, whether any changed, and whether it completed.
 
-Its current result: **all 21 solo missions reach gameplay and the player moves**, between 408
-and 19,584 units over a 900-frame run, with objective counts matching the missions. No
-objective advanced, which is expected when the input is "walk forward" and nothing else. So
-the port is further than "renders" and well short of "plays": reaching a playable state is
-measured across every mission, and completing one is not.
+Every stage runs twice, once with the scripted stick and once without, and the verdict is
+whether the two disagree. That is the whole point: a single run cannot tell "the player walked"
+from "the level teleported him to his start pad", and the earlier version of this tool could
+not either. It reported Dam as 17,232 units moved with the stick held forward, and 17,232 with
+no input at all, to the unit, and passed both.
 
-One reading to know about. Cuba is the credits sequence and reports no objectives, so
-`objectiveIsAllComplete()` is trivially true there and the tool prints `complete=yes`. It is
-an empty set, not a finished mission.
+Its current result: **all 21 solo missions reach gameplay, and 20 of the 21 respond to the
+stick**, with the input moving the player between 22 and 5,368 units over a 900-frame run and
+objective counts matching the missions. No objective advanced, which is expected when the input
+is "walk forward" and nothing else. So the port is further than "renders" and well short of
+"plays": reaching a playable state is measured across every mission, responding to a
+controller is measured across every mission that has one, and completing a mission is not.
+
+Two readings to know about. Cuba is the credits sequence rather than a mission, so there is no
+player to steer and the tool exempts it by name; it also reports no objectives, which makes
+`objectiveIsAllComplete()` trivially true and prints `complete=yes` over an empty set.
 
 ## What this is not
 
@@ -279,22 +407,63 @@ into an arm64 binary.
 
 ## Quick start
 
-Prerequisites: macOS 13+ on Apple silicon, Xcode Command Line Tools, CMake, Python 3, and the
-stock `/bin/bash` 3.2. Nothing newer is needed.
+Three steps. The middle one is the only part nobody can do for you.
+
+**1. Get the source.**
 
 ```bash
-tools/fetch-thirdparty.sh fetch                                       # the fifteen files
-git clone https://github.com/n64decomp/007 vendor/ge-decomp           # the game's C source
-# then: apply getv/patches/0001-source.patch, place your ROM, generate the asset sources
-# from it, and apply getv/patches/0002-assets.patch - docs/SETUP.md sections 2.4 and 3
-cd getv && ./build_mac.sh sdl && ./build_mac.sh all && ./build_mac.sh run
+git clone https://github.com/SegfaultEvan/goldeneye-native
+cd goldeneye-native
 ```
 
-**[`docs/SETUP.md`](docs/SETUP.md) is the step-by-step guide** - every prerequisite, every command,
-the expected output of each one, and a troubleshooting section. Read it if you have not built this
-before. The asset-generation step is the one that cannot be shortened: it is a sequence of
-extraction and code-generation passes, not the one line above, and skipping any of them produces
-a tree that fails to compile or silently misbehaves.
+**2. Put your own copy of the game in `roms/`.** Any byte order, any of the three extensions.
+Nothing here downloads a ROM and nothing here ships one.
+
+**3. Run the installer.**
+
+```bash
+bash tools/install.sh
+```
+
+That is the whole thing on macOS and Linux. On Windows, in PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+It fetches the third-party port sources, clones the decompilation, applies every patch in
+`getv/patches`, fetches Lua and Dear ImGui, builds SDL2, finds and verifies your ROM, runs the
+whole asset pipeline in the order it has to run in, and builds. When it finishes it tells you
+what to run. Re-running it is safe and is how you resume if something stops it.
+
+Prerequisites: macOS 13+ on Apple silicon with the Xcode Command Line Tools, or a Linux box with
+a compiler, CMake, Python 3 and the SDL2 development headers. The installer checks for each and
+prints the exact package command for your distribution if one is missing. It does not run `sudo`
+on your behalf.
+
+Supply your own copy of the game. Nothing here downloads a ROM and nothing here ships one. Any
+byte order works; the installer identifies the header and converts a `.v64` or `.n64` dump to
+the `.z64` the build wants, then checks the result against the known retail SHA-1 before using
+it. Put it in `roms/` or point at it:
+
+```bash
+bash tools/install.sh --rom ~/Desktop/goldeneye.n64
+```
+
+Useful flags: `--no-build` stops once the assets are ready, `--yes` never prompts, and
+`--desktop` installs a menu entry and icons under `$HOME` on Linux.
+
+The Windows one takes the same flags spelled the PowerShell way (`-Rom`, `-NoBuild`, `-Yes`)
+and delegates the toolchain to `tools\fetch_deps_windows.ps1` rather than deciding for itself
+which mingw-w64 to use. It needs git and Python on PATH first, and names both and stops if
+either is missing.
+
+**[`docs/SETUP.md`](docs/SETUP.md) is the same procedure written out by hand** - every
+prerequisite, every command, the expected output of each one, and a troubleshooting section.
+Read it when something goes wrong, or when you want to know why a step is where it is. The
+installer is that document with the ordering constraints encoded rather than described; the
+asset-generation sequence in particular is a set of extraction and code-generation passes where
+skipping any one produces a tree that fails to compile or, worse, silently misbehaves.
 
 ## Screenshots
 
@@ -449,26 +618,18 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
 
 ## Known issues
 
-- **Gameplay is coupled to the render rate.** GoldenEye scales some systems by elapsed video
-  frames and runs the rest once per game update, and a game update is one rendered frame. Only 13
-  of the 135 translation units under `src/game` reference `g_GlobalTimerDelta`: recoil, sway,
-  breathing, camera. Everything else is per-frame. Enemy automatic fire is the clearest case --
+- **The frame-quantised systems have not all been converted.** The clock itself is fixed and
+  the measurements are in the frame timing section above: game time now runs at 60 fields a
+  second whatever the renderer does. What is not fixed is the set of systems that count
+  iterations rather than seconds. Only 13 of the 135 translation units under `src/game`
+  reference `g_GlobalTimerDelta`, and those are the ones that were always right: recoil, sway,
+  breathing, camera. Enemy automatic fire is the clearest of the rest --
   `chraction.c:6694` increments `firecount[hand]` once per tick and fires on
-  `firecount % automaticFiringRate == 0`, so the cadence is a frame count, not a duration.
-  On hardware those systems ran at the N64's real 20 to 30 fps. Rendering at a locked 60 runs them
-  roughly twice as fast, which shows up as turrets and guards firing too quickly, ammunition
-  draining too quickly, and AI state machines stepping faster than they were tuned for. Animation
-  looks correct throughout, because animation is in the 13.
-  There is a partial mitigation as of now: `framerate=30` also sets `GETV_TICKFIELDS=2`, so each
-  update reports two elapsed fields. Game time stays real -- thirty updates a second times two
-  fields is sixty fields a second, leaving animation and the mission clock untouched -- while the
-  frame-counted systems drop to 30 Hz, close to the cadence the game was tuned for. That setting
-  previously capped the renderer without the second half and ran the game at half speed, which was
-  a defect rather than the inherent property it was documented as.
-  Having both at once needs a fixed-rate simulation tick with rendering interpolated above it.
-  That architecture now exists (`GETV_SIMDIV` and `GETV_INTERP`, measured above), so the trade
-  is no longer forced. What remains is converting the frame-counted systems themselves to count
-  time instead of iterations, one at a time, each checked against retail behaviour.
+  `firecount % automaticFiringRate == 0`, which is a frame count and not a duration.
+  Automatic fire is converted on both the player and the AI side and is time-based by default.
+  The others are not yet, and each one has to be done individually and checked against retail
+  behaviour rather than swept up in a single pass. The clock work is what makes their rate
+  correct to fix; before it, there was nothing stable to fix them against.
 
 - **Network play is not connected.** The transport, the discovery parser and the launcher page
   are written; the game loop does not call them, so no session starts. See the FAQ above.
@@ -478,8 +639,10 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   behind the folders.
 - **Multiplayer edge cases.** Score caps are not enforced on the headless path, and `num_shots`
   disagrees with the fire path.
-- **Texture packs are untested.** The override path exists and is off by default. It has not
-  been run against a real pack.
+- **Texture packs work, and nobody has made one.** The override path has been run end to end:
+  the 56 textures Dam decodes in its first 121 frames were dumped, replaced with flat colour
+  PNGs of the same dimensions, and the frame changed in 91% of sampled pixels. What does not
+  exist is an actual pack, or any height maps for the parallax path to displace.
 
 [`docs/ROADMAP.md`](docs/ROADMAP.md) carries the full list and the planned work.
 

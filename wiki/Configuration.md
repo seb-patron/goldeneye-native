@@ -38,16 +38,18 @@ working unchanged regardless of what a person has in their config.
 | `widescreen` | `0`, `1` | `1` |
 | `supersample` | `1`, `2` | `1` |
 | `filtering` | `point`, `bilinear`, `three-point` | `three-point` |
-| `framerate` | `30`, `50`, `60`, `off` | `60` |
+| `framerate` | `20`-`480`, or `off` | `60` |
 | `controls` | any of Rare's eight styles, by number or name | `2.2 galore` |
 | `roster` | `8`, `64` | `8` |
 | `invert_look` | `0`, `1` | `1` |
 | `crosshair_color` | `RRGGBB` hex | `FFFFFF` |
 | `audio` | `0`, `1` | `1` |
 
-**`framerate` declines anything above 60**, and says so rather than accepting it and playing
-wrong. The reason is arithmetic rather than caution: GoldenEye counts in whole video frames, so
-rendering twice as often runs the world twice as fast. See [Frame timing](Frame-timing).
+**`framerate` accepts 20 to 480.** GoldenEye counts in whole video frames, so rendering twice
+as often used to run the world twice as fast. Above 60 the simulation tick divider is now
+chosen from this value so the game stays near the 30Hz it was authored for, with the skipped
+frames' elapsed fields handed to the tick that runs and the camera interpolated between ticks.
+60 and below are unchanged. See [Frame timing](Frame-timing).
 
 **`invert_look = 1` is a measured default, not a preference.** The game's own default options
 omit the invert-look flag, which makes stick-up drive pitch down at full rate and pin at the
@@ -75,6 +77,23 @@ controller it knows, Nintendo pads included, where that same button reads "B".
 `weapon_prev` defaults to none on purpose. GoldenEye has no back-cycle button; the retail
 gesture is hold-inventory and tap-fire. The synthesised single-button version is faithful to
 that gesture but unverified on hardware, so it stays opt-in.
+
+## Live keys
+
+Three settings can be changed while the game is running, on the same F-row as the existing F11
+fullscreen toggle:
+
+| Key | Effect |
+|---|---|
+| `F11` | Fullscreen |
+| `F9` | Toggle vsync |
+| `F5` / `F6` | Field of view, -10% and +10%, clamped to 50-160% |
+
+These are keybindings rather than an in-game options page for a specific reason. The Watch menu
+would have been the natural home, but `options.h`'s `WATCH_NUMBER_SCREENS` carries an explicit
+warning from the decomp itself not to change it until the player struct is fully shiftable,
+because the per-page selector rectangles are sized off it inside `struct player`. A keybinding
+needs none of that: no new page, no touched vendor struct.
 
 ## Gates
 

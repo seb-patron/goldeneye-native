@@ -5,6 +5,22 @@ section, is [`docs/SETUP.md`](https://github.com/SegfaultEvan/goldeneye-native/b
 in the repository. This page is the shape of it, so you know what you are agreeing to before
 you start.
 
+On macOS and Linux there is a one-command version that does all of it:
+
+```bash
+bash tools/install.sh
+```
+
+On Windows the equivalent is `tools\install.ps1`, run through PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+All three stop with a clear reason rather than a compiler error if something is missing, and
+re-running picks up where it left off. None of them will download a ROM, and the shell one will
+not run `sudo`.
+
 ## You need your own ROM
 
 Nothing in the repository contains game data and nothing ever will. You need a dump of the

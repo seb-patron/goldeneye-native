@@ -53,8 +53,10 @@ Covered properly in [Frame timing](Frame-timing), because in GoldenEye it is a g
 question rather than a video one. The short version: the renderer is quick, and the reason the
 config declines rates above 60 is that the game counts in frames rather than seconds.
 
-Measured on an M1 at 1280x960, steady-state with the cap and vsync released: **881 fps**. The
-renderer has not been the limiting factor for some time.
+Measured on an M1 at 1280x960 on Dam, with the cap and vsync released: **394 to 433 fps**
+across three runs, and 60.8 video fields a second against the correct 60.0. The spread is the
+honest report rather than the best run, and frame rates vary by stage, so this is one stage's
+number and not the renderer's ceiling. It has not been the limiting factor for some time.
 
 `GETV_VSYNC=0` releases the swap interval. Without it the frame rate cannot exceed the display
 whatever the cap says, which is worth knowing before you benchmark anything.

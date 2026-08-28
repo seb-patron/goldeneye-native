@@ -19,10 +19,11 @@ This page is the honest summary of where things stand.
 ## Next
 
 **Convert the frame-quantised systems.** Fire rates, reload timing, turret delay and reaction
-stepping still count iterations rather than seconds. The architecture to run them at their own
-rate exists now, so this is a matter of converting them one at a time and checking each against
-retail behaviour rather than a structural problem. This is the piece that turns "do not run
-above 60" into "run at whatever your display does". See [Frame timing](Frame-timing).
+stepping still count iterations rather than seconds. The structural half is done: the
+simulation runs on its own clock, the divider picks itself above 60Hz, and game time is
+preserved exactly across dividers. What remains is converting these systems one at a time and
+checking each against retail behaviour, which frees the simulation rate rather than pinning it
+near 30Hz. See [Frame timing](Frame-timing).
 
 **Connect network play.** The transport, the discovery parser and the launcher page are
 written and the input seam exists. Nothing calls into it from the game loop. See
@@ -49,12 +50,20 @@ Not by looking at it once. `tools/playtest.py` drives a stage with scripted inpu
 run state the game emits: whether the player reached gameplay, how far they moved, how many
 objectives the mission has, whether any changed, whether it completed.
 
-Its current result: **all 21 solo missions reach gameplay and the player moves**, between 408
-and 19,584 units over a 900-frame run, with objective counts matching the missions. No objective
-advanced, which is exactly what "walk forward and nothing else" should produce.
+Every stage runs twice, once with the scripted stick and once without, and the verdict is
+whether the two disagree. A single run cannot separate "the player walked" from "the level
+teleported him to his start pad": the earlier version of this tool reported Dam as 17,232 units
+moved with the stick held forward and 17,232 with no input at all, and passed both times.
+
+Its current result: **all 21 solo missions reach gameplay, and 20 of the 21 respond to the
+stick**, with the input moving the player between 22 and 5,368 units over a 900-frame run and
+objective counts matching the missions. Cuba is the twenty-first and is the credits sequence,
+so it has no player to steer and is exempt by name. No objective advanced, which is exactly
+what "walk forward and nothing else" should produce.
 
 So the port is well past "renders" and well short of "plays start to finish": reaching a
-playable state is measured across every mission, completing one is not.
+playable state and responding to a controller are both measured across every mission,
+completing one is not.
 
 One reading to know about. Cuba is the credits sequence and reports no objectives, so the
 all-complete check is trivially true there and the tool prints complete. That is an empty set,

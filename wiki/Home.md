@@ -44,12 +44,22 @@ radar and all 64 characters. Keyboard and mouse are on by default. Widescreen ge
 the view rather than stretching it, and corrects split screen the same way. Lua mods, a
 launcher, rulesets, horde mode and bots all work.
 
-The renderer sustains 881 fps at 1280x960 on an M1 with the cap and vsync released, and the
-simulation can be run at its own rate underneath that with the camera interpolated between
-ticks. See [Frame timing](Frame-timing) for what that does and does not fix.
+The frame rate is the headline. `framerate = off` lets the renderer free-run while the world
+keeps its own time: measured on Dam, 60.8 video fields a second against the correct 60.0, at
+406 frames a second, with 394 to 433 across three runs at 1280x960 on an M1. The first number
+is the one that matters, and a frame counter cannot see it, which is why the first two attempts
+at this looked like they had worked. See [Frame timing](Frame-timing) for the table, the two
+traps that cost the most, and the piece still open.
 
+`preset = plus` is one switch for everything the port has added and verified: supersampling,
+MSAA, anisotropic filtering, mipmaps, HD texture packs, parallax, FXAA, a smaller reticle, and
+uncapped frames. It fills gaps rather than displacing anything, so a line you wrote yourself
+always wins and the rest of the profile still arrives. Faithful stays the default.
+
+HD texture packs are PNGs named by content hash, and the game will dump its own baseline for
+you to start from. A pack that also ships height maps gets parallax on top under GoldenEye+.
 Horde mode spawns replacements where a guard falls and grows the waves as they are cleared.
-The crosshair takes any colour. Both are settings rather than builds.
+The crosshair takes any colour and any size. All of it is settings rather than builds.
 
 Co-op into single-player missions is bring-up quality: per-player spawn and camera are fixed,
 the mission is still authored around one Bond. Network play is written but not connected to the

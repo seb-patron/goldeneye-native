@@ -8,6 +8,29 @@ the renderer sources - are both things you would otherwise assume were a mistake
 
 `README.md` is the short version. This document is the exhaustive one.
 
+## If you just want it built
+
+```bash
+bash tools/install.sh
+```
+
+On Windows, in PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+Either one runs everything in this document, in the order it has to happen in, and skips any
+step already done so re-running is how you resume. It never downloads a ROM and never
+runs `sudo`; where a system package is missing it prints the command for your package manager
+and stops.
+
+Read the rest of this document when the installer stops on something, or when you want to know
+why a step is where it is. Every ordering constraint the installer encodes is explained below,
+and several of them are the kind that fail silently rather than loudly: the namespacing pass in
+3.6 corrupts the tree if it runs twice, `enable_bg_extraction.py` must run before extraction
+rather than after, and `0002-assets.patch` goes on after the namespacing pass and not before.
+
 Read in order:
 
 1. [What you need before starting](#1-what-you-need-before-starting)

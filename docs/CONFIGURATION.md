@@ -152,33 +152,77 @@ resolver in `port_support.c`.
 ### `framerate`
 
 `30`, `50`, `60`, or `off` (`0`, `uncapped` and `unlimited` are accepted for the last). Default
-`60` on NTSC builds, `50` on PAL. `off` removes the frame cap; vsync still applies.
+`60` on NTSC builds, `50` on PAL.
 
-**Values above 60 are rejected.** GoldenEye's timestep is whole video frames, not seconds, and
-each update asks how many fields have elapsed. Render twice as often without telling the game and
-every frame-counted system runs at double speed, with nothing to clamp or complain.
+**A frame cap above 60 is refused, and `off` is the high-refresh setting.** GoldenEye advances
+its clock in whole video fields. On the default synthetic counter `osGetCount()` moves a fixed
+amount per call, so one rendered frame is one video field by construction and the world runs
+exactly as fast as the renderer. Measured on DAM, ten seconds each, reading the game's own
+`currentFrameCounter` against a real millisecond clock:
 
-**`30` is the more faithful setting for gameplay, and `60` the smoother one.** They differ in more
-than frame rate. Only 13 of the 135 translation units under `src/game` scale by
-`g_GlobalTimerDelta` - animation, recoil, sway, camera. The other 122 advance once per update, so
-an enemy's rate of fire is a frame count rather than a duration (`chraction.c:6694` fires on
-`firecount % automaticFiringRate`). Hardware ran those at the N64's real 20 to 30 fps; at a locked
-60 they run about twice as fast, which shows as turrets and guards firing too quickly, ammunition
-draining too quickly, and AI stepping faster than it was tuned for.
+| `framerate` | clock | fields/sec (60.0 is correct) | fps |
+|---|---|---|---|
+| `60` (default) | synthetic | **60.0** | 60 |
+| `120` | synthetic | 117.6 | 118 |
+| uncapped | synthetic | 811.9 | 812 |
+| `120` | real | 60.3 | 60 |
+| **`off`** | **real** | **60.5** | **456** |
 
-`framerate=30` therefore also sets `GETV_TICKFIELDS=2`, which makes each update report two elapsed
-fields. Game time stays real - thirty updates a second times two fields is sixty fields a second,
-so animation and the mission clock are unchanged - while the frame-counted systems drop to 30 Hz,
-close to the cadence the game was built around. Earlier builds capped the renderer without this and
-ran at half speed; that was a defect, not an inherent property, and the warning that described it
-as inherent is gone.
+`off` sets `GETV_REALCLOCK=1` as well as removing the cap, because uncapped on the synthetic
+clock is the worst configuration available here and there is no reason to let someone reach it
+by accident. On the real timebase a field is a unit of real time, and `waitForNextFrame`'s
+free-run path stops blocking on the field boundary, so the renderer runs ahead while the world
+keeps its own clock. `put()` does not overwrite, so `realclock = 0` alongside it still wins for
+anyone deliberately measuring the synthetic behaviour.
 
-Neither value is correct for everything. Sixty renders smoothly and runs frame-counted gameplay
-fast; thirty runs gameplay at the right cadence and renders less smoothly. Having both right at
-once needs a fixed simulation tick with interpolated presentation, which this build does not have.
+A cap never free-runs, which is why `120` on the real clock still delivers 60 fps. So a capped
+rate above 60 is either wrong or pointless depending on the clock, with no third case, which is
+what the rejection message says.
 
-The rejection lives in the configuration layer only. `GETV_FPS=120` in the environment still
-reaches the pacing code untouched, as does `GETV_TICKFIELDS`, which overrides the pairing above.
+**The tick divider must be 1 under free-run.** `gePortSimAlpha()` is `phase / divider`, so a
+divider above 1 blends the camera against a frame phase rather than a fraction of elapsed time,
+and under a real clock those are unrelated. It presents as flicker rather than as a wrong number.
+Elapsed time already gates the simulation there. Fixed in `0009-freerun-divider.patch`.
+
+**The cost of `off` is reproducibility.** Elapsed fields become load-dependent, so no two runs
+are frame-for-frame comparable and measurement harnesses should stay on 60.
+
+`framerate=30` additionally sets `GETV_TICKFIELDS=2`, so each update reports two elapsed fields.
+Game time stays real, thirty updates a second times two fields being sixty, while the
+frame-counted systems drop to 30 Hz.
+
+**What is still frame-counted.** Only 13 of the 135 translation units under `src/game` scale by
+`g_GlobalTimerDelta`. Automatic fire is converted and time-based by default on both the player
+and the AI side (`GETV_TIMEFIRE`, `gunfire.c` and `chraction.c`); the rest still advance once per
+update.
+
+`GETV_FPS`, `GETV_REALCLOCK` and `GETV_TICKFIELDS` in the environment all reach the pacing code
+directly and override the pairings above.
+
+## Live keybindings
+
+A handful of settings can change during a running game, no restart needed, bound directly in
+`gfx_sdl2.c`'s `gfx_sdl_onkeydown()` rather than exposed through any menu. Everything else in this
+file is read once at startup (a `getenv` call or an `__attribute__((constructor))`, see
+`docs/PERFECT_DARK.md` section 6 row 17 for the full list of what cannot honestly be made live
+without a restart) and stays fixed for the process lifetime.
+
+| Key | Effect |
+|---|---|
+| `F11`, `Alt+Enter` (Windows), `Cmd+F` (macOS) | Toggle fullscreen |
+| `F9` | Toggle vsync |
+| `F5` / `F6` | FOV -10% / +10%, clamped to 50-160% |
+
+Fullscreen and vsync both flip `configWindow` fields and set `configWindow.settings_changed`,
+the same apply path a window resize already goes through. FOV bypasses its cached `GETV_FOV`
+env read entirely once touched (`gePortSetFovScale()`, `fr.c`) - the projection is recomputed
+from it fresh every frame per viewport regardless, so nothing downstream needs telling.
+
+This is deliberately not a menu. An in-game options page was considered and scoped down: the
+Watch's data-driven settings page (`options.c`) is the only reusable one in the codebase, and
+adding a page to it is blocked by an explicit maintainer comment on `WATCH_NUMBER_SCREENS`
+(`options.h`) not to change that constant until `struct player` is fully shiftable. See
+`docs/PERFECT_DARK.md` section 6 row 17.
 
 ## Controls
 
@@ -363,6 +407,10 @@ not-implemented notice rather than silently doing nothing.
 | `anisotropic` | 0-16, clamped | Anisotropic filtering, off by default. Clamped again at runtime to the driver's own maximum, since asking for more than the hardware offers is a GL error rather than a silent downgrade: on this machine 64 becomes 16. Applied only where the game already chose linear filtering, so the HUD, the watch faces and text keep point sampling and stay sharp. |
 | `msaa` | 0-8, clamped | Multisampling, off by default. Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none. |
 | `mipmaps` | 0 \| 1 | Trilinear filtering, off by default. Distant textures blend toward a mip level instead of shimmering; `anisotropic` is what sharpens that back up at grazing angles, so the two are meant to be tuned together. Only affects minification -- GL has no magnification mipmap mode, so close-up textures are unaffected. |
+| `fxaa` | 0 \| 1 | Edge antialiasing over the finished frame, off by default. An image-quality setting like `msaa` rather than a look, which is why it lives here and the CRT terms live in `mods/crt_screen`. |
+| `parallax` | 0 \| 1 | On by default, and does nothing on its own. It decides whether a texture pack's `<hash>_h.png` height maps displace the diffuse UVs. There is no height data in the game's own assets, so with no pack this changes nothing either way. `97 Console` turns it off so the same installed pack means resolution only. |
+| `crosshair_scale` | 0.25 to 2.0 | Default `1.0`, the retail sight size exactly. Alias `reticle_scale`. Applied after the 16:9 and PAL aspect corrections in `gunDrawSight()`, so the shape never changes and only the size does. The 1997 sight was 32 pixels against a 320x240 field of view on a CRT across a room; at 1280x960 on a desk it covers rather more of what you are aiming at. GoldenEye+ asks for `0.6`. Out-of-range values are refused rather than clamped, so a typo is reported instead of silently becoming something else. |
+| `crosshair_color` | RRGGBB hex | Default `FFFFFF`, retail's own hardcoded value -- `gunfire.c`'s `gunDrawSight()` multiplies the sight texture by this RDP primitive colour instead of always white. How cleanly a non-white choice recolours it depends on the baked N64 asset, which this port has not independently confirmed; see `port_support.c`'s `GETV_CROSSHAIR_COLOR` comment. |
 
 
 
@@ -460,15 +508,49 @@ The second line is the claim and the `applied:` line is the measurement. On Agen
 a kill having happened. It exists because combat cannot be driven reliably from a headless
 run, and it exercises the same spawn path a real death does.
 
+### `preset` -- the GoldenEye+ profile
+
+`preset = plus` is one switch for everything this port has added and verified. It accepts
+`faithful` (aliases `97`, `console`) and `plus` (aliases `enhanced`, `goldeneye+`, `ge+`).
+
+| It turns on | Value |
+|---|---|
+| `supersample` | 2 |
+| `msaa` | 4 |
+| `anisotropic` | 8 |
+| `mipmaps` | on |
+| `hd_textures` | on |
+| `parallax` | on |
+| `fxaa` | on |
+| `crosshair_scale` | 0.6 |
+| `framerate` | off, with the real clock |
+
+The profile fills gaps and displaces nothing:
+
+```
+command line  >  environment  >  your own config lines  >  preset
+```
+
+So `preset = plus` followed by `fxaa = 0` gives the whole profile without FXAA, wherever the
+two lines sit relative to each other. Anything the profile wanted but found already set is
+named on stdout at startup, rather than passed over quietly, because a preset that silently
+declined to uncap the frame rate looks exactly like a preset that did not work.
+
+The generated config ships `supersample` and `framerate` commented out for that reason. A
+config written before this existed has them as live lines, and the startup message will say
+so; comment them out to let the profile have them.
+
+Faithful is and stays the default. The N64 look is the product, and the way correctness gets
+checked here is comparison against real N64 captures, so anything that alters output has to be
+something you asked for.
+
 **Reserved, parsed but inert:**
 
-All of them default off. That is deliberate: the N64 look is the product, and the project's
-correctness checks are comparisons against real N64 captures, so anything that silently alters
-output destroys the ability to check the port is right. Enhancements are options, never defaults.
+These are the ones that still do nothing. They parse and validate so the option surface is
+stable before the features land.
 
 | Key | Accepts | Intended effect |
 |---|---|---|
-| `preset` | `faithful` \| `enhanced` | One switch for the whole set below. |
 | `fog_per_pixel` | 0 \| 1 | Per-pixel fog. N64 fog is per-vertex. |
 | `muzzle_lights` | 0 \| 1 | Dynamic lighting on muzzle flashes. |
 | `audio_3d` | 0 \| 1 | Positional audio / HRTF. Alias `hrtf`. |
