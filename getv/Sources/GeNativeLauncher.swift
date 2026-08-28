@@ -425,7 +425,27 @@ private struct GeLauncherView: View {
     @State private var page: GePage = .mission
     let onStart: () -> Void
 
+    /* A fixed constant, not a measured safe-area inset: the outer .ignoresSafeArea() below
+     * is doing real work (see its own comment: without it the footer's Start Mission button
+     * gets squeezed off the bottom on a real iPhone), and once an ancestor ignores safe
+     * area, SwiftUI reports a ZERO safe area to every descendant that tries to read it back
+     * -- GeometryReader.safeAreaInsets included, even placed on the exact same view as the
+     * ignoresSafeArea() call. Measured empirically across three different approaches
+     * (.safeAreaPadding on a descendant, GeometryReader nested inside ignoresSafeArea,
+     * GeometryReader wrapped BY ignoresSafeArea) -- all three read zero. Apple's own
+     * Dynamic Island footprint is a fixed, documented size (roughly 126x37.33pt in
+     * portrait), so a fixed clearance is not a worse approximation than a "measurement"
+     * that reads zero; it is a better one. Harmless on a device with no island: a few
+     * points of unused left margin on the nav rail, not a visual defect.
+     */
+    private let leadingInset: CGFloat = 40
+
     var body: some View {
+        content(leadingInset: leadingInset)
+            .ignoresSafeArea()
+    }
+
+    private func content(leadingInset: CGFloat) -> some View {
         ZStack {
             geBg
 
@@ -450,6 +470,14 @@ private struct GeLauncherView: View {
                     // reasonable padding overflow an iPhone's landscape height (as low
                     // as ~360pt) even after the safe-area fix below -- a plain VStack
                     // does not scroll on overflow, it just clips silently.
+                    //
+                    // leadingInset padding below: this HStack sits in the screen's
+                    // vertical middle band, exactly where a Dynamic Island lands as a
+                    // LEADING inset once forced landscape (it starts life as a top-center
+                    // notch in portrait) -- verified by screenshot, the island was
+                    // overlapping the MODS/CHEATS tab labels without this. leadingInset
+                    // comes from the body's own GeometryReader (see its comment for why
+                    // that, not .safeAreaPadding, is what actually works here).
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 2) {
                             ForEach(GePage.allCases, id: \.self) { p in
@@ -484,6 +512,7 @@ private struct GeLauncherView: View {
                     .padding(16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+                .padding(.leading, leadingInset)
 
                 // Footer
                 HStack {
@@ -506,15 +535,6 @@ private struct GeLauncherView: View {
                 .background(gePanel)
             }
         }
-        /* On the whole content, not just the background: an iPhone's landscape safe
-         * area reserves real space for the home-indicator gesture bar and the
-         * notch/Dynamic-Island margins, and a VStack that respects it gets squeezed by
-         * however much that is -- verified on a real iPhone 14 Pro, where it was enough
-         * to push the footer's Start Mission button mostly off the bottom of the
-         * screen ("I can only see the top bit"). This is a fully custom UI with its own
-         * padding already designed in, so ignoring the safe area entirely and letting
-         * that padding do the job is correct here, not just a workaround. */
-        .ignoresSafeArea()
     }
 }
 
@@ -563,6 +583,12 @@ private final class GeLauncherBridgeRunner {
         newWindow.windowLevel = .normal
         newWindow.makeKeyAndVisible()
         window = newWindow
+
+        // No-op on tvOS (already landscape-only, no orientation to force). On iOS this is
+        // the same fix gfx_sdl2.c applies to the GAME window -- the launcher has its own,
+        // earlier UIWindow that needs it independently, or it launches sideways in
+        // whatever orientation the device happened to be in.
+        gePortForceLandscapeOrientation()
 
         // Matters most on tvOS, but harmless (and still correct) on iOS too, which has
         // its own focus system for external keyboards/game controllers: a window built

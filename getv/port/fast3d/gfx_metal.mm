@@ -22,9 +22,12 @@
 // KNOWN v1 GAPS, deliberate, staged: no ImGui/launcher rendering on this backend yet (the
 // ge_imgui.h hooks are safe no-ops when never initialised -- see gfx_sdl2.c), no
 // supersample/CRT/FXAA post-processing (the GE_POSTFX/TVOS_SUPERSAMPLE machinery in
-// gfx_opengl.c is GL-specific and has no Metal equivalent yet), no GETV_SHOTFRAME capture,
-// no 3-point texture filtering (configFiltering==2). None of these block a first real
-// frame; all are fast follows once one renders.
+// gfx_opengl.c is GL-specific and has no Metal equivalent yet), no 3-point texture
+// filtering (configFiltering==2). None of these block a first real frame; all are fast
+// follows once one renders. GETV_SHOTFRAME capture (ge_shot_maybe_metal(), below) is done
+// -- same env vars and BMP layout as gfx_opengl.c's ge_shot_maybe(), for headless
+// verification without a screenshot-capable window (this port's whole reason to exist on
+// tvOS/iOS, where nothing else can photograph the screen).
 #ifdef RAPI_METAL
 
 #import <Metal/Metal.h>
@@ -36,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #ifndef _LANGUAGE_C
 # define _LANGUAGE_C
@@ -799,7 +803,12 @@ static void gfx_metal_init(void) {
     mtl_device = mtl_layer.device ?: MTLCreateSystemDefaultDevice();
     mtl_layer.device = mtl_device;
     mtl_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-    mtl_layer.framebufferOnly = YES;
+    /* framebufferOnly=YES (the normal case) forbids getBytes/blit-copy from the drawable's
+     * own texture -- Apple's documented restriction, not a bug to route around cleverly.
+     * GETV_SHOTFRAME (see ge_shot_maybe_metal() below) needs to read it, so drop the
+     * optimization only when a capture was actually asked for. */
+    { const char *e = getenv("GETV_SHOTFRAME");
+      mtl_layer.framebufferOnly = (e && *e) ? NO : YES; }
 
     mtl_queue = [mtl_device newCommandQueue];
 
@@ -888,6 +897,118 @@ static void gfx_metal_start_frame(void) {
     mtl_vbo_offset = 0;
 }
 
+/* GETV_SHOTFRAME: deterministic frame capture, Metal side. Same env vars, same 24-bit BMP
+ * layout, same log line as gfx_opengl.c's ge_shot_maybe() -- see that function's own
+ * comment for why a wall-clock screenshot cannot substitute for this in an A/B. Kept as a
+ * literal byte-for-byte port of the file format so nothing downstream (a diff tool, a
+ * script) needs to know which renderer produced a given .bmp.
+ *
+ * Must run after [mtl_cmdbuf waitUntilCompleted] -- the GPU has to have actually finished
+ * writing the drawable's texture before getBytes reads it back; unlike glReadPixels, which
+ * blocks on the GL command stream itself, Metal's command buffer is asynchronous until
+ * explicitly waited on. Reading AFTER presentDrawable:/commit is safe: presenting hands the
+ * texture to the compositor for display, it does not invalidate CPU access to it, and
+ * nothing else in this file mutates mtl_drawable.texture's contents between commit and the
+ * mtl_drawable = nil a few lines below in gePortMetalFinishFrame(). */
+static void ge_shot_maybe_metal(id<MTLCommandBuffer> cmdbuf, id<MTLTexture> tex) {
+    static int shot_frame = -2;
+    static unsigned long fno;
+    static const char *shot_path;
+    static char shot_path_buf[1024];
+    if (shot_frame == -2) {
+        const char *e = getenv("GETV_SHOTFRAME");
+        shot_frame = (e && *e) ? atoi(e) : -1;
+        shot_path = getenv("GETV_SHOTPATH");
+        if (!shot_path || !*shot_path) {
+            /* A bare relative name only works where the process's CWD is writable -- true
+             * on desktop, false on tvOS/iOS, where the app bundle itself is read-only and
+             * fopen() fails with EPERM (found the hard way: this failed completely
+             * silently before the diagnostic a few lines below existed). TMPDIR is a
+             * standard POSIX env var every process on the platform already has set, to
+             * that app's own sandboxed container -- no per-install UUID to discover or
+             * guess at from outside the process. */
+            const char *tmp = getenv("TMPDIR");
+            if (tmp && *tmp) {
+                snprintf(shot_path_buf, sizeof shot_path_buf, "%s/getv_shot.bmp", tmp);
+                shot_path = shot_path_buf;
+            } else {
+                shot_path = "getv_shot.bmp";
+            }
+        }
+    }
+    fno++;
+    /* Cheap on every other frame: the counter above has to run unconditionally to know
+     * which frame this is, but the GPU stall below is the one thing GETV_SHOTFRAME is
+     * supposed to cost only on the single frame actually being captured. */
+    if (shot_frame <= 0 || (long)fno != (long)shot_frame) return;
+    if (!tex) return;
+
+    /* mtl_cmdbuf was already committed by the caller (presentDrawable: schedules
+     * presentation for when the GPU finishes, it does not itself block) -- wait for that
+     * GPU work to land before getBytes, or this reads whatever was in the texture before
+     * this frame's draws, not this frame. */
+    [cmdbuf waitUntilCompleted];
+
+    const int w = (int)tex.width;
+    const int h = (int)tex.height;
+    if (w <= 0 || h <= 0) return;
+
+    /* BGRA8Unorm (mtl_layer.pixelFormat above), 4 bytes/px, tight rows -- getBytes wants
+     * the real per-row stride, not a padded one, unlike the BMP output rows below. */
+    unsigned char *px = (unsigned char *)malloc((size_t)w * h * 4);
+    if (!px) return;
+    [tex getBytes:px
+      bytesPerRow:(NSUInteger)(w * 4)
+       fromRegion:MTLRegionMake2D(0, 0, (NSUInteger)w, (NSUInteger)h)
+      mipmapLevel:0];
+
+    /* BMP rows are bottom-up and 4-byte aligned; getBytes hands back top-down BGRA, so both
+     * the row order and the dropped alpha byte are handled in the write loop below (mirrors
+     * gfx_opengl.c's ge_shot_maybe() exactly, source channel order and origin aside). */
+    const int pad = (4 - (w * 3) % 4) % 4;
+    const unsigned long imgsz = (unsigned long)(w * 3 + pad) * h;
+    FILE *f = fopen(shot_path, "wb");
+    if (!f) {
+        /* Silent otherwise: a bad GETV_SHOTPATH (a sandboxed tvOS/iOS container's real
+         * writable path is a per-install UUID, not something to hand-guess) previously
+         * failed with no output at all, which reads identically to the capture never
+         * having run in the first place. */
+        fprintf(stderr, "[getv][shot] fopen failed for '%s': %s\n", shot_path, strerror(errno));
+        fflush(stderr);
+        free(px);
+        return;
+    }
+    unsigned char hdr[54] = {0};
+    unsigned long fsz = 54 + imgsz;
+    hdr[0] = 'B'; hdr[1] = 'M';
+    hdr[2] = (unsigned char)(fsz); hdr[3] = (unsigned char)(fsz >> 8);
+    hdr[4] = (unsigned char)(fsz >> 16); hdr[5] = (unsigned char)(fsz >> 24);
+    hdr[10] = 54; hdr[14] = 40;
+    hdr[18] = (unsigned char)(w); hdr[19] = (unsigned char)(w >> 8);
+    hdr[20] = (unsigned char)(w >> 16); hdr[21] = (unsigned char)(w >> 24);
+    hdr[22] = (unsigned char)(h); hdr[23] = (unsigned char)(h >> 8);
+    hdr[24] = (unsigned char)(h >> 16); hdr[25] = (unsigned char)(h >> 24);
+    hdr[26] = 1; hdr[28] = 24;
+    hdr[34] = (unsigned char)(imgsz); hdr[35] = (unsigned char)(imgsz >> 8);
+    hdr[36] = (unsigned char)(imgsz >> 16); hdr[37] = (unsigned char)(imgsz >> 24);
+    fwrite(hdr, 1, 54, f);
+    static const unsigned char zero[3] = {0, 0, 0};
+    /* getBytes is top-down; BMP wants bottom-up, so walk source rows in reverse. */
+    for (int y = h - 1; y >= 0; y--) {
+        const unsigned char *row = px + (size_t)y * w * 4;
+        for (int x = 0; x < w; x++) {
+            /* BGRA8Unorm in memory is already B,G,R,A -- the BMP's own pixel order is
+             * B,G,R, so this is a straight copy of the first three bytes, alpha dropped. */
+            fwrite(row + x * 4, 1, 3, f);
+        }
+        if (pad) fwrite(zero, 1, (size_t)pad, f);
+    }
+    fclose(f);
+    free(px);
+    fprintf(stderr, "[getv][shot] frame %lu -> %s (%dx%d)\n", fno, shot_path, w, h);
+    fflush(stderr);
+}
+
 /* Ends the GAME's render encoder only -- does NOT present or commit. That split (and this
  * whole file being reachable from outside gfx_pc.c's GfxRenderingAPI table at all) exists
  * for one reason: ImGui. gfx_pc.c calls gfx_rapi->end_frame() and then
@@ -911,6 +1032,7 @@ void gePortMetalFinishFrame(void) {
     if (!mtl_cmdbuf) return;
     if (mtl_drawable) [mtl_cmdbuf presentDrawable:mtl_drawable];
     [mtl_cmdbuf commit];
+    ge_shot_maybe_metal(mtl_cmdbuf, mtl_drawable.texture);
     mtl_cmdbuf = nil;
     mtl_drawable = nil;
     mtl_vbo_index = (mtl_vbo_index + 1) % VBO_POOL_COUNT;

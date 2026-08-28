@@ -142,14 +142,23 @@ SOURCES=(
   "$SRC/backends/imgui_impl_sdl2.cpp"
   "$SRC/backends/imgui_impl_opengl2.cpp"
 )
+# Metal renderer backend, Darwin only: getv/port/fast3d/gfx_metal.mm #includes
+# imgui_impl_metal.h under GE_WITH_IMGUI unconditionally (it is the same renderer file
+# on every Apple platform), so this prefix has to carry it even though build_mac.sh's
+# own launcher still renders through the OpenGL2 backend above -- see that file's header
+# comment for why GL2, not GL3, is the right choice for the launcher specifically. This
+# is a second, independent backend alongside it, not a replacement.
+if [ "$(uname -s)" = "Darwin" ]; then
+  SOURCES+=( "$SRC/backends/imgui_impl_metal.mm" )
+fi
 
 ok=0; fail=0
 for f in "${SOURCES[@]}"; do
-  b="$(basename "$f" .cpp)"
+  b="$(basename "$f")"; b="${b%.*}"
   [ -f "$f" ] || { fail=$((fail+1)); echo "  MISSING: $f"; continue; }
   if "$CXX" -c "$f" -o "$OBJDIR/$b.o" \
        ${TARGETFLAGS[@]+"${TARGETFLAGS[@]}"} \
-       -std=c++17 -O2 -fno-exceptions -fno-rtti \
+       -std=c++17 -O2 -fno-exceptions -fno-rtti -fobjc-arc \
        -I "$SRC" -I "$SRC/backends" ${SDLINC[@]+"${SDLINC[@]}"} \
        -DGL_SILENCE_DEPRECATION -w
   then
@@ -174,6 +183,9 @@ cp "$SRC/imgui.h" "$SRC/imconfig.h" "$SRC/imgui_internal.h" \
    "$SRC/imstb_rectpack.h" "$SRC/imstb_textedit.h" "$SRC/imstb_truetype.h" \
    "$SRC/backends/imgui_impl_sdl2.h" "$SRC/backends/imgui_impl_opengl2.h" \
    "$PREFIX/include/" || exit 1
+if [ "$(uname -s)" = "Darwin" ]; then
+  cp "$SRC/backends/imgui_impl_metal.h" "$PREFIX/include/" || exit 1
+fi
 cp "$SRC/LICENSE.txt" "$PREFIX/IMGUI-LICENSE.txt" 2>/dev/null
 
 echo "dear imgui $VERSION: $ok objects -> $PREFIX/lib/libimgui.a"

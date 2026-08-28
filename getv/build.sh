@@ -236,10 +236,14 @@ cmd_lib() {
       pfail=$((pfail+1)); echo "  port FAILED: $(basename "$f")"
     fi
   done
-  # Objective-C++: gfx_metal.mm. Always compiled, both renderers -- inert (empty body)
-  # under -DRAPI_GL, exactly symmetric with gfx_opengl.c under -DRAPI_METAL. Same ARC
-  # flag as build_mac.sh's equivalent loop.
-  for f in "$HERE"/port/fast3d/*.mm; do
+  # Objective-C++: gfx_metal.mm (inert under -DRAPI_GL, symmetric with gfx_opengl.c under
+  # -DRAPI_METAL) plus port/src's two ObjC++ files -- ge_virtual_controller.mm (no-op stub
+  # on tvOS, real body on iOS; see its own header) and ge_launcher_metal.mm (the launcher's
+  # standalone Metal context, referenced unconditionally from ge_launcher.cpp's RAPI_METAL
+  # branch regardless of platform). Same ARC flag as build_ios.sh/build_mac.sh's loops,
+  # which already cover both directories -- this one silently didn't and was masked by
+  # stale pre-existing objects in $BUILD/obj still getting archived every run.
+  for f in "$HERE"/port/fast3d/*.mm "$HERE"/port/src/*.mm; do
     [ -e "$f" ] || continue
     local o="$BUILD/obj/port_$(basename "${f%.mm}").o"
     if clang++ "${PORTFLAGS[@]}" -std=c++17 -fno-exceptions -fno-rtti -fobjc-arc -c "$f" -o "$o" 2>/dev/null; then
@@ -285,7 +289,10 @@ cmd_lib() {
 
 DEV_DEVICECTL="F052F5AF-631E-5842-A449-EC788A18C74D"   # "Guest Bedroom (2)" Apple TV 4K
 DEV_XCODEBUILD="634383e218b182eaad97337eeade7c82e9e231cf"  # NOT the same id as devicectl
-BUNDLE_ID="org.goldeneyenative.getv"
+# Overridable, because a bundle identifier is the builder's own namespace rather than
+# the project's. Set GETV_BUNDLE_ID to something you control before signing for a
+# device; the default is deliberately generic and owned by nobody.
+BUNDLE_ID="${GETV_BUNDLE_ID:-org.goldeneyenative.getv}"
 
 cmd_app() {
   # project.yml's GCC_PREPROCESSOR_DEFINITIONS reads this via xcodegen's own ${VAR}

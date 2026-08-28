@@ -68,6 +68,12 @@ void geBridgeSetModOn(int i, int on);
 int  geBridgeGetCheatOn(int i);
 void geBridgeSetCheatOn(int i, int on);
 
+/* ge_virtual_controller.mm -- forces the device out of the portrait it launches in. Only
+ * gfx_sdl2.c's game-window init called this before; the launcher's own UIWindow never did,
+ * so it rendered sideways (Info.plist/SDL_HINT_ORIENTATIONS only restrict which
+ * orientations are ALLOWED, neither one actually rotates an already-portrait launch). */
+void gePortForceLandscapeOrientation(void);
+
 #ifdef __cplusplus
 }
 #endif

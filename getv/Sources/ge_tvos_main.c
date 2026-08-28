@@ -339,6 +339,58 @@ int SDL_main(int argc, char *argv[])
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
+#ifndef GE_PLATFORM_DESKTOP
+    /* The launcher, forced on. On desktop, ge_mac_main.c's main() calls geConfigInit() then
+     * gePortLauncherRun() BEFORE calling SDL_main() (this function) -- see its own comment on
+     * why the order matters: 76 GETV_* gates are read once into a static on first use, so the
+     * launcher has to run, and finish resolving every setting, before anything else touches
+     * them. tvOS/iOS have no such wrapper -- libSDL2main.a's real main() calls
+     * UIApplicationMain() and only reaches SDL_main() itself -- so this is that same call
+     * sequence, run from the one entry point these platforms actually give the app, as early
+     * as it can possibly go (before even the stub-table poisoning below).
+     *
+     * GETV_LAUNCHER=1 with overwrite=0: there is no --launcher argv on a sideloaded app and
+     * no shell to set the env from, so the launcher has to default to on rather than be
+     * reachable only by a flag nothing can pass. overwrite=0 lets a value already read from
+     * goldeneye.cfg (once one exists on-device) win, same convention geConfigInit() itself
+     * uses everywhere else. gePortLauncherRun() no longer execv()s on this platform (see
+     * relaunch()'s GE_PLATFORM_DESKTOP guard) -- it returns 0 and this function falls through
+     * into the game below, in the same still-pristine process, exactly like desktop's own
+     * execv-failed fallback already does. */
+    setenv("GETV_LAUNCHER", "1", 0);
+    {
+        extern int geConfigInit(int argc, char **argv);
+        /* Native SwiftUI launcher (GeNativeLauncher.swift), not gePortLauncherRun()'s
+         * ImGui one -- see that file's header comment for why: the ImGui path renders
+         * through SDL's own window/Metal-layer plumbing, which on real iOS hardware kept
+         * confining the UI to a small fraction of the screen despite several real,
+         * separately-fixed bugs. SwiftUI has no equivalent failure mode on either
+         * platform. @_cdecl gives this the literal C symbol name, so a plain extern
+         * declaration is enough -- no bridging header needed for C calling into Swift. */
+        extern int gePortNativeLauncherRun(void);
+        int rc = geConfigInit(argc, argv);
+        if (rc < 0) return 0;   /* --help / --write-config / --list-cheats: none reachable
+                                   here, kept only so this matches main()'s contract exactly */
+        if (rc > 0) return rc;
+        if (gePortNativeLauncherRun() != 0) return 0;
+    }
+#endif
+
+    /* iOS only (no-op everywhere else, including tvOS) -- see ge_virtual_controller.mm's
+     * header comment for why this needs nothing else: SDL's own iOS/tvOS joystick backend
+     * already treats a connected GCVirtualController exactly like a physical pad. Started
+     * here, before port_input.c's own SDL_INIT_GAMECONTROLLER call later in boot, so the
+     * virtual pad is already a live GCController by the time SDL enumerates. */
+    /* Apple only, and the guard is a LINK requirement rather than a tidiness one. The
+     * implementation is ge_virtual_controller.mm, an Objective-C++ translation unit that the
+     * Linux and Windows builds never compile, so calling it unconditionally leaves an
+     * undefined reference at link time. That is how it presented the first time this file was
+     * ever linked on Linux: everything compiled, 1,011 archive members, then one unresolved
+     * symbol from this line. */
+#if defined(__APPLE__)
+    { extern void gePortVirtualControllerInit(void); gePortVirtualControllerInit(); }
+#endif
+
     printf("[getv] GoldenEye tvOS harness starting\n");
 
     /* Must run before any game code: it lays down the 0xFF poison the stub tables are
