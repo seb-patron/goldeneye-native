@@ -6,6 +6,148 @@ Linux.** Not an emulator, and not a static recompilation. It is the game's own C
 executable for your machine, with a modern platform layer underneath: SDL2, OpenGL or Metal,
 mouse and keyboard, any resolution you like, and a Fast3D display-list renderer standing in for
 the N64's RCP.
+# Quick Start — Even If You've Never Used a Terminal
+
+You don't need to know how the game works or how to compile anything. Just follow the steps below.
+
+## 1. Download the game files
+
+First, download this project:
+
+[GoldenEye Native on GitHub](https://github.com/SegfaultEvan/goldeneye-native?utm_source=chatgpt.com)
+
+On the GitHub page, click the green **Code** button, then choose **Download ZIP**.
+
+Unzip the downloaded file somewhere easy to find, such as your **Desktop**.
+
+---
+
+## 2. Get your own copy of GoldenEye 007
+
+You need your **own legally dumped copy of the GoldenEye 007 game cartridge**.
+
+This project does **not** provide the game ROM, download it for you, or contain a copy of the game.
+
+Once you have your ROM file, open the `goldeneye-native` folder you downloaded.
+
+Inside it, you'll see a folder called:
+
+`roms`
+
+Put your GoldenEye ROM file **inside the `roms` folder**.
+
+You don't need to rename it.
+
+The ROM can be in any of the three common N64 byte orders and can use any of the three common ROM file extensions.
+
+---
+
+# 3. Install and run it
+
+## Windows
+
+On Windows, open the `goldeneye-native` folder.
+
+Right-click an empty area inside the folder while holding **Shift**.
+
+Choose **Open PowerShell window here** or **Open in Terminal**.
+
+Then copy and paste this entire command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+Press **Enter**.
+
+Follow any instructions that appear on screen. 
+
+---
+
+## Linux
+
+Open your **Terminal** application.
+
+Go to the folder you downloaded. For example:
+
+```bash
+cd ~/Desktop/goldeneye-native
+```
+
+Then run:
+
+```bash
+bash tools/install.sh
+```
+
+Follow any instructions that appear on screen.
+
+---
+
+macOS
+
+Open **Terminal**.
+
+The easiest way:
+
+1. Press **Command + Space**.
+2. Type `Terminal`.
+3. Press **Enter**.
+
+Now type the following commands **one at a time**, pressing **Enter** after each one:
+
+```bash
+cd ~/Desktop/goldeneye-native
+```
+
+If you put the folder somewhere other than your Desktop, drag the `goldeneye-native` folder into Terminal after typing `cd ` instead.
+
+Then type:
+
+```bash
+bash tools/install.sh
+```
+
+Follow any instructions that appear on screen.
+
+## Important
+
+**You must provide your own copy of GoldenEye 007.**
+Nothing in this repository downloads a ROM, and no GoldenEye ROM is included with the project.
+
+It fetches the third-party port sources, clones the decompilation, applies every patch in
+`getv/patches`, fetches Lua and Dear ImGui, builds SDL2, finds and verifies your ROM, runs the
+whole asset pipeline in the order it has to run in, and builds. When it finishes it tells you
+what to run. Re-running it is safe and is how you resume if something stops it.
+
+Prerequisites: macOS 13+ on Apple silicon with the Xcode Command Line Tools, or a Linux box with
+a compiler, CMake, Python 3 and the SDL2 development headers. The installer checks for each and
+prints the exact package command for your distribution if one is missing. It does not run `sudo`
+on your behalf.
+
+Supply your own copy of the game. Nothing here downloads a ROM and nothing here ships one. Any
+byte order works; the installer identifies the header and converts a `.v64` or `.n64` dump to
+the `.z64` the build wants, then checks the result against the known retail SHA-1 before using
+it. Put it in `roms/` or point at it:
+
+```bash
+bash tools/install.sh --rom ~/Desktop/goldeneye.n64
+```
+
+Useful flags: `--no-build` stops once the assets are ready, `--yes` never prompts, and
+`--desktop` installs a menu entry and icons under `$HOME` on Linux.
+
+The Windows one takes the same flags spelled the PowerShell way (`-Rom`, `-NoBuild`, `-Yes`)
+and delegates the toolchain to `tools\fetch_deps_windows.ps1` rather than deciding for itself
+which mingw-w64 to use. It needs git and Python on PATH first, and names both and stops if
+either is missing.
+
+**[`docs/SETUP.md`](docs/SETUP.md) is the same procedure written out by hand** - every
+prerequisite, every command, the expected output of each one, and a troubleshooting section.
+Read it when something goes wrong, or when you want to know why a step is where it is. The
+installer is that document with the ordering constraints encoded rather than described; the
+asset-generation sequence in particular is a set of extraction and code-generation passes where
+skipping any one produces a tree that fails to compile or, worse, silently misbehaves.
 
 There is no MIPS interpreter and no dynamic recompiler anywhere in it. The binary *is* the
 game. Every system is ordinary C that can be read, changed and rebuilt, and that is the whole
@@ -404,151 +546,6 @@ from a pinned upstream commit by `tools/fetch-thirdparty.sh`, because their redi
 are unresolved. The SDL2 2.30.9 source tree is supplied by you in `deps/SDL2-2.30.9`, and built
 from source, because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link
 into an arm64 binary.
-
-
-
-# Quick Start — Even If You've Never Used a Terminal
-
-You don't need to know how the game works or how to compile anything. Just follow the steps below.
-
-## 1. Download the game files
-
-First, download this project:
-
-[GoldenEye Native on GitHub](https://github.com/SegfaultEvan/goldeneye-native?utm_source=chatgpt.com)
-
-On the GitHub page, click the green **Code** button, then choose **Download ZIP**.
-
-Unzip the downloaded file somewhere easy to find, such as your **Desktop**.
-
----
-
-## 2. Get your own copy of GoldenEye 007
-
-You need your **own legally dumped copy of the GoldenEye 007 game cartridge**.
-
-This project does **not** provide the game ROM, download it for you, or contain a copy of the game.
-
-Once you have your ROM file, open the `goldeneye-native` folder you downloaded.
-
-Inside it, you'll see a folder called:
-
-`roms`
-
-Put your GoldenEye ROM file **inside the `roms` folder**.
-
-You don't need to rename it.
-
-The ROM can be in any of the three common N64 byte orders and can use any of the three common ROM file extensions.
-
----
-
-# 3. Install and run it
-
-## Windows
-
-On Windows, open the `goldeneye-native` folder.
-
-Right-click an empty area inside the folder while holding **Shift**.
-
-Choose **Open PowerShell window here** or **Open in Terminal**.
-
-Then copy and paste this entire command:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
-```
-
-Press **Enter**.
-
-Follow any instructions that appear on screen. 
-
----
-
-## Linux
-
-Open your **Terminal** application.
-
-Go to the folder you downloaded. For example:
-
-```bash
-cd ~/Desktop/goldeneye-native
-```
-
-Then run:
-
-```bash
-bash tools/install.sh
-```
-
-Follow any instructions that appear on screen.
-
----
-
-macOS
-
-Open **Terminal**.
-
-The easiest way:
-
-1. Press **Command + Space**.
-2. Type `Terminal`.
-3. Press **Enter**.
-
-Now type the following commands **one at a time**, pressing **Enter** after each one:
-
-```bash
-cd ~/Desktop/goldeneye-native
-```
-
-If you put the folder somewhere other than your Desktop, drag the `goldeneye-native` folder into Terminal after typing `cd ` instead.
-
-Then type:
-
-```bash
-bash tools/install.sh
-```
-
-Follow any instructions that appear on screen.
-
-## Important
-
-**You must provide your own copy of GoldenEye 007.**
-Nothing in this repository downloads a ROM, and no GoldenEye ROM is included with the project.
-
-It fetches the third-party port sources, clones the decompilation, applies every patch in
-`getv/patches`, fetches Lua and Dear ImGui, builds SDL2, finds and verifies your ROM, runs the
-whole asset pipeline in the order it has to run in, and builds. When it finishes it tells you
-what to run. Re-running it is safe and is how you resume if something stops it.
-
-Prerequisites: macOS 13+ on Apple silicon with the Xcode Command Line Tools, or a Linux box with
-a compiler, CMake, Python 3 and the SDL2 development headers. The installer checks for each and
-prints the exact package command for your distribution if one is missing. It does not run `sudo`
-on your behalf.
-
-Supply your own copy of the game. Nothing here downloads a ROM and nothing here ships one. Any
-byte order works; the installer identifies the header and converts a `.v64` or `.n64` dump to
-the `.z64` the build wants, then checks the result against the known retail SHA-1 before using
-it. Put it in `roms/` or point at it:
-
-```bash
-bash tools/install.sh --rom ~/Desktop/goldeneye.n64
-```
-
-Useful flags: `--no-build` stops once the assets are ready, `--yes` never prompts, and
-`--desktop` installs a menu entry and icons under `$HOME` on Linux.
-
-The Windows one takes the same flags spelled the PowerShell way (`-Rom`, `-NoBuild`, `-Yes`)
-and delegates the toolchain to `tools\fetch_deps_windows.ps1` rather than deciding for itself
-which mingw-w64 to use. It needs git and Python on PATH first, and names both and stops if
-either is missing.
-
-**[`docs/SETUP.md`](docs/SETUP.md) is the same procedure written out by hand** - every
-prerequisite, every command, the expected output of each one, and a troubleshooting section.
-Read it when something goes wrong, or when you want to know why a step is where it is. The
-installer is that document with the ordering constraints encoded rather than described; the
-asset-generation sequence in particular is a set of extraction and code-generation passes where
-skipping any one produces a tree that fails to compile or, worse, silently misbehaves.
 
 ## Screenshots
 
