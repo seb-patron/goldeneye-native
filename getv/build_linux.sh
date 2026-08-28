@@ -3,32 +3,54 @@
 # path. Modelled line for line on build_mac.sh; read that file first if anything here looks
 # arbitrary, because most of it is explained there and not repeated.
 #
-# ############################################################################
-# # UNTESTED. NO LINUX MACHINE HAS EVER RUN THIS SCRIPT OR COMPILED THIS TREE.
-# ############################################################################
+# It has now been run, and it works. Debian 12 on aarch64, clang 14, SDL2 2.26.5, in a
+# container with the repository mounted:
 #
-# It was written on macOS from docs/PORTING.md sections 9 and 11 and checked only with
-# `bash -n`. Nothing below is a claim that it works. Four things need checking before
-# anything else, in this order, because each one will stop the build outright:
+#   linux game:        167 built,  0 failed
+#   linux assets:      746 built,  0 failed
+#   linux audio:        40 built,  0 failed
+#   linux port layer:   60 built,  0 failed
+#   linux binary:      21M, ELF 64-bit LSB pie executable, ARM aarch64
 #
-#   1. getv/Sources/ge_tvos_main.c:88-107 -- the crash handler reads the faulting PC out of
-#      a Darwin arm64 ucontext (`_STRUCT_ARM_THREAD_STATE64`, `uc->uc_mcontext->__ss`,
-#      `__darwin_arm_thread_state64_get_pc`). Those identifiers do not exist on glibc, and
-#      the block is not behind any #ifdef. THE HARNESS WILL NOT COMPILE UNTIL THIS IS
-#      BRANCHED. PORTING.md section 6 sizes it at half a day: backtrace(), dladdr() and
-#      sigaction() are all present on glibc, so only the register dump needs the branch
-#      (`uc->uc_mcontext.gregs[REG_RIP]` on x86_64, `uc->uc_mcontext.pc` on aarch64).
-#      That file is shared verbatim with the tvOS targets, so whoever branches it must not
-#      regress them.
+# and that binary boots, loads DAM, renders 121 frames under software Mesa on a virtual
+# display and exits cleanly on GETV_EXIT_FRAME, drawing 1,883 of 3,042 submitted triangles.
+# The captured frame matches the macOS GL and Metal ones.
 #
-#   2. vendor/ge-decomp/src/libultra/gu/{sinf,cosf}.c:33-34 -- `#pragma weak sinf = __sinf`
-#      and the cosf pair. Mach-O has no weak aliases so clang warns and ignores them; ELF
-#      honours them, which is exactly what they ask for. That means libge.a would carry
-#      weak global `sinf`, `cosf`, `fsin` and `fcos` competing with libm's. Both files
-#      #define fsin/fcos on the very next line, so the pragmas are already redundant for
-#      this port; PORTING.md section 7 says to wrap all four in #ifndef GE_PORT_NATIVE.
-#      This is the one item where "ELF is closer to what the decomp expected" is a hazard
-#      rather than a convenience.
+# Three things had to be fixed to get there, and none of them was in the list this header used
+# to carry. They are recorded here because "untested" was doing a lot of work:
+#
+#   1. -fno-toplevel-reorder is GCC-only and clang rejects it outright. It was passed
+#      unconditionally to the asset batch while this header recommended clang for the first
+#      build, so the two instructions contradicted each other: 0 of 746 asset objects
+#      compiled. Now gated on CC_KIND.
+#   2. ge_gl_debug.c used GLEW_KHR_debug unguarded. GLEW is deliberately not used on Linux
+#      (see below), so that symbol does not exist here and the file would not compile. It now
+#      asks GL for the extension directly where GLEW is absent.
+#   3. ge_tvos_main.c called gePortVirtualControllerInit unconditionally. That lives in an
+#      Objective-C++ file no non-Apple build compiles, so it linked everywhere except here.
+#
+# What has NOT been done is playing it: no keyboard, no window, no hands on it, and the run
+# above was software-rasterised. Treat "builds and renders" as exactly that.
+#
+# Two of the four blockers this header used to list are now FIXED IN TREE. They are kept
+# here, marked, rather than deleted, because both were written up as "the build will not
+# start until this is done" and anyone who read that once should be able to see it change:
+#
+#   1. FIXED. getv/Sources/ge_tvos_main.c read the faulting PC out of a Darwin arm64
+#      ucontext with no #ifdef around it, so the crash handler could not compile on glibc.
+#      It now carries a four-way ladder -- Darwin arm64, Darwin x86_64, glibc aarch64,
+#      glibc x86_64 -- and anything else still gets the fault address, the boot mark and
+#      the backtrace, losing only the PC and registers. A guessed PC is worse than no PC.
+#
+#   2. FIXED. vendor/ge-decomp/src/libultra/gu/{sinf,cosf}.c had `#pragma weak sinf = __sinf`
+#      and the cosf pair. Mach-O has no weak aliases so clang ignored them; ELF honours
+#      them, which would have put weak global `sinf`, `cosf`, `fsin` and `fcos` in libge.a
+#      competing with libm's. All four are now inside `#ifndef GE_PORT_NATIVE`, and the
+#      `#define fsin __sinf` on the next line is what the files actually rely on. Carried
+#      by 0001-source.patch, so a fresh clone gets it.
+#
+# Two remain, and both are the installer's job rather than this script's. tools/install.sh
+# checks for each before it reaches a compiler:
 #
 #   3. SDL2 discovery. This script asks pkg-config, then sdl2-config, then a prefix built
 #      by `./build_linux.sh sdl`. Whether the distro's SDL2 development package is present
@@ -37,6 +59,9 @@
 #   4. The compiler. `-Wno-everything` is clang-only and it is not cosmetic -- see
 #      warn_flags() below. Under gcc the warning set genuinely differs. Prefer clang for
 #      the first build so the only variable is the platform.
+#
+# The warning at the top still stands. Two blockers being fixed is not the same as this
+# having run, and nobody has run it.
 #
 # The remaining Linux-specific items in PORTING.md section 11 are already satisfied in
 # tree and need nothing from this script: getv/port/include/{PR,platform_info.h} are
@@ -456,15 +481,26 @@ cmd_lib() {
   # player in room 0, and room 0 has no geometry. The all-zero terminator tile also goes to
   # .bss by default, detaching it from the run it terminates.
   #
-  # This build is GCC too. It was found on Windows with GCC 16 and these flags belong here
-  # for the same reason, whether or not this host's GCC currently happens to order things
-  # favourably. Clang emits in source order, which is why macOS never showed it.
+  # It was found on Windows with GCC 16 and belongs wherever GCC is the compiler, whether or
+  # not that host's GCC currently happens to order things favourably. Clang emits in source
+  # order, which is why macOS never showed it.
+  #
+  # GATED ON THE COMPILER, and that is not tidiness. -fno-toplevel-reorder is a GCC-only
+  # option and clang rejects it outright: `unknown argument`. Passing it unconditionally
+  # failed all 746 asset objects under clang while this script's own header recommended clang
+  # for the first build, so the two instructions contradicted each other and nothing caught it
+  # because nothing had run. Measured in a Debian 12 container with clang 14: 0 built, 746
+  # failed before this, and clang does not need the flag anyway.
   #
   # Assets only, deliberately: the game batch is code, and the only place adjacency of
   # top-level data actually matters is the level data.
+  local reorder=()
+  if [ "$CC_KIND" = gcc ]; then
+    reorder=(-fno-toplevel-reorder -fno-zero-initialized-in-bss)
+  fi
   (cd "$DECOMP" && find assets -name '*.c' ! -name '*.inc.c' \
       ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' | sort) \
-    | run_batch "linux assets" "${CFLAGS[@]}" -fno-toplevel-reorder -fno-zero-initialized-in-bss
+    | run_batch "linux assets" "${CFLAGS[@]}" ${reorder[@]+"${reorder[@]}"}
 
   # -DNDEBUG is passed to the mixer only, exactly as the other three builds do. Do not
   # widen it: SUPPORT_CHECK in gfx_pc.c is an assert() and is deliberately armed.

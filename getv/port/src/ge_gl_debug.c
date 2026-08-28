@@ -1,6 +1,7 @@
 /* GL error hunting. See ge_gl_debug.h for what this is chasing and why. */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* GL headers follow the same rule as gfx_opengl.c: GLEW where it is used to load entry points,
  * the platform's own headers otherwise. Including <GL/glew.h> unconditionally builds on Windows
@@ -143,11 +144,42 @@ void geGlDebugInstall(void)
     fflush(stdout);
     return;
 #else
-    if (!GLEW_KHR_debug) {
-        printf("[getv][gldebug] driver has no KHR_debug -- falling back to per-frame polling, "
-               "which says WHEN but not WHICH call\n");
-        fflush(stdout);
-        return;
+    /* GLEW_KHR_debug is GLEW's own extension-presence variable, so it exists only where GLEW
+     * was included above: Windows and the OSX_BUILD path. Linux deliberately does not use GLEW
+     * (see build_linux.sh's header) and reaches the entry points through GL_GLEXT_PROTOTYPES
+     * against the system libGL, where that symbol is simply not declared. This file used it
+     * unguarded, which is a compile error on the one platform that had never built it.
+     *
+     * Where GLEW is absent the extension is checked the ordinary way, by asking GL. Doing it
+     * through GLEW where GLEW IS present keeps the existing behaviour on Windows exactly. */
+    {
+        int have_khr;
+#if defined(_WIN32) || defined(WIN32) || defined(OSX_BUILD)
+        have_khr = GLEW_KHR_debug ? 1 : 0;
+#else
+        /* GL_NUM_EXTENSIONS and glGetStringi are core from 3.0; the compat profile this port
+         * asks for still answers both. A driver that refuses returns 0 extensions, which lands
+         * in the same fallback as "the extension is not there", and that is the right outcome:
+         * the point of the check is whether the callback can be installed. */
+        have_khr = 0;
+        {
+            GLint n = 0, i;
+            glGetIntegerv(GL_NUM_EXTENSIONS, &n);
+            for (i = 0; i < n; i++) {
+                const GLubyte *e = glGetStringi(GL_EXTENSIONS, (GLuint) i);
+                if (e != NULL && strcmp((const char *) e, "GL_KHR_debug") == 0) {
+                    have_khr = 1;
+                    break;
+                }
+            }
+        }
+#endif
+        if (!have_khr) {
+            printf("[getv][gldebug] driver has no KHR_debug -- falling back to per-frame "
+                   "polling, which says WHEN but not WHICH call\n");
+            fflush(stdout);
+            return;
+        }
     }
 
     glEnable(GL_DEBUG_OUTPUT);
