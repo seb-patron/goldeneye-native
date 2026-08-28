@@ -1,0 +1,49 @@
+--- a/src/game/frametiming.c
++++ b/src/game/frametiming.c
+@@ -214,16 +214,38 @@
+              * game ran as many times faster as the monitor was quicker.
+              *
+              * At 60 or below the divider is 1 and nothing changes, which is the behaviour every
+-             * existing setup already has. */
++             * existing setup already has.
++             *
++             * Free-run is the exception, and it has to be, because there the divider is not just
++             * unnecessary but actively wrong. With a real timebase and no cap, the simulation is
++             * already gated by elapsed time: waitForNextFrame returns the whole fields that
++             * genuinely passed, which is 0 on most frames at 456 fps, so the world advances when
++             * time advances and not otherwise. Dividing on top of that gates a second time on a
++             * frame PHASE, and the phase has no relationship to real time.
++             *
++             * That shows up as flicker rather than as a wrong number. gePortSimAlpha() feeds the
++             * camera interpolation from phase/divider, so at divider 4 the alpha cycles
++             * 0.25, 0.5, 0.75, 0 every four rendered frames whatever the clock did, and the
++             * camera is interpolated against a fraction that is not the fraction of a tick that
++             * has actually elapsed. */
+             const char *f = getenv("GETV_FPS");
++            const char *rc = getenv("GETV_REALCLOCK");
+             s32 hz = (f && *f) ? atoi(f) : 60;
+-            if (hz == 0) { hz = 120; }        /* uncapped: assume a fast display rather than 60 */
+-            ge_sim_div = (hz > 60) ? (hz / GE_SIM_TARGET_HZ) : 1;
+-            if (ge_sim_div < 1) { ge_sim_div = 1; }
+-            if (ge_sim_div > 1) {
+-                osSyncPrintf("[getv][simdiv] %dHz present, simulation held to %dHz "
+-                             "(divider %d). GETV_SIMDIV overrides.\n",
+-                             (s32) hz, (s32) (hz / ge_sim_div), (s32) ge_sim_div);
++            const s32 freerun = (hz == 0) && (rc && *rc == '1');
++            if (freerun) {
++                ge_sim_div = 1;
++                osSyncPrintf("[getv][simdiv] free-run (real clock, no cap): divider 1. "
++                             "Elapsed time gates the simulation; a phase divider on top of "
++                             "that only decouples the interpolation alpha from real time.\n");
++            } else {
++                if (hz == 0) { hz = 120; }    /* uncapped: assume a fast display rather than 60 */
++                ge_sim_div = (hz > 60) ? (hz / GE_SIM_TARGET_HZ) : 1;
++                if (ge_sim_div < 1) { ge_sim_div = 1; }
++                if (ge_sim_div > 1) {
++                    osSyncPrintf("[getv][simdiv] %dHz present, simulation held to %dHz "
++                                 "(divider %d). GETV_SIMDIV overrides.\n",
++                                 (s32) hz, (s32) (hz / ge_sim_div), (s32) ge_sim_div);
++                }
+             }
+         }
+         if (ge_sim_div < 1) ge_sim_div = 1;

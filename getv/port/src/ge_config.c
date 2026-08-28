@@ -291,6 +291,22 @@ static void key_crosshair_color(const char *v, int over)
     put("GETV_CROSSHAIR_COLOR", v, over);
 }
 
+/* Mirrors port_support.c's own clamp exactly, same reasoning as key_crosshair_color above:
+ * a value this layer accepts has to be one that layer will actually use. Silently taking a
+ * number and then ignoring it is the failure this whole file is written against. */
+static void key_crosshair_scale(const char *v, int over)
+{
+    double s = atof(v);
+
+    if (s < 0.25 || s > 2.0) {
+        ge_err("crosshair_scale=\"%s\" is out of range: 0.25 to 2.0, where 1.0 is the "
+               "retail size. Below a quarter the sight texture has too few texels left to "
+               "read as a shape%s", v, "");
+        return;
+    }
+    put("GETV_CROSSHAIR_SCALE", v, over);
+}
+
 static void key_aspect(const char *v, int over)
 {
     /* This key only ever picks/validates a WINDOW SHAPE; it does not decide what the
@@ -336,31 +352,47 @@ static void key_framerate(const char *v, int over)
 
  if (is_false(v) || strcmp(v, "uncapped") == 0 || strcmp(v, "unlimited") == 0) {
  put("GETV_FPS", "0", over);
+    /* Uncapped implies the real clock, because uncapped on the synthetic one is the worst
+     * configuration this port can be put in. The synthetic counter advances a fixed amount
+     * per call, so one rendered frame is one video field by construction and the world runs
+     * as fast as the renderer does: measured at 811.9 fields a second against the correct
+     * 60, a game running thirteen times too fast.
+     *
+     * The real timebase makes a field a unit of real time, and waitForNextFrame's free-run
+     * path (frametiming.c) then lets the renderer run ahead of it instead of blocking on the
+     * field boundary. Measured together: 60.5 fields a second at 416 fps. That pairing is
+     * the only one that delivers a fast display and correct game speed at once, which is
+     * why asking for one here sets the other rather than leaving it to be discovered.
+     *
+     * put() will not overwrite, so GETV_REALCLOCK=0 in the environment still wins for
+     * anyone deliberately measuring the synthetic behaviour. */
+ put("GETV_REALCLOCK", "1", over);
  return;
     }
  n = atoi(v);
 
-    /* Rates above 60 are rejected on arithmetic grounds, not out of conservatism.
+    /* A CAP above 60 cannot be right, and this is measured rather than inherited caution.
      *
-     * GoldenEye's timestep is whole video frames, not seconds. gfx_sdl2.c:60-80 and
-     * port_os.c:175-200 spell it out: osGetCount() advances a synthetic +1000 per call
-     * so that `(delta + 387937) / 775875` is exactly 1 every frame, and that 1 is
-     * `speedgraphframes`, which feeds g_ClockTimer (lv.c:1040-1047) and every
-     * `for (i = 0; i < speedgraphframes; i++)` integrator in the game. Fire rates,
-     * reload times, animation, physics and the mission clock are all counted in game
-     * frames. Render twice as often and the world runs twice as fast: the RC-P90 fires
-     * at 2x, Bond walks at 2x, the level timer runs at 2x.
+     * With the synthetic counter a rendered frame is a video field by construction, so a
+     * 120 cap runs the world at 117.6 fields a second against the correct 60. The tick
+     * divider does not rescue that: it changes how often the simulation ticks and hands the
+     * skipped fields to the tick that runs, so total game time per real second still follows
+     * the render rate.
      *
-     * Nothing is clamped and nothing complains; it simply plays wrong, which is a poor
-     * failure mode for a user-facing setting. Real 120 fps requires decoupling the
-     * simulation tick from the render tick (fixed 60 Hz simulation, interpolated
-     * presentation), which is a change to the pacing code, not a config value.
+     * With the real clock a cap is worse than useless. waitForNextFrame only free-runs when
+     * the cap is off; with a 120 cap it blocks on the field boundary and delivers 60 fps
+     * anyway, measured at 60.3 fields a second and 60 fps. So a capped rate above 60 is
+     * either wrong or pointless, depending on the clock, and there is no third case.
      *
-     * This rejection is in the config layer only. `GETV_FPS=120` in the environment
-     * still reaches gfx_sdl2.c:240 untouched, so a diagnostic run can still ask for
-     * wrong-but-informative behaviour. */
+     * `framerate = off` is the configuration that works, and it now implies the real clock:
+     * 60.5 fields a second at 416 fps. That is what this message points at. */
  if (n > 60) {
- ge_err("framerate=%s is NOT SUPPORTED and has been ignored.\n""GoldenEye's timestep is whole video frames, so running ""above 60 does not\n""make the game smoother - it makes the game FASTER. ""Fire rates, physics,\n""animation and the mission clock all scale with the ""render rate. Real high-\n""refresh support needs simulation/render decoupling, ""which this build does\n""not have. Supported values: 30, 50, 60, or off%s", v, "");
+ ge_err("framerate=%s is not supported: a frame cap above 60 either runs the game fast "
+        "(117.6 fields/sec against the correct 60, on the synthetic clock) or is ignored "
+        "(60 fps anyway, on the real clock).\n"
+        "For a high-refresh display use `framerate = off`, which uncaps the renderer and "
+        "switches to the real timebase: measured 60.5 fields/sec at 416 fps.\n"
+        "Supported: 30, 50, 60, or off%s", v, "");
  return;
     }
  if (n != 30 && n != 50 && n != 60) {
@@ -697,6 +729,120 @@ static void key_todo_int(const char *gate, const char *key, const char *v, int o
 /* ------------------------------------------------------------ the dispatcher */
 
 /* Returns 1 if the key was recognised. */
+/* -1 = nobody asked, 0 = faithful, 1 = GoldenEye+. Recorded during parsing and acted on
+ * between the file and the command line; see key_preset and ge_preset_apply. */
+static int g_preset_plus = -1;
+
+/* What GoldenEye+ turns on. Kept as a table rather than a run of put() calls because the
+ * environment has to be sampled for exactly these names before the config file is read, and
+ * two hand-maintained lists of the same eight strings is how they drift apart.
+ *
+ * These match apply_profile() in ge_launcher.cpp deliberately. Two paths to one profile that
+ * disagree about what it means is worse than either alone, and that was the state this
+ * replaced: the launcher's profile turned on real settings while the config file's `preset`
+ * key printed an apology for not being implemented.
+ *
+ * FOV is absent because the launcher's floor and this file's default are both 100. */
+static const struct { const char *name; const char *val; } kPresetPlus[] = {
+    { "GETV_MSAA",        "4" },
+    { "GETV_ANISO",       "8" },
+    { "GETV_MIPMAPS",     "1" },
+    { "GETV_SUPERSAMPLE", "2" },
+    { "GETV_HD_TEXTURES", "1" },   /* a silent no-op when no pack is installed */
+    { "GETV_FXAA",        "1" },
+    /* Only does anything with a pack that ships `<hash>_h.png` height maps, and there is no
+     * height data in the game's own assets. It is here so the same installed pack means
+     * different things under the two profiles: texture resolution under 97 Console,
+     * resolution and displacement under this one. */
+    { "GETV_PARALLAX",    "1" },
+    /* A 32-pixel sight was sized for 320x240 on a CRT across a room. At a desk it covers
+     * noticeably more of what you are aiming at than it did in 1997. 1.0 is retail exactly
+     * and stays the default outside this profile. */
+    { "GETV_CROSSHAIR_SCALE", "0.6" },
+    /* Uncapped, and the real clock it has to travel with. On the synthetic counter one
+     * rendered frame is one video field by construction, so uncapping alone runs the world as
+     * fast as the renderer draws: measured at 811.9 fields a second against the correct 60.
+     * Vsync stays on, so this means "as fast as the display" rather than "as fast as
+     * possible"; GETV_VSYNC=0 releases it and measures 449 fps on DAM. */
+    { "GETV_FPS",         "0" },
+    { "GETV_REALCLOCK",   "1" },
+};
+static const int kPresetPlusCount = (int)(sizeof kPresetPlus / sizeof kPresetPlus[0]);
+
+/* Set for each entry above that was already in the environment when geConfigInit() started,
+ * which is the only moment the real environment can be told apart from what this file puts
+ * there. */
+static int g_preset_env_had[sizeof kPresetPlus / sizeof kPresetPlus[0]];
+
+static void ge_preset_snapshot(void)
+{
+    int i;
+    for (i = 0; i < kPresetPlusCount; i++) {
+        const char *e = getenv(kPresetPlus[i].name);
+        g_preset_env_had[i] = (e != NULL && *e != '\0');
+    }
+}
+
+/* Applied between the config file and the command line, and it fills gaps rather than
+ * displacing anything:
+ *
+ *     command line  >  environment  >  your own config lines  >  preset
+ *
+ * Every one of those beats the preset, which is the behaviour the template promises and the
+ * only one that is not surprising: somebody who writes `preset = plus` and then `fxaa = 0`
+ * means both lines, and getting FXAA anyway would be the config layer overruling them.
+ *
+ * Telling the three apart needs the snapshot above, taken before the file is read. After
+ * pass 2 a preset key is in the environment for one of two reasons, and they need opposite
+ * treatment: it was there when the process started, or this file's own put() put it there
+ * from a config line. Both look identical to getenv() by then.
+ *
+ * A skipped key is REPORTED rather than passed over quietly. The template ships with
+ * `supersample` and `framerate` commented out precisely so the profile can reach them, but an
+ * install predating that has them as live lines, and a preset that silently declined to
+ * uncap the frame rate would look exactly like a preset that did not work. */
+static void ge_preset_apply(void)
+{
+    int i;
+    char held[512];
+    size_t heldlen = 0;
+
+    held[0] = '\0';
+
+    if (g_preset_plus < 0 && getenv("GETV_PROFILE_PLUS") != NULL) {
+        g_preset_plus = (atoi(getenv("GETV_PROFILE_PLUS")) != 0);
+    }
+    if (g_preset_plus != 1) {
+        return;
+    }
+    for (i = 0; i < kPresetPlusCount; i++) {
+        const char *cur;
+
+        /* Already there when the process started. The launcher's own doing, most of the
+         * time: it writes every setting explicitly and then execs. Leave it alone. */
+        if (g_preset_env_had[i]) {
+            continue;
+        }
+        /* Not in the environment at entry but set now, so a config line put it there. That
+         * is a deliberate choice and outranks the profile, but say which ones. */
+        cur = getenv(kPresetPlus[i].name);
+        if (cur != NULL && *cur != '\0') {
+            int n = snprintf(held + heldlen, sizeof held - heldlen, "%s%s",
+                             heldlen ? ", " : "", kPresetPlus[i].name + 5);
+            if (n > 0 && (size_t) n < sizeof held - heldlen) { heldlen += (size_t) n; }
+            continue;
+        }
+        setenv(kPresetPlus[i].name, kPresetPlus[i].val, 1);
+    }
+
+    printf("[getv][config] preset: GoldenEye+ (msaa 4, aniso 8, mipmaps, ss 2, HD textures, "
+           "parallax, FXAA, a 0.6 reticle, uncapped on the real clock)\n");
+    if (heldlen > 0) {
+        printf("[getv][config] preset: your own settings kept for %s. Comment those lines out "
+               "to let the profile have them.\n", held);
+    }
+}
+
 static int apply(const char *key_in, const char *val, int over)
 {
  char key[128];
@@ -786,7 +932,16 @@ static int apply(const char *key_in, const char *val, int over)
  key_int("GETV_MSAA", key, val, over, 0, 8); return 1;
     }
  if (strcmp(key, "mipmaps") == 0) { key_bool_gate("GETV_MIPMAPS", key, val, over); return 1; }
+    /* FXAA had a launcher checkbox and a place in the GoldenEye+ profile and no config key at
+     * all, so a config file asking for it got "unknown key" and the profile was the only way
+     * to reach it. Every other setting the profile touches is individually settable here; this
+     * one now is too. */
+ if (strcmp(key, "fxaa") == 0) { key_bool_gate("GETV_FXAA", key, val, over); return 1; }
  if (strcmp(key, "crosshair_color") == 0) { key_crosshair_color(val, over); return 1; }
+ if (strcmp(key, "crosshair_scale") == 0 || strcmp(key, "reticle_scale") == 0) {
+ key_crosshair_scale(val, over); return 1;
+    }
+ if (strcmp(key, "parallax") == 0) { key_bool_gate("GETV_PARALLAX", key, val, over); return 1; }
  if (strcmp(key, "fog_per_pixel") == 0) {
  key_todo_flag("GETV_FOG_PERPIXEL", key, val, over,
  "per-pixel fog (N64 fog is per-VERTEX; FRIGATE is the one fogless level)");
@@ -811,12 +966,30 @@ static int apply(const char *key_in, const char *val, int over)
  "per-pixel lighting -- this one changes the LOOK most of any enhancement; ""N64 lighting is per-vertex Gouraud");
  return 1;
     }
- if (strcmp(key, "preset") == 0) {
- if (strcmp(val, "faithful") == 0)      { put("GETV_PRESET", "faithful", over); }
- else if (strcmp(val, "enhanced") == 0) {
+ if (strcmp(key, "preset") == 0 || strcmp(key, "profile") == 0) {
+        /* This used to accept enhanced and then print that no enhancement was implemented,
+         * which was true when it was written and stopped being true without anyone coming
+         * back to it. The launcher had meanwhile grown a GoldenEye+ profile that turns on
+         * real settings, under a different variable, so the two names for one idea did
+         * different things: the launcher's worked and the config file's printed an apology.
+         *
+         * Both are the same idea now. The token stays `faithful` for the plain profile so
+         * existing files keep parsing, and enhanced / plus / goldeneye+ all select the other
+         * one. Nothing is set here: what a preset turns on is decided in ge_preset_apply(),
+         * after every explicit key has been read, so that a file saying both `preset = plus`
+         * and `fxaa = 0` gets the second one honoured rather than whichever came first. */
+ if (strcmp(val, "faithful") == 0 || strcmp(val, "97") == 0 ||
+ strcmp(val, "console") == 0) {
+ put("GETV_PRESET", "faithful", over);
+ g_preset_plus = 0;
+        } else if (strcmp(val, "enhanced") == 0 || strcmp(val, "plus") == 0 ||
+ strcmp(val, "goldeneye+") == 0 || strcmp(val, "ge+") == 0) {
  put("GETV_PRESET", "enhanced", over);
- printf("[getv][config] preset=enhanced accepted, but NO ENHANCEMENT IS ""IMPLEMENTED YET -- this is a reserved seam.\n");
-        } else { ge_err("preset=\"%s\" - expected faithful|enhanced", val, ""); }
+ put("GETV_PROFILE_PLUS", "1", over);
+ g_preset_plus = 1;
+        } else {
+ ge_err("preset=\"%s\" - expected faithful|enhanced", val, "");
+        }
  return 1;
     }
  if (strcmp(key, "unlock_all") == 0 || strcmp(key, "unlockall") == 0) {
@@ -1072,19 +1245,31 @@ static const char *DEFAULT_CFG =
 "resolution  = 1280x960     # WIDTHxHEIGHT (min 320x240), or \"fullscreen\"\n"
 "aspect      = 4:3          # 4:3 | 16:9 | auto. Only used if resolution is unset.\n"
 "fullscreen  = 0\n"
-"supersample = 1            # 1 or 2. 2 renders at double size and downsamples.\n"
+"# supersample = 1          # 1 or 2. 2 renders at double size and downsamples.\n"
+"#                          # Commented so `preset = plus` can raise it. Uncomment to\n"
+"#                          # pin it and the profile will leave it alone.\n"
 "filtering   = three-point  # point | bilinear | three-point (three-point = real N64)\n"
 "\n"
 "# --- framerate -------------------------------------------------------------\n"
-"# 30, 50, 60 or off. 120 IS NOT SUPPORTED AND WILL BE REJECTED.\n"
+"# 30, 50, 60, or off.\n"
 "#\n"
-"# GoldenEye counts time in WHOLE VIDEO FRAMES, not seconds. Fire rates, reload\n"
-"# times, physics, animation and the mission clock are all integrated once per\n"
-"# rendered frame. Running at 120 therefore does not make the game smoother - it\n"
-"# makes the entire game run at DOUBLE SPEED. (30 likewise halves it.) Genuine\n"
-"# high-refresh support needs the simulation decoupled from rendering, which this\n"
-"# build does not do yet.\n"
-"framerate   = 60\n"
+"# GoldenEye counts time in WHOLE VIDEO FRAMES rather than seconds. On the default\n"
+"# synthetic clock one rendered frame IS one video field, so the world runs as fast\n"
+"# as the renderer: a 120 cap was measured at 117.6 fields/sec against the correct\n"
+"# 60. A cap above 60 is therefore refused rather than quietly played wrong.\n"
+"#\n"
+"# For a high-refresh display use `off`. It uncaps the renderer AND switches to the\n"
+"# real timebase, where a field is a unit of real time and waitForNextFrame stops\n"
+"# blocking on the field boundary. Measured together: 60.5 fields/sec at 456 fps,\n"
+"# i.e. correct game speed on a fast display.\n"
+"#\n"
+"# The cost of `off` is reproducibility: elapsed fields become load-dependent, so\n"
+"# two runs are no longer frame-for-frame comparable. That is why it is not the\n"
+"# default. Set `realclock = 0` alongside it to force the synthetic clock back, but\n"
+"# expect the game to run many times too fast.\n"
+"# framerate = 60           # 30 | 50 | 60 | off. Commented for the same reason as\n"
+"#                          # supersample above: `preset = plus` uncaps it, and a live\n"
+"#                          # line here would outrank the profile and keep it at 60.\n"
 "\n"
 "# --- controls --------------------------------------------------------------\n"
 "# All eight of Rare's control styles are selectable:\n"
@@ -1164,23 +1349,36 @@ static const char *DEFAULT_CFG =
 "#                         # Its level select does NOT work (gutted no-ops).\n"
 "#                         # Use GETV_STAGE = <n> to pick a level.\n"
 "\n"
-"# --- FUTURE: enhancement seam (RESERVED, NOT IMPLEMENTED YET) --------------\n"
-"# These keys parse and validate today but NOTHING CONSUMES THEM. They exist so the\n"
-"# option surface is stable before the features land. Turning one on prints a\n"
-"# not-implemented notice rather than silently doing nothing.\n"
+"# --- GoldenEye+ ------------------------------------------------------------\n"
+"# One switch for everything this port added and verified. Uncomment it and the\n"
+"# rest of this section happens; leave it and you get the 1997 game.\n"
 "#\n"
-"# ALL DEFAULT OFF ON PURPOSE. The N64 look is the product, and our QA method is\n"
-"# comparison against real N64 captures -- anything that silently alters output\n"
-"# destroys our ability to check correctness. Enhancements are OPTIONS, never the\n"
-"# default, and none should be built until the faithful port is frozen.\n"
+"# preset = plus            # faithful | plus   (aliases: 97 / console, enhanced / ge+)\n"
 "#\n"
-"# preset = faithful        # faithful | enhanced  (one switch for the lot)\n"
+"# It turns on supersampling 2x, MSAA 4x, anisotropic 8x, mipmaps, HD texture\n"
+"# packs, parallax, FXAA, a 0.6 reticle, and uncapped frames on the real clock.\n"
 "#\n"
-"# Tier 1 -- removes N64 HARDWARE LIMITS, does not change artistic intent:\n"
+"# Anything you set yourself still wins, wherever it appears in this file: the\n"
+"# preset is applied after the file is read and before the command line, so the\n"
+"# order is  command line > environment > preset > this file.  Set one line back\n"
+"# to taste and the rest of the profile stays.\n"
+"#\n"
+"# Faithful is the default and stays the default. The N64 look is the product, and\n"
+"# the way correctness gets checked here is comparison against real N64 captures,\n"
+"# so anything that alters output has to be something you asked for.\n"
+"#\n"
+"# Individually, if you would rather not take the lot:\n"
+"# anisotropic     = 8      # 0-16. Tiny textures at grazing angles; biggest cheap win.\n"
+"# msaa            = 4      # 0 | 2 | 4 | 8. The N64 HAD AA; we currently do not.\n"
+"# mipmaps         = 1      # kills distant-texture shimmer\n"
+"# fxaa            = 1      # edge antialiasing over the finished frame\n"
+"# hd_textures     = 1      # use a texture pack if one is installed\n"
+"# parallax        = 1      # let that pack's height maps displace the diffuse UVs\n"
+"# crosshair_scale = 0.6    # 0.25-2.0, where 1.0 is the retail sight size\n"
+"# framerate       = off    # uncapped, on the real clock. See docs/FRAME_TIMING.md\n"
+"#\n"
+"# --- still a reserved seam: these parse and validate, nothing consumes them ---\n"
 "# depth_bits    = 24       # 16 | 24 | 32. N64 z-fighting is a 16-bit Z limit.\n"
-"# anisotropic   = 8        # 0-16. Tiny textures at grazing angles; biggest cheap win.\n"
-"# msaa          = 4        # 0 | 2 | 4 | 8. The N64 HAD AA; we currently do not.\n"
-"# mipmaps       = 1        # kills distant-texture shimmer\n"
 "# fog_per_pixel = 1        # N64 fog is per-VERTEX. Frigate is the one fogless level.\n"
 "#\n"
 "# Tier 2 -- cheap and dramatic, no new art:\n"
@@ -1240,11 +1438,25 @@ int geConfigInit(int argc, char **argv)
  int doWrite = 0, doHelp = 0;
  int i;
 
+    /* Before anything is read, because after the file has been parsed there is no way left
+     * to tell a value the environment supplied from one this file put there. */
+ ge_preset_snapshot();
+
     /* Pass 1 - only the flags that change what happens next. Nothing is applied yet,
      * because --config must be known before the file is read and every other flag must
-     * be applied after it. */
+     * be applied after it.
+     *
+     * --preset is spotted here as well as parsed later, because the preset has to be applied
+     * BETWEEN the file and pass 3 for the command line to keep beating it. Knowing about it
+     * only when pass 3 reaches it would be too late. */
  for (i = 1; i < argc; i++) {
  const char *a = argv[i];
+ if (strncmp(a, "--preset=", 9) == 0 || strncmp(a, "--profile=", 10) == 0) {
+ const char *pv = strchr(a, '=') + 1;
+ if (strcmp(pv, "enhanced") == 0 || strcmp(pv, "plus") == 0 ||
+ strcmp(pv, "goldeneye+") == 0 || strcmp(pv, "ge+") == 0) { g_preset_plus = 1; }
+ else                                                      { g_preset_plus = 0; }
+        }
  if (strncmp(a, "--config=", 9) == 0)            { cliPath = a + 9; }
  else if (strcmp(a, "--config") == 0 && i + 1 < argc) { cliPath = argv[++i]; }
  else if (strncmp(a, "--write-config=", 15) == 0) { doWrite = 1; writePath = a + 15; }
@@ -1307,6 +1519,10 @@ int geConfigInit(int argc, char **argv)
  read_file();
         }
     }
+
+    /* The preset sits here on purpose: after the file, before the command line. See
+     * ge_preset_apply() for why that position is the whole rule. */
+ ge_preset_apply();
 
     /* Pass 3 - the command line, with overwrite=1 so it beats the environment. */
  for (i = 1; i < argc; i++) {

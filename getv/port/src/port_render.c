@@ -401,6 +401,46 @@ void gePortRenderDisplayList(void *firstGdl)
         fflush(stdout);
     }
 
+    /* GETV_TIMETRACE=1 -- game time against real time, once per second of wall clock.
+     *
+     * The question this answers cannot be answered by counting rendered frames, and counting
+     * them is how the earlier measurements went wrong. currentFrameCounter is the game's own
+     * master clock in video fields, so a correct build advances it by 60 per real second no
+     * matter how many frames were drawn in that second. Under the synthetic counter it
+     * advances once per rendered frame instead, which is the whole defect: at 785 fps the
+     * world runs thirteen times too fast while every per-frame invariant still looks perfect.
+     *
+     * Printed against a real millisecond clock rather than a frame count, because tying the
+     * measurement to frames is exactly the mistake being measured. */
+    {
+        static int tt = -1;
+        static unsigned start_ms, next_ms;
+        static s32 start_fields;
+        extern s32 currentFrameCounter;
+        extern unsigned int gePortHostMillis(void);
+        if (tt < 0) {
+            const char *e = getenv("GETV_TIMETRACE");
+            tt = (e && *e && *e != '0');
+            start_ms = gePortHostMillis();
+            next_ms = start_ms + 1000u;
+            start_fields = currentFrameCounter;
+        }
+        if (tt) {
+            const unsigned now = gePortHostMillis();
+            if (now >= next_ms) {
+                const unsigned el = now - start_ms;
+                const s32 fields = currentFrameCounter - start_fields;
+                printf("[getv][time] real=%ums fields=%d frames=%d | fields/sec=%.1f "
+                       "(60.0 is correct) fps=%.0f\n",
+                       el, (int) fields, rendered,
+                       el ? (double) fields * 1000.0 / (double) el : 0.0,
+                       el ? (double) rendered * 1000.0 / (double) el : 0.0);
+                fflush(stdout);
+                next_ms = now + 1000u;
+            }
+        }
+    }
+
     /* ---- GETV_EXIT_FRAME: fixed-FRAME termination, not fixed-WALL-CLOCK ------------
      *
      * This is what makes triangle counts comparable across launches.
@@ -490,7 +530,30 @@ void gePortRenderDisplayList(void *firstGdl)
      * them must have happened first. joyPoll() is a producer feeding a sample ring the
      * game drains next iteration via joyConsumeSamplesWrapper(), so its position
      * relative to the frame does not matter; it matters only that it runs. */
-    { extern void joyPoll(void);        joyPoll(); }
-    { extern void musicFadeTick(void);  musicFadeTick(); }
+    /* joyPoll and musicFadeTick are retrace work, and the retrace was 60Hz. Running them
+     * once per RENDERED frame is the same thing as running them at the render rate, which
+     * was harmless while the renderer was capped at 60 and is not once it is not.
+     *
+     * For input it is worse than a rate error. joyPoll writes a sample per call, and the
+     * game advances its read window once per tick (joy.c's curstart/curlast), reading a
+     * single sample, samples[curlast]. At 472 fps that is about eight writes per read, so
+     * where the read lands inside that window decides how much of the mouse backlog it
+     * catches: sometimes nearly all of it, sometimes almost none. The motion arrives, but
+     * in uneven helpings, which is what a jerky mouse is.
+     *
+     * Gating on an elapsed field puts writes and reads back at 1:1, exactly as they are at
+     * 60. SDL's relative mouse state accumulates between calls, so a skipped poll loses no
+     * motion; the next one collects it. Capped, speedgraphframes is 1 every frame and this
+     * changes nothing.
+     *
+     * gePortAudioFrame is deliberately NOT gated: it feeds a buffer that drains in real time
+     * rather than in game time, and starving it is how you get underruns. */
+    {
+        extern int speedgraphframes;   /* s32 in the game; same type here */
+        if (speedgraphframes > 0) {
+            { extern void joyPoll(void);        joyPoll(); }
+            { extern void musicFadeTick(void);  musicFadeTick(); }
+        }
+    }
     { extern void gePortAudioFrame(void); gePortAudioFrame(); }
 }
