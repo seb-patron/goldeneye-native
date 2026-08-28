@@ -163,7 +163,7 @@ directly. It is GoldenEye's own demo-playback hook, and every property we need f
 - Menus, pause, character select, the debug menu and gameplay are all driven identically, because
   everything routes through `g_ContDataPtr`. There is no path that reads the pad another way.
 
-**Crucially, this requires no change to the decomp.** `joySetPlaybackFunc` is a public function;
+**None of this needs a change to the decomp.** `joySetPlaybackFunc` is a public function;
 the port layer calls it with an `extern` declaration. `vendor/ge-decomp/` stays untouched, which
 removes the ownership problem this design otherwise had.
 

@@ -121,6 +121,10 @@ getv_shot.*
 sm64tv/Resources/res/
 getv/GoldeneyeNativeSim*.xcodeproj/
 getv/project-sim*.yml
+# The iOS-simulator twin of the line above. build_ios_sim.sh writes this from
+# project_ios.yml with the SDL prefix substituted in, so a tracked copy carries whichever
+# machine last ran a sim build -- it was committed once with an absolute /Users path in it.
+getv/project-ios-sim*.yml
 
 # Backed up outside the repo at _Personal/goldeneye-native-devnotes-<date>/.
 #
