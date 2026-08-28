@@ -148,6 +148,28 @@ static id<CAMetalDrawable> mtl_drawable;
 static id<MTLTexture> mtl_depth_tex;
 static uint32_t mtl_depth_w, mtl_depth_h;
 
+/* What gfx_metal_set_viewport/set_scissor should clamp against for THIS frame's game
+ * encoder -- native drawable size on the fast path, the inflated supersampled size on the
+ * postfx path (gfx_metal_start_frame sets this each frame; see GETV-SUPERSAMPLE below for
+ * why the game's own draws can land in a target larger than the drawable). Reading
+ * mtl_drawable.texture directly here (the previous behaviour) is only correct on the fast
+ * path -- on the postfx path mtl_drawable is not even acquired yet at this point (see
+ * gfx_metal_end_frame's deferred nextDrawable), and even once it is, its size is the wrong
+ * (native, not inflated) reference for scissoring the game's own draws. */
+static uint32_t mtl_render_target_w, mtl_render_target_h;
+
+/* GETV-SUPERSAMPLE / GETV_MSAA / GETV_FXAA offscreen path. One shared intermediate colour
+ * target serves MSAA-resolve, supersample-downsample and (a fast follow) FXAA input alike --
+ * mirroring how gfx_opengl.c's GE_POSTFX path unifies the same three into one pass, not
+ * three separate mechanisms. mtl_pp_depth backs the game's own depth test/write during that
+ * pass; nothing ever reads it back afterward, so MTLStorageModeMemoryless is valid for the
+ * whole thing on this TBDR GPU, not just for MSAA specifically. */
+static id<MTLTexture> mtl_pp_color;
+static id<MTLTexture> mtl_pp_depth;
+static uint32_t mtl_pp_w, mtl_pp_h;
+static id<MTLRenderPipelineState> mtl_pp_pipeline;
+static id<MTLSamplerState> mtl_pp_sampler;
+
 static id<MTLBuffer> mtl_vbo_pool[VBO_POOL_COUNT];
 static int mtl_vbo_index;
 static size_t mtl_vbo_offset;
@@ -607,15 +629,62 @@ static void gfx_metal_select_texture(int tile, uint32_t texture_id) {
     metal_curtex = tile;
 }
 
+/* GETV_MIPMAPS=1 -- trilinear filtering, off by default. Same gate, same scope, same
+ * width>1&&height>1 guard as gfx_opengl.c's ge_mipmap_enabled()/gfx_opengl_upload_texture:
+ * only the diffuse path mipmaps (gfx_metal_upload_height_texture/
+ * gfx_metal_ensure_height_placeholder below are deliberately untouched, matching GL, which
+ * never mipmaps its own height texture either). Resolved once; see that file's own comment
+ * for the full reasoning (GETV_MIPMAPS was previously set by three layers and read by
+ * none). */
+static bool ge_metal_mipmap_enabled(void) {
+    static int resolved = -1;
+    if (resolved < 0) {
+        const char *e = getenv("GETV_MIPMAPS");
+        resolved = (e && *e == '1') ? 1 : 0;
+    }
+    return resolved != 0;
+}
+
+/* GETV_ANISO=<n> -- anisotropic filtering, off by default. Unlike gfx_opengl.c's
+ * ge_aniso_max(), no driver capability query is needed: MTLSamplerDescriptor.maxAnisotropy
+ * self-clamps to its documented valid range (1...16), so asking for more than the hardware
+ * supports is not the GL-style error that made a query necessary there. */
+static uint32_t ge_metal_aniso_max(void) {
+    static long resolved = -1;
+    if (resolved < 0) {
+        const char *e = getenv("GETV_ANISO");
+        long want = (e && *e) ? strtol(e, NULL, 10) : 0;
+        resolved = (want > 1) ? want : 0;
+    }
+    return (uint32_t) resolved;
+}
+
 static void gfx_metal_upload_texture(const uint8_t *rgba32_buf, int width, int height) {
     struct MetalTexture *t = metal_tex[metal_curtex];
+    bool want_mips = ge_metal_mipmap_enabled() && width > 1 && height > 1;
     @autoreleasepool {
         MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                                                                          width:width height:height mipmapped:NO];
+                                                                                          width:width height:height mipmapped:want_mips];
         desc.usage = MTLTextureUsageShaderRead;
         t->tex = [mtl_device newTextureWithDescriptor:desc];
         MTLRegion region = MTLRegionMake2D(0, 0, width, height);
         [t->tex replaceRegion:region mipmapLevel:0 withBytes:rgba32_buf bytesPerRow:(NSUInteger)width * 4];
+
+        if (want_mips) {
+            /* A fresh command buffer from mtl_queue, not the current frame's mtl_cmdbuf --
+             * this upload can happen before any frame has started (asset precache) or
+             * mid-frame at a texture-cache miss inside draw-list traversal, so there is no
+             * guarantee mtl_cmdbuf/mtl_encoder are in a usable state here. Committed
+             * immediately with no wait: Metal hazard-tracks a resource across command
+             * buffers submitted to the same queue in commit order, so any later frame's
+             * draw (submitted after this commit) is guaranteed to see the finished mips --
+             * no CPU stall needed to make that true. */
+            id<MTLCommandBuffer> mipcmd = [mtl_queue commandBuffer];
+            id<MTLBlitCommandEncoder> blit = [mipcmd blitCommandEncoder];
+            [blit generateMipmapsForTexture:t->tex];
+            [blit endEncoding];
+            [mipcmd commit];
+        }
     }
     t->size[0] = (float)width;
     t->size[1] = (float)height;
@@ -633,6 +702,23 @@ static void gfx_metal_set_sampler_parameters(int tile, bool linear_filter, uint3
         MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
         sd.minFilter = linear_filter ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
         sd.magFilter = sd.minFilter;
+        /* Mipmapping only ever applies to minification -- MTLSamplerMinMagFilter has no
+         * mip-level concept at all, magFilter above always samples the base level. Linear
+         * mip blend unconditionally, independent of linear_filter, matching GL's own
+         * asymmetric choice (GL_NEAREST_MIPMAP_LINEAR vs GL_LINEAR_MIPMAP_LINEAR): GL always
+         * blends BETWEEN mip levels linearly, only the WITHIN-level sample varies
+         * nearest/linear. Getting this backwards would silently diverge from the reference
+         * look this port is matched against. */
+        if (ge_metal_mipmap_enabled()) {
+            sd.mipFilter = MTLSamplerMipFilterLinear;
+        }
+        /* Deliberately excluded when the game asked for point sampling (matching GL's own
+         * `aniso > 0.0f && linear_filter` gate) -- GoldenEye chooses nearest for the HUD,
+         * watch faces and text, pixel art that anisotropy would only blur. */
+        uint32_t aniso = ge_metal_aniso_max();
+        if (aniso > 1 && linear_filter) {
+            sd.maxAnisotropy = aniso;
+        }
         sd.sAddressMode = gfx_cm_to_metal(cms);
         sd.tAddressMode = gfx_cm_to_metal(cmt);
         t->sampler = [mtl_device newSamplerStateWithDescriptor:sd];
@@ -724,7 +810,7 @@ static void gfx_metal_set_viewport(int x, int y, int width, int height) {
 
 static void gfx_metal_set_scissor(int x, int y, int width, int height) {
     if (!mtl_encoder) return;
-    NSUInteger dw = (NSUInteger)mtl_drawable.texture.width, dh = (NSUInteger)mtl_drawable.texture.height;
+    NSUInteger dw = (NSUInteger)mtl_render_target_w, dh = (NSUInteger)mtl_render_target_h;
     NSUInteger sx = (NSUInteger)MAX(0, MIN(x, (int)dw));
     NSUInteger sy = (NSUInteger)MAX(0, MIN(y, (int)dh));
     NSUInteger sw = (NSUInteger)MAX(0, MIN(width, (int)dw - (int)sx));
@@ -797,6 +883,100 @@ static void gfx_metal_build_depth_states(void) {
     }
 }
 
+/* Whether THIS frame's game draws should land in the offscreen mtl_pp_color/mtl_pp_depth
+ * pair instead of the drawable directly. Supersample>1 only for now (increment 3) --
+ * increments 4/5 (MSAA, FXAA) extend this same gate, since both also need the offscreen
+ * path even when supersample itself is 1 (unlike gfx_opengl.c's desktop GE_POSTFX gate,
+ * which deliberately excludes MSAA because GL can multisample the default framebuffer
+ * directly; CAMetalLayer's drawable has no equivalent, so Metal MSAA has no path that
+ * avoids this offscreen target -- see gfx_metal_ensure_offscreen_targets' own MSAA
+ * extension when it lands). */
+static bool ge_metal_postfx_active(void) {
+    return gfx_supersample > 1;
+}
+
+/* One shared offscreen colour+depth pair, sized to the INFLATED (w,h) -- gfx_current_dimensions
+ * once GETV_SUPERSAMPLE has activated gfx_pc.c's existing dimension inflation (gfx_pc.c's
+ * gfx_start_frame, unconditional, backend-agnostic), not re-derived from drawableSize*factor.
+ * mtl_pp_color: MTLStorageModePrivate + ShaderRead, since the composite pass samples it.
+ * mtl_pp_depth: MTLStorageModeMemoryless -- nothing ever reads game depth back after this
+ * pass ends, so it never needs to leave tile memory on this TBDR GPU. */
+static void gfx_metal_ensure_offscreen_targets(uint32_t w, uint32_t h) {
+    if (mtl_pp_color && mtl_pp_w == w && mtl_pp_h == h) return;
+    @autoreleasepool {
+        MTLTextureDescriptor *cd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:mtl_layer.pixelFormat
+                                                                                        width:w height:h mipmapped:NO];
+        cd.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+        cd.storageMode = MTLStorageModePrivate;
+        mtl_pp_color = [mtl_device newTextureWithDescriptor:cd];
+
+        MTLTextureDescriptor *dd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                                                        width:w height:h mipmapped:NO];
+        dd.usage = MTLTextureUsageRenderTarget;
+        dd.storageMode = MTLStorageModeMemoryless;
+        mtl_pp_depth = [mtl_device newTextureWithDescriptor:dd];
+    }
+    mtl_pp_w = w; mtl_pp_h = h;
+}
+
+/* Full-screen-triangle composite pass: samples mtl_pp_color (the offscreen target the
+ * game just drew into, post-MSAA-resolve if that's active) and writes the downsampled
+ * result into the real drawable. Built once, lazily, the first time postfx activates --
+ * unlike every per-combiner shader in gfx_metal_build_pipeline() above, which compiles a
+ * new MTLLibrary per N64 shader_id, this is a SEPARATE, single pipeline with no vertex
+ * buffer at all (vertex_id-driven), since none of the 128 possible combiner variants have
+ * that shape -- every one of them assumes real per-vertex [[stage_in]] attributes from the
+ * game's own VBO layout. FXAA (a fast follow) extends this same fragment shader rather than
+ * adding a second pass, so it is written with that branch already in mind. */
+static void gfx_metal_ensure_postfx_pipeline(void) {
+    if (mtl_pp_pipeline) return;
+    @autoreleasepool {
+        NSString *src =
+            @"#include <metal_stdlib>\n"
+             "using namespace metal;\n"
+             "struct PPVarying { float4 position [[position]]; float2 uv; };\n"
+             "vertex PPVarying ppVertex(uint vid [[vertex_id]]) {\n"
+             "    float2 uv = float2(float((vid << 1) & 2), float(vid & 2));\n"
+             "    PPVarying out;\n"
+             "    out.position = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);\n"
+             "    out.uv = uv;\n"
+             "    return out;\n"
+             "}\n"
+             "fragment float4 ppFragment(PPVarying in [[stage_in]],\n"
+             "                           texture2d<float> tex [[texture(0)]],\n"
+             "                           sampler samp [[sampler(0)]]) {\n"
+             "    return tex.sample(samp, in.uv);\n"
+             "}\n";
+        NSError *err = nil;
+        id<MTLLibrary> lib = [mtl_device newLibraryWithSource:src options:nil error:&err];
+        if (!lib) {
+            sys_fatal("gfx_metal: postfx shader compile failed: %s",
+                      err.localizedDescription.UTF8String);
+        }
+        id<MTLFunction> vfn = [lib newFunctionWithName:@"ppVertex"];
+        id<MTLFunction> ffn = [lib newFunctionWithName:@"ppFragment"];
+
+        MTLRenderPipelineDescriptor *pd = [MTLRenderPipelineDescriptor new];
+        pd.vertexFunction = vfn;
+        pd.fragmentFunction = ffn;
+        pd.colorAttachments[0].pixelFormat = mtl_layer.pixelFormat;
+
+        NSError *perr = nil;
+        mtl_pp_pipeline = [mtl_device newRenderPipelineStateWithDescriptor:pd error:&perr];
+        if (!mtl_pp_pipeline) {
+            sys_fatal("gfx_metal: postfx pipeline creation failed: %s",
+                      perr.localizedDescription.UTF8String);
+        }
+
+        MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
+        sd.minFilter = MTLSamplerMinMagFilterLinear;
+        sd.magFilter = MTLSamplerMinMagFilterLinear;
+        sd.sAddressMode = MTLSamplerAddressModeClampToEdge;
+        sd.tAddressMode = MTLSamplerAddressModeClampToEdge;
+        mtl_pp_sampler = [mtl_device newSamplerStateWithDescriptor:sd];
+    }
+}
+
 static void gfx_metal_init(void) {
     if (!gePortMetalLayer) sys_fatal("gfx_metal_init: no CAMetalLayer -- gfx_sdl.init() must run first");
     mtl_layer = (__bridge CAMetalLayer *)gePortMetalLayer;
@@ -809,6 +989,22 @@ static void gfx_metal_init(void) {
      * optimization only when a capture was actually asked for. */
     { const char *e = getenv("GETV_SHOTFRAME");
       mtl_layer.framebufferOnly = (e && *e) ? NO : YES; }
+
+    /* GETV_SUPERSAMPLE=<1-4> -- off (1, gfx_pc.c's own compiled-in default) unless
+     * explicitly requested, matching every other GETV_* enhancement gate in this file
+     * (mipmaps/aniso/HD textures all opt-in, retail-safe by default). Deliberately NOT
+     * gfx_opengl.c's TVOS_SUPERSAMPLE default-2 -- that is a tvOS-GL-specific workaround for
+     * having only one fixed 1920x1080 mode with no other way to get a sharper image; RAPI_METAL
+     * serves iOS too, which has no such constraint, so "97 Console" must mean supersample=1
+     * here same as everywhere else. Setting gfx_supersample (gfx_pc.h) is the ONLY thing this
+     * needs to do to activate gfx_pc.c's already-existing, backend-agnostic dimension inflation
+     * (gfx_start_frame) -- see ge_metal_postfx_active()/gfx_metal_ensure_offscreen_targets
+     * above for what Metal does with the result. */
+    { const char *e = getenv("GETV_SUPERSAMPLE");
+      if (e && *e) {
+          int v = atoi(e);
+          if (v >= 1 && v <= 4) gfx_supersample = (unsigned) v;
+      } }
 
     mtl_queue = [mtl_device newCommandQueue];
 
@@ -853,46 +1049,95 @@ static void gfx_metal_ensure_depth_target(uint32_t w, uint32_t h) {
     mtl_depth_w = w; mtl_depth_h = h;
 }
 
+/* Shared by both branches below -- the parts of starting the game's own render pass that
+ * don't depend on which target it's aimed at. Kept as a macro-like inline block rather than
+ * its own function so the depth-clip-mode comment (below) stays exactly once, not duplicated
+ * per branch. */
+static void gfx_metal_begin_game_pass(MTLRenderPassDescriptor *pass, uint32_t w, uint32_t h) {
+    mtl_encoder = [mtl_cmdbuf renderCommandEncoderWithDescriptor:pass];
+    /* Default MTLDepthClipMode is .clip: a triangle with ANY vertex outside the valid
+     * [0,1] NDC z range (after the perspective divide) is discarded WHOLESALE by the
+     * GPU, not clamped and kept -- unlike GL, which this renderer's CPU-side
+     * GETV_NEARCLAMP (gfx_pc.c) was written against, and unlike the near-plane clamp
+     * that N64 hardware's own RDP performs (see that code's own comment: "the RDP's
+     * depth clamp produces [minimum depth]... The exact fix is GL_DEPTH_CLAMP /
+     * ARB_depth_clamp / EXT_depth_clamp... That belongs in the rendering backend").
+     * .clamp is that fix, at the encoder level, for every draw through this encoder at
+     * once -- ported from kenix3/libultraship's gfx_metal.cpp (port-maintenance
+     * branch), which sets this on every encoder it creates, for exactly this reason.
+     * Matters most for large, camera-adjacent geometry whose vertices are likeliest to
+     * straddle the near plane -- room walls and animated characters, not the small,
+     * stable gun/HUD geometry that kept rendering without it. */
+    [mtl_encoder setDepthClipMode:MTLDepthClipModeClamp];
+    cur_depth_test = false; cur_depth_mask = true; cur_zmode_decal = false;
+    gfx_metal_apply_depth_state();
+    mtl_render_target_w = w; mtl_render_target_h = h;
+    gfx_metal_set_viewport(0, 0, (int)w, (int)h);
+    gfx_metal_set_scissor(0, 0, (int)w, (int)h);
+}
+
 static void gfx_metal_start_frame(void) {
     frame_count++;
     @autoreleasepool {
         CGSize sz = mtl_layer.drawableSize;
         if (sz.width < 1 || sz.height < 1) return;
-        gfx_metal_ensure_depth_target((uint32_t)sz.width, (uint32_t)sz.height);
 
-        mtl_drawable = [mtl_layer nextDrawable];
-        if (!mtl_drawable) return;
+        if (ge_metal_postfx_active()) {
+            /* Inflated internal size -- gfx_pc.c's gfx_start_frame already computed this
+             * before gfx_rapi->start_frame() runs (backend-agnostic, unconditional; see
+             * GETV_SUPERSAMPLE's own comment in gfx_metal_init above). Falls back to native
+             * size only if that inflation somehow produced nothing usable, so this can never
+             * hand a zero-sized texture descriptor to Metal. */
+            uint32_t iw = gfx_current_dimensions.width;
+            uint32_t ih = gfx_current_dimensions.height;
+            if (iw < 1 || ih < 1) { iw = (uint32_t)sz.width; ih = (uint32_t)sz.height; }
+            gfx_metal_ensure_offscreen_targets(iw, ih);
 
-        MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
-        pass.colorAttachments[0].texture = mtl_drawable.texture;
-        pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
-        pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-        pass.depthAttachment.texture = mtl_depth_tex;
-        pass.depthAttachment.loadAction = MTLLoadActionClear;
-        pass.depthAttachment.clearDepth = 1.0;
-        pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+            mtl_cmdbuf = [mtl_queue commandBuffer];
 
-        mtl_cmdbuf = [mtl_queue commandBuffer];
-        mtl_encoder = [mtl_cmdbuf renderCommandEncoderWithDescriptor:pass];
-        /* Default MTLDepthClipMode is .clip: a triangle with ANY vertex outside the valid
-         * [0,1] NDC z range (after the perspective divide) is discarded WHOLESALE by the
-         * GPU, not clamped and kept -- unlike GL, which this renderer's CPU-side
-         * GETV_NEARCLAMP (gfx_pc.c) was written against, and unlike the near-plane clamp
-         * that N64 hardware's own RDP performs (see that code's own comment: "the RDP's
-         * depth clamp produces [minimum depth]... The exact fix is GL_DEPTH_CLAMP /
-         * ARB_depth_clamp / EXT_depth_clamp... That belongs in the rendering backend").
-         * .clamp is that fix, at the encoder level, for every draw through this encoder at
-         * once -- ported from kenix3/libultraship's gfx_metal.cpp (port-maintenance
-         * branch), which sets this on every encoder it creates, for exactly this reason.
-         * Matters most for large, camera-adjacent geometry whose vertices are likeliest to
-         * straddle the near plane -- room walls and animated characters, not the small,
-         * stable gun/HUD geometry that kept rendering without it. */
-        [mtl_encoder setDepthClipMode:MTLDepthClipModeClamp];
-        cur_depth_test = false; cur_depth_mask = true; cur_zmode_decal = false;
-        gfx_metal_apply_depth_state();
-        gfx_metal_set_viewport(0, 0, (int)sz.width, (int)sz.height);
-        gfx_metal_set_scissor(0, 0, (int)sz.width, (int)sz.height);
+            MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+            pass.colorAttachments[0].texture = mtl_pp_color;
+            pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+            pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+            pass.depthAttachment.texture = mtl_pp_depth;
+            pass.depthAttachment.loadAction = MTLLoadActionClear;
+            pass.depthAttachment.clearDepth = 1.0;
+            pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+
+            gfx_metal_begin_game_pass(pass, iw, ih);
+            /* mtl_drawable deliberately NOT acquired here -- deferred to
+             * gfx_metal_end_frame()'s composite pass, the first point this frame that
+             * actually needs it. Safe now that gfx_metal_set_scissor above reads
+             * mtl_render_target_w/h instead of mtl_drawable.texture directly: nothing
+             * mid-frame touches mtl_drawable on this path any more. A real frame-pacing
+             * win (Apple's own guidance: acquire as late as possible so the drawable
+             * spends less time held out of the display's presentation queue), free once
+             * that read was removed rather than requiring its own justification. */
+        } else {
+            /* Fast path, byte-for-byte the pre-supersampling behaviour: draws straight into
+             * the drawable, depth target sized to it directly. This is what makes "the
+             * 97-Console default must not change at all" trivially true -- when
+             * ge_metal_postfx_active() is false, every line below is identical to what ran
+             * before increment 3 existed. */
+            gfx_metal_ensure_depth_target((uint32_t)sz.width, (uint32_t)sz.height);
+
+            mtl_drawable = [mtl_layer nextDrawable];
+            if (!mtl_drawable) return;
+
+            MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+            pass.colorAttachments[0].texture = mtl_drawable.texture;
+            pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+            pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+            pass.depthAttachment.texture = mtl_depth_tex;
+            pass.depthAttachment.loadAction = MTLLoadActionClear;
+            pass.depthAttachment.clearDepth = 1.0;
+            pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+
+            mtl_cmdbuf = [mtl_queue commandBuffer];
+            gfx_metal_begin_game_pass(pass, (uint32_t)sz.width, (uint32_t)sz.height);
+        }
     }
     mtl_vbo_offset = 0;
 }
@@ -1026,6 +1271,39 @@ static void gfx_metal_end_frame(void) {
     if (!mtl_encoder) return;
     [mtl_encoder endEncoding];
     mtl_encoder = nil;
+
+    if (ge_metal_postfx_active()) {
+        /* The composite pass: acquire the drawable now (deferred from start_frame, see its
+         * own comment), sample mtl_pp_color -- the game's just-finished offscreen frame --
+         * and downsample it into the real output. mtl_drawable has to be set by the time
+         * this function returns: gePortMetalImguiBeginPass() (gfx_sdl2.c, runs between here
+         * and gePortMetalFinishFrame()) guards on `if (!mtl_cmdbuf || !mtl_drawable) return;`
+         * and its own loadAction=Load depends on this pass having already written real
+         * pixels for it to preserve. */
+        @autoreleasepool {
+            mtl_drawable = [mtl_layer nextDrawable];
+            if (mtl_drawable) {
+                gfx_metal_ensure_postfx_pipeline();
+
+                MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+                pass.colorAttachments[0].texture = mtl_drawable.texture;
+                /* Fully overwritten by the full-screen triangle below -- unlike the ImGui
+                 * overlay pass, which deliberately uses Load to preserve THIS pass's
+                 * output, this pass has nothing to preserve from before it. */
+                pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+                pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+
+                id<MTLRenderCommandEncoder> ppenc = [mtl_cmdbuf renderCommandEncoderWithDescriptor:pass];
+                [ppenc setRenderPipelineState:mtl_pp_pipeline];
+                [ppenc setFragmentTexture:mtl_pp_color atIndex:0];
+                [ppenc setFragmentSamplerState:mtl_pp_sampler atIndex:0];
+                [ppenc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+                [ppenc endEncoding];
+            }
+        }
+        mtl_render_target_w = (uint32_t)mtl_layer.drawableSize.width;
+        mtl_render_target_h = (uint32_t)mtl_layer.drawableSize.height;
+    }
 }
 
 void gePortMetalFinishFrame(void) {
