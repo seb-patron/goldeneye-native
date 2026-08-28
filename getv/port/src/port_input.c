@@ -52,7 +52,8 @@
 
 #include <SDL.h>
 
-#include "port_input.h"/* Ports 0..3. gePads[i] != NULL implies gePads[j] != NULL for all j < i (contiguity). */
+#include "port_input.h"
+#include "ge_mouse_accum.h"/* Ports 0..3. gePads[i] != NULL implies gePads[j] != NULL for all j < i (contiguity). */
 static SDL_GameController *gePads[GE_PORT_MAX_PADS];
 static int gePadReal[GE_PORT_MAX_PADS];     /* the pad on this port has sticks + shoulders */
 static int gePadCount   = 0;                /* number of OPEN devices, contiguous from 0 */
@@ -935,13 +936,13 @@ static int geMouseInvert(void)
  return v;
 }
 
-/* Counts of mouse movement per full-scale stick deflection at GETV_MOUSE_SENS=100.
- *
- * 21, picked off the measured sweep in docs/MOUSE.md rather than by feel. The old 220 was
- * set against nothing and needed roughly a metre of desk for a 180 degree turn. */
-#define GE_MOUSE_COUNTS_FULL 21L
+/* GE_MOUSE_COUNTS_FULL, the deadzone and the backlog cap all live in ge_mouse_accum.h now,
+ * alongside the arithmetic that reads them. 21 counts per full-scale deflection was picked off
+ * the measured sweep in docs/MOUSE.md rather than by feel; the old 220 was set against nothing
+ * and needed roughly a metre of desk for a 180 degree turn. */
 
-/* Motion the stick could not express yet. See the note in geMousePoll. */
+/* Motion the stick could not express yet. Held here rather than inside geMouseAccumulate so
+ * that tests can run independent sequences without one bleeding into the next. */
 static long ge_mouse_pend_x = 0;
 static long ge_mouse_pend_y = 0;
 
@@ -1019,72 +1020,37 @@ static void geMousePoll(int port, struct GePadState *out)
      * without a hand on the mouse, and the only way to tune the gain against a measurement
      * rather than against somebody's impression of it. */
 
-
  if (dx != 0 || dy != 0) {
  long rx, ry;
 
  if (geMouseInvert()) { dy = -dy; }
 
-        /* The N64 stick is a VELOCITY control and a mouse reports a DISPLACEMENT. That
-         * mismatch, not the gain, is why this felt glacial: a flick produced full deflection
-         * for a single frame, and one frame of full stick is 3.54 degrees, so everything past
-         * the first frame's worth of travel was clamped off and thrown away. Sweeping further
-         * did nothing, which is exactly the reported symptom.
+        /* Scale, carry and deadzone, in ge_mouse_accum.h.
          *
-         * So carry the remainder instead of discarding it. Motion the stick cannot express
-         * this frame stays in the accumulator and is emitted over the following frames, which
-         * turns a displacement into the sustained deflection the game actually wants.
+         * Lifted out of here so it can be tested without SDL, a window, or a pointer taken
+         * from whoever is using the machine. The move is proved bit-identical against the code
+         * it replaced over 16,800 swept calls in tests/test_mouse.c. That care is warranted:
+         * of the first three attempts at this input path, two made the mouse worse and one
+         * stopped it moving at all. The reasoning for each step lives in that header. */
+ geMouseAccumulate((long) dx, (long) dy, (long) sens,
+                          &ge_mouse_pend_x, &ge_mouse_pend_y, &rx, &ry);
+
+        /* GETV_INPUT_DEBUG=2: what the mouse is actually handing the game.
          *
-         * GE_MOUSE_COUNTS_FULL is counts per full-scale deflection at 100%; see docs/MOUSE.md
-         * for the sweep it was chosen from. */
- rx = ((long) dx * 32767L * sens) / (GE_MOUSE_COUNTS_FULL * 100L);
- ry = ((long) dy * 32767L * sens) / (GE_MOUSE_COUNTS_FULL * 100L);
-
- ge_mouse_pend_x += rx;
- ge_mouse_pend_y += ry;
-
-        /* Cap the backlog so a hitch that batches many frames of motion, or an alt-tab
-         * return, cannot leave the view gliding on for a second after the hand has stopped.
-         * Four frames of full deflection is enough to smooth a fast flick and short enough
-         * that the view never feels detached from the hand. */
- if (ge_mouse_pend_x >  4L * 32767L) ge_mouse_pend_x =  4L * 32767L;
- if (ge_mouse_pend_x < -4L * 32767L) ge_mouse_pend_x = -4L * 32767L;
- if (ge_mouse_pend_y >  4L * 32767L) ge_mouse_pend_y =  4L * 32767L;
- if (ge_mouse_pend_y < -4L * 32767L) ge_mouse_pend_y = -4L * 32767L;
-
- rx = ge_mouse_pend_x;
- ry = ge_mouse_pend_y;
- if (rx >  32767L) rx =  32767L;
- if (rx < -32767L) rx = -32767L;
- if (ry >  32767L) ry =  32767L;
- if (ry < -32767L) ry = -32767L;
-
- ge_mouse_pend_x -= rx;
- ge_mouse_pend_y -= ry;
-
-        /* Lift the result clear of the stick deadzone.
-         *
-         * port_os.c discards anything under GE_STICK_DEADZONE, 20% of the axis, which is
-         * correct for a spring-loaded stick that rests near centre and drifts, and wrong for
-         * a mouse, which has no rest position and no drift. Measured, it was the whole
-         * complaint: a synthetic 12 counts per frame turned the view 0.0002 degrees -- it
-         * landed at 6241 against a threshold of 6553 and was thrown away -- while 30 counts
-         * turned 0.3455. Every movement below the threshold did nothing at all, so sweeping
-         * further was the only thing that worked.
-         *
-         * Remapping magnitude from [1, max] onto [deadzone, max] keeps full scale at full
-         * scale and makes the smallest real movement produce the smallest real turn. */
-        {
- const long dz = 6553L, mx = 32767L;
- if (rx != 0) {
- long m = (rx < 0) ? -rx : rx;
- m = dz + (m * (mx - dz)) / mx;
- rx = (rx < 0) ? -m : m;
-            }
- if (ry != 0) {
- long m = (ry < 0) ? -ry : ry;
- m = dz + (m * (mx - dz)) / mx;
- ry = (ry < 0) ? -m : m;
+         * Added because GETV_MOUSE_SELFTEST could not be shown to do anything. Two runs of
+         * DAM, one with the selftest off and one at 30 counts a frame, produced logs that
+         * differed only in the heap base and the millisecond timings -- and there was no way
+         * to tell whether the selftest was dead or whether the run simply could not show it,
+         * since the scripted player walks into geometry at f=270 and stays pinned there for
+         * the remaining 630 frames. A knob whose effect cannot be observed is not a
+         * measurement tool, so this prints the numbers directly. */
+ if (gePortInputDebugLevel() >= 2) {
+ static unsigned long mf = 0;
+ mf++;
+ if ((mf % 60) == 1) {
+ printf("[getv][mouse] n=%lu dx=%d dy=%d sens=%d -> rx=%ld ry=%ld carry=(%ld,%ld)\n",
+ mf, dx, dy, sens, rx, ry, ge_mouse_pend_x, ge_mouse_pend_y);
+ fflush(stdout);
             }
         }
 
