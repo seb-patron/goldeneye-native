@@ -33,6 +33,15 @@
  * would mean finding and either decoupling or re-tuning every such hardcoded position across
  * the UI -- a separate, open-ended effort from getting the text itself rendering correctly,
  * and not attempted here.
+ *
+ * Second known difference, benign: some strings change case. The Q Watch pause screen (GETV_STAGE=33,
+ * pause with START) reads "Q WATCH V2.01 BETA" under the bitmap font and "q watch v2.01 beta"
+ * here -- confirmed against options.c, OPTION_STR_2B_QWATCHVERSION_LF's own source comment is
+ * already lowercase, so the bitmap font's glyphs for this string must render case-insensitively
+ * (an LCD/digital-display convention) while a real TrueType font does not. Not "fixed" by
+ * forcing this call site's queued text to uppercase: other strings (briefing text, the
+ * classification screen) are genuinely mixed-case and render correctly mixed-case with the
+ * bitmap font today, so a blanket case transform would break those to fix this one.
  */
 #include <stdio.h>
 #include <stdlib.h>
