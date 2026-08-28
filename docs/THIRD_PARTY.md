@@ -209,8 +209,8 @@ before anything is compiled into the game.
 
 **Dear ImGui 1.91.9b (MIT).** Fetched and built by `tools/fetch_imgui.sh` into
 `~/.n64tvos/imgui-*`, never vendored, on the same terms as Lua and SDL2. It backs the dev
-overlay in `getv/port/src/ge_imgui.cpp`, which is the substrate a launcher / debug UI is meant
-to be built on. MIT imposes nothing on the rest of the tree, and the build works without it --
+overlay in `getv/port/src/ge_imgui.cpp`, which is what a launcher or debug UI gets built on.
+ MIT imposes nothing on the rest of the tree, and the build works without it --
 absent `libimgui.a`, the entry points compile to empty functions and `gfx_sdl2.c` needs no
 `#ifdef`. It is additionally off at runtime unless `GETV_IMGUI=1`, so having it installed does
 not change how the game behaves. Upstream is

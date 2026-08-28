@@ -6,7 +6,7 @@
  * only way to see what it did is stdout or a BMP written at a fixed frame. That is fine
  * for scripted measurement and useless for anything interactive: there is no way to watch
  * a counter move, flip a renderer flag and see the result, or pick a level without an
- * environment variable and a relaunch. This is the substrate for that -- a launcher and a
+ * environment variable and a relaunch. This is the groundwork for that: a launcher and a
  * dev overlay are the intended users. It draws one small window today on purpose; the
  * value here is the wiring, not the widgets.
  *

@@ -265,8 +265,8 @@ actors -- was singled out as the highest-value non-obvious feature, and auxiliar
 tracks of the Visual Doom AI Competition.
 
 **We have a decompilation.** We know every actor's identity, type and render extent exactly,
-without inference. Emitting labels + bounding boxes is cheap for us and is the single highest
--leverage observation we can offer.
+without inference. Emitting labels and bounding boxes is cheap for us, and it is the most
+useful thing we can hand a learner.
 
 Keep `objects` (all actors, including unseen) separate from `labels` (visible only), so partial
 observability is the default and oracle policies are opt-in.
