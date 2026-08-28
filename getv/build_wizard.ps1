@@ -72,7 +72,7 @@ $linkArgs = @('-o', $bin) + $objs + @(
   (Join-Path $imgui 'lib\libimgui.a'),
   '-lglew32', '-lmingw32', '-lSDL2',
   '-static-libgcc', '-static-libstdc++',
-  '-lstdc++', '-lopengl32', '-lgdi32', '-limm32', '-ldbghelp', '-lcomdlg32', '-lm'
+  '-lstdc++', '-lopengl32', '-lgdi32', '-limm32', '-ldbghelp', '-lcomdlg32', '-lole32', '-lm'
 )
 $out = & $gxx @linkArgs 2>&1
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $bin)) {

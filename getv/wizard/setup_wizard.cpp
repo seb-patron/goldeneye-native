@@ -41,6 +41,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>
+#include <shlobj.h>
 
 #define GLEW_STATIC
 #include <GL/glew.h>
@@ -112,14 +113,32 @@ bool find_repo_root(char *out, size_t n)
     return false;
 }
 
+/* git.exe has no same-named WSL stub to collide with (unlike bash.exe -- see below), so a
+ * plain PATH search is safe for it specifically. Shared by find_bash_exe (derives bash as
+ * git's sibling) and the repo-clone step (runs git.exe directly, no shell needed at all). */
+bool find_git_exe(char *out, size_t n)
+{
+    static const char *candidates[] = {
+        "C:\\Program Files\\Git\\cmd\\git.exe",
+        "C:\\Program Files (x86)\\Git\\cmd\\git.exe",
+    };
+    for (size_t i = 0; i < sizeof candidates / sizeof candidates[0]; i++) {
+        if (file_exists(candidates[i])) { snprintf(out, n, "%s", candidates[i]); return true; }
+    }
+    char buf[MAX_PATH];
+    DWORD r = SearchPathA(NULL, "git.exe", NULL, (DWORD) sizeof buf, buf, NULL);
+    if (r > 0 && r < sizeof buf) { snprintf(out, n, "%s", buf); return true; }
+    return false;
+}
+
 /* Deliberately does NOT SearchPathA for "bash.exe" -- confirmed by hand that on any machine
  * with WSL present (which is most Windows 10/11 machines, whether or not a distro is actually
  * installed), C:\Windows\System32\bash.exe is a real file with that exact name, and System32
  * is searched ahead of Git's own directory. It runs, prints "Windows Subsystem for Linux has
  * no installed distributions" as UTF-16 to stderr, and exits 1 -- which this wizard's line
  * reader, expecting UTF-8/ASCII, turns into a single garbled character with no indication of
- * what actually happened. Known Git for Windows layouts first, then git.exe -- which has no
- * same-named WSL stub to collide with -- and bash.exe derived as its sibling. */
+ * what actually happened. Known Git for Windows layouts first, then git.exe -- via
+ * find_git_exe, which is safe to search for by name -- and bash.exe derived as its sibling. */
 bool find_bash_exe(char *out, size_t n)
 {
     static const char *candidates[] = {
@@ -131,8 +150,7 @@ bool find_bash_exe(char *out, size_t n)
     }
 
     char gitPath[MAX_PATH];
-    DWORD r = SearchPathA(NULL, "git.exe", NULL, (DWORD) sizeof gitPath, gitPath, NULL);
-    if (r > 0 && r < sizeof gitPath) {
+    if (find_git_exe(gitPath, sizeof gitPath)) {
         /* .../Git/cmd/git.exe -> .../Git/bin/bash.exe */
         char *cmdDir = strrchr(gitPath, '\\');
         if (cmdDir != NULL) {
@@ -253,6 +271,29 @@ bool open_rom_dialog(char *out, size_t n)
     return false;
 }
 
+/* SHBrowseForFolderA rather than IFileOpenDialog: no COM initialization needed, matching
+ * GetOpenFileNameA's simplicity above for a dialog that only has to pick a directory. */
+bool open_folder_dialog(char *out, size_t n)
+{
+    char display[MAX_PATH] = "";
+    BROWSEINFOA bi;
+    memset(&bi, 0, sizeof bi);
+    bi.lpszTitle = "Choose where to install GoldenEye 007";
+    bi.pszDisplayName = display;
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+
+    LPITEMIDLIST pidl = SHBrowseForFolderA(&bi);
+    if (pidl == NULL) return false;
+
+    char path[MAX_PATH];
+    bool ok = SHGetPathFromIDListA(pidl, path) != FALSE;
+    CoTaskMemFree(pidl);
+    if (!ok) return false;
+
+    snprintf(out, n, "%s", path);
+    return true;
+}
+
 /* ---------------------------------------------------------------- pipeline
  *
  * One child process (tools/setup-windows.sh via bash), its combined stdout+stderr read on a
@@ -315,17 +356,14 @@ DWORD WINAPI reader_thread(LPVOID param)
     return 0;
 }
 
-bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
+/* Shared by start_pipeline and start_clone: both need "run this command line, stream combined
+ * stdout+stderr into p->lines off the UI thread, notice when it exits" and differ only in what
+ * they run and where. cmd is a fully-built, already-quoted command line; cwd may be NULL to
+ * inherit this process's own working directory (used for the clone step, which runs before any
+ * repoRoot exists to cd into). p->lock is initialized once in main(), before either caller ever
+ * runs -- see the comment there. */
+bool start_process(Pipeline *p, const char *cmd, const char *cwd, std::string *err)
 {
-    char bash[MAX_PATH];
-    if (!find_bash_exe(bash, sizeof bash)) {
-        *err = "Could not find bash.exe. This step needs Git for Windows -- install it from "
-               "git-scm.com (the default install options are fine) and try again.";
-        return false;
-    }
-
-    /* p->lock is initialized once in main(), before this is ever called -- see the comment
-     * there. */
     SECURITY_ATTRIBUTES sa;
     sa.nLength = sizeof sa;
     sa.bInheritHandle = TRUE;
@@ -333,7 +371,7 @@ bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
 
     HANDLE hWrite = NULL;
     if (!CreatePipe(&p->hReadPipe, &hWrite, &sa, 0)) {
-        *err = "Could not create a pipe for the setup script's output.";
+        *err = "Could not create a pipe for the command's output.";
         return false;
     }
     SetHandleInformation(p->hReadPipe, HANDLE_FLAG_INHERIT, 0);
@@ -349,6 +387,35 @@ bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
     PROCESS_INFORMATION pi;
     memset(&pi, 0, sizeof pi);
 
+    /* CreateProcessA needs a writable buffer for the command line, not a const char*. */
+    std::vector<char> cmdBuf(cmd, cmd + strlen(cmd) + 1);
+
+    BOOL ok = CreateProcessA(NULL, cmdBuf.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW,
+                              NULL, cwd, &si, &pi);
+    CloseHandle(hWrite);
+    if (!ok) {
+        CloseHandle(p->hReadPipe);
+        *err = "Could not start the command.";
+        return false;
+    }
+    p->hProcess = pi.hProcess;
+    CloseHandle(pi.hThread);
+
+    p->started = true;
+    HANDLE hReader = CreateThread(NULL, 0, reader_thread, p, 0, NULL);
+    if (hReader != NULL) CloseHandle(hReader);
+    return true;
+}
+
+bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
+{
+    char bash[MAX_PATH];
+    if (!find_bash_exe(bash, sizeof bash)) {
+        *err = "Could not find bash.exe. This step needs Git for Windows -- install it from "
+               "git-scm.com (the default install options are fine) and try again.";
+        return false;
+    }
+
     /* GETV_WIZARD_TEST_CMD overrides what actually runs, quoted exactly as given. The pipe and
      * reader-thread plumbing is the one part of this file with no UI to click through by hand
      * -- this is what lets it be exercised against a real child process without needing a real
@@ -360,22 +427,26 @@ bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
     } else {
         snprintf(cmd, sizeof cmd, "\"%s\" \"tools/setup-windows.sh\"", bash);
     }
+    return start_process(p, cmd, repoRoot, err);
+}
 
-    BOOL ok = CreateProcessA(NULL, cmd, NULL, NULL, TRUE, CREATE_NO_WINDOW,
-                              NULL, repoRoot, &si, &pi);
-    CloseHandle(hWrite);
-    if (!ok) {
-        CloseHandle(p->hReadPipe);
-        *err = "Could not start tools/setup-windows.sh.";
+/* GETV_WIZARD_REPO_URL overrides the clone source -- this project's real, public home is the
+ * compiled-in default, but the override exists because this wizard was built and tested on the
+ * shared dev machine before that URL existed, against a local bare repo instead. dest is
+ * created if it does not already exist; git itself refuses to clone into a non-empty one. */
+bool start_clone(Pipeline *p, const char *dest, std::string *err)
+{
+    char git[MAX_PATH];
+    if (!find_git_exe(git, sizeof git)) {
+        *err = "Could not find git.exe. Install Git for Windows from git-scm.com and try again.";
         return false;
     }
-    p->hProcess = pi.hProcess;
-    CloseHandle(pi.hThread);
+    const char *url = getenv("GETV_WIZARD_REPO_URL");
+    if (url == NULL || *url == '\0') url = "https://github.com/SegfaultEvan/goldeneye-native";
 
-    p->started = true;
-    HANDLE hReader = CreateThread(NULL, 0, reader_thread, p, 0, NULL);
-    if (hReader != NULL) CloseHandle(hReader);
-    return true;
+    char cmd[MAX_PATH * 2 + 64];
+    snprintf(cmd, sizeof cmd, "\"%s\" clone \"%s\" \"%s\"", git, url, dest);
+    return start_process(p, cmd, NULL, err);
 }
 
 void launch_game_and_exit(const char *repoRoot)
@@ -425,7 +496,7 @@ void ui_ok(const char *text)
 
 } // namespace
 
-enum WizState { WELCOME, PICK_ROM, CONFIRM, RUNNING, DONE, FAILED };
+enum WizState { WELCOME, PICK_DEST, CLONING, PICK_ROM, CONFIRM, RUNNING, DONE, FAILED };
 
 int main(int argc, char **argv)
 {
@@ -444,14 +515,11 @@ int main(int argc, char **argv)
         }
     }
 
-    char repoRoot[MAX_PATH];
-    if (!find_repo_root(repoRoot, sizeof repoRoot)) {
-        MessageBoxA(NULL,
-            "Could not locate the goldeneye-native repository from this executable's location.\n\n"
-            "This wizard expects to sit somewhere inside the repository it is setting up.",
-            "GoldenEye Setup", MB_OK | MB_ICONERROR);
-        return 1;
-    }
+    /* Not fatal if this fails: a wizard handed to someone with nothing set up yet is exactly
+     * the case that has no repository to find. PICK_DEST (below) clones one; everything past
+     * that point uses repoRoot the same way whether it was found here or just cloned. */
+    char repoRoot[MAX_PATH] = "";
+    bool haveRepo = find_repo_root(repoRoot, sizeof repoRoot);
 
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -510,16 +578,38 @@ int main(int argc, char **argv)
     InitializeCriticalSection(&pipeline.lock);
     std::string startErr;
     std::string copyErr;
+    std::string cloneErr;
 
-    /* GETV_WIZARD_STATE=<0..5>: jump straight to a page, matching ge_launcher.cpp's
-     * GETV_LAUNCHER_PAGE. Each page the probe cannot reach on its own -- CONFIRM/RUNNING/
-     * DONE/FAILED all sit behind a real ROM and a real multi-minute pipeline run -- gets a
-     * placeholder so it renders something meaningful instead of blank fields. */
+    /* Computed unconditionally, not just when !haveRepo: GETV_WIZARD_STATE can force PICK_DEST
+     * or CLONING for testing regardless of what find_repo_root actually found, and those pages
+     * need a real default to show either way. GETV_WIZARD_DEST_PATH overrides it, the same
+     * reason GETV_WIZARD_REPO_URL exists -- picking a fresh scratch destination per test run
+     * without editing source. */
+    char destPath[MAX_PATH];
+    {
+        const char *override_ = getenv("GETV_WIZARD_DEST_PATH");
+        const char *docs = getenv("USERPROFILE");
+        if (override_ != NULL && *override_) {
+            snprintf(destPath, sizeof destPath, "%s", override_);
+        } else {
+            snprintf(destPath, sizeof destPath, "%s\\Documents\\goldeneye-native",
+                     (docs != NULL && *docs) ? docs : "C:\\Users\\Public");
+        }
+    }
+
+    /* GETV_WIZARD_STATE=<0..7>: jump straight to a page, matching ge_launcher.cpp's
+     * GETV_LAUNCHER_PAGE. Each page the probe cannot reach on its own -- CLONING/CONFIRM/
+     * RUNNING/DONE/FAILED all sit behind a real download, a real ROM, or a real multi-minute
+     * pipeline run -- gets a placeholder so it renders something meaningful instead of blank
+     * fields. Every page from PICK_ROM on assumes a repo exists, same as reaching it normally
+     * would (either found at startup or just cloned), so haveRepo is forced on for those; only
+     * PICK_DEST/CLONING represent the no-repo-yet state and leave it as found at startup. */
     {
         const char *dbg = getenv("GETV_WIZARD_STATE");
         int want = (dbg != NULL && *dbg) ? atoi(dbg) : -1;
         if (want >= WELCOME && want <= FAILED) {
             state = (WizState) want;
+            if (state >= PICK_ROM) haveRepo = true;
             if (state == PICK_ROM || state == CONFIRM) {
                 snprintf(romPath, sizeof romPath, "C:\\roms\\ge007.u.z64");
             }
@@ -527,6 +617,15 @@ int main(int argc, char **argv)
                 romCheck.ok = true;
                 snprintf(romCheck.message, sizeof romCheck.message,
                           "Verified: matches the official US GoldenEye 007 ROM.");
+            }
+            if (state == CLONING && env_true("GETV_WIZARD_AUTOSTART")) {
+                haveRepo = false;
+                start_clone(&pipeline, destPath, &cloneErr);
+            } else if (state == CLONING) {
+                haveRepo = false;
+                pipeline.lines.push_back("Cloning into 'goldeneye-native'...");
+                pipeline.lines.push_back("remote: Enumerating objects: 4213, done.");
+                pipeline.lines.push_back("Receiving objects: 61% (2570/4213)");
             }
             if (state == RUNNING && env_true("GETV_WIZARD_AUTOSTART")) {
                 /* Real process, real pipe, real reader thread -- against GETV_WIZARD_TEST_CMD
@@ -587,7 +686,77 @@ int main(int argc, char **argv)
                 "You will need your own GoldenEye 007 (U) cartridge, dumped as a .z64 file.");
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
-            if (ImGui::Button("Continue", ImVec2(120, 32))) state = PICK_ROM;
+            if (ImGui::Button("Continue", ImVec2(120, 32))) state = haveRepo ? PICK_ROM : PICK_DEST;
+            break;
+        }
+        case PICK_DEST: {
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextUnformatted(
+                "This copy of the wizard is not inside a GoldenEye 007 installation yet. Choose "
+                "where to put one -- this downloads the project's source, not the game itself.");
+            ImGui::PopTextWrapPos();
+            ImGui::Spacing();
+            ImGui::PushItemWidth(-90.0f);
+            ImGui::InputText("##destpath", destPath, sizeof destPath);
+            ImGui::PopItemWidth();
+            ImGui::SameLine();
+            if (ImGui::Button("Browse...", ImVec2(80, 0))) {
+                char picked[MAX_PATH];
+                if (open_folder_dialog(picked, sizeof picked)) {
+                    snprintf(destPath, sizeof destPath, "%s\\goldeneye-native", picked);
+                }
+            }
+            ImGui::Spacing();
+            if (!cloneErr.empty()) {
+                ui_error(cloneErr.c_str());
+                ImGui::Spacing();
+            }
+            bool canClone = destPath[0] != '\0';
+            if (!canClone) ImGui::BeginDisabled();
+            if (ImGui::Button("Download and install here", ImVec2(220, 32))) {
+                cloneErr.clear();
+                if (start_clone(&pipeline, destPath, &cloneErr)) state = CLONING;
+            }
+            if (!canClone) ImGui::EndDisabled();
+            break;
+        }
+        case CLONING: {
+            EnterCriticalSection(&pipeline.lock);
+            bool finished = pipeline.finished;
+            DWORD code = pipeline.exitCode;
+            ui_step_label("Downloading GoldenEye 007...");
+            ImGui::Spacing();
+            ImGui::BeginChild("clonelog", ImVec2(0, -8.0f), true);
+            ImGuiListClipper cloneClipper;
+            cloneClipper.Begin((int) pipeline.lines.size());
+            while (cloneClipper.Step()) {
+                for (int i = cloneClipper.DisplayStart; i < cloneClipper.DisplayEnd; i++) {
+                    ImGui::TextUnformatted(pipeline.lines[(size_t) i].c_str());
+                }
+            }
+            cloneClipper.End();
+            if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f) ImGui::SetScrollHereY(1.0f);
+            ImGui::EndChild();
+            LeaveCriticalSection(&pipeline.lock);
+
+            if (finished) {
+                if (code == 0) {
+                    snprintf(repoRoot, sizeof repoRoot, "%s", destPath);
+                    haveRepo = true;
+                    /* Reused for the real setup run next -- reset everything the reader thread
+                     * touched, but not the lock, which stays initialized for the process
+                     * lifetime (see the comment where it's created). */
+                    pipeline.lines.clear();
+                    pipeline.partial.clear();
+                    pipeline.currentStep.clear();
+                    pipeline.started = false;
+                    pipeline.finished = false;
+                    pipeline.exitCode = 1;
+                    state = PICK_ROM;
+                } else {
+                    state = FAILED;
+                }
+            }
             break;
         }
         case PICK_ROM: {
@@ -684,12 +853,19 @@ int main(int argc, char **argv)
         }
         case FAILED: {
             char hdr[128];
-            snprintf(hdr, sizeof hdr, "Setup failed (exit code %lu).", (unsigned long) pipeline.exitCode);
+            snprintf(hdr, sizeof hdr, "%s failed (exit code %lu).", haveRepo ? "Setup" : "Download",
+                     (unsigned long) pipeline.exitCode);
             ui_error(hdr);
             ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextUnformatted(
-                "Scroll the log below for details, or run tools\\setup-windows.sh yourself from "
-                "a git-bash prompt to see the full output.");
+            if (haveRepo) {
+                ImGui::TextUnformatted(
+                    "Scroll the log below for details, or run tools\\setup-windows.sh yourself "
+                    "from a git-bash prompt to see the full output.");
+            } else {
+                ImGui::TextUnformatted(
+                    "Scroll the log below for details, or run git clone yourself from a "
+                    "command prompt to see the full output.");
+            }
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
             EnterCriticalSection(&pipeline.lock);
