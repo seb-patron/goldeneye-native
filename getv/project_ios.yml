@@ -21,6 +21,10 @@ targets:
       # "App Icon & Top Shelf Image.brandassets" bundle, which actool simply ignores
       # for an iOS build (it is not this target's ASSETCATALOG_COMPILER_APPICON_NAME).
       - path: Sources/Assets.xcassets
+      # Folder reference, NOT a group -- same bundled test pack as tvOS's project.yml,
+      # see that file's comment for why this needs no source change to be found.
+      - path: Resources/hdtextures
+        type: folder
     info:
       path: Sources/Info-iOS.plist
       properties:

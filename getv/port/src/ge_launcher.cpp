@@ -924,6 +924,13 @@ int  geBridgeGetMsaa(void)        { return g_bridgeModel.msaa; }
 void geBridgeSetMsaa(int v)       { g_bridgeModel.msaa = v; }
 int  geBridgeGetFxaa(void)        { return g_bridgeModel.fxaa ? 1 : 0; }
 void geBridgeSetFxaa(int v)       { g_bridgeModel.fxaa = (v != 0); }
+int  geBridgeGetHdTextures(void)  { return g_bridgeModel.hd_textures ? 1 : 0; }
+void geBridgeSetHdTextures(int v) { g_bridgeModel.hd_textures = (v != 0); }
+const char *geBridgeGetTexpackPath(void) { return g_bridgeModel.texpack; }
+void geBridgeSetTexpackPath(const char *path) {
+    if (path == NULL) return;
+    snprintf(g_bridgeModel.texpack, sizeof g_bridgeModel.texpack, "%s", path);
+}
 
 int geBridgeModCount(void) { return g_bridgeModel.mod_count; }
 const char *geBridgeModName(int i) {

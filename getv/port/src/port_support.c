@@ -329,16 +329,28 @@ int gePortParallaxEnabled(void)
  * same dimensions, and compared the frame against the same run without the pack: 91% of
  * sampled pixels changed and 3,244 magenta pixels appeared where the baseline had none. The
  * lookup, the hash naming and the upload path all work. It stays opt-in because faithful is
- * the default, not because it is unproven. */
-unsigned int configHDTextures = 0;
-
-__attribute__((constructor))
-static void ge_hdtextures_env_init(void)
+ * the default, not because it is unproven.
+ *
+ * Lazy-resolved on first call, NOT a constructor like configFiltering/configWidescreen above
+ * -- those two are read directly as bare globals from multiple call sites with no accessor to
+ * hang a check off, so "before main()" is the only guarantee available to them. This one has
+ * exactly one reader (gfx_pc.c's ge_texpack_try_override()), which never runs before
+ * geConfigInit()/the launcher have already finished on any platform, so a lazy check costs
+ * nothing here and fixes a real bug the constructor form had: on desktop, the launcher's
+ * relaunch() execv()s into a fresh process so a constructor re-reads the corrected env var,
+ * but tvOS/iOS explicitly never execv() (relaunch() returns early there; GETV_LAUNCHER never
+ * calls it in the first place), so a value chosen in-app -- the config file, the GoldenEye+
+ * profile, a launcher toggle -- could never take effect: the constructor had already run and
+ * latched GETV_HD_TEXTURES's value from before the process even started. Matches
+ * gePortParallaxEnabled()'s shape immediately above. */
+unsigned int gePortHdTexturesEnabled(void)
 {
-    const char *e = getenv("GETV_HD_TEXTURES");
-    if (e && *e >= '0' && *e <= '1' && e[1] == '\0') {
-        configHDTextures = (unsigned int) (*e - '0');
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("GETV_HD_TEXTURES");
+        on = (e && *e >= '0' && *e <= '1' && e[1] == '\0') ? (*e - '0') : 0;
     }
+    return (unsigned int) on;
 }
 
 /* ---- filesystem -------------------------------------------------------- */
@@ -360,20 +372,37 @@ static void ge_hdtextures_env_init(void)
  * distributed folder's pack actually lives when launched from a shortcut or from
  * somewhere else entirely. No pack directory is the normal case -- most players have not
  * installed one -- and stays silent rather than logging on every missed lookup. */
+static int ge_texpack_trace_on(void)
+{
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("GETV_TEXPACK_TRACE");
+        on = (e && *e == '1');
+    }
+    return on;
+}
+
 static const char *ge_texpack_dir(void)
 {
     static char resolved[1024];
     static const char *dir;
     static int done;
     struct stat st;
+    const char *requested;
 
     if (done) return dir;
     done = 1;
 
-    dir = getenv("GETV_TEXPACK");
-    if (dir == NULL || *dir == '\0') dir = "hdtextures";
+    requested = getenv("GETV_TEXPACK");
+    dir = (requested == NULL || *requested == '\0') ? "hdtextures" : requested;
 
-    if (stat(dir, &st) == 0 && S_ISDIR(st.st_mode)) return dir;
+    if (stat(dir, &st) == 0 && S_ISDIR(st.st_mode)) {
+        if (ge_texpack_trace_on()) {
+            printf("[getv][texpack] pack directory: %s (cwd-relative)\n", dir);
+            fflush(stdout);
+        }
+        return dir;
+    }
 
     if (dir[0] != '/' && dir[0] != '\\' && !(dir[0] != '\0' && dir[1] == ':')) {
         const char *exedir = getenv("GETV_EXEDIR");
@@ -381,11 +410,20 @@ static const char *ge_texpack_dir(void)
             snprintf(resolved, sizeof(resolved), "%s/%s", exedir, dir);
             if (stat(resolved, &st) == 0 && S_ISDIR(st.st_mode)) {
                 dir = resolved;
+                if (ge_texpack_trace_on()) {
+                    printf("[getv][texpack] pack directory: %s (exedir-relative)\n", dir);
+                    fflush(stdout);
+                }
                 return dir;
             }
         }
     }
 
+    if (ge_texpack_trace_on()) {
+        printf("[getv][texpack] no pack directory found (tried \"%s\" against cwd and GETV_EXEDIR) -- "
+               "HD textures will be a no-op\n", dir);
+        fflush(stdout);
+    }
     dir = NULL;
     return dir;
 }

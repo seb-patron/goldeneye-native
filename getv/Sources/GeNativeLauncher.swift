@@ -82,6 +82,8 @@ private final class GeLauncherModel: ObservableObject {
     @Published var framerate: Int { didSet { geBridgeSetFramerate(Int32(framerate)) } }
     @Published var msaa: Int { didSet { geBridgeSetMsaa(Int32(msaa)) } }
     @Published var fxaaOn: Bool { didSet { geBridgeSetFxaa(fxaaOn ? 1 : 0) } }
+    @Published var hdTextures: Bool { didSet { geBridgeSetHdTextures(hdTextures ? 1 : 0) } }
+    @Published var texpackPath: String { didSet { geBridgeSetTexpackPath(texpackPath) } }
 
     @Published var modOn: [Bool] {
         didSet { for i in modOn.indices { geBridgeSetModOn(Int32(i), modOn[i] ? 1 : 0) } }
@@ -136,6 +138,8 @@ private final class GeLauncherModel: ObservableObject {
         framerate = Int(geBridgeGetFramerate())
         msaa = Int(geBridgeGetMsaa())
         fxaaOn = geBridgeGetFxaa() != 0
+        hdTextures = geBridgeGetHdTextures() != 0
+        texpackPath = String(cString: geBridgeGetTexpackPath())
         modOn = (0..<md.count).map { geBridgeGetModOn(Int32($0)) != 0 }
         cheatOn = (0..<ch.count).map { geBridgeGetCheatOn(Int32($0)) != 0 }
     }
@@ -368,6 +372,29 @@ private struct VideoPage: View {
                 VStack(spacing: 14) {
                     GeStepper(label: "Field of view", value: $m.fov, range: 60...140, step: 5)
                     GeStepper(label: "Frame rate cap", value: $m.framerate, range: 30...60, step: 30, suffix: " fps")
+                }
+            }
+
+            /* Unlike supersample/MSAA/FXAA above, HD textures go through gfx_pc.c's
+             * backend-agnostic ge_texpack_try_override() -> GfxRenderingAPI.upload_texture,
+             * which gfx_metal.mm implements fully -- this is real on tvOS/iOS today, not a
+             * renderer gap, so it belongs on this page regardless of backend. */
+            GeSectionTitle(text: "HD Textures")
+            GePanel {
+                VStack(alignment: .leading, spacing: 14) {
+                    Toggle(isOn: $m.hdTextures) {
+                        Text("Load HD texture pack").foregroundColor(geText)
+                    }
+                    if m.hdTextures {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Pack folder").foregroundColor(geDim).font(.system(size: 13))
+                            TextField("hdtextures", text: $m.texpackPath)
+                                .foregroundColor(geText)
+                                .padding(10)
+                                .background(gePanel)
+                                .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+                        }
+                    }
                 }
             }
             Spacer()

@@ -59,6 +59,10 @@ int  geBridgeGetMsaa(void);
 void geBridgeSetMsaa(int v);
 int  geBridgeGetFxaa(void);
 void geBridgeSetFxaa(int v);
+int  geBridgeGetHdTextures(void);
+void geBridgeSetHdTextures(int v);
+const char *geBridgeGetTexpackPath(void);
+void geBridgeSetTexpackPath(const char *path);
 
 int geBridgeModCount(void);
 const char *geBridgeModName(int i);

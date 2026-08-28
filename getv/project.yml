@@ -17,10 +17,16 @@ targets:
       # wants layered icons, and ASSETCATALOG_COMPILER_APPICON_NAME below must match
       # the bundle's name exactly, without the .brandassets extension.
       - path: Sources/Assets.xcassets
-    # NOTE: nothing is bundled yet. GoldenEye's assets still live in the ROM and the
-    # port has no asset loader, so there is no data/ directory to ship. When one
-    # exists it goes at the .app root, which is where SDL_GetBasePath points on tvOS.
-    # The ROM itself must never be committed or shipped.
+      # Folder reference, NOT a group: Xcode copies the whole `hdtextures` directory
+      # to the .app root verbatim, same pattern as PD's ROM bundling (tvos/project.yml).
+      # ge_texpack_dir() (port_support.c) already defaults GETV_TEXPACK to the relative
+      # name "hdtextures" and falls back to GETV_EXEDIR (the bundle root on tvOS/iOS) when
+      # a cwd-relative lookup misses, so this needs no source change to be found -- it's
+      # read-only proof the HD-texture-override pipeline works on a real signed device
+      # build, not (yet) a curated content pack. The ROM itself must never be committed
+      # or shipped; texture PNGs carry no ROM data, only upscaled copies of decoded pixels.
+      - path: Resources/hdtextures
+        type: folder
     info:
       path: Sources/Info.plist
       properties:
