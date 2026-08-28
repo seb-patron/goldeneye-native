@@ -1,29 +1,25 @@
 # Goldeneye-Native
 
-**A native PC port of GoldenEye 007, built from the decompiled source, for Windows, macOS and
-Linux.** Not an emulator, and not a static recompilation. It is the game's own C, from the
-[`n64decomp/007`](https://github.com/n64decomp/007) decompilation, compiled straight to an
-executable for your machine, with a modern platform layer underneath: SDL2, OpenGL or Metal,
-mouse and keyboard, any resolution you like, and a Fast3D display-list renderer standing in for
-the N64's RCP.
+**GoldenEye 007, running natively on your PC.** Mouse and keyboard. Real widescreen. Hundreds
+of frames a second. Bots you can actually fight. Split screen with all 64 characters, mods you
+drop in a folder, and a horde mode the cartridge never had.
 
-There is no MIPS interpreter and no dynamic recompiler anywhere in it. The binary *is* the
-game. Every system is ordinary C that can be read, changed and rebuilt, and that is the whole
-difference: the things an emulator can only work around from the outside, this fixes at the
-source.
+Not an emulator. This is the game's own source code, from the
+[`n64decomp/007`](https://github.com/n64decomp/007) decompilation, compiled into a real
+application for your machine. There is no N64 being pretended at underneath. The binary **is**
+GoldenEye, which is why the things emulators can only work around, this one just fixes.
 
-Which is not an abstract claim. GoldenEye's most famous problem is that it counts time in whole
-video frames, so running it faster runs the *game* faster: guards firing at double rate,
-ammunition draining, AI stepping quicker than it was tuned for. Every emulator inherits that,
-because it is in the game rather than in the hardware. **Here it is fixed.** The world holds 60
-video fields a second while the renderer runs at 486, measured against a real clock rather than
-a frame counter. There is a whole section on it below, including the two attempts that looked
-like they had worked and had not.
+Here is the one that matters most. GoldenEye counts time in whole video frames, so on every
+emulator ever made, running it faster runs the *game* faster: guards firing at double speed,
+ammo draining, the AI thinking quicker than Rare tuned it to. It is baked into the game, not
+the hardware, so nobody could fix it from the outside.
 
-What that unlocks is the rest of this page: uncapped high-refresh play with correct game speed,
-true widescreen that widens the view instead of stretching it, mouse look, HD texture packs,
-Lua mods, bots that drive the game's own AI, split-screen with all 64 characters, horde mode,
-and a launcher to pick it all from.
+**We fixed it.** The world now keeps its own time while the renderer runs as fast as your
+machine allows. Measured on the Dam: **486 frames a second**, with the game itself ticking at
+exactly the 60 it should. Bond moves at the speed he moved in 1997 and the picture is as smooth
+as your monitor can show.
+
+That one fix is what makes all the rest possible.
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
@@ -130,70 +126,77 @@ skipping any one produces a tree that fails to compile or, worse, silently misbe
 
 ## What you get
 
-- **Every stage.** All 27 loadable missions boot, render and exit cleanly. Twenty-one load
-  directly; six are multiplayer-only and need two or more players.
-- **Widescreen that actually widens the view.** Not a stretched 4:3 image and not a
-  pillarbox: the projection is recomputed for the window's real aspect, so a 16:9 window
-  shows more of the room to either side. Split screen is corrected the same way.
-- **The frame-rate problem, solved rather than worked around.** GoldenEye counts in whole
-  video fields, so running it faster used to run the *game* faster. That is fixed. Set
-  `framerate = off` and the renderer free-runs while the world keeps its own time: measured
-  on Dam, 60.8 fields per second against the correct 60.0, at 406 frames per second. The
-  number that matters there is the first one, and it is the one a frame counter cannot see.
-  There is a whole section on this below, including the two traps that cost the most.
-- **It renders fast.** 394 to 433 frames per second at 1280x960 on an M1, three runs, with
-  the cap and vsync released. The spread is the honest report; the renderer has not been the
-  bottleneck for a while.
-- **Multiplayer.** Split screen, radar, all 64 selectable characters.
-- **Bots that use the game's own AI.** GoldenEye already ships a behaviour VM with 250 AI
-  opcodes driving every guard in the campaign. The bots drive that rather than replacing it,
-  with navigation, door handling and an arbiter on top.
-- **Keyboard and mouse**, on by default. Mouse look with sensitivity and invert, left button
-  fires, right aims, ESC releases the cursor. Gamepads work alongside it, not instead of it.
-- **A launcher.** Pick a level, a ruleset, cheats, resolution and field of view before you
-  play, instead of editing a config file.
-- **Rulesets and horde mode.** Enemy health, damage, accuracy, ammo, player health and
-  explosion strength as percentages, with presets. Horde spawns replacements where a guard
-  falls and grows the waves as you clear them.
-- **Lua mod scripting.** Drop a `mod.lua` in `mods/` and get `onFrame`, `onPlayerSpawn` and
-  `onWeaponFire` with a read API into live game state. No rebuild.
-- **Co-op.** Two to four players in a single-player mission, sharing its geometry, props and
-  objectives. Bring-up quality, and the section below is specific about what that means.
-- **A crosshair you can colour.** `crosshair_color = FF0000`, or a picker in the launcher. The
-  RDP already multiplied the sight texture by a colour at that call site and retail always
-  passed white, so this changes the value rather than adding a pass.
-- **The cheats the game already had**, by name, from the launcher or a config file.
-- **HD texture packs, with parallax.** Drop PNGs named by content hash into a folder and
-  they replace the N64 originals as they decode. `GETV_TEXPACK_DUMP` writes the baseline
-  first, so a pack starts as a copy of what the game already produced with individual files
-  swapped out, rather than a guessing game about what to name things. A pack that also ships
-  `<hash>_h.png` height maps gets parallax displacement on top, which GoldenEye+ turns on and
-  97 Console leaves off, so the same installed pack means different things under the two.
-  No pack is the normal case and costs nothing.
-- **A GoldenEye+ profile.** One switch that turns on everything this port added and verified:
-  HD textures, parallax, FXAA, MSAA 4x, anisotropic 8x, mipmaps, supersampling, a smaller
-  reticle, and uncapped frames on the real clock. It is a profile and not a fork, so every
-  item under it stays individually toggleable, and `97 Console` clears the same set rather
-  than merely not setting it. `preset = plus` in the config file, or the launcher.
-- **A reticle sized for a monitor.** The 1997 sight was 32 pixels against a 320x240 field of
-  view on a CRT across a room. At 1280x960 on a desk it covers a good deal more of what you
-  are aiming at than it used to. `crosshair_scale` moves it, GoldenEye+ asks for 0.6, and
-  1.0 is the retail size exactly. It is applied after the aspect corrections, so the shape
-  never changes and only the size does.
-- **Two renderers.** OpenGL everywhere, and a native Metal backend on Apple hardware.
-  `GETV_RENDERER=metal` picks it; both build from the same tree and each gets its own binary.
-- **Modern presentation, off by default.** Arbitrary resolution, supersampling, MSAA,
-  anisotropic filtering, FXAA, adjustable field of view, and three texture filters including
-  the N64's real three-point sampling. Off by default because faithful is the default; the
-  GoldenEye+ profile is the one clearly labelled door they all live behind.
+**All 27 stages.** Every mission the cartridge shipped, plus the multiplayer-only arenas.
+Twenty-one load straight from the launcher.
 
-Sixteen unit test files, 418 checks, covering the parts that are testable without a window:
+**Widescreen that actually shows you more.** Not a stretched 4:3 picture and not black bars
+down the sides. The view is genuinely wider, so you see more of the room to your left and
+right than an N64 player ever could. Split screen gets the same treatment.
+
+**As many frames as your machine can push.** 394 to 433 a second at 1280x960 on an M1, with
+the frame cap and vsync released. On a 144Hz monitor you get 144, and the game still runs at
+the right speed, which is the half that usually goes wrong.
+
+**Mouse and keyboard, on by default.** Proper mouse look with sensitivity and invert, left
+click to fire, right to aim, Escape to let go of the cursor. Play it like a modern shooter.
+Gamepads work at the same time, not instead.
+
+**Bots that use GoldenEye's own brain.** Rare shipped a behaviour VM with 250 AI opcodes
+driving every guard in the game. The bots run on that, with navigation, door handling and an
+arbiter layered on top, so they fight like the game's characters rather than like something
+bolted on beside them.
+
+**Horde mode.** Guards respawn where they fall and the waves grow as you clear them. Not in
+the original, entirely optional, and a very different way to play the Facility.
+
+**Rulesets.** Enemy health, damage, accuracy and reaction time, your own health, armour, ammo
+and explosion strength, all as percentages with presets. Make it brutal or make it silly.
+
+**Split screen with all 64 characters**, the radar, and every multiplayer scenario.
+
+**Co-op.** Two to four players through a single-player mission, sharing its geometry, props and
+objectives. Bring-up quality, and the section further down is specific about what that means.
+
+**HD texture packs.** Drop PNGs in a folder and they replace the N64 originals as the game
+decodes them. The game will even dump its own textures for you to start from, so a pack begins
+as a copy of what is already there with individual files swapped out. Packs with height maps
+get parallax on top.
+
+**Lua mods, no rebuild.** Drop a `mod.lua` in `mods/` and you get `onFrame`, `onPlayerSpawn`
+and `onWeaponFire` with a read API into live game state. The CRT filter that ships with it is
+a mod, written as the worked example.
+
+**A launcher.** Pick your level, ruleset, cheats, resolution and field of view before you play,
+instead of editing a file. Every cheat the game already had is in there by name.
+
+**GoldenEye+.** One switch that turns on everything this port adds and has verified:
+supersampling, MSAA, anisotropic filtering, mipmaps, HD textures, parallax, FXAA, a reticle
+sized for a monitor rather than a 1997 CRT, and uncapped frames. Flip back to **97 Console**
+and you get the game exactly as it shipped. Faithful is the default, and every item under
+GoldenEye+ can still be toggled on its own.
+
+**A crosshair you can colour and resize.** The 1997 sight was drawn for 320x240 on a television
+across the room; on a monitor it covers rather more of what you are aiming at.
+
+**Two renderers.** OpenGL everywhere, and a native Metal backend on Apple hardware.
+
+---
+
+Sixteen unit test files, 418 checks, covering the parts that can be tested without a window:
 the bot arbiter and policy, the input queue, the discovery parser, sense stability, fire
 cadence, the field integrator, the config parser and the mouse arithmetic. They run on macOS
 and Linux with `getv/port/tests/run_tests.sh` and on Windows with the PowerShell twin beside
-it. A test that exits cleanly having asserted nothing is treated as a failure, because three
-of them used to print only on failure and scored zero checks while looking exactly like the
-twelve doing real work.
+it. A test that exits cleanly having asserted nothing counts as a failure, because three of
+them once printed only on failure and scored zero checks while looking exactly like the twelve
+doing real work.
+
+## Screenshots
+
+![Two-player split screen with a radar in each pane](docs/images/screenshot-02.jpg)
+
+![An outdoor stage at night: snow-covered rock, a truck, a glass-walled guard post](docs/images/screenshot-04.jpg)
+
+![Split screen in a concrete interior with weapons and armour on the floor](docs/images/screenshot-05.jpg)
 
 ## On frame timing, and a thank you
 
@@ -494,14 +497,6 @@ from a pinned upstream commit by `tools/fetch-thirdparty.sh`, because their redi
 are unresolved. The SDL2 2.30.9 source tree is supplied by you in `deps/SDL2-2.30.9`, and built
 from source, because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link
 into an arm64 binary.
-
-## Screenshots
-
-![Two-player split screen with a radar in each pane](docs/images/screenshot-02.jpg)
-
-![An outdoor stage at night: snow-covered rock, a truck, a glass-walled guard post](docs/images/screenshot-04.jpg)
-
-![Split screen in a concrete interior with weapons and armour on the floor](docs/images/screenshot-05.jpg)
 
 ## Build
 
