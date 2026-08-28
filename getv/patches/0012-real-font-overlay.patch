@@ -1,119 +1,92 @@
 --- a/src/game/textrelated.c
 +++ b/src/game/textrelated.c
-@@ -430,7 +430,15 @@
+@@ -430,15 +430,19 @@
  	kerningOffset = font->kerning[prevchar->kerningindex * 13 + curchar->kerningindex] + text_spacing;
      *x -= (kerningOffset - 1);
  
--    if (text_orientation || (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY()))
-+    /* text_orientation (rotated text -- the folder tab labels) always draws here, same as
-+     * before the overlay existed: it is never queued (see textRender()'s own guard), so
-+     * nothing else is going to draw it. Everything else -- the normal horizontal case --
-+     * only draws here when the overlay is off or not ready; gePortTextEnabled() draws it
-+     * instead (queued once per string in textRender(), above). Everything above this line
-+     * still runs regardless -- the kerning/advancement math the rest of the layout depends
-+     * on. */
-+    if (text_orientation ||
-+        (!gePortTextEnabled() && (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY())))
+-    /* text_orientation (rotated text -- the folder tab labels) always draws here, same as
+-     * before the overlay existed: it is never queued (see textRender()'s own guard), so
+-     * nothing else is going to draw it. Everything else -- the normal horizontal case --
+-     * only draws here when the overlay is off or not ready; gePortTextEnabled() draws it
+-     * instead (queued once per string in textRender(), above). Everything above this line
+-     * still runs regardless -- the kerning/advancement math the rest of the layout depends
+-     * on. */
+-    if (text_orientation ||
+-        (!gePortTextEnabled() && (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY())))
++    /* Runs whenever this glyph is in bounds, same condition as before the overlay existed --
++     * gePortTextEnabled() no longer gates entry here at all. It used to, and that was its own
++     * bug: this block does not just draw a glyph, it emits the RDP state that sets up FOR the
++     * draw (gDPSetTextureLUT, gDPLoadTextureBlock/gDPSetTextureImage+gDPSetTile+gDPLoadBlock),
++     * which later same-frame drawing can depend on implicitly, the way N64-era display-list
++     * code often does to avoid redundant state changes. Skipping this whole block skipped
++     * that state too -- confirmed on GETV_MENU=15 (multiplayer character select):
++     * frontRenderCharacterPortrait() draws immediately after this string's glyphs and came
++     * out as a blank white panel instead of its placeholder art once the glyphs' texture/tile
++     * setup stopped running. Below, only the actual visible blit is still gated -- the state
++     * setup runs unconditionally now, matching what every OTHER draw in the same display list
++     * has always been able to assume was already done. */
++    if (text_orientation || (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY()))
      {
          if (clipX + clipWidth >= *x
  				&& clipY + clipHeight >= curchar->baseline + drawY
-@@ -590,7 +598,7 @@
-     s32 stack3;
-     s32 stack4;
-     //s32 stack5;
--    
-+
-     g_JpnTextTlutNeedsLoad = 1;
- 
-     savedx = *x;
-@@ -605,6 +613,24 @@
- 		lineheight = 14;
- 	}
- 
-+    /* Real-font overlay: queue the same (string, position, colour) this call was given, in
-+     * the same native-space x/y the RDP path below draws in, plus the lineheight just resolved
-+     * above -- this font bank's own cell height, in native pixels, which the overlay uses to
-+     * scale the replacement glyphs to match instead of drawing every call site at one fixed
-+     * size. A no-op unless GETV_REAL_FONTS=1 and the font actually loaded -- see
-+     * ge_text_overlay.c. The loop below still runs unconditionally either way, for its own
-+     * *x/*y advancement, which callers rely on.
-+     *
-+     * Skipped entirely when text_orientation is set: that is 90-degree-rotated text (the
-+     * folder tab labels are the call site), which this overlay draws horizontally with no
-+     * rotation support. Queuing it would draw a second, wrong-orientation copy layered over
-+     * the bitmap glyphs below, which keep drawing this case unconditionally regardless of
-+     * gePortTextEnabled() for exactly that reason -- see textRenderGlyph()'s own gate. */
-+    if (!text_orientation) {
-+        gePortTextQueue(text, *x, *y, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour),
-+                         M_COLOR_A(colour), (int) lineheight);
-+    }
-+
-     stack = colour; // ????????????
-     gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour), M_COLOR_A(colour));
-     
-@@ -683,13 +709,21 @@
+@@ -521,8 +525,11 @@
+                                 /* dsdx */ 0x400,
+                                 /* dsdy */ 0xfc00);
+                         }
+-                        else
++                        else if (!gePortTextEnabled())
+                         {
++                            /* The only line in this whole block that actually puts visible
++                             * pixels on screen -- everything above it is RDP state setup that
++                             * runs regardless (see this function's own comment above). */
+                             // E4000000 --------:
+                             // B4000000 --------:
+                             // B3000000 04000400:
+@@ -709,15 +716,14 @@
      kerningOffset = font->kerning[prevchar->kerningindex * 13 + curchar->kerningindex] + text_spacing;
      *x -= (kerningOffset - 1);
  
--    if (*x > 0
-+    /* text_orientation: same escape hatch as textRenderGlyph() above, and for the same
-+     * reason -- not queued (textRenderOutlined()'s own guard), so nothing else draws it.
-+     * The original gate here never special-cased it (unlike textRenderGlyph()'s), which may
-+     * just mean outlined rotated text never occurs in practice -- but if it does, this is
-+     * the same "always draw, the overlay never claimed it" rule, not a new one.
-+     * !gePortTextEnabled(): same reason as the non-outlined path in textRenderGlyph() above --
-+     * textRenderOutlined() already queued this string for the overlay to draw instead. */
-+    if (text_orientation || (!gePortTextEnabled()
-+            && *x > 0
+-    /* text_orientation: same escape hatch as textRenderGlyph() above, and for the same
+-     * reason -- not queued (textRenderOutlined()'s own guard), so nothing else draws it.
+-     * The original gate here never special-cased it (unlike textRenderGlyph()'s), which may
+-     * just mean outlined rotated text never occurs in practice -- but if it does, this is
+-     * the same "always draw, the overlay never claimed it" rule, not a new one.
+-     * !gePortTextEnabled(): same reason as the non-outlined path in textRenderGlyph() above --
+-     * textRenderOutlined() already queued this string for the overlay to draw instead. */
+-    if (text_orientation || (!gePortTextEnabled()
+-            && *x > 0
++    /* Runs whenever this glyph is in bounds, same as before the overlay existed --
++     * gePortTextEnabled() no longer gates entry here (see the identical fix and its full
++     * comment in textRenderGlyph() above). This block is RDP state setup (gDPSetTextureLUT,
++     * gDPLoadTextureBlock/gDPSetTextureImage+friends) that later same-frame drawing can
++     * depend on implicitly; skipping the whole block skipped that state too. The actual
++     * visible draws are the textDrawGlyphQuad() calls below, gated on their own. */
++    if (text_orientation
++            || (*x > 0
              && *x <= viGetX()
              && drawY + curchar->baseline <= viGetY()
              && *x <= clipX + clipWidth
-             && drawY + curchar->baseline <= clipY + clipHeight
-             && *x >= clipX
--            && drawY + curchar->baseline + curchar->height >= clipY) {
-+            && drawY + curchar->baseline + curchar->height >= clipY)) {
-         if (curchar->index < 0x80) {
-             gDPSetTextureLUT(gdl++, G_TT_NONE);
-             gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
-@@ -831,7 +865,7 @@
-     s32 savedx;
-     struct fontchar sp74;
-     s32 prevchar;
--    
-+
-     g_JpnTextTlutNeedsLoad = 1;
+@@ -760,7 +766,11 @@
+                 tmpx = *x + offsetX;
+                 tmpy = drawY + offsetY;
  
-     savedx = *x;
-@@ -845,7 +879,20 @@
- 	if (j_text_trigger != 0 && lineheight < 14) {
- 		lineheight = 14;
- 	}
--    
-+
-+    /* Real-font overlay: see the identical comment in textRender() just above this file's
-+     * definition of that function. colour, not colour2 (the outline colour) -- the overlay
-+     * draws plain, antialiased glyphs rather than reproducing the eight-direction outline
-+     * effect, which is a bitmap-font technique this rendering does not need in the first
-+     * place. lineheight is this call's resolved lineheight, just above -- see textRender()'s
-+     * copy of this same comment for why it travels with the string.
-+     *
-+     * Skipped when text_orientation is set -- see textRender()'s copy of this same comment. */
-+    if (!text_orientation) {
-+        gePortTextQueue(text, *x, *y, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour),
-+                         M_COLOR_A(colour), (int) lineheight);
-+    }
-+
-     while (*text != '\0')
-     {
- 		if (*text == ' ') {
---- a/src/ge_port_decls.h
-+++ b/src/ge_port_decls.h
-@@ -2,6 +2,8 @@
- extern void gePortCheckItemEntries(const char *where); /* c_item_entries corruption canary */
- extern int gePortNetInit(void);   /* netplay boot: opens a socket if GETV_NET_HOST/JOIN is set; see ge_net_udp.c */
- extern int gePortNetTick(void);   /* netplay per-tick: 1 to proceed, 0 to stall; see ge_net_udp.c */
-+extern int gePortTextEnabled(void);   /* GETV_REAL_FONTS=1 and the font loaded; see ge_text_overlay.c */
-+extern void gePortTextQueue(const char *text, int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a, int lineheight);   /* see ge_text_overlay.c */
- /* GENERATED by tools/gen_port_decls.py - do not edit by hand.
-  *
-  * IDO accepted implicit function declarations; C99+/clang does not. Every
+-                if (offsetX != 0 || offsetY != 0) { // Skip the center since that will be covered by the main character anyway.
++                /* Skip the center since that will be covered by the main character anyway.
++                 * text_orientation always draws (see this function's own comment above); the
++                 * normal case only draws when the overlay is off -- gePortTextEnabled() draws
++                 * this string instead, queued once in textRenderOutlined(). */
++                if ((offsetX != 0 || offsetY != 0) && (text_orientation || !gePortTextEnabled())) {
+                     gdl = textDrawGlyphQuad(gdl, tmpx, tmpy, curchar, clipX, clipY, clipWidth, clipHeight);
+                 }
+             }
+@@ -771,7 +781,9 @@
+         tmpy = drawY;
+         rgba = textColour;
+         gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(rgba), M_COLOR_G(rgba), M_COLOR_B(rgba), M_COLOR_A(rgba));
+-        gdl = textDrawGlyphQuad(gdl, tmpx, tmpy, curchar, clipX, clipY, clipWidth, clipHeight);
++        if (text_orientation || !gePortTextEnabled()) {
++            gdl = textDrawGlyphQuad(gdl, tmpx, tmpy, curchar, clipX, clipY, clipWidth, clipHeight);
++        }
+     }
+ 
+     *x += curchar->width;
