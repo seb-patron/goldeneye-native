@@ -69,6 +69,23 @@
 /* slot(1) + addr(4) + port(2) */
 #define GE_PEER_ENTRY 7
 
+/* joyGetButtons/joyGetStickX/joyGetStickY are the game's own read-only accessors into joy.c's
+ * already-sampled input ring -- NOT osContGetReadData(), which would poll and rescan devices a
+ * second time this frame if called from here too. Declared locally rather than via joy.h: the
+ * port layer's include path (build_windows.ps1's $portFlags) reaches port/include, not
+ * vendor/ge-decomp/src, and these three are the only symbols gePortNetTick needs from it. The
+ * real definitions are joy.c, linked into the same binary regardless of which header declared
+ * the prototype. ANY_BUTTON is os_extension.h's 0xFFFF, copied for the same reason. */
+extern unsigned short joyGetButtons(signed char contpadnum, unsigned short mask);
+extern signed char    joyGetStickX(signed char contpadnum);
+extern signed char    joyGetStickY(signed char contpadnum);
+#define GE_NET_ANY_BUTTON 0xFFFFu
+
+/* Set once gePortNetInit() succeeds, independent of geNetIsOpen(): a host still waiting for
+ * players, or a joiner still retrying its JOIN packet, has to keep polling the socket even
+ * though the lockstep session has not opened yet -- that IS the handshake. */
+static int ge_net_active;
+
 typedef struct GeUdpPeer {
     struct sockaddr_in addr;
     int used;
@@ -241,8 +258,24 @@ static void ge_udp_open_session(void)
     tp.close = ge_udp_shutdown;
     geNetOpen(&tp, ge_udp.local_slot, ge_udp.delay);
     geNetSetSlotKind(ge_udp.local_slot, GE_NET_SLOT_LOCAL);
+    /* Local is GE_SLOT_INJECTED too, not left as GE_SLOT_HARDWARE -- found live, not assumed:
+     * ge_pad_from_hardware (ge_player_api.c) reads joyGetButtons((s8) slot, ...), PORT-INDEXED
+     * BY SLOT, not always port 0. A joiner assigned slot 1 would have its own simulation read
+     * physical controller port 1 -- empty on an ordinary one-controller machine -- while
+     * gePortNetTick captures and transmits port 0, the port a human actually plays on. Two
+     * different inputs for the same player on two machines is a guaranteed desync the moment
+     * anyone presses anything, and it is exactly the pattern a live two-process run surfaced:
+     * clean whenever neither side's human touched a key during the test, real DESYNCs
+     * otherwise. Claiming local as INJECTED too means geNetTickBegin's own gePlayerPost() loop
+     * -- already looping over every non-empty slot uniformly, local included -- is what feeds
+     * this machine's own simulation, from the exact same captured GePlayerInput that goes out
+     * on the wire, rather than two independent reads that only sometimes happen to agree. */
+    gePlayerClaim(ge_udp.local_slot, GE_SLOT_INJECTED);
     for (i = 0; i < GE_NET_MAX_PEERS; i++) {
-        if (ge_udp.peer[i].used) { geNetSetSlotKind(ge_udp.peer[i].slot, GE_NET_SLOT_REMOTE); }
+        if (ge_udp.peer[i].used) {
+            geNetSetSlotKind(ge_udp.peer[i].slot, GE_NET_SLOT_REMOTE);
+            gePlayerClaim(ge_udp.peer[i].slot, GE_SLOT_INJECTED);
+        }
     }
     printf("[getv][udp] session starting: slot %d of %d players\n",
            ge_udp.local_slot, ge_udp_peer_count() + 1);
@@ -365,6 +398,7 @@ int gePortNetInit(void)
 
     if (geNetEnetInit()) {
         ge_using_enet = 1;
+        ge_net_active = 1;
         return 1;
     }
     if (!ge_udp_startup()) { return 0; }
@@ -440,6 +474,7 @@ int gePortNetInit(void)
         printf("[getv][udp] joining %s:%s\n", hostbuf, colon + 1);
     }
     fflush(stdout);
+    ge_net_active = 1;
     return 1;
 }
 
@@ -462,9 +497,56 @@ void gePortNetPoll(void)
         }
     }
 
-    for (;;) {
-        int got = ge_udp_recv_one(&ge_udp, buf, (int) sizeof buf);
-        if (got <= 0) { break; }
-        geNetDeliver(buf, got);
+    /* Bounded rather than a bare for(;;): a single test run produced a multi-million-line log
+     * from this exact loop, both sides stuck, which a 20-second wall-clock kill was needed to
+     * stop -- confirmed by direct measurement to NOT be gePortNetTick running unthrottled (the
+     * call rate stayed a steady ~55-60/sec across every other run, including the ones that
+     * stayed clean), so the runaway was specifically a receive/deliver cycle that kept finding
+     * more to drain within one call. Never reproduced under controlled, instrumented conditions
+     * across several further runs, so the exact trigger is still open -- this cap is a real
+     * bound on the consequence (one gePortNetPoll call cannot itself run unbounded) rather than
+     * a fix for a root cause that has not been pinned down yet. 256 is far above any legitimate
+     * per-tick backlog: even a full second of redundancy-window traffic from every peer is a
+     * small fraction of that. */
+    {
+        int drained = 0;
+        for (;;) {
+            int got = ge_udp_recv_one(&ge_udp, buf, (int) sizeof buf);
+            if (got <= 0) { break; }
+            geNetDeliver(buf, got);
+            if (++drained >= 256) { break; }
+        }
     }
+}
+
+/* Called once per simulated tick, from boss.c's retrace handler -- after
+ * joyConsumeSamplesWrapper() has latched this tick's input, before anything simulates it.
+ * Returns 1 to proceed, 0 to stall, the same contract as geNetTickBegin() itself, because that
+ * is exactly what this wraps: a no-op (always 1) when no session was requested, a poll-and-run
+ * pass-through while the session is still handshaking (geNetOpen has not been called yet, so
+ * there is nothing to stall on -- ge_net.tick_base captures wherever gePlayerTick() happens to
+ * be at that moment, which is what makes ticks spent waiting harmless rather than a discontinuity
+ * to reconcile), and the real local-input-in/stall-or-post-out call once it has.
+ *
+ * The caller MUST treat 0 as "do nothing this pass" -- skip the simulation and the render both,
+ * the same "nothing to do" shape boss.c already uses for its own frame-pacing skip -- or a
+ * stalled machine runs ahead of input it does not have yet and desyncs. */
+int gePortNetTick(void)
+{
+    GePlayerInput local;
+    unsigned short pad;
+
+    if (!ge_net_active) { return 1; }
+
+    gePortNetPoll();
+
+    if (!geNetIsOpen()) { return 1; }
+
+    pad = joyGetButtons(0, (unsigned short) GE_NET_ANY_BUTTON);
+    memset(&local, 0, sizeof local);
+    local.buttons = gePlayerButtonsFromPad((unsigned int) pad);
+    local.stick_x = joyGetStickX(0);
+    local.stick_y = joyGetStickY(0);
+
+    return geNetTickBegin(&local);
 }

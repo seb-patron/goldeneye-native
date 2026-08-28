@@ -62,6 +62,7 @@ else
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0008-crosshair-color.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0009-freerun-divider.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0010-state-dump-player-position.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0011-netplay-tick-integration.patch" )
     echo "cloned and patched"
 fi
 

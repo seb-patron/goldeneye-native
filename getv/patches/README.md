@@ -14,9 +14,10 @@ Split by *when* they can be applied rather than by subject.
 | `0002-assets.patch` | 212 KB, 8 files | generated asset sources | at the end of the asset pipeline |
 | `0006-fov-live-setter.patch` | 1 file | `src/fr.c` | after `0001` |
 | `0007-load-trace.patch` | 1 file | asset load tracing | after `0001` |
-| `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c` | after `0001` |
+| `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c`, colour and scale | after `0001` |
 | `0009-freerun-divider.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
 | `0010-state-dump-player-position.patch` | 1 file | `src/game/objective_status.c` | after `0001` |
+| `0011-netplay-tick-integration.patch` | 2 KB, 2 files | `src/boss.c`, `src/ge_port_decls.h` | after `0001` |
 
 ## The gap at 0003, 0004 and 0005 is deliberate
 
@@ -93,6 +94,7 @@ git apply ../../getv/patches/0007-load-trace.patch
 git apply ../../getv/patches/0008-crosshair-color.patch
 git apply ../../getv/patches/0009-freerun-divider.patch
 git apply ../../getv/patches/0010-state-dump-player-position.patch
+git apply ../../getv/patches/0011-netplay-tick-integration.patch
 # ... run the asset pipeline (docs/SETUP.md 3.5) and the namespacing pass (3.6) ...
 git apply ../../getv/patches/0002-assets.patch
 ```

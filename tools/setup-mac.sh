@@ -100,6 +100,13 @@ else
     || die "0010-state-dump-player-position.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0011-netplay-tick-integration.patch" ) 2>/dev/null; then
+  echo "0011-netplay-tick-integration.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0011-netplay-tick-integration.patch" ) \
+    || die "0011-netplay-tick-integration.patch failed to apply"
+fi
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."

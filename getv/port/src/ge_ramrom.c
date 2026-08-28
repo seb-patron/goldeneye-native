@@ -89,8 +89,12 @@ static unsigned int be32(const unsigned char *p)
  * inv=A. The corpus matches the second -- Z most-held at 11.6%, A at 0.1%, L_TRIG at 2.8% -- so
  * these demos were recorded on a default style. ge_player_api.c already maps GE_IN_AIM back onto
  * L_TRIG|R_TRIG for those styles, so the round trip is faithful and neither side needs a special
- * case. */
-static unsigned int ge_rr_buttons(unsigned int pad)
+ * case.
+ *
+ * Not static: netplay's local-input capture (ge_net_udp.c) needs this exact conversion too, to
+ * turn what joyGetButtons() reads on this machine into the GE_IN_* a GePlayerInput carries over
+ * the wire. Declared in ge_player_api.h, next to ge_pad_from_input, the direction it inverts. */
+unsigned int gePlayerButtonsFromPad(unsigned int pad)
 {
     unsigned int b = 0;
     if (pad & GE_PAD_Z)                 { b |= GE_IN_FIRE; }
@@ -276,7 +280,7 @@ void gePortRamromFrame(int frame)
     memset(&in, 0, sizeof in);
     in.stick_x = sx;
     in.stick_y = sy;
-    in.buttons = ge_rr_buttons(pad);
+    in.buttons = gePlayerButtonsFromPad(pad);
 
     gePlayerPost(ge_rr_slot, gePlayerTick() + 1, &in, 1);
 

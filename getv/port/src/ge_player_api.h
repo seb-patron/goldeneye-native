@@ -99,6 +99,12 @@ typedef struct GePlayerInput {
     int stick_y;            /* positive = up, as the game reads it */
 } GePlayerInput;
 
+/* N64 pad word (a joyGetButtons()-style CONT_* bitmask) to GE_IN_*. Defined in ge_ramrom.c,
+ * which needed it first for demo playback; declared here because it is the exact conversion
+ * netplay's local-input capture needs too, and a second implementation is exactly the kind of
+ * thing that quietly drifts from this one. */
+unsigned int gePlayerButtonsFromPad(unsigned int pad);
+
 /* Where a slot's input comes from this frame. */
 typedef enum GeSlotSource {
     GE_SLOT_HARDWARE = 0,   /* copy the real pad through; the default for every slot */
