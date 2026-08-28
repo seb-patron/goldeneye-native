@@ -290,10 +290,15 @@ struct Model {
 
     /* video */
     int  supersample, fov, framerate, msaa, aniso;
+    bool uncapped;                /* GETV_FPS=0 plus the real clock; see the TIMING section */
     int  filtering;               /* 0 nearest, 1 bilinear, 2 three-point (configFiltering) */
     bool widescreen;              /* fill the real window instead of a 4:3 pillarbox (configWidescreen) */
     bool mipmaps;                 /* trilinear filtering on minification (GETV_MIPMAPS) */
     bool hd_textures;             /* check texpack for overrides before each N64 texture (configHDTextures) */
+    bool parallax;                /* let a pack's height maps displace the diffuse UVs (GETV_PARALLAX) */
+    /* Held as a percentage rather than the float the gate wants, because the slider needs an
+     * int and one representation is better than two that can drift. 100 is retail. */
+    int   crosshair_scale_pct;
     char texpack[256];            /* GETV_TEXPACK: override pack directory */
     float crosshair_color[3];     /* 0..1 RGB; GETV_CROSSHAIR_COLOR wants RRGGBB hex */
     bool fullscreen;
@@ -494,10 +499,20 @@ void model_load(Model &m)
     m.horde_growth       = env_int("GETV_HORDE_GROWTH", 1);
 
     {
-        const char *st = getenv("GETV_STAGE");
-        m.pick_stage = (st != NULL && *st != '\0');
+        /* GETV_PICKSTAGE is a separate persisted flag from GETV_STAGE on purpose. Defaults
+         * true: with the toggle unchecked, MissionPage (GeNativeLauncher.swift) hides the
+         * mission list entirely, so a first-time player sees a checkbox and nothing else
+         * -- picking a mission is the whole point of this page. But "GETV_STAGE unset"
+         * cannot itself mean "default to true", because model_store() below unsetenv()s
+         * GETV_STAGE precisely when the player UNCHECKS the toggle and saves -- conflating
+         * the two would forget that explicit "boot to title screen" choice on every
+         * relaunch. GETV_PICKSTAGE is always written (model_store, same env_bool
+         * round-trip as GETV_HORDE/GETV_WIDESCREEN above/below), so only a true first run
+         * -- no saved config at all -- ever hits this default. */
+        m.pick_stage = env_bool("GETV_PICKSTAGE", true);
         m.stage_idx = 0;
-        if (m.pick_stage) {
+        const char *st = getenv("GETV_STAGE");
+        if (st != NULL && *st != '\0') {
             int id = atoi(st);
             for (int i = 0; i < kStageCount; i++) {
                 if (kStages[i].id == id) { m.stage_idx = i; break; }
@@ -507,7 +522,11 @@ void model_load(Model &m)
 
     m.supersample = env_int("GETV_SUPERSAMPLE", 1);
     m.fov         = env_int("GETV_FOV", 100);
-    m.framerate   = env_int("GETV_FPS", 60);
+    {
+        const int fps = env_int("GETV_FPS", 60);
+        m.uncapped  = (fps == 0);
+        m.framerate = m.uncapped ? 60 : fps;   /* keep a sane value under the disabled slider */
+    }
     m.msaa        = env_int("GETV_MSAA", 0);
     m.aniso       = env_int("GETV_ANISO", 0);
     /* 2 (three-point), not 0, matches configFiltering's own compiled-in default
@@ -523,6 +542,15 @@ void model_load(Model &m)
      * unlike widescreen/filtering above, this path has had no compiler available to verify
      * it against, so it stays opt-in rather than presenting itself as a finished feature. */
     m.hd_textures = env_bool("GETV_HD_TEXTURES", false);
+    m.parallax    = env_bool("GETV_PARALLAX", true);
+    {
+        char sc[32];
+        env_str("GETV_CROSSHAIR_SCALE", sc, sizeof sc, "1.0");
+        m.crosshair_scale_pct = (int) (atof(sc) * 100.0 + 0.5);
+        if (m.crosshair_scale_pct < 25 || m.crosshair_scale_pct > 200) {
+            m.crosshair_scale_pct = 100;
+        }
+    }
     env_str("GETV_TEXPACK", m.texpack, sizeof m.texpack, "hdtextures");
     /* GETV_CROSSHAIR_COLOR is RRGGBB hex (ge_config.c, port_support.c); ImGui::ColorEdit3
      * wants 0..1 floats, so this is the one setting that round-trips through a different
@@ -627,18 +655,38 @@ void model_store(const Model &m)
         put_int("GETV_HORDE_GROWTH",       m.horde_growth);
     }
 
+    setenv("GETV_PICKSTAGE", m.pick_stage ? "1" : "0", 1);
     if (m.pick_stage) put_int("GETV_STAGE", kStages[m.stage_idx].id);
     else              unsetenv("GETV_STAGE");
 
     put_int("GETV_SUPERSAMPLE", m.supersample);
     put_int("GETV_FOV",         m.fov);
-    put_int("GETV_FPS",         m.framerate);
+    /* Uncapped has to set the clock too, and the launcher is the one place that has to do it
+     * by hand. ge_config.c's key_framerate pairs `framerate = off` with GETV_REALCLOCK=1,
+     * but this writes GETV_FPS straight to the environment and never passes through that
+     * layer, so the pairing would simply not happen. Uncapped on the synthetic clock is the
+     * worst configuration available here -- measured at 811.9 fields a second against the
+     * correct 60, a game running thirteen times too fast -- so the two belong together
+     * wherever either is set. */
+    if (m.uncapped) {
+        put_int("GETV_FPS", 0);
+        setenv("GETV_REALCLOCK", "1", 1);
+    } else {
+        put_int("GETV_FPS", m.framerate);
+        unsetenv("GETV_REALCLOCK");
+    }
     put_int("GETV_MSAA",        m.msaa);
     put_int("GETV_ANISO",       m.aniso);
     put_int("GETV_FILTERING",   m.filtering);
     setenv("GETV_WIDESCREEN", m.widescreen ? "1" : "0", 1);
     setenv("GETV_MIPMAPS", m.mipmaps ? "1" : "0", 1);
     setenv("GETV_HD_TEXTURES", m.hd_textures ? "1" : "0", 1);
+    setenv("GETV_PARALLAX",    m.parallax    ? "1" : "0", 1);
+    {
+        char sc[32];
+        snprintf(sc, sizeof sc, "%.2f", (double) m.crosshair_scale_pct / 100.0);
+        put_str("GETV_CROSSHAIR_SCALE", sc);
+    }
     put_str("GETV_TEXPACK", m.texpack);
     {
         char hex[8];
@@ -731,7 +779,17 @@ void model_store(const Model &m)
 /* GoldenEye+ is a profile over the same gates, not a fork. It turns on what this port has
  * added and verified; it does not enable anything inert. 97 Console clears the same set rather
  * than merely not setting it, so switching back is symmetric and cannot leave a stray
- * enhancement behind. */
+ * enhancement behind.
+ *
+ * The three raised to a floor rather than assigned (fov, msaa, aniso) let someone who has
+ * already asked for more keep it. The booleans are assigned outright because there is no
+ * "more" to preserve.
+ *
+ * Filtering and widescreen are deliberately absent. Both already default to their better
+ * setting for every profile (three-point, and filling the window), so listing them here would
+ * imply 97 Console turns them off, which it does not and should not: neither is an
+ * enhancement this port added, and a 4:3 pillarbox is a display choice rather than a fidelity
+ * one. */
 void apply_profile(Model &m)
 {
     if (m.profile == 1) {
@@ -740,12 +798,52 @@ void apply_profile(Model &m)
         m.aniso       = (m.aniso < 8) ? 8 : m.aniso;
         m.mipmaps     = true;
         m.supersample = (m.supersample < 2) ? 2 : m.supersample;
+
+        /* Costs nothing without a pack installed. ge_texpack_dir() treats a missing
+         * directory as the normal case and stays silent, so this is "use a pack if one is
+         * there" rather than a dependency on one being there. */
+        m.hd_textures = true;
+
+        /* Only does anything with a pack that ships height maps, and there is none in the
+         * game's own assets. It is here so the same installed pack means different things
+         * under the two profiles: resolution under 97 Console, resolution and displacement
+         * under this one. */
+        m.parallax = true;
+
+        /* A 32-pixel sight was sized for 320x240 on a CRT across a room; at a desk it covers
+         * noticeably more of what you are aiming at than it did in 1997. Applied after the
+         * aspect corrections in gunDrawSight, so the shape is unchanged and only the size
+         * moves. 1.0 is retail exactly and stays the default outside this profile. */
+        m.crosshair_scale_pct = 60;
+
+        /* Edge antialiasing over the finished frame. An image-quality setting like MSAA
+         * rather than a look, which is why it belongs to the profile and the CRT terms do
+         * not: those moved to mods/crt_screen. */
+        m.fxaa = true;
+
+        /* Uncapped, which model_store() pairs with the real clock. Without that pairing the
+         * synthetic counter advances one video field per rendered frame by construction and
+         * the world runs as fast as the renderer draws: measured at 811.9 fields a second
+         * against the correct 60, a game running thirteen times too fast.
+         *
+         * What this delivers depends on vsync, which stays ON by default and is not part of
+         * the profile. Uncapped against vsync means "as fast as the display", so a 120 Hz
+         * panel gets 120 with correct game speed and no tearing. GETV_VSYNC=0 releases it
+         * entirely; measured on DAM that is 449 fps at 60.8 fields a second. Making tearing
+         * the default for everyone in exchange for frames nobody's monitor can show would be
+         * the wrong trade. */
+        m.uncapped = true;
     } else {
         m.msaa = 0;
         m.aniso = 0;
         m.mipmaps = false;
         m.supersample = 1;
         m.fov = 100;
+        m.hd_textures = false;
+        m.fxaa = false;
+        m.uncapped = false;
+        m.parallax = false;
+        m.crosshair_scale_pct = 100;
         m.ruleset = 0;
         m.rs_custom = false;
         m.horde = false;
@@ -1324,6 +1422,16 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
     if (env_bool("GETV_LAUNCHER_AUTOPLAY", false)) {
         Model am;
         model_load(am);
+        /* Apply the profile, which the interactive path does the moment the radio changes and
+         * this path had no equivalent for. Without it, GETV_PROFILE_PLUS=1 here loaded
+         * profile 1, wrote every setting back at whatever it already was, and produced a
+         * half-applied GoldenEye+: MSAA and FXAA arrived from ge_config.c's own preset pass
+         * while supersampling and the frame cap did not, because model_store had just written
+         * them explicitly and the config layer will not displace an explicit value.
+         *
+         * Choosing the profile is the whole reason to set that variable, so acting on it is
+         * what "autoplay takes the launcher's path" has to mean. */
+        if (am.profile == 1) { apply_profile(am); }
         model_store(am);
         printf("[getv][launcher] autoplay: profile=%s ruleset=%s%s\n",
                am.profile ? "goldeneye+" : "97-console",
@@ -1392,7 +1500,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
      * readable straight from the host via `simctl get_app_container ... data`. Remove once
      * the iOS sizing bug is closed. */
     {
-        char *pp = SDL_GetPrefPath("org.goldeneyenative", "getv-diag");
+        char *pp = SDL_GetPrefPath("goldeneyenative", "getv-diag");
         if (pp != NULL) {
             char path[4096];
             snprintf(path, sizeof path, "%sdiag.txt", pp);
@@ -1452,7 +1560,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 #endif
         printf("[getv][launcher][diag] after fullscreen: SDL_GetWindowSize=%dx%d "
                "drawable=%dx%d\n", aw, ah, dw, dh);
-        char *pp = SDL_GetPrefPath("org.goldeneyenative", "getv-diag");
+        char *pp = SDL_GetPrefPath("goldeneyenative", "getv-diag");
         if (pp != NULL) {
             char path[4096];
             snprintf(path, sizeof path, "%sdiag.txt", pp);
@@ -1612,7 +1720,11 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 TextLS(g_fTitle, 46.0f, ImVec2(34 + gw + 16, 20), kGold, "007", 5.0f);
             }
             TextLS(g_fSmall, 12.0f, ImVec2(36, 74), kDim,
+#ifdef RAPI_METAL
+                   "NATIVE PORT / METAL / DECOMPILED", 3.0f);
+#else
                    "NATIVE PORT / OPENGL / DECOMPILED", 3.0f);
+#endif
 
             /* The profile is the single choice that changes the meaning of everything else on
              * the Video page, so it sits in the header rather than inside one of the pages --
@@ -1973,9 +2085,71 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                      "and softer. Belongs here rather than with the CRT terms because it is "
                      "an image-quality choice, not a look.");
 
+                /* Texture filtering, mipmapping and the pack controls were on the Windows
+                 * tree's video page and had gone missing from this one, while the Model kept
+                 * the fields they set. A launcher that holds a setting it cannot show is worse
+                 * than one that never had it: the value round-trips through model_load and
+                 * model_store on every launch, so it is live and invisible at the same time. */
+                ImGui::Dummy(ImVec2(0, 10));
+                ImGui::TextUnformatted("Texture filtering");
+                ImGui::RadioButton("Nearest",     &m.filtering, 0); ImGui::SameLine(0, 24);
+                ImGui::RadioButton("Bilinear",    &m.filtering, 1); ImGui::SameLine(0, 24);
+                ImGui::RadioButton("Three-point", &m.filtering, 2);
+                Hint("Three-point is what the N64's own RDP did: soft rather than blurry. "
+                     "Bilinear is the standard modern filter. Nearest is the sharp, blocky "
+                     "look with no filtering at all.");
+
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Checkbox("Mipmapping", &m.mipmaps);
+                Hint("Blends distant textures toward a smaller mip level instead of "
+                     "shimmering. Pairs with Anisotropic above, which sharpens the same "
+                     "textures back up at grazing angles.");
+
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Checkbox("Widescreen", &m.widescreen);
+                Hint("Fills the window at its own aspect ratio instead of the console's fixed "
+                     "4:3, with a genuinely wider view of the level rather than a stretched "
+                     "one. Off restores the original framing.");
+
+                ImGui::Dummy(ImVec2(0, 10));
+                ImGui::Checkbox("HD texture packs", &m.hd_textures);
+                InputRow("Pack folder", m.texpack, sizeof m.texpack, 220);
+                Hint("Replaces individual N64 textures with files from the pack folder, named "
+                     "by content hash, wherever a match exists; anything not overridden renders "
+                     "exactly as before. GETV_TEXPACK_DUMP writes the baseline to start a pack "
+                     "from. No pack installed costs nothing.");
+
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Checkbox("Parallax from pack height maps", &m.parallax);
+                Hint("Lets a pack's <hash>_h.png height maps displace the diffuse texture "
+                     "coordinates. Does nothing without a pack that ships them, and there is "
+                     "no height data in the game's own assets.");
+
+                ImGui::Dummy(ImVec2(0, 10));
+                SliderRow("Reticle size", &m.crosshair_scale_pct, 25, 200, "%", vw, true);
+                Hint("100% is the retail sight exactly. The 1997 crosshair was sized for "
+                     "320x240 on a CRT across a room; on a monitor it covers rather more of "
+                     "what you are aiming at. GoldenEye+ asks for 60%.");
+
                 Section("TIMING");
-                SliderRow("Frame rate", &m.framerate, 30, 60, " fps", vw, true);
-                Hint("Game logic is tied to the frame step, so the ceiling is 60.");
+                ImGui::Checkbox("Uncapped (high refresh)", &m.uncapped);
+                Hint("Removes the frame cap and switches to the real timebase together, "
+                     "because on the default clock one rendered frame is one video field and "
+                     "the world would simply run as fast as the renderer. Measured: 60.5 "
+                     "fields a second, the correct value, at 456 fps. Costs reproducibility, "
+                     "so measurement runs should stay capped.");
+                ImGui::Dummy(ImVec2(0, 8));
+                if (m.uncapped) {
+                    ImGui::BeginDisabled();
+                    int shown = 0;
+                    SliderRow("Frame rate", &shown, 0, 60, " uncapped", vw, true);
+                    ImGui::EndDisabled();
+                } else {
+                    SliderRow("Frame rate", &m.framerate, 30, 60, " fps", vw, true);
+                    Hint("A cap above 60 is not offered: it either runs the game fast on the "
+                         "default clock or is ignored on the real one. Uncapped above is the "
+                         "high-refresh setting.");
+                }
 
                 Section("DEVELOPER");
                 ImGui::Checkbox("Show the developer overlay in game", &m.dev_overlay);
