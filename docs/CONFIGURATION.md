@@ -576,3 +576,30 @@ GETV_EXIT_FRAME = 61
 
 Raw names are matched before friendly ones, so a friendly key can never shadow a gate. There are
 around 250 of them; [`MODDING.md`](MODDING.md) covers the useful ones.
+
+### `GETV_REAL_FONTS` -- the real-font text overlay
+
+Off by default, and a raw gate rather than a friendly key because it is not finished enough to
+promote. `GETV_REAL_FONTS=1` draws `textRender`/`textRenderOutlined` strings through a
+stb_truetype atlas baked from `getv/port/assets/fonts/RobotoCondensed-VF.ttf` instead of the
+game's own bitmap glyphs, which are 24-pixel N64 assets being stretched at desktop resolutions.
+
+It prints what it did at startup, so you can tell the difference between off and broken:
+
+```
+[getv][text] real-font overlay ready: .../RobotoCondensed-VF.ttf, 95 chars baked at 24px (46 atlas rows)
+```
+
+If the font is missing it says so and falls back to the bitmap glyphs rather than drawing
+nothing. Rotated text (the file-select folder tabs) is deliberately exempt and still draws
+through the original path.
+
+Two known differences, both cosmetic and both written up in
+`getv/port/src/ge_text_overlay.c`:
+
+- Menu highlight boxes are positioned from the bitmap font's metrics, so by the
+  difficulty-select screen (`GETV_MENU=8`) the box has visibly drifted from its label.
+- Some strings change case. The Q Watch pause screen reads `Q WATCH V2.01 BETA` under the
+  bitmap font and `q watch v2.01 beta` under the overlay, because the string in the game's data
+  is already lowercase and the bitmap glyphs render it case-insensitively. Real-hardware
+  captures show the uppercase form, so here the overlay is the one that differs from retail.

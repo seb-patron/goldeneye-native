@@ -14,7 +14,7 @@ game itself is the same C everywhere.
 | iOS | Metal by default | `lib` and `app` build; deploy needs a paired device |
 
 Linux says "renders" rather than "plays" on purpose. It has been built and run, on Debian 12
-aarch64 with clang 14: 167 game objects, 746 assets, 40 audio, 60 port layer, no failures, and
+aarch64 with clang 14: 167 game objects, 746 assets, 40 audio, 61 port layer, no failures, and
 the binary boots, loads Dam, renders under software Mesa and exits cleanly. Nobody has sat down
 and played it with a keyboard, so that is as far as the claim goes.
 

@@ -48,7 +48,7 @@ The build prints four counts, and they are the cheapest evidence that a change d
 mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 63 built, 0 failed
+mac port layer: 64 built, 0 failed
 ```
 
 **Every count reads `0 failed`.** Any name in a `FAILED:` line is a real regression. Older notes

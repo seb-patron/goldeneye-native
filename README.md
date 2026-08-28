@@ -368,12 +368,15 @@ images out of a pack directory by content hash, off by default. It is written an
 through but has not been run against a real pack yet, so treat it as untested rather than as
 a feature.
 
-**Is multiplayer online?** Not yet, and it is worth being exact about how far along it is.
-Split-screen multiplayer works. For network play the lockstep transport, the peer discovery
-parser and the launcher page are all written, and the discovery parser has unit tests. What is
-missing is the last connection: nothing in the game loop calls into it yet, so selecting Host
-or Join sets the variables and no session starts. The input seam it plugs into is the same one
-the bots already use, which is why that piece is the one left.
+**Is multiplayer online?** It connects, and it is not finished. Being exact matters here.
+Split-screen multiplayer works and is solid. For network play the lockstep transport, the peer
+discovery parser and the launcher page are all written, the discovery parser has unit tests,
+and the game loop now drives the session tick by tick, which it did not until recently. Two
+processes over UDP complete a real handshake, exchange input and shut down cleanly.
+
+What stops it being a feature: about half of automated trials still drift out of sync with
+nobody touching a controller. That is being worked on, and until it is fixed, treat LAN play as
+something to experiment with rather than something to plan an evening around.
 
 **Can two people play the single-player missions?** Partly, and it is honest to call it alpha.
 Two to four players spawn into a solo mission with its own geometry, props and objectives, and
@@ -522,7 +525,7 @@ Expected output from `./build_mac.sh all`:
 mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 63 built, 0 failed
+mac port layer: 64 built, 0 failed
 ```
 
 Ten N64-hardware and SGI-dev-host files are excluded by name in the build script:
@@ -656,8 +659,10 @@ Everything not listed as tracked is fetched, cloned, or derived from your ROM.
   behaviour rather than swept up in a single pass. The clock work is what makes their rate
   correct to fix; before it, there was nothing stable to fix them against.
 
-- **Network play is not connected.** The transport, the discovery parser and the launcher page
-  are written; the game loop does not call them, so no session starts. See the FAQ above.
+- **Network play desyncs.** The transport, the discovery parser, the launcher page and the
+  game-loop tick are all wired, and two processes do complete a real session over UDP. But
+  roughly half of automated trials drift out of sync with no input on either side. See the FAQ
+  above.
 - **Missing HMS MI5 crest on the multiplayer character select.** The same crest renders correctly on
   the file select screen, so the asset and its decode path are sound.
 - **Select File background.** Renders flat black; the original has a faint circular watermark

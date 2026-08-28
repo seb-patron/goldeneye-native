@@ -106,11 +106,26 @@ The architecture was walked end to end before writing anything, because the fail
 is silent divergence, not a crash -- the same discipline the float-determinism audit below
 already uses. Three findings, in the order they change the shape of the work:
 
-**`geNetTickBegin()` is not called from anywhere.** Grepped the whole tree: it exists at
-`ge_net.c:426` and is declared in `ge_net.h`, and nothing calls it -- not `ge_net_udp.c`, not
-`ge_net_enet.c`, not the game loop. The session can complete a handshake and assign slots, but
-nothing drives it tick by tick. `gePortNetInit()`/`gePortNetPoll()` (`ge_net_udp.c:355,447`) are
-in the same state -- referenced only in a launcher comment, never called. `geNetLocalSlot()` has
+**`geNetTickBegin()` was not called from anywhere. It is now.** This section is kept because
+the finding is what shaped the work: the transport could complete a handshake and assign slots,
+but nothing drove it tick by tick, and `gePortNetInit()`/`gePortNetPoll()` were referenced only
+in a launcher comment. `0011-netplay-tick-integration.patch` closes that: `gePortNetInit` runs
+at boot and `gePortNetTick` gates the retrace handler's tick and render pass. Verified with two
+real processes over UDP -- real handshake, real synchronised input exchange, clean shutdown.
+
+Two things came out of wiring it, both worth knowing before trusting a session:
+
+- A joiner's own local slot was left `GE_SLOT_HARDWARE`, which reads `joyGetButtons()` indexed
+  by slot, so slot 1 read an empty physical port locally while port 0's real input went out on
+  the wire. That is a guaranteed desync the instant anyone presses anything. Fixed by claiming
+  the local slot as `GE_SLOT_INJECTED` too.
+- A multi-million-line runaway in `gePortNetPoll`'s drain loop was hit once and never
+  reproduced. A 256-packet cap bounds the consequence; it is not a fix for whatever caused it.
+
+**It is wired, not finished.** Roughly half of automated no-human-input trials still desync:
+host fingerprint clean, joiner disagrees, nothing pressed on either side. Same machine, same
+binary, so this is not the cross-architecture float risk the determinism audit flags as its one
+open item. Do not describe network play as working. `geNetLocalSlot()` has
 been added (`ge_net.c`/`ge_net.h`) since nothing exposed which slot is this machine's own; every
 other piece of "am I local" plumbing already threads slot numbers through correctly (verified by
 reading `geNetTickBegin`'s publish/drain/post sequence), so this was the one real gap in that

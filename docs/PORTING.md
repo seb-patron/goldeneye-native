@@ -369,7 +369,7 @@ Measured on Debian 12 aarch64 with clang 14, from `tools/install.sh` on a clean 
 linux game: 167 built, 0 failed
 linux assets: 746 built, 0 failed
 linux audio: 40 built, 0 failed
-linux port layer: 60 built, 0 failed
+linux port layer: 61 built, 0 failed
 linux binary: getv/build-linux/goldeneye (21M, ELF 64-bit LSB pie executable, ARM aarch64)
 ```
 
@@ -433,7 +433,7 @@ Any change made for portability must leave these unchanged
 mac game:        167 built, 0 failed
 mac assets:      746 built, 0 failed
 mac audio:        40 built, 0 failed
-mac port layer:   63 built, 0 failed
+mac port layer:   64 built, 0 failed
 ```
 
 Nothing is expected to fail. `src/tlb_manage.c` used to be a standing exception; it and nine
@@ -442,7 +442,7 @@ counts. `docs/SETUP.md` has the account of why that changed.
 
 The port-layer count is the one that moves, because `getv/build_mac.sh`, `getv/build.sh` and
 `getv/build_sim.sh` all glob `port/src/*.c` - adding a file there raises every one of them.
-Linux reads 60 rather than 63, and the difference is exactly the three Objective-C++ sources
+Linux reads 61 rather than 64, and the difference is exactly the three Objective-C++ sources
 the Metal path needs (two in `port/src`, one in `port/fast3d`); `build_linux.sh` compiles the
 same `.c` and `.cpp` sets and never looks for `.mm`. Treat a changed port-layer count as a fact
 to explain, not automatically as a regression.

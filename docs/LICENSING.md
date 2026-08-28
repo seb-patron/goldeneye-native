@@ -160,6 +160,7 @@ explicit decision**, because anyone who has already cloned holds the old objects
 | Audio mixer | `getv/port/audio/ge_mixer.{c,h}` | **sm64ex** `src/pc/mixer.{c,h}`, Emill's implementation of the N64 audio microcode | **Contested - same lineage** | **Unresolved - section 4** |
 | Two inherited headers | `getv/port/configfile.h`, `getv/port/fs/fs.h` | **sm64ex** `src/pc/configfile.h`, `src/pc/fs/fs.h` - copied verbatim | **sm64ex ships no licence at all** | **Unresolved - section 4.4** |
 | Image loader | `getv/port/include/stb/stb_image.h` | `nothings/stb`, v2.19 | MIT **or** public domain, at the user's option; notice retained in-file | Settled |
+| Font rasteriser | `getv/port/include/stb_truetype.h` | `nothings/stb`, by Sean Barrett | MIT **or** public domain (Unlicense), at the user's option; notice retained in-file | Settled. Note it sits directly under `include/` rather than in `include/stb/` beside `stb_image.h`, which is inconsistent but harmless; the include path in `ge_text_overlay.c` matches. |
 | Launcher font | `getv/port/assets/fonts/RobotoCondensed-VF.ttf` | `google/fonts`, path `ofl/robotocondensed` | **SIL Open Font License 1.1**; `OFL.txt` sits beside the font and is copied next to the binary by the build, which is what the licence's retention requirement asks for | Settled |
 | Game source | `vendor/ge-decomp/` (not distributed here) | `n64decomp/007` | **No licence file in the upstream repository.** 58 files under `src/libultra/` carry Silicon Graphics proprietary notices | Upstream's situation; see section 5 |
 | Reference: Perfect Dark | `vendor/pd-ext`, `vendor/pd-port` (not distributed here) | `perfect-dark-pc-port/perfect_dark` | MIT, © 2022 Ryan Dwyer - verified by reading `vendor/pd-port/LICENSE` | Cleared for adaptation **with attribution** |
@@ -429,6 +430,7 @@ formality - it is what makes the table in section 3 verifiable by someone who wa
 | N64 audio microcode in software | sm64ex `src/pc/mixer.c` (Emill) | `getv/port/audio/ge_mixer.c`. The file header names its origin and lists its four changes. |
 | RSP microcode reference | `perfect-dark-pc-port/perfect_dark`, `src/rsp/gsp.s` - an annotated copy of the same microcode GoldenEye runs | Read, not copied. Cited at `getv/port/fast3d/gfx_pc.c:2144`, `:3168`, `:4944` and `getv/port/fast3d/ge_sky_rdp.c:332`. |
 | stb_image v2.19 | `nothings/stb`, Sean Barrett | `getv/port/include/stb/stb_image.h`, licence notice intact in-file. |
+| stb_truetype | `nothings/stb`, Sean Barrett | `getv/port/include/stb_truetype.h`, licence notice intact in-file. Added with the real-font text overlay. |
 | Typed byteswap with fail-loud default (`GE_SWAP`) | `perfect-dark-pc-port/perfect_dark` @ `514bf7a`, `port/include/preprocess/common.h` (`PD_SWAPPED_VAL`/`PD_SWAP_VAL`). MIT, (c) 2022 Ryan Dwyer. | `getv/port/include/ge_typed_swap.h`, own implementation of the `_Generic`-dispatch technique, notice and cite in the file header. |
 
 ### Exact upstream revisions

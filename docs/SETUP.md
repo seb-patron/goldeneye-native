@@ -654,7 +654,7 @@ Expected output:
 mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 63 built, 0 failed
+mac port layer: 64 built, 0 failed
 ```
 
 **Every count should read `0 failed`.** Any name in a `mac FAILED:` line is a real problem. That
@@ -713,7 +713,7 @@ The port layer's 23 is 21 sources under `getv/port/{fast3d,src,audio}/` plus the
 ```
 
 ```
-mac port layer: 63 built, 0 failed
+mac port layer: 64 built, 0 failed
 ```
 
 Recompiles the port sources and nothing else. Measured at about 23
@@ -779,7 +779,7 @@ The normal full build. Complete expected output:
 mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 63 built, 0 failed
+mac port layer: 64 built, 0 failed
 mac libge.a:  31M, 1016 members
 ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
 mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 20M, arm64)
