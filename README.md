@@ -405,31 +405,116 @@ are unresolved. The SDL2 2.30.9 source tree is supplied by you in `deps/SDL2-2.3
 from source, because a Homebrew running under Rosetta produces an x86_64 SDL2 that cannot link
 into an arm64 binary.
 
-## Quick start
 
-Three steps. The middle one is the only part nobody can do for you.
 
-**1. Get the source.**
+# Quick Start — Even If You've Never Used a Terminal
 
-```bash
-git clone https://github.com/SegfaultEvan/goldeneye-native
-cd goldeneye-native
+You don't need to know how the game works or how to compile anything. Just follow the steps below.
+
+## 1. Download the game files
+
+First, download this project:
+
+[GoldenEye Native on GitHub](https://github.com/SegfaultEvan/goldeneye-native?utm_source=chatgpt.com)
+
+On the GitHub page, click the green **Code** button, then choose **Download ZIP**.
+
+Unzip the downloaded file somewhere easy to find, such as your **Desktop**.
+
+---
+
+## 2. Get your own copy of GoldenEye 007
+
+You need your **own legally dumped copy of the GoldenEye 007 game cartridge**.
+
+This project does **not** provide the game ROM, download it for you, or contain a copy of the game.
+
+Once you have your ROM file, open the `goldeneye-native` folder you downloaded.
+
+Inside it, you'll see a folder called:
+
+`roms`
+
+Put your GoldenEye ROM file **inside the `roms` folder**.
+
+You don't need to rename it.
+
+The ROM can be in any of the three common N64 byte orders and can use any of the three common ROM file extensions.
+
+---
+
+# 3. Install and run it
+
+## Windows
+
+On Windows, open the `goldeneye-native` folder.
+
+Right-click an empty area inside the folder while holding **Shift**.
+
+Choose **Open PowerShell window here** or **Open in Terminal**.
+
+Then copy and paste this entire command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
 ```
 
-**2. Put your own copy of the game in `roms/`.** Any byte order, any of the three extensions.
-Nothing here downloads a ROM and nothing here ships one.
+Press **Enter**.
 
-**3. Run the installer.**
+Follow any instructions that appear on screen. 
+
+---
+
+## Linux
+
+Open your **Terminal** application.
+
+Go to the folder you downloaded. For example:
+
+```bash
+cd ~/Desktop/goldeneye-native
+```
+
+Then run:
 
 ```bash
 bash tools/install.sh
 ```
 
-That is the whole thing on macOS and Linux. On Windows, in PowerShell:
+Follow any instructions that appear on screen.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+---
+
+macOS
+
+Open **Terminal**.
+
+The easiest way:
+
+1. Press **Command + Space**.
+2. Type `Terminal`.
+3. Press **Enter**.
+
+Now type the following commands **one at a time**, pressing **Enter** after each one:
+
+```bash
+cd ~/Desktop/goldeneye-native
 ```
+
+If you put the folder somewhere other than your Desktop, drag the `goldeneye-native` folder into Terminal after typing `cd ` instead.
+
+Then type:
+
+```bash
+bash tools/install.sh
+```
+
+Follow any instructions that appear on screen.
+
+## Important
+
+**You must provide your own copy of GoldenEye 007.**
+Nothing in this repository downloads a ROM, and no GoldenEye ROM is included with the project.
 
 It fetches the third-party port sources, clones the decompilation, applies every patch in
 `getv/patches`, fetches Lua and Dear ImGui, builds SDL2, finds and verifies your ROM, runs the
