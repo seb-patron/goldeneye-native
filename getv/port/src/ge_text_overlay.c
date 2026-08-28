@@ -21,6 +21,18 @@
  * two functions all 110 call sites share, so flipping this on replaces every piece of in-game
  * text at once. That needs to be provably right, not iterated on with half the HUD illegible
  * in the meantime.
+ *
+ * Known limitation: decorative elements positioned independently of the text they sit next
+ * to do not move with it, because this seam only ever sees (string, position, colour) -- it
+ * has no way to reach code that was never a textRender() call in the first place. Confirmed
+ * example: front.c's difficulty-select highlight box (constructor_menu08_difficulty(),
+ * ~line 3917) is drawn via microcode_constructor_related_to_menus() with hardcoded pixel
+ * coordinates (row * 0x1E + 0xB2) tuned to sit behind wherever the bitmap font happened to
+ * put that row's label. The replacement font's line spacing does not match that tuning
+ * exactly, so by GETV_MENU=8 the highlight has visibly drifted from its label. Fixing this
+ * would mean finding and either decoupling or re-tuning every such hardcoded position across
+ * the UI -- a separate, open-ended effort from getting the text itself rendering correctly,
+ * and not attempted here.
  */
 #include <stdio.h>
 #include <stdlib.h>
