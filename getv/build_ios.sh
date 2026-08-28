@@ -173,7 +173,10 @@ cmd_lib() {
   fi
 }
 
-BUNDLE_ID="org.goldeneyenative.getv"
+# Overridable, because a bundle identifier is the builder's own namespace rather than
+# the project's. Set GETV_BUNDLE_ID to something you control before signing for a
+# device; the default is deliberately generic and owned by nobody.
+BUNDLE_ID="${GETV_BUNDLE_ID:-org.goldeneyenative.getv}"
 
 cmd_app() {
   export GETV_RAPI_DEFINE

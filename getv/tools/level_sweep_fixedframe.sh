@@ -46,7 +46,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GETV="$(cd "$HERE/.." && pwd)"
 SLOT="${GETV_SLOT:-sweep}"
 OUT="${GETV_SWEEP_OUT:-$GETV/build-sim-$SLOT/sweep-ff}"
-BUNDLE_ID="org.goldeneyenative.getv"
+# Overridable, because a bundle identifier is the builder's own namespace rather than
+# the project's. Set GETV_BUNDLE_ID to something you control before signing for a
+# device; the default is deliberately generic and owned by nobody.
+BUNDLE_ID="${GETV_BUNDLE_ID:-org.goldeneyenative.getv}"
 EXIT_FRAME="${GETV_EXIT_FRAME:-181}"
 # Hard ceiling only. A healthy run ends on its own at EXIT_FRAME; this exists so a level
 # that HANGS cannot stall the sweep forever. A run that hits it is reported as a hang.

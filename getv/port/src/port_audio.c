@@ -352,7 +352,7 @@ static void geDbgFrame(const s16 *buf, s32 frames, s32 queued, s32 cmdLen)
  * RMS proves "not silence"; it cannot tell music from noise. So write the exact bytes
  * handed to SDL to a .wav inside the app sandbox, which can be pulled off the simulator
  * with
- *   xcrun simctl get_app_container <udid> org.goldeneyenative.getv data
+ *   xcrun simctl get_app_container <udid> $GETV_BUNDLE_ID data
  * and listened to, or analysed offline, without anyone sitting in front of the TV.
  *
  *   GETV_AUDIO_WAV=1        dump to $HOME/Documents/getv_audio.wav

@@ -39,7 +39,10 @@ GETV="$(cd "$HERE/.." && pwd)"
 BUILD_SIM="$GETV/build_sim.sh"
 OUT="${GETV_SWEEP_OUT:-$GETV/build-sim-${GETV_SLOT:-sweep}/sweep}"
 TIMEOUT="${GETV_SWEEP_TIMEOUT:-75}"
-BUNDLE_ID="org.goldeneyenative.getv"
+# Overridable, because a bundle identifier is the builder's own namespace rather than
+# the project's. Set GETV_BUNDLE_ID to something you control before signing for a
+# device; the default is deliberately generic and owned by nobody.
+BUNDLE_ID="${GETV_BUNDLE_ID:-org.goldeneyenative.getv}"
 
 # id:name -- straight out of bondconstants.h. LEVELID_DEFAULT=0 and LEVELID_MAX=57 are
 # included on purpose: DEFAULT is the "did the harness itself work" control, and MAX is

@@ -22,7 +22,10 @@ if [ -f "$IMGUI/lib/libimgui.a" ] && [ -f "$IMGUI/include/imgui.h" ]; then
 fi
 SDL="${N64TVOS_PREFIX:-$HOME/.n64tvos}/sdl2-iossim"
 TARGET="arm64-apple-ios15.0-simulator"
-BUNDLE_ID="org.goldeneyenative.getv"
+# Overridable, because a bundle identifier is the builder's own namespace rather than
+# the project's. Set GETV_BUNDLE_ID to something you control before signing for a
+# device; the default is deliberately generic and owned by nobody.
+BUNDLE_ID="${GETV_BUNDLE_ID:-org.goldeneyenative.getv}"
 SIM_NAME="${GETV_SIM:-iPhone 17}"
 RENDERER="${GETV_RENDERER:-metal}"
 case "$RENDERER" in

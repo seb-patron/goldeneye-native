@@ -67,8 +67,8 @@ targets:
         CODE_SIGN_STYLE: Automatic
         ENABLE_BITCODE: NO
         HEADER_SEARCH_PATHS:
-          - /Users/you/.n64tvos/sdl2-iossim/include
-          - /Users/you/.n64tvos/sdl2-iossim/include/SDL2
+          - ${N64TVOS_PREFIX}/sdl2-iossim/include
+          - ${N64TVOS_PREFIX}/sdl2-iossim/include/SDL2
           - $(SRCROOT)/port
           - $(SRCROOT)/port/include
           - $(SRCROOT)/port/fast3d
@@ -80,8 +80,8 @@ targets:
           - ${GETV_RAPI_DEFINE}=1
         OTHER_LDFLAGS:
           - $(SRCROOT)/build-ios-sim/libge.a
-          - /Users/you/.n64tvos/sdl2-iossim/lib/libSDL2main.a
-          - /Users/you/.n64tvos/sdl2-iossim/lib/libSDL2.a
+          - ${N64TVOS_PREFIX}/sdl2-iossim/lib/libSDL2main.a
+          - ${N64TVOS_PREFIX}/sdl2-iossim/lib/libSDL2.a
           - ${GETV_IMGUI_LIB}
           - -lc++
           - -lz

@@ -105,7 +105,7 @@ void gePortVirtualControllerShutdown(void)
 static void geDiagLog(NSString *line)
 {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
-    NSString *dir = [[paths.firstObject stringByAppendingPathComponent:@"org.goldeneyenative"]
+    NSString *dir = [[paths.firstObject stringByAppendingPathComponent:@"goldeneyenative"]
                       stringByAppendingPathComponent:@"getv-diag"];
     [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
     NSString *path = [dir stringByAppendingPathComponent:@"diag.txt"];
