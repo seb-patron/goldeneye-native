@@ -1,6 +1,6 @@
 diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
---- a/getv/port/audio/ge_mixer.c	2026-08-28 07:55:40
-+++ b/getv/port/audio/ge_mixer.c	2026-08-28 07:55:40
+--- a/getv/port/audio/ge_mixer.c	2026-08-28 09:46:38
++++ b/getv/port/audio/ge_mixer.c	2026-08-28 09:46:38
 @@ -0,0 +1,22 @@
 +/* GoldenEye native port -- the RSP audio microcode (aspMain), in software.
 + *
@@ -443,8 +443,8 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
 +    }
 +    return 0;
 diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
---- a/getv/port/audio/ge_mixer.h	2026-08-28 07:55:40
-+++ b/getv/port/audio/ge_mixer.h	2026-08-28 07:55:40
+--- a/getv/port/audio/ge_mixer.h	2026-08-28 09:46:38
++++ b/getv/port/audio/ge_mixer.h	2026-08-28 09:46:38
 @@ -1,2 +1,21 @@
 -#ifndef MIXER_H
 -#define MIXER_H
@@ -541,14 +541,14 @@ diff -ruN -U0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 +
 +#endif /* GE_MIXER_H */
 diff -ruN -U0 a/getv/port/configfile.h b/getv/port/configfile.h
---- a/getv/port/configfile.h	2026-08-28 07:55:40
-+++ b/getv/port/configfile.h	2026-08-28 07:55:41
+--- a/getv/port/configfile.h	2026-08-28 09:46:38
++++ b/getv/port/configfile.h	2026-08-28 09:46:38
 @@ -21,0 +22,2 @@
 +extern unsigned int configWidescreen;   /* 0 = retail 4:3 pillarbox, 1 = fill the real window */
 +unsigned int gePortHdTexturesEnabled(void);   /* 0 = N64 textures (default), 1 = check GETV_TEXPACK overrides -- lazy-resolved, not a bare global (see port_support.c) */
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
---- a/getv/port/fast3d/gfx_cc.c	2026-08-28 07:55:39
-+++ b/getv/port/fast3d/gfx_cc.c	2026-08-28 07:55:40
+--- a/getv/port/fast3d/gfx_cc.c	2026-08-28 09:46:37
++++ b/getv/port/fast3d/gfx_cc.c	2026-08-28 09:46:38
 @@ -3 +3 @@
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features) {
@@ -560,8 +560,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
 +    }
 +    cc_features->two_cycle = (shader_id & SHADER_OPT_2CYC) != 0;
 diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
---- a/getv/port/fast3d/gfx_cc.h	2026-08-28 07:55:39
-+++ b/getv/port/fast3d/gfx_cc.h	2026-08-28 07:55:40
+--- a/getv/port/fast3d/gfx_cc.h	2026-08-28 09:46:37
++++ b/getv/port/fast3d/gfx_cc.h	2026-08-28 09:46:38
 @@ -6,0 +7,14 @@
 +/* Two-cycle combiners. GoldenEye is two-cycle nearly everywhere.
 + *
@@ -622,8 +622,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features);
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features);
 diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
---- a/getv/port/fast3d/gfx_opengl.c	2026-08-28 07:55:39
-+++ b/getv/port/fast3d/gfx_opengl.c	2026-08-28 07:55:40
+--- a/getv/port/fast3d/gfx_opengl.c	2026-08-28 09:46:37
++++ b/getv/port/fast3d/gfx_opengl.c	2026-08-28 09:46:38
 @@ -4,0 +5,3 @@
 +#include <stdio.h>
 +#include <string.h>
@@ -636,22 +636,23 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +#  else
 +#   include <SDL2/SDL_opengles2.h>
 +#  endif
-@@ -41,0 +50,4 @@
+@@ -41,0 +50,5 @@
 +#include <stdlib.h>
 +/* gfx_current_dimensions / gfx_output_dimensions / gfx_supersample. Was included only
 + * under TVOS_SUPERSAMPLE; GETV_SHOTFRAME needs the output size on every platform. */
 +#include "gfx_pc.h"
-@@ -46 +58 @@
++#include "../src/ge_text_overlay.h"
+@@ -46 +59 @@
 -    uint32_t shader_id;
 +    uint64_t shader_id;
-@@ -51,3 +63,3 @@
+@@ -51,3 +64,3 @@
 -    GLint attrib_locations[7];
 -    GLint uniform_locations[5];
 -    uint8_t attrib_sizes[7];
 +    GLint attrib_locations[8];  /* was 7 (pos, texcoord, fog, up to 4 inputs); +1 for aViewPos */
 +    GLint uniform_locations[6]; /* was 5 (tex0/1 size+filter, frame_count); +1 for uHasHeight */
 +    uint8_t attrib_sizes[8];
-@@ -61,0 +74,9 @@
+@@ -61,0 +75,9 @@
 +    /* Parallax height companion, one per diffuse texture slot -- not the single shared
 +     * ge_height_tex below, which is only ever the neutral placeholder now (see its own
 +     * comment). Per-slot because gfx_opengl_set_texture_uniforms runs on every bind,
@@ -661,7 +662,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +     * unbindable until has_height is true at least once for this slot. */
 +    bool has_height;
 +    GLuint height_gltex;
-@@ -64,2 +85,6 @@
+@@ -64,2 +86,6 @@
 -static struct ShaderProgram shader_program_pool[64];
 -static uint8_t shader_program_pool_size;
 +/* Two-cycle decoding multiplies the number of distinct combiners, so the pool that used
@@ -670,7 +671,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +#define SHADER_PROGRAM_POOL_SIZE 128
 +static struct ShaderProgram shader_program_pool[SHADER_PROGRAM_POOL_SIZE];
 +static uint16_t shader_program_pool_size;
-@@ -77,0 +103,9 @@
+@@ -77,0 +104,9 @@
 +/* Parallax height channel's neutral placeholder: 1x1, bound to GL_TEXTURE2 whenever the
 + * currently selected tex0 slot has no real height data of its own (struct GLTexture's
 + * has_height/height_gltex, where the actual per-texture data lives -- see the comments on
@@ -680,7 +681,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 + * use must follow its declaration in the same translation unit. */
 +static GLuint ge_height_tex = 0;
 +
-@@ -102,0 +137,27 @@
+@@ -102,0 +138,27 @@
 +    /* uHasHeight/uTexHeight belong to the diffuse/tex0 binding, not to the shader program
 +     * -- two consecutive draws can share one combiner-formula program while only one of
 +     * them has a height-mapped override, so both must refresh on every tex0 bind
@@ -708,13 +709,13 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +         * placeholder and left the real texture empty. */
 +        glActiveTexture(GL_TEXTURE0 + tile);
 +    }
-@@ -149,0 +211,2 @@
+@@ -149,0 +212,2 @@
 +                /* was `texelVal0` -- no such GLSL variable is ever declared, so any
 +                 * combiner reaching this branch would have failed to compile. */
-@@ -151 +214 @@
+@@ -151 +215 @@
 -                    (with_alpha ? "vec4(texelVal0.a, texelVal0.a, texelVal0.a, texelVal0.a)" : "vec3(texelVal0.a, texelVal0.a, texelVal0.a)");
 +                    (with_alpha ? "vec4(texVal0.a, texVal0.a, texVal0.a, texVal0.a)" : "vec3(texVal0.a, texVal0.a, texVal0.a)");
-@@ -153,0 +217,11 @@
+@@ -153,0 +218,11 @@
 +            /* cycle 2: COMBINED is cycle 1's result, which lives in `texel`. `texel` is
 +             * vec4 when opt_alpha and vec3 otherwise (same rule as its declaration). */
 +            case SHADER_COMBINED:
@@ -726,11 +727,11 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +                    return with_alpha ? "vec4(1.0, 1.0, 1.0, 1.0)" : "vec3(1.0, 1.0, 1.0)";
 +                return hint_single_element ? "texel.a" :
 +                    (with_alpha ? "vec4(texel.a, texel.a, texel.a, texel.a)" : "vec3(texel.a, texel.a, texel.a)");
-@@ -172,0 +247,3 @@
+@@ -172,0 +248,3 @@
 +            case SHADER_COMBINED:
 +            case SHADER_COMBINEDA:
 +                return "texel.a";
-@@ -174,0 +252,22 @@
+@@ -174,0 +253,22 @@
 +    /* GE_PORT_NATIVE: both switches above are non-exhaustive, and this function used to
 +     * have no return here -- an unhandled `item` fell off the end and the shader-string
 +     * builder consumed a garbage `const char *`. It was invisible because the port layer
@@ -753,7 +754,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +    if (only_alpha) return "0.0";
 +    return with_alpha ? "vec4(0.0, 0.0, 0.0, 0.0)" : "vec3(0.0, 0.0, 0.0)";
-@@ -177 +276,6 @@
+@@ -177 +277,6 @@
 -static void append_formula(char *buf, size_t *len, uint8_t c[2][4], bool do_single, bool do_multiply, bool do_mix, bool with_alpha, bool only_alpha, bool opt_alpha) {
 +/* Emit one combiner half as GLSL. `row` is a single cycle's {a,b,c,d} slots; the shape
 + * flags are derived here rather than passed in so cycle 1 and cycle 2 cannot drift. */
@@ -761,37 +762,37 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    const bool do_single   = row[2] == 0;
 +    const bool do_multiply = row[1] == 0 && row[3] == 0;
 +    const bool do_mix      = row[1] == row[3];
-@@ -179 +283 @@
+@@ -179 +284 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][3], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[3], with_alpha, only_alpha, opt_alpha, false));
-@@ -181 +285 @@
+@@ -181 +286 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][0], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[0], with_alpha, only_alpha, opt_alpha, false));
-@@ -183 +287 @@
+@@ -183 +288 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][2], with_alpha, only_alpha, opt_alpha, true));
 +        append_str(buf, len, shader_item_to_str(row[2], with_alpha, only_alpha, opt_alpha, true));
-@@ -186 +290 @@
+@@ -186 +291 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][1], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[1], with_alpha, only_alpha, opt_alpha, false));
-@@ -188 +292 @@
+@@ -188 +293 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][0], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[0], with_alpha, only_alpha, opt_alpha, false));
-@@ -190 +294 @@
+@@ -190 +295 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][2], with_alpha, only_alpha, opt_alpha, true));
 +        append_str(buf, len, shader_item_to_str(row[2], with_alpha, only_alpha, opt_alpha, true));
-@@ -194 +298 @@
+@@ -194 +299 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][0], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[0], with_alpha, only_alpha, opt_alpha, false));
-@@ -196 +300 @@
+@@ -196 +301 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][1], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[1], with_alpha, only_alpha, opt_alpha, false));
-@@ -198 +302 @@
+@@ -198 +303 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][2], with_alpha, only_alpha, opt_alpha, true));
 +        append_str(buf, len, shader_item_to_str(row[2], with_alpha, only_alpha, opt_alpha, true));
-@@ -200 +304 @@
+@@ -200 +305 @@
 -        append_str(buf, len, shader_item_to_str(c[only_alpha][3], with_alpha, only_alpha, opt_alpha, false));
 +        append_str(buf, len, shader_item_to_str(row[3], with_alpha, only_alpha, opt_alpha, false));
-@@ -204 +308,14 @@
+@@ -204 +309,14 @@
 -static struct ShaderProgram *gfx_opengl_create_and_load_new_shader(uint32_t shader_id) {
 +/* One full cycle: "vec4(rgb, a)" when the two halves differ, otherwise a single term. */
 +static void append_cycle(char *buf, size_t *len, uint8_t c[2][4], bool opt_alpha, bool halves_same) {
@@ -807,14 +808,14 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +}
 +
 +static struct ShaderProgram *gfx_opengl_create_and_load_new_shader(uint64_t shader_id) {
-@@ -205,0 +323 @@
+@@ -205,0 +324 @@
 +    uint8_t c2[2][4];
-@@ -208,0 +327,2 @@
+@@ -208,0 +328,2 @@
 +        c2[0][i] = (shader_id >> (CC_C2_RGB_SHIFT + i * CC_C2_SLOT_BITS)) & CC_C2_SLOT_MASK;
 +        c2[1][i] = (shader_id >> (CC_C2_ALPHA_SHIFT + i * CC_C2_SLOT_BITS)) & CC_C2_SLOT_MASK;
-@@ -209,0 +330 @@
+@@ -209,0 +331 @@
 +    bool two_cycle = (shader_id & SHADER_OPT_2CYC) != 0;
-@@ -221,5 +342,8 @@
+@@ -221,5 +343,8 @@
 -    for (int i = 0; i < 2; i++) {
 -        for (int j = 0; j < 4; j++) {
 -            if (c[i][j] >= SHADER_INPUT_1 && c[i][j] <= SHADER_INPUT_4) {
@@ -828,30 +829,30 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +                    if (src[i][j] > num_inputs) {
 +                        num_inputs = src[i][j];
 +                    }
-@@ -226,0 +351,6 @@
+@@ -226,0 +352,6 @@
 +                if (src[i][j] == SHADER_TEXEL0 || src[i][j] == SHADER_TEXEL0A) {
 +                    used_textures[0] = true;
 +                }
 +                if (src[i][j] == SHADER_TEXEL1) {
 +                    used_textures[1] = true;
 +                }
-@@ -228,6 +357,0 @@
+@@ -228,6 +358,0 @@
 -            if (c[i][j] == SHADER_TEXEL0 || c[i][j] == SHADER_TEXEL0A) {
 -                used_textures[0] = true;
 -            }
 -            if (c[i][j] == SHADER_TEXEL1) {
 -                used_textures[1] = true;
 -            }
-@@ -236,3 +359,0 @@
+@@ -236,3 +360,0 @@
 -    bool do_single[2] = { c[0][2] == 0, c[1][2] == 0 };
 -    bool do_multiply[2] = { c[0][1] == 0 && c[0][3] == 0, c[1][1] == 0 && c[1][3] == 0 };
 -    bool do_mix[2] = { c[0][1] == c[0][3], c[1][1] == c[1][3] };
-@@ -239,0 +361 @@
+@@ -239,0 +362 @@
 +    bool color_alpha_same2 = ((shader_id >> CC_C2_RGB_SHIFT) & 0xffff) == ((shader_id >> CC_C2_ALPHA_SHIFT) & 0xffff);
-@@ -242 +364 @@
+@@ -242 +365 @@
 -    char fs_buf[2048];
 +    char fs_buf[4096];
-@@ -258,0 +381,12 @@
+@@ -258,0 +382,12 @@
 +    /* Order matters: this must sit exactly here, between texcoord and fog, because
 +     * gfx_pc.c's VBO packing writes it in that same position (right after the texcoord
 +     * pair, before fog) and the attrib_locations/attrib_sizes setup below walks both in
@@ -864,11 +865,11 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        append_line(vs_buf, &vs_len, "varying vec3 vViewPos;");
 +        num_floats += 3;
 +    }
-@@ -272,0 +407,3 @@
+@@ -272,0 +408,3 @@
 +    if (used_textures[0]) {
 +        append_line(vs_buf, &vs_len, "vViewPos = aViewPos;");
 +    }
-@@ -302,0 +440,22 @@
+@@ -302,0 +441,22 @@
 +        /* Parallax texture mapping (goldeneye-plus/depth tier 1 in docs/ROADMAP.md), gated
 +         * at runtime by uHasHeight rather than by a shader variant bit -- see the long
 +         * comment on struct GLTexture's has_height field in this file, and gfx_pc.c's
@@ -891,7 +892,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        append_line(fs_buf, &fs_len, "uniform sampler2D uTexHeight;");
 +        append_line(fs_buf, &fs_len, "uniform bool uHasHeight;");
 +        append_line(fs_buf, &fs_len, "varying vec3 vViewPos;");
-@@ -350 +509,16 @@
+@@ -350 +510,16 @@
 -        append_line(fs_buf, &fs_len, "vec4 texVal0 = sampleTex(uTex0, vTexCoord, uTex0Size, uTex0Filter);");
 +        /* heightScale is deliberately small and fixed, not a uniform: this is a seam, not
 +         * a tuned effect, and there is no real height content anywhere yet to tune it
@@ -909,7 +910,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        append_line(fs_buf, &fs_len, "texCoord0 = vTexCoord + parallaxViewDir.xy * (parallaxHeight * 0.04);");
 +        append_line(fs_buf, &fs_len, "}");
 +        append_line(fs_buf, &fs_len, "vec4 texVal0 = sampleTex(uTex0, texCoord0, uTex0Size, uTex0Filter);");
-@@ -353 +527,14 @@
+@@ -353 +528,14 @@
 -        append_line(fs_buf, &fs_len, "vec4 texVal1 = sampleTex(uTex1, vTexCoord, uTex1Size, uTex1Filter);");
 +        /* TEXEL1 is a different-sized texture and needs its own normalised UV.
 +         * The VBO carries one texcoord, normalised by LOD 0's dimensions. LOD 1 is half
@@ -925,9 +926,9 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        } else {
 +            append_line(fs_buf, &fs_len, "vec4 texVal1 = sampleTex(uTex1, vTexCoord, uTex1Size, uTex1Filter);");
 +        }
-@@ -355,0 +543 @@
+@@ -355,0 +544 @@
 +    /* Cycle 1. */
-@@ -357,9 +545 @@
+@@ -357,9 +546 @@
 -    if (!color_alpha_same && opt_alpha) {
 -        append_str(fs_buf, &fs_len, "vec4(");
 -        append_formula(fs_buf, &fs_len, c, do_single[0], do_multiply[0], do_mix[0], false, false, true);
@@ -938,7 +939,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 -        append_formula(fs_buf, &fs_len, c, do_single[0], do_multiply[0], do_mix[0], opt_alpha, false, opt_alpha);
 -    }
 +    append_cycle(fs_buf, &fs_len, c, opt_alpha, color_alpha_same);
-@@ -367,0 +548,10 @@
+@@ -367,0 +549,10 @@
 +    /* Cycle 2, with COMBINED/COMBINED_ALPHA resolving to `texel` -- i.e. cycle 1's
 +     * result is substituted into cycle 2's formula rather than being the final colour.
 +     * GLSL evaluates the whole right-hand side before the assignment, so reusing `texel`
@@ -949,7 +950,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        append_line(fs_buf, &fs_len, ";");
 +    }
 +
-@@ -387,0 +578,11 @@
+@@ -387,0 +579,11 @@
 +    /* GETV_SHOWTEX: 1 = raw texel0, 2 = raw shade. Both bypass the combiner and fog, so
 +     * whichever comes back wrong names the stage that lost the colour. */
 +    {
@@ -961,7 +962,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +            append_line(fs_buf, &fs_len, "gl_FragColor = vec4(vInput1.rgb, 1.0);");
 +        }
 +    }
-@@ -434,0 +636,11 @@
+@@ -434,0 +637,11 @@
 +    glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
 +    if (!success) {
 +        GLint max_length = 0;
@@ -973,17 +974,17 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        fprintf(stderr, "%s\n", &error_log[0]);
 +        sys_fatal("shader program link failed (see terminal)");
 +    }
-@@ -437,0 +650,2 @@
+@@ -437,0 +651,2 @@
 +    if (shader_program_pool_size >= SHADER_PROGRAM_POOL_SIZE)
 +        sys_fatal("shader program pool exhausted (%d)", SHADER_PROGRAM_POOL_SIZE);
-@@ -448,0 +663,6 @@
+@@ -448,0 +664,6 @@
 +    if (used_textures[0]) {
 +        prg->attrib_locations[cnt] = glGetAttribLocation(shader_program, "aViewPos");
 +        prg->attrib_sizes[cnt] = 3;
 +        ++cnt;
 +    }
 +
-@@ -477,0 +698,7 @@
+@@ -477,0 +699,7 @@
 +
 +        /* uTexHeight's unit binding is set once here, exactly like uTex0/uTex1 above --
 +         * only uHasHeight (which texture, if any, is currently in it) needs a per-draw
@@ -991,10 +992,10 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        GLint height_sampler_location = glGetUniformLocation(shader_program, "uTexHeight");
 +        prg->uniform_locations[5] = glGetUniformLocation(shader_program, "uHasHeight");
 +        glUniform1i(height_sampler_location, 2);
-@@ -496 +723 @@
+@@ -496 +724 @@
 -static struct ShaderProgram *gfx_opengl_lookup_shader(uint32_t shader_id) {
 +static struct ShaderProgram *gfx_opengl_lookup_shader(uint64_t shader_id) {
-@@ -531,0 +759,23 @@
+@@ -531,0 +760,23 @@
 +/* GETV_MIPMAPS=1 -- trilinear filtering, off by default, same reasoning as GETV_ANISO: a
 + * distant texture blending toward a mip level instead of shimmering is a real quality
 + * improvement, and it is what anisotropic filtering then sharpens back up at grazing angles,
@@ -1018,11 +1019,11 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    return resolved != 0;
 +}
 +
-@@ -533,0 +784,3 @@
+@@ -533,0 +785,3 @@
 +    if (ge_mipmap_enabled() && width > 1 && height > 1) {
 +        glGenerateMipmap(GL_TEXTURE_2D);
 +    }
-@@ -537,0 +791,59 @@
+@@ -537,0 +792,59 @@
 +/* Called once, from gfx_opengl_init(), so GL_TEXTURE2 always has a valid, defined texture
 + * bound from the first frame on -- every shader with used_textures[0] compiles in the
 + * height-sampling code (gated at runtime by uHasHeight, not by a shader variant; see the
@@ -1082,7 +1083,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    opengl_tex[opengl_curtex]->has_height = false;
 +}
 +
-@@ -544,0 +857,39 @@
+@@ -544,0 +858,39 @@
 +/* GETV_ANISO=<n> -- anisotropic filtering, off by default.
 + *
 + * Resolved once. The clamp is against the driver's own GL_MAX_TEXTURE_MAX_ANISOTROPY
@@ -1122,16 +1123,16 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    return resolved;
 +}
 +
-@@ -546,0 +898,5 @@
+@@ -546,0 +899,5 @@
 +    /* Mipmapping only ever applies to minification. GL_TEXTURE_MAG_FILTER has no _MIPMAP_
 +     * enum at all, so magnifying always samples the base level whatever this is set to. */
 +    const GLenum min_filter = ge_mipmap_enabled()
 +        ? (linear_filter ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_LINEAR)
 +        : filter;
-@@ -548 +904 @@
+@@ -548 +905 @@
 -    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
 +    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter);
-@@ -549,0 +906,8 @@
+@@ -549,0 +907,8 @@
 +#ifndef USE_GLES
 +    {
 +        const GLfloat aniso = ge_aniso_max();
@@ -1140,7 +1141,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        }
 +    }
 +#endif
-@@ -617,0 +982,425 @@
+@@ -617,0 +983,425 @@
 +#ifdef TVOS_SUPERSAMPLE
 +// The Fast3D this port inherited has no framebuffer support at all; this is the
 +// entire offscreen path, added so the scene can be rendered above the output
@@ -1566,7 +1567,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +}
 +#endif /* GE_POSTFX */
 +
-@@ -618,0 +1408,22 @@
+@@ -618,0 +1409,22 @@
 +#ifdef TVOS_SUPERSAMPLE
 +    {
 +        GLint fb = 0, rb = 0;
@@ -1589,7 +1590,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        printf("supersample: SDL screen framebuffer = %d, factor = %u\n", fb, gfx_supersample);
 +    }
 +#endif
-@@ -628,0 +1440,15 @@
+@@ -628,0 +1441,15 @@
 +    gfx_opengl_ensure_height_tex();
 +
 +    /* Identify the rasteriser. In the simulator the per-frame cost is almost purely
@@ -1605,7 +1606,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        fflush(stdout);
 +    }
 +
-@@ -641,0 +1468,15 @@
+@@ -641,0 +1469,15 @@
 +
 +#ifdef GE_POSTFX
 +    /* After glewInit above -- every entry point this touches resolves through GLEW on
@@ -1621,7 +1622,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +    ge_postfx_config();
 +#endif
-@@ -649,0 +1491,20 @@
+@@ -649,0 +1492,20 @@
 +#ifdef TVOS_SUPERSAMPLE
 +    if (gfx_supersample > 1) {
 +        gfx_ss_ensure(gfx_current_dimensions.width, gfx_current_dimensions.height);
@@ -1642,7 +1643,140 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    }
 +#endif
 +
-@@ -656,0 +1518,92 @@
+@@ -656,0 +1519,225 @@
++/* Real-font text overlay -- see ge_text_overlay.c for the design. Drawn here, into gfx_opengl.c
++ * rather than the file that owns the queue, for two reasons: this is where GL calls belong in
++ * this codebase's own split (gfx_pc.c stays renderer-agnostic behind gfx_rapi), and it has to
++ * run before ge_shot_maybe() below so GETV_SHOTFRAME photographs the replacement text along
++ * with everything else the game drew -- unlike the dev overlay, this IS the game's own text,
++ * not a debug tool, and belongs in the same capture. Called from the top of
++ * gfx_opengl_end_frame(), before the postfx resolve, so postfx treats it the same as it always
++ * treated the bitmap glyphs it replaces -- both draw before end_frame() reaches for the
++ * offscreen target.
++ *
++ * The native-to-screen scale is recomputed here rather than calling ge_scale_2d() (gfx_pc.c,
++ * static): min(current/native) in each axis, matching that function's own formula exactly.
++ * If that formula ever changes, this needs the same change -- gfx_native_width/height and
++ * gfx_current_dimensions are the only pieces gfx_pc.h exposes for it, on purpose, rather than
++ * exposing the function itself and pulling gfx_pc.c's other statics into scope here too. */
++static void gfx_render_text_overlay(void) {
++    int n = gePortTextQueueCount();
++    float sx, sy, scale2d, offx, offy;
++    unsigned int tex;
++    int i;
++    GLint prev_prog = 0;
++
++    tex = gePortTextAtlasTexture();
++    if (n <= 0) return;
++    if (tex == 0) { gePortTextQueueClear(); return; }
++
++    sx = (float) gfx_current_dimensions.width  / gfx_native_width;
++    sy = (float) gfx_current_dimensions.height / gfx_native_height;
++    scale2d = sx < sy ? sx : sy;
++    offx = ((float) gfx_current_dimensions.width  - gfx_native_width  * scale2d) * 0.5f;
++    offy = ((float) gfx_current_dimensions.height - gfx_native_height * scale2d) * 0.5f;
++
++    glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_TEXTURE_BIT | GL_CURRENT_BIT | GL_VIEWPORT_BIT);
++    /* 3D rendering may leave a viewport that does not cover the full window (split screen,
++     * the native-resolution sub-rect, etc). This is screen-space 2D UI: it must always draw
++     * across the whole window the ortho projection below assumes, not whatever was left over. */
++    glViewport(0, 0, (GLsizei) gfx_current_dimensions.width, (GLsizei) gfx_current_dimensions.height);
++
++    /* glPushAttrib/glPopAttrib predate GLSL and never learned about it: the currently bound
++     * shader program is not part of any attrib bit they save or restore. Fast3D's own 3D pass
++     * binds its own program and only resets it to 0 inside the postfx resolve -- which does
++     * not run when postfx is off. Left bound, that program still executes on every vertex this
++     * function feeds through immediate mode, ignoring the fixed-function matrix stack and
++     * glColor entirely, so everything below rasterises through the wrong pipeline and never
++     * reaches the screen. Force it off for the fixed-function draw, restore it after. */
++    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_prog);
++    glUseProgram(0);
++
++    glMatrixMode(GL_PROJECTION);
++    glPushMatrix();
++    glLoadIdentity();
++    glOrtho(0.0, (double) gfx_current_dimensions.width, (double) gfx_current_dimensions.height,
++            0.0, -1.0, 1.0);
++    glMatrixMode(GL_MODELVIEW);
++    glPushMatrix();
++    glLoadIdentity();
++
++    glDisable(GL_DEPTH_TEST);
++    glDisable(GL_SCISSOR_TEST);
++    glEnable(GL_BLEND);
++    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
++    glEnable(GL_TEXTURE_2D);
++    glBindTexture(GL_TEXTURE_2D, tex);
++
++    for (i = 0; i < n; i++) {
++        const char *text;
++        float nx, ny, px, py, lineheight, local_scale, total_scale;
++        unsigned char r, g, b, a;
++        const unsigned char *p;
++
++        gePortTextQueueGet(i, &text, &nx, &ny, &r, &g, &b, &a, &lineheight);
++        px = nx * scale2d + offx;
++        py = ny * scale2d + offy;
++
++        glColor4ub(r, g, b, a);
++
++        /* Baked at a fixed 24px so one atlas covers every call site, but call sites do not all
++         * want the same size on screen: lineheight is the original bitmap font bank's own cell
++         * height for this string (see textRender()'s queueing comment), so scaling the baked
++         * glyphs by lineheight/24 reproduces that font bank's actual size instead of drawing
++         * the HUD and title screens at the same fixed size. scale2d on top of that is the
++         * usual native-to-screen factor, same as the queued position above. */
++        local_scale = lineheight / 24.0f;
++        total_scale = scale2d * local_scale;
++        glPushMatrix();
++        glTranslatef(px, py, 0.0f);
++        glScalef(total_scale, total_scale, 1.0f);
++
++        /* qx/qy declared once for the whole string, not per character: stbtt_GetBakedQuad
++         * advances them in place on every call, the same way textRenderGlyph's own *x/*y
++         * accumulate across a string in the original. Resetting them per glyph, which an
++         * earlier version of this loop did, put every character on top of the last one. */
++        {
++            float qx = 0.0f, qy = 0.0f;
++            for (p = (const unsigned char *) text; *p; p++) {
++                float x0, y0, x1, y1, s0, t0, s1, t1;
++                if (*p == '\n') {
++                    /* This advance is in local (unscaled) baked-pixel space, same as the
++                     * quad coordinates below -- total_scale, applied once via glScalef above,
++                     * already carries lineheight's contribution, so the natural baked-em
++                     * advance (24px, matching ge_text_overlay.c's own bake size) comes out
++                     * proportioned to this string's actual font size without repeating the
++                     * lineheight/24 division here too. */
++                    qx = 0.0f;
++                    qy += 24.0f * 1.2f;
++                    continue;
++                }
++                if (*p < 32 || *p >= 32 + 95) continue;   /* outside the baked range -- skip, do not garble */
++                if (!gePortTextGlyphQuad((int) *p, &qx, &qy, &x0, &y0, &x1, &y1, &s0, &t0, &s1, &t1)) continue;
++                if (*p == ' ') continue;   /* position already advanced; nothing visible to draw */
++
++                glBegin(GL_QUADS);
++                glTexCoord2f(s0, t0); glVertex2f(x0, y0);
++                glTexCoord2f(s1, t0); glVertex2f(x1, y0);
++                glTexCoord2f(s1, t1); glVertex2f(x1, y1);
++                glTexCoord2f(s0, t1); glVertex2f(x0, y1);
++                glEnd();
++            }
++        }
++        glPopMatrix();
++    }
++
++    glBindTexture(GL_TEXTURE_2D, 0);
++    glMatrixMode(GL_PROJECTION);
++    glPopMatrix();
++    glMatrixMode(GL_MODELVIEW);
++    glPopMatrix();
++    glPopAttrib();
++    glUseProgram((GLuint) prev_prog);
++
++    gePortTextQueueClear();
++}
++
 +/* GETV_SHOTFRAME: deterministic frame capture.
 + *
 + * A/B'ing a rendering change needs the same frame on both arms. `screencapture` cannot
@@ -1735,7 +1869,10 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +    fflush(stderr);
 +}
 +
-@@ -657,0 +1611,27 @@
+@@ -657,0 +1745,30 @@
++    /* Before everything else in here, including the postfx resolve: see the comment on
++     * gfx_render_text_overlay() itself for why both orderings matter. */
++    gfx_render_text_overlay();
 +#ifdef GE_POSTFX
 +    /* Before the capture, deliberately: with post-processing on, the offscreen target is
 +     * still bound at this point, so a capture taken first would photograph the raw scene and
@@ -1763,12 +1900,12 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 +        glEnable(GL_SCISSOR_TEST);
 +    }
 +#endif
-@@ -675,0 +1656,2 @@
+@@ -675,0 +1793,2 @@
 +    gfx_opengl_upload_height_texture,
 +    gfx_opengl_clear_height_texture,
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
---- a/getv/port/fast3d/gfx_pc.c	2026-08-28 07:55:39
-+++ b/getv/port/fast3d/gfx_pc.c	2026-08-28 07:55:40
+--- a/getv/port/fast3d/gfx_pc.c	2026-08-28 09:46:37
++++ b/getv/port/fast3d/gfx_pc.c	2026-08-28 09:46:38
 @@ -9 +9,5 @@
 -#ifdef EXTERNAL_DATA
 +/* Unconditional, not just under EXTERNAL_DATA: ge_upload_texture()'s HD-pack override
@@ -6714,17 +6851,27 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +        ge_tri_count = 0;
 +    }
 diff -ruN -U0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
---- a/getv/port/fast3d/gfx_pc.h	2026-08-28 07:55:40
-+++ b/getv/port/fast3d/gfx_pc.h	2026-08-28 07:55:40
-@@ -12,0 +13,5 @@
+--- a/getv/port/fast3d/gfx_pc.h	2026-08-28 09:46:37
++++ b/getv/port/fast3d/gfx_pc.h	2026-08-28 09:46:38
+@@ -12,0 +13,15 @@
 +// gfx_current_dimensions is the INTERNAL render size. With supersampling it is
 +// larger than the window; gfx_output_dimensions is the real drawable that the
 +// supersampled image gets blitted down to.
 +extern struct GfxDimensions gfx_output_dimensions;
 +extern unsigned int gfx_supersample;
++
++/* The game's native 2D canvas (320x240, or 440x330 -- see where these are set). Plain globals,
++ * not static, already -- this just gives gfx_opengl.c the same access gfx_pc.c's own 2D code
++ * already has, for the identical native-to-screen scale gfx_render_text_overlay() needs:
++ * min(gfx_current_dimensions.width/gfx_native_width, gfx_current_dimensions.height/
++ * gfx_native_height), the same ge_scale_2d() gfx_draw_rectangle() uses and for the same reason
++ * (see that function's own comment) -- 2D content stays pillarboxed independent of whatever
++ * GETV_WIDESCREEN is doing to the 3D view. */
++extern float gfx_native_width;
++extern float gfx_native_height;
 diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rendering_api.h
---- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-28 07:55:40
-+++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-28 07:55:40
+--- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-28 09:46:37
++++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-28 09:46:38
 @@ -14,2 +14,2 @@
 -    struct ShaderProgram *(*create_and_load_new_shader)(uint32_t shader_id);
 -    struct ShaderProgram *(*lookup_shader)(uint32_t shader_id);
@@ -6742,8 +6889,8 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rend
 +    void (*upload_height_texture)(const uint8_t *rgba32_buf, int width, int height);
 +    void (*clear_height_texture)(void);
 diff -ruN -U0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
---- a/getv/port/fast3d/gfx_sdl2.c	2026-08-28 07:55:40
-+++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-28 07:55:40
+--- a/getv/port/fast3d/gfx_sdl2.c	2026-08-28 09:46:38
++++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-28 09:46:38
 @@ -19 +19,8 @@
 -#ifdef OSX_BUILD
 +/* Desktop GL when we are NOT on a GLES target. USE_GLES is defined only by the tvOS
