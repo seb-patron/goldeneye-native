@@ -40,9 +40,9 @@ struct instead of the GL one. It matters beyond tidiness: desktop GL is deprecat
 platforms, and GL ES on tvOS is deprecated too, so Metal is the path that does not have an
 expiry date attached.
 
-Feature parity is close and deliberately maintained. The parallax height-map path exists in
-both, written the same way, with the Metal version citing the GL one in its comments so the two
-do not drift. Where they differ it is because the APIs differ:
+The two backends are kept at parity deliberately. The parallax height-map path exists in both,
+written the same way, with the Metal version citing the GL one in its comments so the two do
+not drift. Where they differ it is because the APIs differ:
 
 - Metal has no global "active texture unit". Textures are bound per draw, by index, into the
   encoder. This is not a small detail: a bug that made every textured surface render black on

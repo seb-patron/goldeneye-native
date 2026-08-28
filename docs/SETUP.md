@@ -651,41 +651,38 @@ GETV_JOBS=10 ./build_mac.sh lib     # if you want it to
 Expected output:
 
 ```
-  mac FAILED: src/tlb_manage.c
-mac game: 167 built, 1 failed
+mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 23 built, 0 failed
+mac port layer: 63 built, 0 failed
 ```
 
-**`mac game: 167 built, 1 failed` is a correct, successful build.** Read the next subsection before
-you conclude anything is broken.
+**Every count should read `0 failed`.** Any name in a `mac FAILED:` line is a real problem. That
+was not always true, and the next subsection explains why, because the old advice is still
+repeated from memory.
 
 **When to use:** the first build, and after any change to the decompilation, the assets or the
 compile flags.
 
-#### The one expected failure
+#### There used to be one expected failure, and there is not any more
+
+Older notes here said `167 built, 1 failed` was correct, with the failure always
+`src/tlb_manage.c`. That is no longer true and the count is now `0 failed`.
 
 `src/tlb_manage.c` programs the N64's MIPS R4300 translation lookaside buffer. There is no TLB to
-program on a Mac and nothing in the linked binary references it, so it is left to fail rather than
-being stubbed out or excluded - the failure is the honest record of a file that has no meaning on
-this target. The concrete error, if you compile it by hand, is a pair of type redeclaration
-conflicts against `src/bondgame.h`:
+program on a desktop and nothing in the linked binary references it. It used to be left to fail on
+the argument that the failure was an honest record of a file with no meaning on this target, which
+worked only for as long as it kept failing. Switching `-w` to `-Wno-everything` (needed so
+`-Werror=return-type` actually takes effect) also suppressed the diagnostics that had been
+stopping it, and it began compiling. A file that compiles is a file that links, and these files
+write real RCP and PI registers, so the guard against that had been a compiler warning all along, by accident rather than by design.
 
-```
-src/tlb_manage.c:108:12: error: redeclaration of '_gameSegmentRomStart' with a different type:
-      'u8 *' (aka 'unsigned char *') vs 'u32 *' (aka 'unsigned int *')
-```
+They are now excluded by name instead, which does not depend on a warning flag continuing to
+behave a particular way. Ten files, in both `getv/build_mac.sh` and `getv/build_linux.sh`:
+`ramromreplay.c`, `audi.c`, `usb.c`, `rmon.c`, `sched.c`, `ramrom.c`, `init.c`, `indy_comms.c`,
+`indy_commands.c`, `tlb_manage.c`. They never appear in the counts at all.
 
-Seven further N64-hardware and SGI-dev-host files are excluded by name in the build script for the
-same reason, and so never appear in the counts at all: `usb.c`, `rmon.c`, `sched.c`, `ramrom.c`,
-`init.c`, `indy_comms.c`, `indy_commands.c`. They are excluded explicitly rather than left to fail
-because switching `-w` to `-Wno-everything` (needed so `-Werror=return-type` actually takes effect)
-also suppressed the diagnostics that used to stop them, and they began compiling - which would
-have turned logging stubs into code that writes real RCP and PI registers.
-
-So: **one failure, always the same one, always `src/tlb_manage.c`.** Any second name in a
-`mac FAILED:` line is a real problem.
+So: **no expected failures, on any platform.** Any name in a `FAILED:` line is a real problem.
 
 #### Where the counts come from
 
@@ -697,7 +694,7 @@ cd ../vendor/ge-decomp
 { find src -name '*.c' -not -path 'src/libultra/*' -not -path 'src/libultrare/*' \
       -not -name 'ge_layout_audit.c' -not -name 'ge_asset_fileview_check.c'
   find src/libultra/gu -name '*.c'; } \
-  | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c)$' \
+  | grep -vE '/(ramromreplay\.c|audi\.c|usb\.c|rmon\.c|sched\.c|ramrom\.c|init\.c|indy_comms\.c|indy_commands\.c|tlb_manage\.c)$' \
   | wc -l          # 168 = 167 built + 1 failed
 find assets -name '*.c' ! -name '*.inc.c' \
       ! -path 'assets/obseg/setup/e/*' ! -path 'assets/obseg/setup/j/*' \
@@ -716,10 +713,10 @@ The port layer's 23 is 21 sources under `getv/port/{fast3d,src,audio}/` plus the
 ```
 
 ```
-mac port layer: 23 built, 0 failed
+mac port layer: 63 built, 0 failed
 ```
 
-Recompiles the 21 port sources and the two harness objects and nothing else. Measured at about 23
+Recompiles the port sources and nothing else. Measured at about 23
 seconds on an Apple M1. This is the loop you live in when working on the renderer, input, audio or
 configuration - everything under `getv/port/`.
 
@@ -779,15 +776,18 @@ On failure the last line is `LINK FAILED`, preceded by up to 30 lines of linker 
 The normal full build. Complete expected output:
 
 ```
-  mac FAILED: src/tlb_manage.c
-mac game: 167 built, 1 failed
+mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 23 built, 0 failed
-mac libge.a:  31M, 974 members
+mac port layer: 63 built, 0 failed
+mac libge.a:  31M, 1016 members
 ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000 because it exceeds segment maximum alignment
-mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 18M, arm64)
+mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 20M, arm64)
 ```
+
+The `ld` warning about `__DATA,__common` alignment is expected and harmless: the game arena is a
+32 MB static array and the linker is telling you it cannot honour the requested section alignment
+at that size.
 
 Measured at 21 seconds wall on an Apple M1 with warm filesystem caches, at the default
 `GETV_JOBS=6`. `README.md` says "about five minutes"; that figure appears stale, but a first build
@@ -1132,13 +1132,11 @@ tools/extractor/extractor baserom.u.z64 scripts/filelist.u.csv
 Re-extracting is safe and idempotent: every row is a byte range copied out of the ROM, so files
 that already exist are rewritten with identical contents.
 
-**Related symptom** - `mac game: 166 built, 2 failed`, the second failure being
-`src/game/bg.c`, and a link failure listing around thirty undefined symbols that all begin
-`bg`:
+**Related symptom** - `mac game: 166 built, 1 failed`, the failure being `src/game/bg.c`, and
+a link failure listing around thirty undefined symbols that all begin `bg`:
 
 ```
 mac FAILED: src/game/bg.c
-mac FAILED: src/tlb_manage.c
 Undefined symbols for architecture arm64:
   "_bgCopyVisibleRoomsToList", referenced from: ...
 ```
@@ -1472,7 +1470,7 @@ Do not chase these:
 
 | Message | Why |
 |---|---|
-| `mac FAILED: src/tlb_manage.c` | Expected. See 4.3. |
+| `mac FAILED: <anything>` | Never expected. `tlb_manage.c` used to be, and is now excluded by name instead. See 4.3. |
 | `ld: warning: reducing alignment of section __DATA,__common ...` | Expected on every link. |
 | `[getv] STUB: crashInit`, `STUB: romCreateMesgQueue`, `STUB: indycommInit`, `STUB: rmonGetToken` | N64 hardware and dev-host entry points with nothing to do here. |
 | `[getv] TLB: not present on tvOS; heap = 0x... (32 MB)` | The 32 MB game arena is a `static u8[]` in `__bss`, zero-filled by the kernel at every launch. |

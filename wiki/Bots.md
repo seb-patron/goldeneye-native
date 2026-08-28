@@ -66,6 +66,6 @@ already has.
 
 Perfect Dark is Rare's sequel in the same engine lineage, and its simulants are the most
 successful bot system of that generation. Players still name them from memory. Comparing what
-the simulants actually vary against what GoldenEye's opcode table already exposes, the overlap
-is close to total, which is a strong hint that the ceiling here is high and mostly a matter of
-using what is already present.
+the simulants actually vary against what GoldenEye's opcode table already exposes, every one of the nine
+simulant concepts in `docs/BOTS.md` maps onto an opcode the game already has. The ceiling here is high, and
+reaching it is mostly a matter of using what is already present.

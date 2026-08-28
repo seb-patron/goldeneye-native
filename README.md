@@ -522,7 +522,7 @@ Expected output from `./build_mac.sh all`:
 mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 60 built, 0 failed
+mac port layer: 63 built, 0 failed
 ```
 
 Ten N64-hardware and SGI-dev-host files are excluded by name in the build script:

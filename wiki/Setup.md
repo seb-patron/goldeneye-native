@@ -100,17 +100,19 @@ POSIX emulation layer.
 ## What a good build looks like
 
 ```
-  mac FAILED: src/tlb_manage.c
-mac game: 167 built, 1 failed
+mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 60 built, 0 failed
+mac port layer: 63 built, 0 failed
 ```
 
-**The one failure is expected.** `src/tlb_manage.c` programs the N64's MIPS R4300 translation
-lookaside buffer. There is no TLB here and nothing links against it, so it is left to fail
-rather than papered over with a stub. Seven further N64-hardware and SGI-dev-host files are
-excluded by name in the build script for the same reason.
+**Every count reads `0 failed`, and any name in a `FAILED:` line is a real problem.** Ten
+N64-hardware and SGI-dev-host files are excluded by name in the build script, `tlb_manage.c`
+among them, so nothing is left to fail on purpose any more. Older notes said `167 built,
+1 failed` was correct; that advice is out of date.
 
-Any second name in a `FAILED:` line is a real problem. Check all the counts rather than
-grepping for one: a broken audio file shows up only as a changed number.
+Linux reads `60` for the port layer rather than `63`, because three of those sources are the
+Objective-C++ files the Metal path needs. Everything else matches.
+
+Check all the counts rather than grepping for one: a broken audio file shows up only as a
+changed number.

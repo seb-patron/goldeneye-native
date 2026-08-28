@@ -8,19 +8,23 @@ that integration works.
 
 ---
 
-## 0. Apply `0003-port-accessors.patch` (the link failure)
+## 0. The accessor link failure - resolved, nothing to do
 
-`vendor/` is gitignored, so decomp symbols never travel in a bundle. Everything you have tested
-is stub-verified only.
+Kept as a numbered entry rather than deleted, because the instruction it used to carry is
+still repeated from memory and it now names a file that does not exist.
 
-```
-cd C:\ge\vendor\ge-decomp && git apply ..\..\getv\patches\0003-port-accessors.patch
-```
+`0003-port-accessors.patch` is gone. The player accessors, the control-style helpers, both
+navigation probes, `gePortTeleportProbe` and the two sensing primitives were folded into
+`0001-source.patch` on a later refresh, and applying 0003 on top of 0001 fails with `patch does
+not apply` because every line it adds is already there. `getv/patches/README.md` has the full
+account of why 0003 to 0005 are gone and how it was verified before removing them.
 
-Now carries the player accessors, the control-style helpers, both navigation probes,
-`gePortTeleportProbe`, and the two sensing primitives.
+`tools/install.ps1` applies every patch in `getv/patches` in numeric order, so there is no
+manual `git apply` step on Windows any more.
 
-**Done when:** the port layer links and one API test runs against a live game rather than a stub.
+The underlying point still stands and is worth keeping: `vendor/` is gitignored, so decomp
+symbols never travel in a bundle. If you add a symbol the port layer calls, it belongs in a
+patch the same day, or the other machine gets a tree that compiles and will not link.
 
 ---
 

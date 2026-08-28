@@ -45,14 +45,17 @@ Changes to the port layer itself - `getv/port/` - are ordinary tracked files and
 The build prints four counts, and they are the cheapest evidence that a change did what you think:
 
 ```
-mac game: 167 built, 1 failed
+mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 23 built, 0 failed
+mac port layer: 63 built, 0 failed
 ```
 
-`167 built, 1 failed` is correct. The one failure is always `src/tlb_manage.c`, which programs a
-memory-management unit that does not exist here. A second name in that list is a real regression.
+**Every count reads `0 failed`.** Any name in a `FAILED:` line is a real regression. Older notes
+said `167 built, 1 failed` was correct because `src/tlb_manage.c` programs a memory-management
+unit that does not exist here; it and nine other N64-hardware and SGI-dev-host files are now
+excluded by name instead, so nothing is expected to fail. See `docs/SETUP.md` for why that
+changed.
 
 For anything that changes rendering or gameplay, measure it rather than describing it. Boot
 straight into a level with `GETV_STAGE=<n>` (the numbers are the `LEVELID_*` enum in

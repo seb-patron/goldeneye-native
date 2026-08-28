@@ -358,24 +358,52 @@ ones that macOS happens to tolerate will surface there.
 
 Do not read "one to two weeks to a link" as "one to two weeks to a Windows release."
 
-## 11. Ordered plan for Linux
+## 11. Linux - done, and what it actually took
 
-Linux is substantially closer than Windows and would make a better second platform:
+This section used to be a plan with an estimate of two to four days to a first link. Linux
+now builds and runs, so the plan is kept only as a record of which predictions held.
 
-- Steps 1-4 above are shared.
-- `#pragma weak` is native - the ELF sites in section 7 work as originally written, so
-  step 3 is optional there.
-- `SDL_GetPrefPath` already returns the correct XDG directory
-  (`$XDG_DATA_HOME/<app>/`), so section 4 needs nothing further.
-- GLEW is not required if the build uses SDL2's GL loader, matching the macOS
-  arrangement.
-- The crash handler needs only an architecture branch for the register dump;
+Measured on Debian 12 aarch64 with clang 14, from `tools/install.sh` on a clean clone:
+
+```
+linux game: 167 built, 0 failed
+linux assets: 746 built, 0 failed
+linux audio: 40 built, 0 failed
+linux port layer: 60 built, 0 failed
+linux binary: getv/build-linux/goldeneye (21M, ELF 64-bit LSB pie executable, ARM aarch64)
+```
+
+The binary boots, loads a level, draws 520 triangles at frame 61 under software Mesa and
+exits 0. `getv/port/tests/run_tests.sh` reports 16 of 16.
+
+Every prediction below held:
+
+- `#pragma weak` is native - the ELF sites in section 7 work as originally written.
+- `SDL_GetPrefPath` returns the correct XDG directory (`$XDG_DATA_HOME/<app>/`).
+- GLEW is not required; the build uses SDL2's GL loader, matching the macOS arrangement.
+- The crash handler needed only an architecture branch for the register dump;
   `execinfo.h`, `dladdr` and `sigaction` are all present on glibc.
 - `<unistd.h>`, `usleep`, `mkdir`, `_exit` are all native.
 
-Estimate to a first link: **2-4 days.** To a running build: unknown, for the same
-reasons as Windows, but the toolchain is close enough to Apple clang that fewer
-surprises should be expected.
+What the plan did not predict, and what actually cost the time, was none of the above. It was
+four things the Mac had been quietly hiding:
+
+- **`nm` output has no leading underscore on ELF.** `tools/uniquify_asset_symbols.py` assumed
+  Mach-O's, matched nothing, reported zero globals for every asset, and announced that every
+  file was already namespaced while doing nothing at all. It surfaced an hour later as
+  `multiple definition of 'padlist'` at link. The asset namespacing pass had never once run on
+  Linux.
+- **clang builds a position-independent executable by default**, so the vendored Lua and Dear
+  ImGui archives had to be compiled `-fPIC`. The error names a glibc symbol and reads like a
+  broken toolchain rather than a missing flag.
+- **libm is a separate library.** Darwin folds it into libSystem, so the test runner had never
+  needed `-lm`, and five of sixteen tests failed to build.
+- **glibc spells its `<strings.h>` include guard differently** from Darwin's, so the existing
+  suppression for the N64 `bcopy`/`bcmp`/`bzero` signatures did not apply.
+
+The lesson worth carrying to the next platform: the hard part was not the code the plan
+identified. It was the tooling around the build, which had a macOS assumption baked into it and
+failed silently rather than loudly on anything else.
 
 ## 12. Explicitly unknown
 
@@ -402,18 +430,22 @@ Any change made for portability must leave these unchanged
 (`getv/build_mac.sh all`):
 
 ```
-mac game:        167 built, 1 failed     (src/tlb_manage.c is N64 TLB hardware, expected)
+mac game:        167 built, 0 failed
 mac assets:      746 built, 0 failed
 mac audio:        40 built, 0 failed
-mac port layer:   23 built, 0 failed
+mac port layer:   63 built, 0 failed
 ```
 
-The port-layer count moved from 22 to 23 on 2026-08-22 with the addition of
-`port_paths.c`. `getv/build.sh` and `getv/build_sim.sh` glob `port/src/*.c` the same
-way, so their port-layer counts each rise by one as well - `build_sim.sh`'s documented
-baseline of 18 should become 19. That is inferred from the glob, not from a simulator
-run; confirm it on the next `build_sim.sh port` rather than treating a 19 as a
-regression.
+Nothing is expected to fail. `src/tlb_manage.c` used to be a standing exception; it and nine
+other N64-hardware and SGI-dev-host files are excluded by name now, so they never reach the
+counts. `docs/SETUP.md` has the account of why that changed.
+
+The port-layer count is the one that moves, because `getv/build_mac.sh`, `getv/build.sh` and
+`getv/build_sim.sh` all glob `port/src/*.c` - adding a file there raises every one of them.
+Linux reads 60 rather than 63, and the difference is exactly the three Objective-C++ sources
+the Metal path needs (two in `port/src`, one in `port/fast3d`); `build_linux.sh` compiles the
+same `.c` and `.cpp` sets and never looks for `.mm`. Treat a changed port-layer count as a fact
+to explain, not automatically as a regression.
 
 Behavioural proof that the section 4 refactor left macOS untouched, captured before and
 after on the same host:

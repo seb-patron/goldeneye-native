@@ -24,8 +24,8 @@ levels of shipped content.
 
 Perfect Dark is Rare's sequel in the same engine lineage, and its simulants are the most
 successful bot system of that generation -- players still name them from memory. Looking at what
-the simulants actually vary, and then at what GoldenEye's opcode table already exposes, the
-overlap is close to total:
+the simulants actually vary, and then at what GoldenEye's opcode table already exposes, every one of the
+nine simulant concepts below maps onto an opcode the game already has:
 
 | Simulant concept | Native GoldenEye opcode |
 | --- | --- |

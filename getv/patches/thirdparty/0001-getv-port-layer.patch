@@ -6287,7 +6287,7 @@ diff -ruN -U0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +             * doc's "does not match F3DEX!" warning just means it is not F3DEX -- it is F3D.
 +             * We derive n from the length field (bits 0..15 = 16*n) instead of the count
 +             * nibble; both are written by the same macro, so they agree.
-+             * â  Hardware masks v0 to 4 bits and the DMEM vertex cache is exactly 16 entries
++             * Hardware masks v0 to 4 bits and the DMEM vertex cache is exactly 16 entries
 +             * (0x420 + 16*0x28 = 0x6a0, where the DL buffer starts). MAX_VERTICES here is 64,
 +             * a harmless superset -- but do not "optimise" it below 16. */
 @@ -1557 +5392,22 @@

@@ -140,8 +140,10 @@ both concrete problems this section named are independently resolved:
 - **The endianness bug.** `vendor/ge-decomp/include/platform_info.h:6-10`'s `IS_BIG_ENDIAN`/
   `IS_64_BIT` checked only `TARGET_N64`, which is also defined on native builds for unrelated
   reasons, so both were wrong on every native build - exactly the trap `src/game/lightfixture.c:73`
-  and `src/game/unk_092E50.c:274` carry comments about. Fixed 2026-08-26,
-  `0004-platform-info-native-endian.patch`: `#if defined(TARGET_N64) && !defined(GE_PORT_NATIVE)`.
+  and `src/game/unk_092E50.c:274` carry comments about. Fixed 2026-08-26 as
+  `#if defined(TARGET_N64) && !defined(GE_PORT_NATIVE)`. It shipped as
+  `0004-platform-info-native-endian.patch` and now lives in `0001-source.patch`, which absorbed
+  it on a later refresh; see `getv/patches/README.md` for why 0003 to 0005 are gone.
   Those two comments' workaround (reading `words.w0`/`words.w1` by hand rather than through
   `gbi.h`'s bitfield view) stays correct and necessary regardless - it also covers a real 32-bit
   vs 64-bit word-width mismatch the endianness flag never controlled - so the comments were left
@@ -683,7 +685,7 @@ buffer.
 |---|---|---|---|---|
 | 1 | ~~Deferred-relocation model transcode~~ - **stale, see §2.4**: `ge_model_convert()` already solves this a different way | n/a | n/a | superseded |
 | 2 | ~~`_Generic` typed byteswap with fail-loud default~~ - **done, 2026-08-26**: `getv/port/include/ge_typed_swap.h` (`GE_SWAP`), verified standalone (all typed arms round-trip correctly, the default arm asserts on an unhandled type). Not yet used at any real conversion site - see the header's own "what this does not do" note. | n/a | n/a | done, `514bf7a` `port/include/preprocess/common.h` |
-| 3 | ~~Unified `platform.h` for endian, arch and bswap~~ - **done, both halves, checked 2026-08-27**: the duplicate `port/platform.h`/`port/include/platform.h` files were merged (`f945265`, mac's work), and the `platform_info.h` endianness bug both named as the reason to want one header was fixed 2026-08-26 (`0004-platform-info-native-endian.patch`). Neither side adopted PD's single-header design wholesale, but both concrete problems section 2.3 raised are gone. | n/a | n/a | done, `514bf7a` `src/include/platform.h` |
+| 3 | ~~Unified `platform.h` for endian, arch and bswap~~ - **done, both halves, checked 2026-08-27**: the duplicate `port/platform.h`/`port/include/platform.h` files were merged (`f945265`, mac's work), and the `platform_info.h` endianness bug both named as the reason to want one header was fixed 2026-08-26 (then `0004-platform-info-native-endian.patch`, since absorbed into `0001-source.patch`). Neither side adopted PD's single-header design wholesale, but both concrete problems section 2.3 raised are gone. | n/a | n/a | done, `514bf7a` `src/include/platform.h` |
 | 4 | Crash handler with Darwin PC and backtrace | small | high | `514bf7a` `port/src/crash.c` -- **not applicable to Windows**, checked 2026-08-26: it is POSIX `backtrace()`/`dladdr()`/signal-based, none of which exist there. A Windows equivalent needs SEH/`MiniDumpWriteDump`, which is a different design PD's own doc does not address. Still real work for whoever owns the Mac build. |
 | 5 | ~~Two-player co-op bring-up~~ - **stale, checked 2026-08-26**: already done. `boss.c:501-518` already reads `gePortCoopPlayers()` (`GETV_COOP=<n>`) and forces the count; see `docs/COOP.md`, whose own opening line is "Co-op movement works... playable." | n/a | n/a | superseded |
 | 6 | Segment tag bit for model-blob GDLs | medium | medium-high, but honestly diagnostic not corrective | `514bf7a` `port/src/preprocess/gbi.c`, `port/fast3d/gfx_pc.cpp` -- **checked 2026-08-27, stays open**: `ge_model_convert()` (item 1's supersession) converts the model node graph, never a `Gfx` word, so it does not shrink this - the raw-GDL conversion this section says would be "the natural place" for the tag bit was never built as a side effect of other work. Not implemented: touches `seg_addr()`, the hottest function in the renderer, called on every `Gfx` word, for a benefit its own text calls diagnostic rather than corrective, against zero reproduced failure across this session's extensive live play. See section 2.5 for the full reasoning. |
