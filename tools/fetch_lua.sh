@@ -72,11 +72,17 @@ trap 'rm -rf "$OBJDIR"' EXIT
 
 # lua.c and luac.c are the standalone interpreter and bytecode compiler; both define main()
 # and would collide with the game's. Everything else is the library.
+# -fPIC is not optional on Linux. clang there defaults to building a position-independent
+# executable, and an archive whose objects are not position-independent cannot go into one:
+# the link ends with "relocation R_AARCH64_ADR_PREL_PG_HI21 against symbol stderr may bind
+# externally", naming a glibc symbol rather than anything of ours, which reads like a broken
+# toolchain rather than a missing flag. On Darwin clang is position-independent already, so
+# this is a no-op there rather than a platform branch.
 ok=0; fail=0
 for f in "$SRC"/src/*.c; do
   b="$(basename "$f" .c)"
   case "$b" in lua|luac) continue ;; esac
-  if "$CC" -c "$f" -o "$OBJDIR/$b.o" ${TARGETFLAGS[@]+"${TARGETFLAGS[@]}"} -O2 "$PLATDEF" -w; then
+  if "$CC" -c "$f" -o "$OBJDIR/$b.o" ${TARGETFLAGS[@]+"${TARGETFLAGS[@]}"} -O2 -fPIC "$PLATDEF" -w; then
     ok=$((ok+1))
   else
     fail=$((fail+1)); echo "  FAILED: $b.c"

@@ -87,6 +87,32 @@ CFLAGS = HOST_FLAGS + [
           '-DBUGFIX_R0','-DTARGET_N64','-DGE_PORT_NATIVE','-DNON_MATCHING=1','-DAVOID_UB=1',
           '-D_LANGUAGE_C=1','-w','-ferror-limit=0','-fno-strict-aliasing','-O1']
 
+# nm writes a leading underscore on every C symbol on Mach-O and nothing at all on ELF. Reading
+# for the wrong one is invisible: every file reports zero globals, every file is then declared
+# already namespaced, and the whole pass becomes a no-op that only surfaces as duplicate-symbol
+# link errors an hour later. So the prefix is measured against a probe whose symbol is known
+# rather than assumed, and a probe that comes back empty is a hard error -- a tool that cannot
+# read symbols must say so, not return an empty set that looks like success.
+def nm_prefix():
+    with tempfile.NamedTemporaryFile(suffix='.c', mode='w', delete=False) as t:
+        t.write('int getv_nm_probe = 1;\n'); c = t.name
+    o = c[:-2] + '.o'
+    r = subprocess.run(['clang','-c',c,'-o',o], capture_output=True, text=True)
+    if r.returncode != 0:
+        os.unlink(c)
+        sys.exit('uniquify_asset_symbols: cannot compile a probe file:\n' + r.stderr.strip())
+    out = subprocess.run(['nm','-g',o], capture_output=True, text=True).stdout
+    os.unlink(c)
+    if os.path.exists(o): os.unlink(o)
+    for line in out.splitlines():
+        w = line.split()
+        if w and w[-1].endswith('getv_nm_probe'):
+            return w[-1][:-len('getv_nm_probe')]
+    sys.exit('uniquify_asset_symbols: nm reported no getv_nm_probe in a probe object -- '
+             'symbol reading is broken, refusing to run')
+
+NM_PREFIX = nm_prefix()
+
 def globals_of(rel):
     with tempfile.NamedTemporaryFile(suffix='.o', delete=False) as t: o = t.name
     r = subprocess.run(['clang']+CFLAGS+['-c',rel,'-o',o],cwd=ROOT,capture_output=True,text=True)
@@ -98,8 +124,8 @@ def globals_of(rel):
     syms=[]
     for line in out.splitlines():
         p=line.split()
-        if len(p)==3 and p[1] in ('D','B','S','T','C') and p[2].startswith('_'):
-            syms.append(p[2][1:])
+        if len(p)==3 and p[1] in ('D','B','S','T','C') and p[2].startswith(NM_PREFIX):
+            syms.append(p[2][len(NM_PREFIX):])
     return syms
 
 # A file-scope `Type name;` that has a real `Type name = {...}` later in the SAME file is a

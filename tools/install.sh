@@ -221,6 +221,7 @@ fi
 say "your copy of the game"
 
 ROM_DEST="roms/ge007.u.z64"
+DECOMP_ROM="vendor/ge-decomp/baserom.u.z64"
 ROM_SHA="abe01e4aeb033b6c0836819f549c791b26cfde83"
 
 sha1_of() {
@@ -309,6 +310,21 @@ fi
 
 # ---------------------------------------------------------------- 6. the asset pipeline
 
+# The extractor reads `baserom.u.z64` from inside the decomp, not roms/ge007.u.z64, and it
+# defaults that name with no way to pass another. docs/SETUP.md 3.2 says to symlink it and
+# every working tree here has that link; the installer never made one, so on a genuinely fresh
+# install the extractor found no ROM, EXITED 0, and wrote nothing. The failure then surfaced
+# eleven steps later as "combined.bin not found", which names a file two stages downstream of
+# the actual problem.
+#
+# Verified rather than assumed this time: a fresh clone reached the images step with
+# assets/images/split holding 0 of its 2,698 entries and not one .bin anywhere under
+# assets/obseg.
+if [ ! -e "$DECOMP_ROM" ]; then
+    ln -sf ../../roms/ge007.u.z64 vendor/ge-decomp/baserom.u.z64
+    info "linked vendor/ge-decomp/baserom.u.z64 -> roms/ge007.u.z64"
+fi
+
 say "generating the asset sources"
 
 # Order is not stylistic. It was established by building from a clean checkout and every
@@ -334,6 +350,15 @@ run_asset_step() {
     fi
     info "$label"
     ( cd vendor/ge-decomp && "$@" ) || die "$label failed"
+
+    # And check it actually produced the thing, because an exit code of 0 is not the same
+    # claim. scripts/extract_baserom.u.sh returns 0 with no ROM to read and writes nothing at
+    # all, which is how a missing baserom.u.z64 travelled eleven steps before surfacing as a
+    # complaint about a file two stages further on. A step that ran and produced nothing is a
+    # failure here, reported against the step that actually failed.
+    if ! marker_present "vendor/ge-decomp/$marker"; then
+        die "$label ran and exited 0 but produced no $marker"
+    fi
 }
 
 # enable_bg_extraction must run BEFORE extraction. The decomp ships 25 of the 34 bg rows with
@@ -356,7 +381,13 @@ run_asset_step "assets/images/combined/combined.bin" "combining images"         
 # `ld -r -b binary`, a GNU extension Mach-O has no equivalent for.
 run_asset_step "assets/images/ge_images_segment.c"   "images segment"           python3 ../../tools/gen_images_segment.py
 run_asset_step "assets/ge_animation_offsets.h"       "animation blobs"          python3 ../../tools/gen_anim_blobs.py
-run_asset_step "src/ge_audio_segment.h"              "audio segment"            python3 ../../tools/gen_audio_segment.py
+# The marker is the .c and not the .h, and that distinction is the whole point:
+# 0001-source.patch already carries src/ge_audio_segment.h, and patches are applied five
+# steps before this one. Marking on the header means the header is always present by the
+# time we get here, the generator never runs, and the 1.3 MB array that actually DEFINES
+# geAudioSegment is never written -- which surfaces as an undefined reference from music.c
+# at the final link, long after the step that was silently skipped.
+run_asset_step "assets/music/ge_audio_segment.c"      "audio segment"            python3 ../../tools/gen_audio_segment.py
 run_asset_step "src/ge_asset_fileview.h"             "asset file views"         python3 ../../tools/gen_asset_fileview.py
 
 # No marker on either of these two, for opposite reasons.
@@ -413,9 +444,35 @@ say "namespacing the asset symbols"
 # `Ump_setupameZ_padlist`. No bare declaration left means the pass has run.
 MARKER="vendor/ge-decomp/.getv-assets-namespaced"
 namespacing_done() {
-    [ -e "$MARKER" ] && return 0
-    compgen -G "vendor/ge-decomp/assets/obseg/setup/*.c" >/dev/null 2>&1 || return 1
-    ! grep -qrE '(^|[[:space:]])padlist\[' vendor/ge-decomp/assets/obseg/setup/*.c 2>/dev/null
+    # Ask the tree, not the marker. A marker records only that the pass RAN; it cannot know
+    # whether the pass DID anything, and this pass was a silent no-op on Linux for as long as
+    # the symbol reader assumed Mach-O's leading underscore. Running it a second time
+    # double-prefixes and corrupts the tree, so this has to be a real test rather than a
+    # re-run by default -- and the declarations themselves are the only honest evidence.
+    #
+    # Two tells, one per shape the pass produces. Setup files take their file stem
+    # (`padlist` -> `Ump_setupameZ_padlist`); chr, gun and prop models take their directory
+    # (`GFX_PRIMARY_0x48e8` -> `armourguard_Model_GFX_PRIMARY_0x48e8`). Testing only the first
+    # would pass a tree whose several hundred models were never touched.
+    asked=0
+    if compgen -G "vendor/ge-decomp/assets/obseg/setup/*.c" >/dev/null 2>&1; then
+        asked=1
+        if grep -qE '(^|[[:space:]])padlist\[' vendor/ge-decomp/assets/obseg/setup/*.c 2>/dev/null; then
+            return 1
+        fi
+    fi
+    for d in chr gun prop; do
+        if compgen -G "vendor/ge-decomp/assets/obseg/$d/*/Model.c" >/dev/null 2>&1; then
+            asked=1
+            if grep -qE '(^|[[:space:]])GFX_PRIMARY_' vendor/ge-decomp/assets/obseg/$d/*/Model.c 2>/dev/null; then
+                return 1
+            fi
+        fi
+    done
+    if [ "$asked" = 1 ]; then
+        return 0
+    fi
+    [ -e "$MARKER" ]
 }
 
 NAMESPACED_NOW=0
@@ -433,7 +490,34 @@ else
     ( cd vendor/ge-decomp && python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup )   || die "namespacing setup failed"
     # setup/u passed directly, which collapses the prefix to the bare stem, matching what the
     # rest of the tree expects.
-    ( cd vendor/ge-decomp && python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup/u ) || die "namespacing setup/u failed"
+    #
+    # This one is EXPECTED to exit non-zero, and only for UsetuplenZ.c. The tool reads a file's
+    # globals by compiling it and running nm, so a file that does not compile keeps the generic
+    # Getools names and is reported as a SKIP. All three setup/{u,j,e}/UsetuplenZ.c are in that
+    # state, which is exactly why 0002-assets.patch carries corrected copies of all three: the
+    # tool cannot produce them and the patch supplies them in step 8.
+    #
+    # So the exit code is not the test. The list of skipped files is. Anything other than
+    # UsetuplenZ.c in that list is a real failure and stops the install, because a silently
+    # colliding setup file binds a level to another level's data and the build still succeeds.
+    {
+        # `|| nsrc=$?` rather than a bare assignment followed by `$?`. Under `set -e` a command
+        # substitution that exits non-zero aborts the script AT THE ASSIGNMENT, so `nsrc=$?`
+        # never runs, die() never runs, and the installer exits 1 having printed nothing at
+        # all. That is precisely how this looked the first time: a fresh install stopped dead
+        # in the middle of the namespacing output with no error line anywhere.
+        nsrc=0
+        nsout=$( cd vendor/ge-decomp && python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup/u 2>&1 ) || nsrc=$?
+        unexpected=$(printf '%s\n' "$nsout" | awk '/^SKIP/ && $0 !~ /UsetuplenZ\.c/ {print}')
+        if [ -n "$unexpected" ]; then
+            printf '%s\n' "$nsout" | tail -20
+            die "namespacing setup/u skipped a file 0002 does not supply:
+$unexpected"
+        fi
+        if [ "$nsrc" != 0 ]; then
+            info "setup/u: UsetuplenZ.c skipped, which is the known case 0002 supplies"
+        fi
+    }
     # stan is the easy one to leave out and the omission is silent: 29 definitions of _tile_0
     # in a static archive is not an error, it just quietly binds 28 levels to the wrong
     # collision data. This is the exact fault the pass exists to prevent.

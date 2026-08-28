@@ -52,16 +52,24 @@ FLAGS=(
   # Suppressing the system header lets the N64 declarations stand, and that is the correct
   # choice rather than a workaround: ge_link_stubs.c DEFINES bcopy and bzero with the int
   # signatures, and port_os.c calls them, so the whole port already runs on the N64 shapes.
-  # The guard is __STRINGS_H_ with two underscores, on the SDK-internal _strings.h that
-  # <string.h> pulls in; _STRINGS_H_ is a different header and suppresses nothing. Safe here
-  # because nothing under tests/ or port/src uses strcasecmp, strncasecmp or ffs, which is
-  # all else that header provides.
-  -D__STRINGS_H_
+  # The guard differs per libc and both are needed, because the tests run on both. Darwin's
+  # is __STRINGS_H_ with two underscores, on the SDK-internal _strings.h that <string.h>
+  # pulls in -- _STRINGS_H_ is a different header there and suppresses nothing. glibc's is
+  # _STRINGS_H, and its <string.h> includes <strings.h> under __USE_MISC, so the same clash
+  # arrives by the same route. Safe on both because nothing under tests/ or port/src uses
+  # strcasecmp, strncasecmp or ffs, which is all else that header provides.
+  -D__STRINGS_H_ -D_STRINGS_H
   # -Wno-everything for the same reason the build scripts use it: the decomp's PR headers
   # warn on every translation unit and would bury a real diagnostic. return-type stays an
   # error because a non-void function falling off the end is a real bug family here.
   -Wno-everything -Werror=return-type
 )
+
+# Linked after the source rather than in FLAGS, and that is the whole reason it is a separate
+# array: GNU ld resolves in command order, so a -l placed before the object that needs it
+# contributes nothing and the reference stays undefined. Darwin folds libm into libSystem and
+# links it either way, which is why sqrt, fmodf and sincos only went missing on Linux.
+LIBS=( -lm )
 
 mkdir -p "$OUT"
 shopt -s nullglob
@@ -75,7 +83,7 @@ for t in "${tests[@]}"; do
   name="$(basename "$t" .c)"
   exe="$OUT/$name"
   log="$OUT/$name.buildlog"
-  if ! "$CC" "${FLAGS[@]}" -o "$exe" "$t" >"$log" 2>&1; then
+  if ! "$CC" "${FLAGS[@]}" -o "$exe" "$t" "${LIBS[@]}" >"$log" 2>&1; then
     printf "  %-26s %8s\n" "$name" "BUILD"
     grep -E "error|undefined" "$log" | head -3 | sed 's/^/      /'
     buildfail=$((buildfail+1)); failed+=("$name"); continue

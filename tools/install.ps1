@@ -152,7 +152,8 @@ foreach ($p in (Get-ChildItem "$root\getv\patches\0*.patch" | Sort-Object Name))
 
 Say "your copy of the game"
 
-$romDest = Join-Path $root 'roms\ge007.u.z64'
+$romDest   = Join-Path $root 'roms\ge007.u.z64'
+$decompRom = Join-Path $decomp 'baserom.u.z64'
 $romSha  = 'ABE01E4AEB033B6C0836819F549C791B26CFDE83'
 
 function Get-Sha1 ($path) { (Get-FileHash -Algorithm SHA1 -LiteralPath $path).Hash.ToUpper() }
@@ -231,6 +232,15 @@ if ((Test-Path $romDest) -and (Get-Sha1 $romDest) -eq $romSha) {
 
 # ---------------------------------------------------------------- 5. the asset pipeline
 
+# The extractor reads baserom.u.z64 from inside the decomp, not roms\ge007.u.z64, and defaults
+# that name with no way to pass another. A copy rather than a symlink: New-Item -ItemType
+# SymbolicLink needs Developer Mode or an elevated shell on Windows, and a 12 MB copy is a
+# smaller price than an installer that fails for anyone who has neither.
+if (-not (Test-Path $decompRom)) {
+  Copy-Item -LiteralPath $romDest -Destination $decompRom -Force
+  Info "copied roms\ge007.u.z64 to vendor\ge-decomp\baserom.u.z64 for the extractor"
+}
+
 Say "generating the asset sources"
 
 # Order is not stylistic. It was established by building from a clean checkout and every entry
@@ -251,6 +261,14 @@ function Invoke-AssetStep ($marker, $label, $exe, $argv) {
     & $exe @argv 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Die "$label failed" }
   } finally { Pop-Location }
+
+  # And check it actually produced the thing, because an exit code of 0 is not the same claim.
+  # scripts/extract_baserom.u.sh returns 0 with no ROM to read and writes nothing at all, which
+  # is how a missing baserom.u.z64 travelled eleven steps before surfacing as a complaint about
+  # a file two stages further on.
+  if (-not ((Test-Path $full) -or (Get-ChildItem -Path $full -ErrorAction SilentlyContinue))) {
+    Die "$label ran and exited 0 but produced no $marker"
+  }
 }
 
 # Must run BEFORE extraction. The decomp ships 25 of the 34 bg rows with their extract flag at 0
@@ -272,7 +290,13 @@ Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'     
 # `ld -r -b binary`, a GNU extension with no Mach-O equivalent, so the bytes are emitted as C.
 Invoke-AssetStep 'assets\images\ge_images_segment.c'     'images segment'          'python' @("$root\tools\gen_images_segment.py")
 Invoke-AssetStep 'assets\ge_animation_offsets.h'         'animation blobs'         'python' @("$root\tools\gen_anim_blobs.py")
-Invoke-AssetStep 'src\ge_audio_segment.h'                'audio segment'           'python' @("$root\tools\gen_audio_segment.py")
+# The marker is the .c and not the .h, and that distinction is the whole point:
+# 0001-source.patch already carries src/ge_audio_segment.h, and patches are applied five
+# steps before this one. Marking on the header means the header is always present by the
+# time we get here, the generator never runs, and the 1.3 MB array that actually DEFINES
+# geAudioSegment is never written -- which surfaces as an undefined reference from music.c
+# at the final link, long after the step that was silently skipped.
+Invoke-AssetStep 'assets\music\ge_audio_segment.c'        'audio segment'           'python' @("$root\tools\gen_audio_segment.py")
 Invoke-AssetStep 'src\ge_asset_fileview.h'               'asset file views'        'python' @("$root\tools\gen_asset_fileview.py")
 
 # No marker on either of these, for opposite reasons.
@@ -312,14 +336,34 @@ Say "namespacing the asset symbols"
 # trusting a marker this script wrote, because a tree set up by hand from docs/SETUP.md predates
 # any marker and is fully namespaced: a fresh checkout declares `PadRecord padlist[]` in every
 # setup file, and after the pass each carries its own file stem.
+# Two tells, one per shape the pass produces. Setup files take their file stem
+# (`padlist` -> `Ump_setupameZ_padlist`); chr, gun and prop models take their directory
+# (`GFX_PRIMARY_0x48e8` -> `armourguard_Model_GFX_PRIMARY_0x48e8`). Testing only the first would
+# pass a tree whose several hundred models were never touched, and the marker is consulted only
+# when there is no tree to ask -- a marker records that the pass ran, never that it did anything.
 $marker = Join-Path $decomp '.getv-assets-namespaced'
-$setupC = Get-ChildItem "$decomp\assets\obseg\setup\*.c" -ErrorAction SilentlyContinue
+$asked  = $false
 $bare   = $false
-foreach ($f in $setupC) {
-  if (Select-String -Path $f.FullName -Pattern '(^|\s)padlist\[' -Quiet) { $bare = $true; break }
+$setupC = Get-ChildItem "$decomp\assets\obseg\setup\*.c" -ErrorAction SilentlyContinue
+if ($setupC.Count -gt 0) {
+  $asked = $true
+  foreach ($f in $setupC) {
+    if (Select-String -Path $f.FullName -Pattern '(^|\s)padlist\[' -Quiet) { $bare = $true; break }
+  }
+}
+if (-not $bare) {
+  foreach ($d in @('chr','gun','prop')) {
+    $models = Get-ChildItem "$decomp\assets\obseg\$d\*\Model.c" -ErrorAction SilentlyContinue
+    if ($models.Count -eq 0) { continue }
+    $asked = $true
+    foreach ($f in $models) {
+      if (Select-String -Path $f.FullName -Pattern '(^|\s)GFX_PRIMARY_' -Quiet) { $bare = $true; break }
+    }
+    if ($bare) { break }
+  }
 }
 $namespacedNow = $false
-if ((Test-Path $marker) -or (($setupC.Count -gt 0) -and -not $bare)) {
+if (($asked -and -not $bare) -or ((-not $asked) -and (Test-Path $marker))) {
   Info "already namespaced; not running again, which would corrupt it"
   New-Item -ItemType File -Force -Path $marker | Out-Null
 } else {

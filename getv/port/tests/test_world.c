@@ -102,6 +102,18 @@ static void write_gew(const char *dir, const char *level)
 
 static char envbuf[512];
 
+static void cleanup(const char *dir)
+{
+    static const char *names[] = { "good", "badmagic", "badver", "drift", "stub" };
+    char path[512];
+    size_t i;
+
+    for (i = 0; i < sizeof names / sizeof names[0]; i++) {
+        snprintf(path, sizeof path, "%s/%s.gew", dir, names[i]);
+        remove(path);
+    }
+}
+
 int main(void)
 {
     const char *dir = ".";
@@ -194,6 +206,12 @@ int main(void)
     check("good loaded again",           geWorldLoaded(), 1);
     check("then a bad one fails",        geWorldLoad("badmagic"), 0);
     check("  and the old world is gone", geWorldLoaded(), 0);
+
+    /* The fixtures are written next to whatever the runner was launched from, which for the
+     * command the installer prints at the end is the top of the person's clone. Clean them up
+     * rather than leaving five stray .gew files in a fresh checkout. remove() is standard C,
+     * so this costs nothing on the Windows runner either. */
+    cleanup(dir);
 
     printf("\n%s -- %d failure(s)\n", failures ? "FAILED" : "PASSED", failures);
     return failures ? 1 : 0;

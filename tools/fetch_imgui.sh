@@ -158,7 +158,7 @@ for f in "${SOURCES[@]}"; do
   [ -f "$f" ] || { fail=$((fail+1)); echo "  MISSING: $f"; continue; }
   if "$CXX" -c "$f" -o "$OBJDIR/$b.o" \
        ${TARGETFLAGS[@]+"${TARGETFLAGS[@]}"} \
-       -std=c++17 -O2 -fno-exceptions -fno-rtti -fobjc-arc \
+       -std=c++17 -O2 -fPIC -fno-exceptions -fno-rtti -fobjc-arc \
        -I "$SRC" -I "$SRC/backends" ${SDLINC[@]+"${SDLINC[@]}"} \
        -DGL_SILENCE_DEPRECATION -w
   then
