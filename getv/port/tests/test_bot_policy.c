@@ -10,6 +10,23 @@
 
 #include <stdio.h>
 
+/* The engine's navigation graph lives in the decomp behind 0003-port-accessors.patch, so a
+ * single-file test cannot link it. Nothing here exercises routing -- this file does not
+ * mention nav at all -- so an empty graph is the honest stub rather than a convenient one:
+ * count 0 is a real state the route code has to handle, and every query below is what the
+ * accessors return when there is no graph to answer from.
+ *
+ * If a future test does exercise routing, these need replacing with a fixture rather than
+ * extending, because "no graph" and "a graph that says no" are different answers. */
+int gePortNavCount(void) { return 0; }
+int gePortNavAt(int index, int *out_pad, float *out_pos, int *out_group)
+{ (void)index; (void)out_pad; (void)out_pos; (void)out_group; return 0; }
+int gePortNavNearest(float x, float z) { (void)x; (void)z; return -1; }
+int gePortNavNeighbours(int index, int *out, int max)
+{ (void)index; (void)out; (void)max; return 0; }
+int gePortNavRoute(int from, int to, int *out, int max)
+{ (void)from; (void)to; (void)out; (void)max; return 0; }
+
 #include "ge_bot_route.c"
 
 /* ge_bot_route.c reaches for the player, world and enemy APIs. Only the policy is under test, so

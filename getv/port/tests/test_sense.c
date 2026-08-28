@@ -124,6 +124,11 @@ static int   fake_present = 1;
 /* No forward declaration here: GePlayerState is not in scope until the unit under test pulls in
  * ge_player_api.h, and that header already declares gePlayerStateGet. Defining it below the
  * include is enough. */
+/* This file supplies its own gePortUsableCount/At above, so switch off the weak fallbacks
+ * ge_sense_api.c carries for translation units that do not. ELF tolerates a weak definition
+ * sitting alongside a strong one; Mach-O rejects it at compile time as a redefinition, which
+ * is why this only shows up off Windows. The guard already existed for exactly this case. */
+#define GE_SENSE_NO_WEAK_USABLE 1
 #include "ge_sense_api.c"
 
 /* Defined after the include so GePlayerState and GeEnemy are in scope. */

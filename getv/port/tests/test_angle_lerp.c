@@ -12,9 +12,14 @@
 
 static int fails;
 
+/* Reports on the way through rather than only on failure. Silence is not evidence: the runner
+ * counts result lines, and a test that prints nothing when it is happy scores zero checks, which
+ * looks exactly like a test whose body has been deleted. */
 static void check(int cond, const char *what)
 {
-    if (!cond) { printf("  FAIL: %s\n", what); fails++; }
+    if (cond) { printf("  ok    %s\n", what); return; }
+    printf("  FAIL  %s\n", what);
+    fails++;
 }
 
 /* The function under test, mirroring frametiming.c. */

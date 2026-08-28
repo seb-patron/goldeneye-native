@@ -82,8 +82,22 @@ foreach ($t in $tests) {
     continue
   }
 
-  & $exe
-  if ($LASTEXITCODE -eq 0) { $pass++ } else { $fail++; $failed += $t.Name }
+  $out = & $exe 2>&1
+  $rc = $LASTEXITCODE
+  $out | ForEach-Object { Write-Host $_ }
+  $n = @($out | Where-Object { $_ -match '^\s*(ok|OK|PASS|FAIL)' }).Count
+
+  # A test that exits 0 having reported nothing is not a passing test, it is a test that did not
+  # run. Three of these printed only on failure, so they scored zero checks and read as green
+  # beside twelve doing real work; emptying one of their main() bodies would have looked the
+  # same. The exit code cannot tell those apart, so the count is held to as well. Same rule as
+  # run_tests.sh, deliberately, since these are the same tests.
+  if ($rc -eq 0 -and $n -eq 0) {
+    Write-Host "  SILENT  $($t.Name) -- exited 0 but reported no checks: does main() still assert anything?"
+    $fail++; $failed += $t.Name
+    continue
+  }
+  if ($rc -eq 0) { $pass++ } else { $fail++; $failed += $t.Name }
 }
 
 Write-Host ''
