@@ -1,20 +1,23 @@
 --- a/src/game/textrelated.c
 +++ b/src/game/textrelated.c
-@@ -430,7 +430,12 @@
+@@ -430,7 +430,15 @@
  	kerningOffset = font->kerning[prevchar->kerningindex * 13 + curchar->kerningindex] + text_spacing;
      *x -= (kerningOffset - 1);
  
 -    if (text_orientation || (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY()))
-+    /* !gePortTextEnabled(): the real-font overlay is drawing this string instead (queued once
-+     * per string in textRender(), above), so the bitmap glyph itself should not also appear.
-+     * Everything above this line still runs -- the kerning/advancement math the rest of the
-+     * layout depends on. */
-+    if (!gePortTextEnabled() &&
-+        (text_orientation || (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY())))
++    /* text_orientation (rotated text -- the folder tab labels) always draws here, same as
++     * before the overlay existed: it is never queued (see textRender()'s own guard), so
++     * nothing else is going to draw it. Everything else -- the normal horizontal case --
++     * only draws here when the overlay is off or not ready; gePortTextEnabled() draws it
++     * instead (queued once per string in textRender(), above). Everything above this line
++     * still runs regardless -- the kerning/advancement math the rest of the layout depends
++     * on. */
++    if (text_orientation ||
++        (!gePortTextEnabled() && (*x > 0 && *x <= viGetX() && drawY + curchar->baseline <= viGetY())))
      {
          if (clipX + clipWidth >= *x
  				&& clipY + clipHeight >= curchar->baseline + drawY
-@@ -590,7 +595,7 @@
+@@ -590,7 +598,7 @@
      s32 stack3;
      s32 stack4;
      //s32 stack5;
@@ -23,7 +26,7 @@
      g_JpnTextTlutNeedsLoad = 1;
  
      savedx = *x;
-@@ -605,6 +610,16 @@
+@@ -605,6 +613,24 @@
  		lineheight = 14;
  	}
  
@@ -33,26 +36,46 @@
 +     * scale the replacement glyphs to match instead of drawing every call site at one fixed
 +     * size. A no-op unless GETV_REAL_FONTS=1 and the font actually loaded -- see
 +     * ge_text_overlay.c. The loop below still runs unconditionally either way, for its own
-+     * *x/*y advancement, which callers rely on. */
-+    gePortTextQueue(text, *x, *y, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour),
-+                     M_COLOR_A(colour), (int) lineheight);
++     * *x/*y advancement, which callers rely on.
++     *
++     * Skipped entirely when text_orientation is set: that is 90-degree-rotated text (the
++     * folder tab labels are the call site), which this overlay draws horizontally with no
++     * rotation support. Queuing it would draw a second, wrong-orientation copy layered over
++     * the bitmap glyphs below, which keep drawing this case unconditionally regardless of
++     * gePortTextEnabled() for exactly that reason -- see textRenderGlyph()'s own gate. */
++    if (!text_orientation) {
++        gePortTextQueue(text, *x, *y, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour),
++                         M_COLOR_A(colour), (int) lineheight);
++    }
 +
      stack = colour; // ????????????
      gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour), M_COLOR_A(colour));
      
-@@ -683,7 +698,10 @@
+@@ -683,13 +709,21 @@
      kerningOffset = font->kerning[prevchar->kerningindex * 13 + curchar->kerningindex] + text_spacing;
      *x -= (kerningOffset - 1);
  
 -    if (*x > 0
-+    /* !gePortTextEnabled(): same reason as the non-outlined path in textRenderGlyph() above --
++    /* text_orientation: same escape hatch as textRenderGlyph() above, and for the same
++     * reason -- not queued (textRenderOutlined()'s own guard), so nothing else draws it.
++     * The original gate here never special-cased it (unlike textRenderGlyph()'s), which may
++     * just mean outlined rotated text never occurs in practice -- but if it does, this is
++     * the same "always draw, the overlay never claimed it" rule, not a new one.
++     * !gePortTextEnabled(): same reason as the non-outlined path in textRenderGlyph() above --
 +     * textRenderOutlined() already queued this string for the overlay to draw instead. */
-+    if (!gePortTextEnabled()
++    if (text_orientation || (!gePortTextEnabled()
 +            && *x > 0
              && *x <= viGetX()
              && drawY + curchar->baseline <= viGetY()
              && *x <= clipX + clipWidth
-@@ -831,7 +849,7 @@
+             && drawY + curchar->baseline <= clipY + clipHeight
+             && *x >= clipX
+-            && drawY + curchar->baseline + curchar->height >= clipY) {
++            && drawY + curchar->baseline + curchar->height >= clipY)) {
+         if (curchar->index < 0x80) {
+             gDPSetTextureLUT(gdl++, G_TT_NONE);
+             gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
+@@ -831,7 +865,7 @@
      s32 savedx;
      struct fontchar sp74;
      s32 prevchar;
@@ -61,7 +84,7 @@
      g_JpnTextTlutNeedsLoad = 1;
  
      savedx = *x;
-@@ -845,7 +863,16 @@
+@@ -845,7 +879,20 @@
  	if (j_text_trigger != 0 && lineheight < 14) {
  		lineheight = 14;
  	}
@@ -72,9 +95,13 @@
 +     * draws plain, antialiased glyphs rather than reproducing the eight-direction outline
 +     * effect, which is a bitmap-font technique this rendering does not need in the first
 +     * place. lineheight is this call's resolved lineheight, just above -- see textRender()'s
-+     * copy of this same comment for why it travels with the string. */
-+    gePortTextQueue(text, *x, *y, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour),
-+                     M_COLOR_A(colour), (int) lineheight);
++     * copy of this same comment for why it travels with the string.
++     *
++     * Skipped when text_orientation is set -- see textRender()'s copy of this same comment. */
++    if (!text_orientation) {
++        gePortTextQueue(text, *x, *y, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour),
++                         M_COLOR_A(colour), (int) lineheight);
++    }
 +
      while (*text != '\0')
      {
