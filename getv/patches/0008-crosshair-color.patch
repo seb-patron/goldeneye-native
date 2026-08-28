@@ -1,10 +1,19 @@
 --- a/src/game/gunfire.c
 +++ b/src/game/gunfire.c
-@@ -7147,7 +7147,14 @@
+@@ -7213,7 +7213,23 @@
  #ifdef VERSION_EU
          halfedxy[1] = halfedxy[1] * g_GunSightAspectRatio;
  #endif
 -        display_image_at_position(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0x6E, (crosshairimage->level > 0), 0);
++        /* GETV_CROSSHAIR_SCALE (port_support.c). Applied after the aspect corrections above
++         * rather than to the 16.0f literals, so the sight keeps the shape those corrections
++         * give it at any window and only changes size. ge_crosshair_scale defaults to 1.0f,
++         * which is the retail extent exactly. */
++        {
++            extern float ge_crosshair_scale;
++            halfedxy[0] = halfedxy[0] * ge_crosshair_scale;
++            halfedxy[1] = halfedxy[1] * ge_crosshair_scale;
++        }
 +        /* GETV_CROSSHAIR_COLOR (port_support.c): retail always passed 0xFF,0xFF,0xFF here
 +         * (the texture's own colour, unmodified by the RDP multiply). ge_crosshair_r/g/b
 +         * default to the same 0xFF,0xFF,0xFF, so an unset env var is byte-for-byte the

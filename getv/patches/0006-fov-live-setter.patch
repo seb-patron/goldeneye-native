@@ -1,0 +1,50 @@
+--- a/src/fr.c
++++ b/src/fr.c
+@@ -930,17 +930,44 @@
+  * would widen the view and quietly retune aim sensitivity with it -- a gameplay change
+  * wearing a cosmetic option's clothes. So the stored value stays exactly as the game set
+  * it, and only the projection matrix sees the multiplier. */
++static f32 ge_fov_scale = -1.0f;
++
+ f32 gePortFovScale(void)
+ {
+-    static f32 scale = -1.0f;
+-    if (scale < 0.0f) {
++    if (ge_fov_scale < 0.0f) {
+         const char *e = getenv("GETV_FOV");
+         s32 pct = (e && *e) ? (s32) strtol(e, NULL, 10) : 100;
+         if (pct < 50) { pct = 50; }
+         if (pct > 160) { pct = 160; }
+-        scale = (f32) pct / 100.0f;
++        ge_fov_scale = (f32) pct / 100.0f;
+     }
+-    return scale;
++    return ge_fov_scale;
++}
++
++/* Moved ge_fov_scale to file scope for this alone: F5/F6 (gfx_sdl2.c's onkeydown) need to
++ * change FOV live during gameplay, and the projection is already recomputed from
++ * gePortFovScale() fresh every frame per-viewport (this file, viSetupCurrentPlayerView) --
++ * see that comment for why only the multiplier is scaled, never the stored fovy. So making
++ * this live needs nothing downstream to be told to recompute; it already does, every frame,
++ * as a side effect of normal rendering. Bypasses the GETV_FOV environment read entirely
++ * once called -- the keybinding, not the launcher, owns the value from that point on for
++ * this process.
++ *
++ * Originally aimed at an in-game Watch settings page instead of a keybinding; dropped that
++ * route because options.h's WATCH_NUMBER_SCREENS carries an explicit "do not change this
++ * value until player struct is fully shiftable" from the decomp itself, and a live FOV
++ * control does not need a new Watch page to reach this function -- it needs nothing more
++ * than what is here. */
++void gePortSetFovScale(f32 new_scale)
++{
++    if (new_scale < 0.5f) { new_scale = 0.5f; }
++    if (new_scale > 1.6f) { new_scale = 1.6f; }
++    ge_fov_scale = new_scale;
++    /* No fflush(stdout): this file's printf is the decomp's own stdio shadow, not the
++     * real <stdio.h> -- stdout as a FILE* is not declared here, and adding the real
++     * header to a game-batch file is the exact trap $gameFlags's own comment (build
++     * scripts) documents: it lets the real header win over the shadow that is supposed
++     * to for every other translation unit compiled alongside this one. */
+ }
+ #endif

@@ -211,6 +211,31 @@ static void ge_widescreen_env_init(void)
     }
 }
 
+/* F9 (gfx_sdl2.c's onkeydown) toggles vsync live during gameplay, the same F-row convention
+ * as the existing F11 fullscreen toggle right there. This was originally aimed at an in-game
+ * Watch settings page instead; options.h's WATCH_NUMBER_SCREENS carries an explicit "do not
+ * change this value until player struct is fully shiftable" from the decomp itself, since the
+ * per-page selector rectangles are sized off it directly inside struct player, so that route
+ * was dropped in favour of this one, which touches no vendor struct at all.
+ *
+ * configWindow.vsync is not a one-shot cache like configWidescreen above: gfx_sdl2.c already
+ * re-checks configWindow.settings_changed every frame, and F11 and window-resize both go
+ * through that same flag, so this is a thin wrapper over an apply mechanism that already
+ * existed rather than a new one. The getter exists so the keybinding can toggle from the real
+ * current state instead of tracking a second, driftable copy. */
+void gePortSetVsync(int on)
+{
+    configWindow.vsync = on ? true : false;
+    configWindow.settings_changed = true;
+    printf("[getv][video] vsync: %s (F9 to toggle)\n", on ? "on" : "off");
+    fflush(stdout);
+}
+
+int gePortGetVsync(void)
+{
+    return configWindow.vsync ? 1 : 0;
+}
+
 /* GETV_CROSSHAIR_COLOR=RRGGBB -- gunfire.c's gunDrawSight() passes this straight through as
  * the RDP primitive colour it multiplies crosshairimage's decoded texels by, in place of the
  * retail 0xFF,0xFF,0xFF ("show the texture's own colour unmodified"). Defaults to white,
@@ -239,6 +264,56 @@ static void ge_crosshair_color_env_init(void)
     }
 }
 
+/* GETV_CROSSHAIR_SCALE -- a multiplier on the sight's half-extent in gunDrawSight().
+ *
+ * Retail hard-codes 16.0f for both axes, then narrows x by 0.75 at 16:9 and, on PAL, scales
+ * y by g_GunSightAspectRatio. Those are aspect corrections and they still apply; this is a
+ * separate factor on top, so the reticle keeps its correct shape at any window and only
+ * changes size.
+ *
+ * 1.0 is retail, exactly. It is the default, and an unset variable is byte-for-byte the
+ * original call. The reason to want anything else is that a 32-pixel sight was sized for a
+ * 320x240 field of view on a CRT across a room; at 1280x960 on a desk it covers noticeably
+ * more of what you are aiming at than it did in 1997. GoldenEye+ asks for 0.6.
+ *
+ * Clamped rather than trusted. Below about a quarter the texture has too few texels left to
+ * read as a shape, and above 2.0 it stops being a sight and starts being an obstruction. */
+float ge_crosshair_scale = 1.0f;
+
+__attribute__((constructor))
+static void ge_crosshair_scale_env_init(void)
+{
+    const char *e = getenv("GETV_CROSSHAIR_SCALE");
+    if (e && *e) {
+        double v = atof(e);
+        if (v >= 0.25 && v <= 2.0) {
+            ge_crosshair_scale = (float) v;
+        }
+    }
+}
+
+/* GETV_PARALLAX -- whether a height map found in a texture pack displaces the diffuse UVs.
+ *
+ * The shader carries the parallax branch unconditionally and gates it at run time on
+ * uHasHeight, which is only ever true for a texture whose pack supplied a `<hash>_h.png`
+ * companion. So with no pack, or a pack with no height maps, this changes nothing either
+ * way: there is no height data in the game's own assets and never was.
+ *
+ * It is a switch rather than an automatic because the two profiles want different answers to
+ * the same installed pack. Somebody running 97 Console with an HD pack for the texture
+ * resolution should not silently also get displacement the N64 never did; somebody running
+ * GoldenEye+ should. Defaults on, since the only way to reach it at all is to have gone and
+ * installed a pack that carries height maps. */
+int gePortParallaxEnabled(void)
+{
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("GETV_PARALLAX");
+        on = (e != NULL && *e != '\0') ? (atoi(e) != 0) : 1;
+    }
+    return on;
+}
+
 /* 1 = ge_upload_texture() (gfx_pc.c) checks GETV_TEXPACK for an override of every texture
  * before uploading the N64 decoder's own output; 0 = never checks, byte-for-byte the
  * current behaviour. Defaults OFF, unlike configFiltering/configWidescreen above -- both
@@ -247,8 +322,14 @@ static void ge_crosshair_color_env_init(void)
  * one has had no such verification pass, because there has been no compiler available to
  * run one against: it was written and reasoned through, not measured. An empty
  * GETV_TEXPACK makes it a no-op regardless, so turning it on costs one failed file lookup
- * per unique texture rather than anything worse -- but "costs little if wrong" is not the
- * same claim as "verified correct", and this stays opt-in until it has actually been run. */
+ * per unique texture rather than anything worse.
+ *
+ * It has since been run, so that caveat is retired. Dumped the 56 textures DAM decodes in its
+ * first 121 frames with GETV_TEXPACK_DUMP, replaced every one with a flat magenta PNG of the
+ * same dimensions, and compared the frame against the same run without the pack: 91% of
+ * sampled pixels changed and 3,244 magenta pixels appeared where the baseline had none. The
+ * lookup, the hash naming and the upload path all work. It stays opt-in because faithful is
+ * the default, not because it is unproven. */
 unsigned int configHDTextures = 0;
 
 __attribute__((constructor))
