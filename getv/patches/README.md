@@ -12,14 +12,22 @@ Split by *when* they can be applied rather than by subject.
 |---|---|---|---|
 | `0001-source.patch` | 1.4 MB, 140 files | `src/` (131), `include/` (8), `tools/` (1) | immediately after cloning the decomp |
 | `0002-assets.patch` | 212 KB, 8 files | generated asset sources | at the end of the asset pipeline |
-| `0003-port-accessors.patch` | 44 KB, 1 file | `src/game/objective_status.c` | after `0001`, any time before building |
-| `0004-platform-info-native-endian.patch` | 1 file | `include/platform_info.h` | after `0001` |
-| `0005-stan-dead-endian-macros.patch` | 1 file | `src/game/stan.h` | after `0001` |
 | `0006-fov-live-setter.patch` | 1 file | `src/fr.c` | after `0001` |
 | `0007-load-trace.patch` | 1 file | asset load tracing | after `0001` |
 | `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c` | after `0001` |
 | `0009-freerun-divider.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
-| `0010-state-dump-player-position.patch` | 1 file | `src/game/objective_status.c` | after `0003`, whose copy of the file it edits |
+| `0010-state-dump-player-position.patch` | 1 file | `src/game/objective_status.c` | after `0001` |
+
+**0003, 0004 and 0005 are gone, and the gap in the numbering is the point.** They were folded
+into `0001` when it was last refreshed and nobody retired them afterwards, so applying them on
+top of `0001` tried to add lines that were already there and failed with `patch does not
+apply`. That is issue #4: it stopped `tools/install.sh` dead on a fresh clone, and it had been
+broken for everyone who was not working from an already-set-up tree.
+
+Verified before removing them rather than assumed. On a fresh clone with `0001` applied,
+`include/platform_info.h` and `src/game/stan.h` are already byte-identical to a working tree,
+and `src/game/objective_status.c` differs only by what `0010` adds. Nothing in the three was
+still reachable.
 
 **Every patch here must be registered in both `tools/setup.sh` and `tools/setup-mac.sh`.** A
 patch that is committed but never applied by the setup scripts is invisible: the tree builds,
@@ -53,13 +61,24 @@ and applying it before `uniquify_asset_symbols.py` gets the font symbols double-
 
 ## Restore
 
+Every patch, in numeric order, with `0002` last because it needs the generated assets to
+exist. Do not abbreviate this list: it used to stop after `0003`, and a tree missing `0006`
+links with `gePortSetFovScale` undefined, which is issue #5.
+
 ```bash
 cd vendor/ge-decomp
 git apply ../../getv/patches/0001-source.patch
-git apply ../../getv/patches/0003-port-accessors.patch
-# ... run the asset pipeline (docs/SETUP.md 3.5) ...
+git apply ../../getv/patches/0006-fov-live-setter.patch
+git apply ../../getv/patches/0007-load-trace.patch
+git apply ../../getv/patches/0008-crosshair-color.patch
+git apply ../../getv/patches/0009-freerun-divider.patch
+git apply ../../getv/patches/0010-state-dump-player-position.patch
+# ... run the asset pipeline (docs/SETUP.md 3.5) and the namespacing pass (3.6) ...
 git apply ../../getv/patches/0002-assets.patch
 ```
+
+`tools/install.sh` and `tools/install.ps1` do all of this for you, and glob the directory in
+numeric order rather than working from a list, so a patch added later cannot be forgotten.
 
 ## Refresh (before any commit that touches the decomp)
 

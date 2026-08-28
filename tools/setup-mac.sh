@@ -62,26 +62,8 @@ else
     || die "0001-source.patch failed to apply -- checkout may not be pristine"
 fi
 
-if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0003-port-accessors.patch" ) 2>/dev/null; then
-  echo "0003-port-accessors.patch: already applied"
-else
-  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0003-port-accessors.patch" ) \
-    || die "0003-port-accessors.patch failed to apply"
-fi
 
-if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0004-platform-info-native-endian.patch" ) 2>/dev/null; then
-  echo "0004-platform-info-native-endian.patch: already applied"
-else
-  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0004-platform-info-native-endian.patch" ) \
-    || die "0004-platform-info-native-endian.patch failed to apply"
-fi
 
-if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0005-stan-dead-endian-macros.patch" ) 2>/dev/null; then
-  echo "0005-stan-dead-endian-macros.patch: already applied"
-else
-  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0005-stan-dead-endian-macros.patch" ) \
-    || die "0005-stan-dead-endian-macros.patch failed to apply"
-fi
 
 if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0006-fov-live-setter.patch" ) 2>/dev/null; then
   echo "0006-fov-live-setter.patch: already applied"

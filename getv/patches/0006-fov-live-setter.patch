@@ -1,6 +1,6 @@
 --- a/src/fr.c
 +++ b/src/fr.c
-@@ -930,17 +930,44 @@
+@@ -930,18 +930,45 @@
   * would widen the view and quietly retune aim sensitivity with it -- a gameplay change
   * wearing a cosmetic option's clothes. So the stored value stays exactly as the game set
   * it, and only the projection matrix sees the multiplier. */
@@ -20,7 +20,7 @@
      }
 -    return scale;
 +    return ge_fov_scale;
-+}
+ }
 +
 +/* Moved ge_fov_scale to file scope for this alone: F5/F6 (gfx_sdl2.c's onkeydown) need to
 + * change FOV live during gameplay, and the projection is already recomputed from
@@ -46,5 +46,7 @@
 +     * header to a game-batch file is the exact trap $gameFlags's own comment (build
 +     * scripts) documents: it lets the real header win over the shadow that is supposed
 +     * to for every other translation unit compiled alongside this one. */
- }
++}
  #endif
+ 
+ void viSetFovY(f32 fovy)

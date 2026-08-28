@@ -10,7 +10,7 @@
 
 #include <stdio.h>
 
-/* The engine's navigation graph lives in the decomp behind 0003-port-accessors.patch, so a
+/* The engine's navigation graph lives in the decomp behind 0001-source.patch, so a
  * single-file test cannot link it. Nothing here exercises routing -- this file does not
  * mention nav at all -- so an empty graph is the honest stub rather than a convenient one:
  * count 0 is a real state the route code has to handle, and every query below is what the
