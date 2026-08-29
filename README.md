@@ -100,6 +100,7 @@ otherwise.
 | **Windows** (x86-64) | OpenGL | Builds native mingw-w64. Self-test 16 of 16. |
 | **tvOS** (Apple TV) | GL ES or Metal | Builds, signs and deploys to real hardware. |
 | **iOS** | Metal | Bring-up. Builds; deploying needs a paired device. |
+| **Android** (arm64) | GL ES | Bring-up. The port layer builds for arm64 GLES and carries on-screen touch controls as a virtual pad. Not yet a running game. |
 
 Same source tree everywhere. One build script each.
 
@@ -313,7 +314,8 @@ Written plainly, because a README that oversells is worse than one that undersel
   correctly on the file-select screen, so the decode path is sound and the fault is elsewhere.
 - **Select File draws a flat black background** where the original has a faint watermark.
 - **Some multiplayer edge cases** are unenforced on the headless path, including score caps.
-- **tvOS and iOS are bring-up**, not products. They build and deploy; they are not finished.
+- **tvOS, iOS and Android are bring-up**, not products. tvOS and iOS build and deploy; Android
+  has a port layer that compiles for arm64 GLES and touch controls, and has not been run.
 
 [`docs/ROADMAP.md`](docs/ROADMAP.md) carries the full list and what is planned.
 
