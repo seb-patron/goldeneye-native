@@ -54,6 +54,7 @@
 
 #include "port_input.h"
 #include "ge_mouse_accum.h"/* Ports 0..3. gePads[i] != NULL implies gePads[j] != NULL for all j < i (contiguity). */
+#include "ge_android_touch.h"
 static SDL_GameController *gePads[GE_PORT_MAX_PADS];
 static int gePadReal[GE_PORT_MAX_PADS];     /* the pad on this port has sticks + shoulders */
 static int gePadCount   = 0;                /* number of OPEN devices, contiguous from 0 */
@@ -1428,6 +1429,10 @@ static void gePortInputPollPortInner(int port, struct GePadState *out)
      * that pass established. Pumping four times a frame is harmless but wasteful, and
      * it would let the port set CHANGE half way through a single osContGetReadData(). */
  if (port == 0) {
+    /* Android's on-screen pad is an SDL virtual joystick, so it must exist before the
+     * enumeration below looks for devices. Idempotent, compiled out everywhere else. */
+ gePortAndroidTouchInit();
+
         (void)gePortInputPadCount();
  geSynthFrame++;
  geFrontTraceTick(geSynthFrame);
@@ -1482,6 +1487,8 @@ static void gePortInputPollPortInner(int port, struct GePadState *out)
      * on frames that submit a display list. Updating here keeps input correct on any
      * frame the game polls. */
  if (port == 0) {
+        /* Ahead of the update, which is what publishes the virtual pad's axes. */
+ gePortAndroidTouchUpdate();
  SDL_GameControllerUpdate();
     }
 

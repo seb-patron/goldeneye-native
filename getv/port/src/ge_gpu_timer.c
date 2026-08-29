@@ -11,7 +11,11 @@
 # include <GL/glew.h>
 #else
 # define GL_GLEXT_PROTOTYPES 1
-# if defined(__APPLE__) && defined(GE_PLATFORM_MAC)
+# if defined(USE_GLES)
+/* GLES has no <GL/gl.h>. This has to come before the branch below, which reaches for
+ * desktop GL on anything that is not Apple and so caught Android. */
+#  include <GLES3/gl3.h>
+# elif defined(__APPLE__) && defined(GE_PLATFORM_MAC)
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
 # elif !defined(__APPLE__)
@@ -33,8 +37,15 @@
 #include "ge_gpu_timer.h"
 
 /* No GL on this target (RAPI_METAL, or an Apple platform other than macOS): same empty-stub
- * pattern as ge_gl_debug.c right above it in this same investigation. */
-#if !defined(RAPI_GL) || (defined(__APPLE__) && !defined(GE_PLATFORM_MAC))
+ * pattern as ge_gl_debug.c right above it in this same investigation.
+ *
+ * GLES joins them, and for the reason the comment above already gives about GLEW: the
+ * timer needs entry points GLES core does not have. glGetQueryObjectiv is desktop-only,
+ * and the 64-bit result this file reads through glGetQueryObjectui64v is behind
+ * EXT_disjoint_timer_query rather than in GLES 3 itself. Claiming the timer is present
+ * would compile and then fail at the first query, which is exactly what this path exists
+ * to avoid. */
+#if !defined(RAPI_GL) || defined(USE_GLES) || (defined(__APPLE__) && !defined(GE_PLATFORM_MAC))
 int  geGpuTimerEnabled(void) { return 0; }
 void geGpuTimerFrameBegin(void) { }
 void geGpuTimerFrameEnd(void) { }

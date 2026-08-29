@@ -28,6 +28,8 @@
  * Every shift is 64-bit (dsll/dsrl), so the state must be u64. Doing this in 32 bits
  * would produce a completely different sequence.
  */
+#include <stdio.h>   /* the draw-site trace below */
+#include <stdlib.h>
 #include <PR/ultratypes.h>
 
 /* src/random.s: .word 0xAB8D9F77, .word 0x81280783 -- big-endian, so one 64-bit
@@ -41,14 +43,49 @@ static u64 ge_random_step(u64 s)
     return ((mixed >> 20) & 0xfff) ^ mixed;
 }
 
+/* How many times the game has drawn from the shared sequence.
+ *
+ * The lockstep desync detector compares g_randomSeed between machines, so a mismatch says the
+ * two have drawn a different NUMBER of times, or drawn in a different order -- a control-flow
+ * difference, not a data one. Knowing the seed diverged says nothing about where; knowing the
+ * COUNT diverged, and on which tick, names the frame to look at. Cheap enough to leave on: one
+ * increment on a function that is already a multiply and two shifts. */
+static unsigned long ge_random_calls;
+
+unsigned long gePortRandomCallCount(void) { return ge_random_calls; }
+
+/* GETV_RNG_WHO_FROM / GETV_RNG_WHO_TO: print the caller of every draw whose ordinal falls in
+ * that window. The lockstep desync narrows to a single tick on which one machine draws once more
+ * than the other, and the only thing left to learn is which call site that extra draw came from.
+ * A window rather than a tick because this file has no idea what a tick is, and the draw ordinal
+ * is already the number the netplay trace reports. */
+static void ge_random_who(const void *ra)
+{
+    static long lo = -2, hi;
+    if (lo == -2) {
+        const char *a = getenv("GETV_RNG_WHO_FROM");
+        const char *b = getenv("GETV_RNG_WHO_TO");
+        lo = (a != NULL && *a != '\0') ? atol(a) : -1;
+        hi = (b != NULL && *b != '\0') ? atol(b) : -1;
+    }
+    if (lo >= 0 && (long) ge_random_calls >= lo && (hi < 0 || (long) ge_random_calls <= hi)) {
+        printf("[getv][rngwho] draw %lu from %p\n", ge_random_calls, ra);
+        fflush(stdout);
+    }
+}
+
 u32 randomGetNext(void)
 {
+    ge_random_calls++;
+    ge_random_who(__builtin_return_address(0));
     g_randomSeed = ge_random_step(g_randomSeed);
     /* dsll32 then dsra32 is a sign-extension of the low 32 bits; as a u32 return
      * that is simply the low word. */
     return (u32)g_randomSeed;
 }
 
+/* NOT counted: this walks a caller-supplied seed, not the shared one, so it cannot move
+ * g_randomSeed and cannot cause a fingerprint mismatch. crc.c is the only caller. */
 u32 randomGetNextFrom(u64 *seed)
 {
     *seed = ge_random_step(*seed);

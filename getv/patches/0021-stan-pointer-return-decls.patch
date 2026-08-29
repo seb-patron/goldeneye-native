@@ -1,0 +1,25 @@
+diff --git a/src/game/stan.h b/src/game/stan.h
+index f6625f2..55cbf35 100644
+--- a/src/game/stan.h
++++ b/src/game/stan.h
+@@ -118,6 +118,20 @@ Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1);
+ Gfx * sub_GAME_7F0B3024(Gfx *ptrdl, StandTilePoint *tile_point, u32 RGBAColor);
+ s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z);
+ s32 stanTestPointWithinTileBoundsMaybe(StandTile *tile, f32 p_x, f32 p_z);
++
++/* Declared because it returns a POINTER and objective_status.c:2146 assigns it to one.
++ * stan.c:2206 defines it as returning StandTile *, but no header carried that, so every
++ * caller saw an implicit declaration and therefore an int return -- which truncates the
++ * pointer to 32 bits on every 64-bit target this port builds for, not only Android. The
++ * result is then null-checked and dereferenced. This is the truncated-pointer family that
++ * dominates this port's crashes, reached by omission rather than by a cast.
++ *
++ * Found because NDK clang 18 makes an implicit declaration an error; the other three
++ * toolchains are older and only warn, so they have been compiling the truncation silently.
++ * Its neighbour sub_GAME_7F0B1CEC returns s32 and was harmless for the same reason this
++ * one was not. */
++StandTile *sub_GAME_7F0B1CE0(void);
++s32        sub_GAME_7F0B1CEC(void);
+ f32 stanGetPositionYValue(StandTile* tile, f32 p_x, f32 p_z);
+ s32 getCollisionEdge_maybe(coord3d *pntA, coord3d *pntB);
+ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 radius, f32 yThreshold);

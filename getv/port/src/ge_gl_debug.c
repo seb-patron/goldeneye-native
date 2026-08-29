@@ -11,7 +11,11 @@
 # include <GL/glew.h>
 #else
 # define GL_GLEXT_PROTOTYPES 1
-# if defined(__APPLE__) && defined(GE_PLATFORM_MAC)
+# if defined(USE_GLES)
+/* GLES has no <GL/gl.h>. This has to come before the branch below, which reaches for
+ * desktop GL on anything that is not Apple and so caught Android. */
+#  include <GLES3/gl3.h>
+# elif defined(__APPLE__) && defined(GE_PLATFORM_MAC)
 #  include <OpenGL/gl3.h>
 #  include <OpenGL/gl3ext.h>
 # elif !defined(__APPLE__)

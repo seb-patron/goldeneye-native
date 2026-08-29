@@ -33,6 +33,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+/* sqrtf below. Desktop libc headers pull this in behind one of the above; the NDK's do
+ * not, so the call fell through as an implicit declaration and failed to compile for
+ * Android. Declaring what the file actually uses is the fix on every platform. */
+#include <math.h>
 
 #include "ge_world_api.h"
 

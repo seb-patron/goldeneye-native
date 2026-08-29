@@ -279,8 +279,13 @@ void geNetDeliver(const void *data, int len)
         /* Only comparable if it is the tick we last fingerprinted ourselves. */
         if (m.tick == ge_net.last_sync_tick && m.fingerprint != ge_net.last_local_fp) {
             ge_net.stats.desyncs++;
-            printf("[getv][net] DESYNC at tick %lu: peer slot %d reports %08x, we have %08x\n",
-                   m.tick, (int) m.slot, m.fingerprint, ge_net.last_local_fp);
+            {
+                extern unsigned long gePortRandomCallCount(void);
+                printf("[getv][net] DESYNC at tick %lu: peer slot %d reports %08x, "
+                       "we have %08x after %lu draws\n",
+                       m.tick, (int) m.slot, m.fingerprint, ge_net.last_local_fp,
+                       gePortRandomCallCount());
+            }
             fflush(stdout);
         }
         return;
@@ -346,6 +351,29 @@ static void ge_net_send_sync(unsigned long tick)
 
     ge_net.last_sync_tick = tick;
     ge_net.last_local_fp  = gePlayerSeedFingerprint();
+
+    /* GETV_NET_RNGTRACE=1: tick, seed fingerprint and how many times this machine has drawn from
+     * the shared sequence. The fingerprint alone says two machines diverged; it does not say
+     * whether they drew a different NUMBER of times or the same number in a different order, and
+     * those are different bugs. Diff two of these logs and the first tick whose call count
+     * differs is the frame to look at.
+     *
+     * Printed every sync rather than only on a mismatch, because the count can separate before
+     * the seed does: draws that cancel out in the low 32 bits still move the count. */
+    {
+        extern unsigned long gePortRandomCallCount(void);
+        static int tr = -1;
+        if (tr < 0) {
+            const char *e = getenv("GETV_NET_RNGTRACE");
+            tr = (e != NULL && *e != '\0' && *e != '0');
+        }
+        if (tr) {
+            printf("[getv][net] rng tick=%lu slot=%d fp=%08x draws=%lu\n",
+                   tick, (int) ge_net.local_slot, ge_net.last_local_fp,
+                   gePortRandomCallCount());
+            fflush(stdout);
+        }
+    }
 
     memset(&m, 0, sizeof m);
     m.tick        = tick;
