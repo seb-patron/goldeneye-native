@@ -127,27 +127,31 @@ moved in 1997 and the picture is as smooth as your monitor can show.
 
 ## What works
 
-| Area | Current result |
-|---|---|
-| **27 loadable stages** | Every mission the cartridge shipped, plus the multiplayer-only arenas. Counted by [`tools/stage_census.sh`](tools/stage_census.sh), which loads each one and reports. |
-| **Frame rate** | Uncapped, decoupled from game speed. See the table above. |
-| **Widescreen** | Real 16:9, not a stretched 4:3 image. The HUD and the gun sight are corrected for it. |
-| **Mouse and keyboard** | Proper mouse look, tuned and measured. [`docs/MOUSE.md`](docs/MOUSE.md) |
-| **Controllers** | Xbox, PlayStation and MFi pads through SDL2. All 8 retail control styles. |
-| **Split screen** | 2, 3 and 4 players, all 64 characters, the radar, every scenario. |
-| **Bots** | Fightable opponents with skill tiers. [`docs/BOTS.md`](docs/BOTS.md) |
-| **Horde mode** | Waves of enemies. Not in the original. [`docs/COOP.md`](docs/COOP.md) |
-| **HD texture packs** | Drop PNGs named by texture hash into a folder. Verified end to end at 4x. |
-| **Post-processing** | FXAA, MSAA up to 4x, supersampling, anisotropic filtering, mipmaps. |
-| **CRT filter** | Scanlines, mask, curvature and vignette, each adjustable. |
-| **Lua mods** | Scripted mods loaded from a folder. [`docs/MODDING.md`](docs/MODDING.md) |
-| **Launcher** | A window for choosing level, ruleset, cheats and video settings. |
-| **Cheats** | The full retail cheat set, selectable without the unlock grind. |
-| **Saves** | Persistent, in your platform's normal application-data directory. |
-| **Real-font text** | Optional crisp menu text through a TrueType atlas instead of 24-pixel N64 glyphs. Off by default. |
-| **Two renderers** | OpenGL everywhere, plus a native Metal backend on Apple platforms. |
-| **Around 250 settings** | Every development gate is settable by name from the config file or the command line. |
-| **Network play** | Connects and exchanges input. **Desyncs.** See Known limitations. |
+| Feature | State | Detail |
+|---|---|---|
+| **Fixed frame tick** | **Done** | The headline. Uncapped rendering with the world still ticking at 60. Nothing else here is possible without it. |
+| **Mouse and keyboard** | **Done** | The default. Real mouse look, tuned and unit-tested. [`MOUSE.md`](docs/MOUSE.md) |
+| **Controller support** | **Done** | Xbox, PlayStation and MFi pads through SDL2, plugged in and detected. All 8 retail control styles. |
+| **Widescreen and ultrawide** | **Done** | The renderer takes its aspect from the actual framebuffer, so any window shape works, 16:9 through ultrawide. HUD and gun sight corrected. |
+| **27 loadable stages** | **Done** | Every mission the cartridge shipped, plus the multiplayer-only arenas. Counted by [`stage_census.sh`](tools/stage_census.sh). |
+| **Split screen** | **Done** | Two, three and four players, all 64 characters, the radar, every scenario. |
+| **HD texture packs** | **Done** | PNGs named by texture hash, dropped in a folder. Verified end to end at 4x upscale. |
+| **Lua scripting and mod packs** | **Done** | Scripted mods loaded from a folder, with a real API. [`MODDING.md`](docs/MODDING.md) |
+| **Built-in CRT filter** | **Done** | Scanlines, shadow mask, curvature and vignette, each adjustable. No shader pack to install. |
+| **Cheats, built in** | **Done** | The game's own cheat system exposed by name, without the unlock grind. Not GameShark codes. [`CHEATS.md`](docs/CHEATS.md) |
+| **Game mode presets** | **Done** | `classic`, `hardcore`, `survival`, `chaos` and `horde` rulesets, freely combinable. |
+| **Graphics profiles** | **Done** | One switch: `97 Console` for the faithful look, `GoldenEye+` for everything this port adds. |
+| **Coloured reticle** | **Done** | Any RRGGBB, and a smaller modern sight size. How cleanly a colour takes depends on the baked asset. |
+| **Post-processing** | **Done** | FXAA, MSAA to 4x, supersampling, anisotropic filtering, mipmaps, parallax mapping. |
+| **Two renderers** | **Done** | OpenGL everywhere, plus a native Metal backend on Apple platforms. Not MoltenVK. |
+| **Launcher** | **Done** | A window for level, ruleset, cheats and video settings. No config file needed. |
+| **Real-font text** | **Done** | Optional crisp menu text through a TrueType atlas instead of stretched 24-pixel glyphs. Off by default. |
+| **Saves** | **Done** | Persistent, in your platform's normal application-data directory. |
+| **Around 250 settings** | **Done** | Every development gate settable by name, from the config file or the command line. |
+| **Bots** | **Beta** | Fightable opponents with skill tiers that vary five dials, not one. [`BOTS.md`](docs/BOTS.md) |
+| **Horde mode** | **Beta** | Waves of enemies. Never in the original. [`COOP.md`](docs/COOP.md) |
+| **Co-op** | **Beta** | Two to four players through a solo mission's own geometry, objectives and cutscenes. The mission is authored around one Bond, so extra players are present rather than accounted for. |
+| **LAN multiplayer** | **Beta** | Connects, exchanges input, completes a real session over UDP. It also desyncs. Read the limitation before planning an evening around it. [`NETPLAY.md`](docs/NETPLAY.md) |
 
 ## Which game exactly
 
