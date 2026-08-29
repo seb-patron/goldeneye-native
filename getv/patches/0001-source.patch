@@ -34439,10 +34439,10 @@ index cb031cc..251d75c 100644
  
 diff --git a/tools/gen_propdef_layout.py b/tools/gen_propdef_layout.py
 new file mode 100644
-index 0000000..873b337
+index 0000000..6c03cb0
 --- /dev/null
 +++ b/tools/gen_propdef_layout.py
-@@ -0,0 +1,648 @@
+@@ -0,0 +1,676 @@
 +#!/usr/bin/env python3
 +"""Generate src/game/ge_propdef_layout.inc.c -- the N64-file -> native-record map
 +for the setup file's propDef stream.
@@ -34526,10 +34526,13 @@ index 0000000..873b337
 +Re-run this after ANY change to a propDef struct in src/bondtypes.h.
 +"""
 +
-+import os, re, sys, subprocess
++import os, re, sys, shutil, subprocess, tempfile
 +
 +ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-+LAYOUT = os.environ.get('GE_LAYOUT_DUMP', '/tmp/gelayout.txt')
++# tempfile, not '/tmp': that is not a path that exists on Windows, and Python's open()
++# raises FileNotFoundError on it rather than creating anything.
++LAYOUT = os.environ.get('GE_LAYOUT_DUMP',
++                        os.path.join(tempfile.gettempdir(), 'gelayout.txt'))
 +
 +RECORD_STRUCTS = """GuardRecord DoorRecord GlobalDoorScaleRecord ObjectRecord TintedGlassRecord
 +KeyRecord CCTVRecord AmmoCrateRecord WeaponObjRecord MonitorObjRecord MultiMonitorObjRecord
@@ -34571,13 +34574,38 @@ index 0000000..873b337
 +    src += "".join("int ge_sz_%d = sizeof(%s);\n" % (i, n) for i, n in enumerate(RECORD_STRUCTS))
 +    src += "".join("int ge_asz_%d = sizeof(struct %s);\n" % (i, n) for i, n in enumerate(ALIAS_STRUCTS))
 +    src += "int main(void){return 0;}\n"
-+    tu = os.path.join("/tmp", "ge_propdef_layout_probe.c")
++    tu = os.path.join(tempfile.gettempdir(), "ge_propdef_layout_probe.c")
 +    open(tu, "w").write(src)
 +    out = subprocess.run(["clang"] + CFLAGS +
 +                         ["-Xclang", "-fdump-record-layouts", "-fsyntax-only", tu],
 +                         cwd=ROOT, capture_output=True, text=True).stdout
 +    open(LAYOUT, "w").write(out)
 +
++
++# This script needs clang twice -- once for -Xclang -fdump-record-layouts, once for a
++# compile-and-run probe of leaf type sizes -- and Windows has neither clang nor a GCC equivalent
++# (there is no -fdump-record-layouts for C in GCC).
++#
++# That is survivable because 0001-source.patch ships the generated
++# src/game/ge_propdef_layout.inc.c, so a host that cannot regenerate the table already has a
++# correct one. Correct on Windows specifically, not by luck: the only ABI difference that could
++# move these records is LLP64's 4-byte long, pointers being 8 bytes under both LP64 and LLP64 --
++# and a bare long in a propDef record is a hard error a few hundred lines below, so there are
++# none to differ.
++#
++# It says so rather than returning quietly, for the same reason gen_asset_fileview.py does: a
++# generator that silently does nothing is worse than one that is openly absent. Before this
++# guard, a fresh Windows install died right here with FileNotFoundError on '/tmp', after the
++# clone, the ROM copy and twenty minutes of asset extraction had already succeeded.
++if not shutil.which("clang"):
++    _have = os.path.join(ROOT, 'src/game/ge_propdef_layout.inc.c')
++    if os.path.exists(_have):
++        print("skipped regenerating the propDef layout: no clang on this host.\n"
++              "%s ships with the source patch and is what the build uses." % _have)
++        sys.exit(0)
++    sys.stderr.write("gen_propdef_layout.py: FATAL: no clang, and %s does not exist to fall "
++                     "back on\n" % _have)
++    sys.exit(1)
 +
 +if not os.environ.get("GE_LAYOUT_DUMP"):
 +    dump_layouts()
@@ -34717,9 +34745,9 @@ index 0000000..873b337
 +            "Retype it to s32/s64 -- the generator will not guess.")
 +    src = "#include <ultra64.h>\n#include <bondtypes.h>\n#include <stdio.h>\n"
 +    src += "int main(void){printf(\"%%d %%d\\n\",(int)sizeof(%s),(int)_Alignof(%s));return 0;}\n" % (base, base)
-+    tu = "/tmp/ge_pdef_scalar_probe.c"
++    tu = os.path.join(tempfile.gettempdir(), "ge_pdef_scalar_probe.c")
 +    open(tu, "w").write(src)
-+    exe = "/tmp/ge_pdef_scalar_probe"
++    exe = os.path.join(tempfile.gettempdir(), "ge_pdef_scalar_probe")
 +    r = subprocess.run(["clang"] + CFLAGS + [tu, "-o", exe], cwd=ROOT,
 +                       capture_output=True, text=True)
 +    if r.returncode != 0:
