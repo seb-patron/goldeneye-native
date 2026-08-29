@@ -147,7 +147,7 @@ moved in 1997 and the picture is as smooth as your monitor can show.
 
 | Feature | State | Detail |
 |---|---|---|
-| **Fixed frame tick** | **Done** | The headline. Uncapped rendering with the world still ticking at 60. Nothing else here is possible without it. |
+| **Fixed frame tick** | **Done** | Uncapped rendering with the world still ticking at 60. Nothing else here is possible without it. |
 | **Mouse and keyboard** | **Done** | The default. Real mouse look, tuned and unit-tested. [`MOUSE.md`](docs/MOUSE.md) |
 | **Controller support** | **Done** | Xbox, PlayStation and MFi pads through SDL2, plugged in and detected. All 8 retail control styles. |
 | **Widescreen and ultrawide** | **Done** | The renderer takes its aspect from the actual framebuffer, so any window shape works, 16:9 through ultrawide. HUD and gun sight corrected. |
