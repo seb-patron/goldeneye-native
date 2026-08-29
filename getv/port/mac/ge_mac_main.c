@@ -22,15 +22,52 @@ extern int SDL_main(int argc, char *argv[]);
  * osGetCount() and front.c all read their gates on first use. */
 extern int geConfigInit(int argc, char **argv);
 
-/* The launcher, for --launcher or GETV_LAUNCHER=1. Returns 0 to carry on into the game and
- * non-zero if the user closed the window without playing. It normally does not return at
- * all: it sets the environment and execv()s this binary with --launcher removed, because
- * 76 of the GETV_ gates are read once into a static and cannot be changed after the game
- * has started. See getv/port/src/ge_launcher.cpp.
+/* The launcher. Two different UIs share this one call site, chosen at compile time --
+ * this file is NOT macOS-exclusive despite its directory (see the SDL_SetMainReady block
+ * below: the same translation unit also supplies Windows's real main()), and Swift/SwiftUI
+ * only exists in the macOS build, so the choice has to be a preprocessor gate, not a
+ * runtime one.
  *
- * It runs after geConfigInit so that every control opens showing the value the config layer
+ * GE_HAS_NATIVE_LAUNCHER (defined only by project-mac.yml's GCC_PREPROCESSOR_DEFINITIONS --
+ * deliberately NOT the same macro as GE_PLATFORM_MAC, which build_mac.sh's own plain-binary
+ * build also defines despite having no Swift toolchain at all; see that yml's own comment
+ * on the distinction) selects GeNativeLauncher.swift's macOS branch (see that file's own
+ * header comment, and its GeLauncherBridgeRunner class specifically) -- retired here in
+ * favour of the same SwiftUI launcher tvOS/iOS already use, since the settings surface
+ * (Model, via GeLauncherBridge.h) is shared byte-for-byte across every platform's UI
+ * regardless of which one is active. It runs unconditionally:
+ * unlike the old gePortLauncherRun(argc, argv), which only showed a window behind
+ * --launcher/GETV_LAUNCHER (opt-in, because a double-click launch is the common case and a
+ * debug overlay should stay out of the way by default), this always presents the launcher
+ * first -- matching tvOS/iOS, where GeNativeLauncherBridgeRunner has to run unconditionally
+ * because there is no argv to gate on at all. This is a deliberate, visible behaviour
+ * change on macOS specifically: a plain double-click now opens the mission/profile picker
+ * instead of jumping straight to gameplay. GETV_LAUNCHER_AUTOPLAY=1 still skips the window
+ * entirely for scripted/headless runs, exactly as it did before. Declared with `void` (no
+ * argc/argv) to match its real signature -- Swift's @_cdecl export
+ * (`public func gePortNativeLauncherRun() -> Int32`) takes none, since the old --launcher
+ * argv scan has no equivalent here.
+ *
+ * Windows, Linux, and build_mac.sh's own plain-binary macOS build (GE_HAS_NATIVE_LAUNCHER
+ * undefined in all three) keep gePortLauncherRun(argc, argv) -- ge_launcher.cpp's ImGui UI
+ * -- entirely unchanged: no Swift toolchain exists to build the other branch in any of
+ * them, and this pass's scope is the new Xcode-built .app (project-mac.yml) only.
+ *
+ * Both share the same contract: 0 to carry on into the game, non-zero if the user closed
+ * the window without playing (GeLauncherBridgeRunner's NSWindowDelegate conformance is what
+ * detects that outcome on the Swift side). Both fall through into the SAME process either
+ * way on macOS -- the Swift path never execv()s at all (it touches no SDL/GL state -- see
+ * GeNativeLauncherBridgeRunner's own header comment on tvOS/iOS for why that removes the
+ * need relaunch() exists to work around), unlike gePortLauncherRun()'s own GE_PLATFORM_DESKTOP
+ * relaunch() path, which Windows/Linux still take.
+ *
+ * Runs after geConfigInit so that every control opens showing the value the config layer
  * just resolved, rather than a second set of defaults that could disagree with the file. */
+#ifdef GE_HAS_NATIVE_LAUNCHER
+extern int gePortNativeLauncherRun(void);
+#else
 extern int gePortLauncherRun(int argc, char **argv);
+#endif
 
 #if defined(_WIN32)
 /* SDL on Windows defines SDL_MAIN_NEEDED, which means SDL_Init() refuses to run unless
@@ -53,6 +90,10 @@ int main(int argc, char *argv[])
     int rc = geConfigInit(argc, argv);
     if (rc < 0) { return 0; }     /* clean stop: --help / --write-config / --list-cheats */
     if (rc > 0) { return rc; }    /* fatal config error */
+#ifdef GE_HAS_NATIVE_LAUNCHER
+    if (gePortNativeLauncherRun() != 0) { return 0; }
+#else
     if (gePortLauncherRun(argc, argv) != 0) { return 0; }
+#endif
     return SDL_main(argc, argv);
 }

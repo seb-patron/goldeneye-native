@@ -28,7 +28,12 @@
 // GE_PLATFORM_DESKTOP guard in ge_launcher.cpp) or return non-zero to stop.
 #if !targetEnvironment(macCatalyst)
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
 import UIKit
+#endif
+import GameController
 
 private let geBg = Color(red: 0.031, green: 0.035, blue: 0.043)
 private let gePanel = Color(red: 0.075, green: 0.082, blue: 0.098)
@@ -62,7 +67,10 @@ private struct CheatInfo: Identifiable {
 private final class GeLauncherModel: ObservableObject {
     let stages: [StageInfo]
     let rulesets: [String]
-    let mods: [ModInfo]
+    // var, not let: RESCAN (geBridgeRescanMods -> mod_scan) can discover new folders or lose
+    // deleted ones, not just flip existing entries' on/off state -- unlike stages/rulesets/
+    // cheats, which are fixed for the process's whole lifetime.
+    @Published var mods: [ModInfo]
     let cheats: [CheatInfo]
 
     @Published var pickStage: Bool { didSet { geBridgeSetPickStage(pickStage ? 1 : 0) } }
@@ -85,11 +93,88 @@ private final class GeLauncherModel: ObservableObject {
     @Published var hdTextures: Bool { didSet { geBridgeSetHdTextures(hdTextures ? 1 : 0) } }
     @Published var texpackPath: String { didSet { geBridgeSetTexpackPath(texpackPath) } }
 
+    @Published var aniso: Int { didSet { geBridgeSetAniso(Int32(aniso)) } }
+    @Published var filtering: Int { didSet { geBridgeSetFiltering(Int32(filtering)) } }
+    @Published var widescreen: Bool { didSet { geBridgeSetWidescreen(widescreen ? 1 : 0) } }
+    @Published var mipmaps: Bool { didSet { geBridgeSetMipmaps(mipmaps ? 1 : 0) } }
+    @Published var parallax: Bool { didSet { geBridgeSetParallax(parallax ? 1 : 0) } }
+    @Published var crosshairScalePct: Int { didSet { geBridgeSetCrosshairScalePct(Int32(crosshairScalePct)) } }
+    // 0...100, not 0...1 -- matches every other percentage-styled GeStepper on this page
+    // rather than introducing a differently-scaled control just for this one row.
+    @Published var crosshairRPct: Int { didSet { pushCrosshairColor() } }
+    @Published var crosshairGPct: Int { didSet { pushCrosshairColor() } }
+    @Published var crosshairBPct: Int { didSet { pushCrosshairColor() } }
+    private func pushCrosshairColor() {
+        geBridgeSetCrosshairColor(Float(crosshairRPct) / 100.0, Float(crosshairGPct) / 100.0,
+                                   Float(crosshairBPct) / 100.0)
+    }
+    @Published var fullscreen: Bool { didSet { geBridgeSetFullscreen(fullscreen ? 1 : 0) } }
+    @Published var resolution: String { didSet { geBridgeSetResolution(resolution) } }
+    @Published var uncapped: Bool { didSet { geBridgeSetUncapped(uncapped ? 1 : 0) } }
+    @Published var devOverlay: Bool { didSet { geBridgeSetDevOverlay(devOverlay ? 1 : 0) } }
+
+    @Published var rsCustom: Bool { didSet { geBridgeSetRsCustom(rsCustom ? 1 : 0) } }
+    @Published var enemyHealth: Int { didSet { geBridgeSetEnemyHealth(Int32(enemyHealth)) } }
+    @Published var enemyDamage: Int { didSet { geBridgeSetEnemyDamage(Int32(enemyDamage)) } }
+    @Published var enemyAccuracy: Int { didSet { geBridgeSetEnemyAccuracy(Int32(enemyAccuracy)) } }
+    @Published var enemyReaction: Int { didSet { geBridgeSetEnemyReaction(Int32(enemyReaction)) } }
+    @Published var playerHealth: Int { didSet { geBridgeSetPlayerHealth(Int32(playerHealth)) } }
+    @Published var playerArmour: Int { didSet { geBridgeSetPlayerArmour(Int32(playerArmour)) } }
+    @Published var ammoPct: Int { didSet { geBridgeSetAmmoPct(Int32(ammoPct)) } }
+    @Published var explosionDamage: Int { didSet { geBridgeSetExplosionDamage(Int32(explosionDamage)) } }
+    @Published var turretDamage: Int { didSet { geBridgeSetTurretDamage(Int32(turretDamage)) } }
+
+    @Published var mouse: Bool { didSet { geBridgeSetMouse(mouse ? 1 : 0) } }
+    @Published var mouseSens: Int { didSet { geBridgeSetMouseSens(Int32(mouseSens)) } }
+    @Published var mouseInvert: Bool { didSet { geBridgeSetMouseInvert(mouseInvert ? 1 : 0) } }
+    @Published var keyboard: Bool { didSet { geBridgeSetKeyboard(keyboard ? 1 : 0) } }
+
+    @Published var modDir: String { didSet { geBridgeSetModDir(modDir) } }
+
+    // Control bindings: 6 actions x (ALL + 4 players) is a small get/set surface better
+    // served by two methods than by 30 separate @Published fields -- objectWillChange is
+    // sent by hand since these bypass the @Published property wrapper entirely.
+    @Published var bindTab: Int { didSet { geBridgeSetBindTab(Int32(bindTab)) } }
+    let actions: [(label: String, dflt: String)]
+    let sources: [String]
+
+    func bindSlot(action: Int) -> Int {
+        bindTab == 0 ? Int(geBridgeGetBindAll(Int32(action)))
+                      : Int(geBridgeGetBindP(Int32(bindTab - 1), Int32(action)))
+    }
+    /* What this action effectively does if nothing more specific is chosen: the ALL tab's
+     * value when one exists, otherwise the action's own built-in default -- mirrors
+     * ge_launcher.cpp's ImGui page exactly, including on the ALL tab itself, where "eff"
+     * and "default" coincide. */
+    func effectiveBindLabel(action: Int) -> String {
+        let all = Int(geBridgeGetBindAll(Int32(action)))
+        return all >= 0 ? sources[all] : actions[action].dflt
+    }
+    func setBindSlot(action: Int, src: Int) {
+        objectWillChange.send()
+        if bindTab == 0 { geBridgeSetBindAll(Int32(action), Int32(src)) }
+        else { geBridgeSetBindP(Int32(bindTab - 1), Int32(action), Int32(src)) }
+    }
+    func resetBindTab() {
+        objectWillChange.send()
+        geBridgeResetBindTab()
+    }
+
     @Published var modOn: [Bool] {
         didSet { for i in modOn.indices { geBridgeSetModOn(Int32(i), modOn[i] ? 1 : 0) } }
     }
     @Published var cheatOn: [Bool] {
         didSet { for i in cheatOn.indices { geBridgeSetCheatOn(Int32(i), cheatOn[i] ? 1 : 0) } }
+    }
+
+    func rescanMods() {
+        geBridgeRescanMods()
+        var md: [ModInfo] = []
+        for i in 0..<Int(geBridgeModCount()) {
+            md.append(ModInfo(id: i, name: String(cString: geBridgeModName(Int32(i)))))
+        }
+        mods = md
+        modOn = (0..<md.count).map { geBridgeGetModOn(Int32($0)) != 0 }
     }
 
     init() {
@@ -123,6 +208,16 @@ private final class GeLauncherModel: ObservableObject {
         }
         cheats = ch
 
+        var ac: [(label: String, dflt: String)] = []
+        for i in 0..<Int(geBridgeActionCount()) {
+            ac.append((label: String(cString: geBridgeActionLabel(Int32(i))),
+                       dflt: String(cString: geBridgeActionDefault(Int32(i)))))
+        }
+        actions = ac
+        var sc: [String] = []
+        for i in 0..<Int(geBridgeSourceCount()) { sc.append(String(cString: geBridgeSourceName(Int32(i)))) }
+        sources = sc
+
         pickStage = geBridgeGetPickStage() != 0
         stageIdx = Int(geBridgeGetStageIdx())
         profile = Int(geBridgeGetProfile())
@@ -140,6 +235,40 @@ private final class GeLauncherModel: ObservableObject {
         fxaaOn = geBridgeGetFxaa() != 0
         hdTextures = geBridgeGetHdTextures() != 0
         texpackPath = String(cString: geBridgeGetTexpackPath())
+
+        aniso = Int(geBridgeGetAniso())
+        filtering = Int(geBridgeGetFiltering())
+        widescreen = geBridgeGetWidescreen() != 0
+        mipmaps = geBridgeGetMipmaps() != 0
+        parallax = geBridgeGetParallax() != 0
+        crosshairScalePct = Int(geBridgeGetCrosshairScalePct())
+        crosshairRPct = Int((geBridgeGetCrosshairR() * 100.0).rounded())
+        crosshairGPct = Int((geBridgeGetCrosshairG() * 100.0).rounded())
+        crosshairBPct = Int((geBridgeGetCrosshairB() * 100.0).rounded())
+        fullscreen = geBridgeGetFullscreen() != 0
+        resolution = String(cString: geBridgeGetResolution())
+        uncapped = geBridgeGetUncapped() != 0
+        devOverlay = geBridgeGetDevOverlay() != 0
+
+        rsCustom = geBridgeGetRsCustom() != 0
+        enemyHealth = Int(geBridgeGetEnemyHealth())
+        enemyDamage = Int(geBridgeGetEnemyDamage())
+        enemyAccuracy = Int(geBridgeGetEnemyAccuracy())
+        enemyReaction = Int(geBridgeGetEnemyReaction())
+        playerHealth = Int(geBridgeGetPlayerHealth())
+        playerArmour = Int(geBridgeGetPlayerArmour())
+        ammoPct = Int(geBridgeGetAmmoPct())
+        explosionDamage = Int(geBridgeGetExplosionDamage())
+        turretDamage = Int(geBridgeGetTurretDamage())
+
+        mouse = geBridgeGetMouse() != 0
+        mouseSens = Int(geBridgeGetMouseSens())
+        mouseInvert = geBridgeGetMouseInvert() != 0
+        keyboard = geBridgeGetKeyboard() != 0
+
+        modDir = String(cString: geBridgeGetModDir())
+        bindTab = Int(geBridgeGetBindTab())
+
         modOn = (0..<md.count).map { geBridgeGetModOn(Int32($0)) != 0 }
         cheatOn = (0..<ch.count).map { geBridgeGetCheatOn(Int32($0)) != 0 }
     }
@@ -275,25 +404,50 @@ private struct MissionPage: View {
 private struct RulesetPage: View {
     @ObservedObject var m: GeLauncherModel
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            GeSectionTitle(text: "Ruleset")
-            LazyVStack(spacing: 6) {
-                ForEach(m.rulesets.indices, id: \.self) { i in
-                    Button(action: { m.ruleset = i }) {
-                        HStack {
-                            Text(m.rulesets[i].capitalized).foregroundColor(geText).font(.system(size: 16))
-                            Spacer()
-                            if m.ruleset == i {
-                                Image(systemName: "checkmark").foregroundColor(geGoldHi)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                GeSectionTitle(text: "Ruleset")
+                LazyVStack(spacing: 6) {
+                    ForEach(m.rulesets.indices, id: \.self) { i in
+                        Button(action: { m.ruleset = i }) {
+                            HStack {
+                                Text(m.rulesets[i].capitalized).foregroundColor(geText).font(.system(size: 16))
+                                Spacer()
+                                if m.ruleset == i && !m.rsCustom {
+                                    Image(systemName: "checkmark").foregroundColor(geGoldHi)
+                                }
                             }
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .background(m.ruleset == i && !m.rsCustom ? geGold.opacity(0.22) : gePanel)
                         }
-                        .padding(.horizontal, 14).padding(.vertical, 10)
-                        .background(m.ruleset == i ? geGold.opacity(0.22) : gePanel)
+                        .buttonStyle(GeButtonStyle())
                     }
-                    .buttonStyle(GeButtonStyle())
                 }
+
+                Toggle(isOn: $m.rsCustom) {
+                    Text("Override with custom values").foregroundColor(geText)
+                }
+                .padding(.top, 4)
+
+                if m.rsCustom {
+                    Text("Percentages of the original. 100 is unmodified. These replace the preset above.")
+                        .foregroundColor(geDim).font(.system(size: 12))
+                    GePanel {
+                        VStack(spacing: 14) {
+                            GeStepper(label: "Enemy health", value: $m.enemyHealth, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Enemy damage", value: $m.enemyDamage, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Enemy accuracy", value: $m.enemyAccuracy, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Enemy reaction", value: $m.enemyReaction, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Player health", value: $m.playerHealth, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Player armour", value: $m.playerArmour, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Ammo", value: $m.ammoPct, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Explosions", value: $m.explosionDamage, range: 10...500, step: 10, suffix: "%")
+                            GeStepper(label: "Turrets", value: $m.turretDamage, range: 10...500, step: 10, suffix: "%")
+                        }
+                    }
+                }
+                Spacer()
             }
-            Spacer()
         }
     }
 }
@@ -319,10 +473,190 @@ private struct HordePage: View {
     }
 }
 
+private struct ControlBindRow: View {
+    @ObservedObject var m: GeLauncherModel
+    let action: Int
+
+    var body: some View {
+        let slot = m.bindSlot(action: action)
+        let unsetLabel = m.bindTab == 0
+            ? "default (\(m.actions[action].dflt))"
+            : "same as all (\(m.effectiveBindLabel(action: action)))"
+        let previewLabel = slot >= 0 ? m.sources[slot] : unsetLabel
+
+        HStack {
+            Text(m.actions[action].label).foregroundColor(geText).font(.system(size: 15))
+            Spacer()
+            Menu {
+                Button(unsetLabel) { m.setBindSlot(action: action, src: -1) }
+                Divider()
+                ForEach(m.sources.indices, id: \.self) { s in
+                    Button(m.sources[s]) { m.setBindSlot(action: action, src: s) }
+                }
+            } label: {
+                Text(previewLabel)
+                    .font(.system(size: 14))
+                    .foregroundColor(geGoldHi)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(gePanel)
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct ControlsPage: View {
+    @ObservedObject var m: GeLauncherModel
+
+    /* Fixed, not rebindable (port_input.c's keyboard map has no remap layer) -- shown as a
+     * reference rather than a control, mirroring ge_launcher.cpp's own ImGui page: the
+     * campaign was unfinishable from the keyboard until USE existed and nothing on screen
+     * said which key that was. */
+    static let keyboardReference: [(String, String)] = [
+        ("W A S D", "move"),
+        ("Arrow keys", "look"),
+        ("Space / L-Ctrl", "fire"),
+        ("Q", "aim"),
+        ("E or F", "use"),
+        ("R or Return", "inventory"),
+        ("Z / X", "crouch (L / R)"),
+        ("I J K L", "d-pad"),
+        ("Tab", "start"),
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                mouseKeyboardSection
+                bindingsHeaderSection
+                actionsSection
+                footerSection
+            }
+        }
+    }
+
+    /* body is split into these four sections -- and each of THOSE stays a handful of
+     * children -- rather than one flat 12-child VStack: SwiftUI's @ViewBuilder resolves a
+     * block above its built-in child-count ceiling into `EmptyView` in some toolchain
+     * configurations, with NO compile error and NO runtime crash, just silently missing
+     * content. Measured directly on this machine: the six action rows below simply did not
+     * appear -- confirmed via a temporary child-count debug label, then confirmed again by
+     * swapping the real Menu-based row for a plain Text (ruling out Menu as the cause) --
+     * until the body was split like this. */
+    private var mouseKeyboardSection: some View {
+        Group {
+            GeSectionTitle(text: "Mouse and Keyboard")
+            GePanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $m.mouse) { Text("Mouse look").foregroundColor(geText) }
+                    if m.mouse {
+                        GeStepper(label: "Sensitivity", value: $m.mouseSens, range: 10...400, suffix: "%")
+                        Toggle(isOn: $m.mouseInvert) { Text("Invert Y").foregroundColor(geText) }
+                    }
+                }
+            }
+            GePanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $m.keyboard) { Text("Keyboard").foregroundColor(geText) }
+                    if m.keyboard {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(ControlsPage.keyboardReference.enumerated()), id: \.offset) { _, row in
+                                HStack {
+                                    Text(row.0).foregroundColor(geGold).font(.system(size: 13, weight: .semibold))
+                                        .frame(width: 140, alignment: .leading)
+                                    Text(row.1).foregroundColor(geDim).font(.system(size: 13))
+                                }
+                            }
+                        }
+                        Text("Fixed, not rebindable -- a key is indistinguishable from a thumb on a stick by the time the game sees it.")
+                            .foregroundColor(geDim).font(.system(size: 11))
+                    }
+                }
+            }
+        }
+    }
+
+    private var bindingsHeaderSection: some View {
+        Group {
+            GeSectionTitle(text: "Bindings For")
+            HStack(spacing: 6) {
+                ForEach(Array(["ALL", "P1", "P2", "P3", "P4"].enumerated()), id: \.offset) { i, label in
+                    Button(action: { m.bindTab = i }) {
+                        Text(label)
+                            .font(.system(size: 13, weight: m.bindTab == i ? .bold : .regular))
+                            .foregroundColor(m.bindTab == i ? geGoldHi : geDim)
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .background(m.bindTab == i ? geGold.opacity(0.15) : gePanel)
+                    }
+                    .buttonStyle(GeButtonStyle())
+                }
+            }
+            Text(m.bindTab == 0
+                 ? "Applies to every player. A player with its own choice below overrides this one."
+                 : "Applies to this player only. Anything left on \"same as all\" follows the ALL tab.")
+                .foregroundColor(geDim).font(.system(size: 12))
+        }
+    }
+
+    private var actionsSection: some View {
+        Group {
+            GeSectionTitle(text: "Actions")
+            GePanel {
+                VStack(spacing: 4) {
+                    ForEach(m.actions.indices, id: \.self) { a in
+                        ControlBindRow(m: m, action: a)
+                    }
+                }
+            }
+        }
+    }
+
+    private var footerSection: some View {
+        Group {
+            Button(action: { m.resetBindTab() }) {
+                Text("RESET THIS TAB")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(geText)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(gePanel)
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+            }
+            .buttonStyle(GeButtonStyle())
+
+            Text("Button names are positional, not printed labels. \"a\" is always the bottom face button, including on Nintendo pads where it is marked B.")
+                .foregroundColor(geDim).font(.system(size: 12))
+            Text("Crouch is deliberately absent -- in the two-controller styles it is controller 2's stick Y crossing +/-30 while aiming, not a button.")
+                .foregroundColor(geDim).font(.system(size: 12))
+            Spacer()
+        }
+    }
+}
+
 private struct ModsPage: View {
     @ObservedObject var m: GeLauncherModel
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            GeSectionTitle(text: "Mod directory")
+            GePanel {
+                HStack(spacing: 10) {
+                    TextField("mods", text: $m.modDir)
+                        .foregroundColor(geText)
+                        .padding(10)
+                        .background(gePanel)
+                        .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+                    Button(action: { m.rescanMods() }) {
+                        Text("RESCAN")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(geText)
+                            .padding(.horizontal, 16).padding(.vertical, 10)
+                            .background(gePanel)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+                    }
+                    .buttonStyle(GeButtonStyle())
+                }
+            }
+
             GeSectionTitle(text: m.mods.isEmpty ? "Mods (none found)" : "Mods")
             ScrollView {
                 LazyVStack(spacing: 6) {
@@ -374,32 +708,132 @@ private struct CheatsPage: View {
 private struct VideoPage: View {
     @ObservedObject var m: GeLauncherModel
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            GeSectionTitle(text: "Video")
+        ScrollView {
+            // Split into sections rather than one flat VStack -- see ControlsPage's
+            // identical comment (mouseKeyboardSection) for why: this page has enough
+            // GeSectionTitle+GePanel pairs to hit the same silent-EmptyView ceiling, and
+            // three of these WERE silently missing on-screen (HD Textures, Crosshair,
+            // Developer) before this split, confirmed on this machine the same way.
+            VStack(alignment: .leading, spacing: 16) {
+                displaySection
+                imageQualitySection
+                filteringSection
+                timingSection
+                hdTexturesSection
+                crosshairSection
+                developerSection
+                Spacer()
+            }
+        }
+    }
+
+    #if os(macOS)
+    // Desktop-only concepts -- tvOS is always fullscreen on the TV and iOS is always
+    // fullscreen on the device, so neither platform's ge_launcher.cpp ImGui page showed
+    // these either (they sit behind the same GE_PLATFORM_DESKTOP world this file's own
+    // macOS branch belongs to).
+    private var displaySection: some View {
+        Group {
+            GeSectionTitle(text: "Display")
             GePanel {
-                /* Supersample, MSAA and FXAA are NOT here: gfx_metal.mm's own header
-                 * comment lists supersample/CRT/FXAA post-processing as unimplemented
-                 * "KNOWN v1 GAPS" on this renderer -- the game's shared gfx_pc.c never
-                 * even sets gfx_supersample above 1 under RAPI_METAL (only
-                 * gfx_opengl.c's now-inert-here code path does), and GETV_MSAA is read
-                 * inside an explicit #ifndef RAPI_METAL block in gfx_sdl2.c. tvOS and
-                 * iOS are both always Metal here, so exposing sliders for settings that
-                 * silently do nothing would just be misleading -- confirmed by directly
-                 * testing GETV_SUPERSAMPLE=2/GETV_MSAA=4/GETV_ANISO=8 against a real
-                 * level load on the iOS Simulator: identical triangle counts and
-                 * geometry to the same run without them. Field of view and the frame
-                 * rate cap are ordinary gameplay/pacing settings with no renderer
-                 * dependency, so they stay. */
-                VStack(spacing: 14) {
-                    GeStepper(label: "Field of view", value: $m.fov, range: 60...140, step: 5)
-                    GeStepper(label: "Frame rate cap", value: $m.framerate, range: 30...60, step: 30, suffix: " fps")
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Resolution").foregroundColor(geDim).font(.system(size: 13))
+                        TextField("1280x960", text: $m.resolution)
+                            .foregroundColor(geText)
+                            .padding(10)
+                            .background(gePanel)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+                    }
+                    Toggle(isOn: $m.fullscreen) {
+                        Text("Fullscreen").foregroundColor(geText)
+                    }
                 }
             }
+        }
+    }
+    #else
+    private var displaySection: some View { EmptyView() }
+    #endif
 
-            /* Unlike supersample/MSAA/FXAA above, HD textures go through gfx_pc.c's
-             * backend-agnostic ge_texpack_try_override() -> GfxRenderingAPI.upload_texture,
-             * which gfx_metal.mm implements fully -- this is real on tvOS/iOS today, not a
-             * renderer gap, so it belongs on this page regardless of backend. */
+    private var imageQualitySection: some View {
+        Group {
+            GeSectionTitle(text: "Image Quality")
+            GePanel {
+                /* Supersample, MSAA, FXAA and anisotropic filtering all render for real
+                 * under gfx_metal.mm's offscreen-postfx path -- tvOS and iOS are both
+                 * always Metal, and Mac's OpenGL path has always supported all four
+                 * natively, so these are live controls on every platform, not a
+                 * renderer-specific gap to hide. Ranges match ge_launcher.cpp's own
+                 * ImGui sliders (supersample 1-2, MSAA/aniso 0-8/0-16) rather than
+                 * gfx_metal_init's wider 1-4 supersample clamp, since 2x is already the
+                 * practical ceiling anyone would actually choose. */
+                VStack(spacing: 14) {
+                    GeStepper(label: "Supersampling", value: $m.supersample, range: 1...2, suffix: "x")
+                    GeStepper(label: "MSAA", value: $m.msaa, range: 0...8, suffix: "x")
+                    GeStepper(label: "Anisotropic filtering", value: $m.aniso, range: 0...16, suffix: "x")
+                    GeStepper(label: "Field of view", value: $m.fov, range: 60...140, step: 5)
+                }
+                Toggle(isOn: $m.fxaaOn) {
+                    Text("FXAA").foregroundColor(geText)
+                }
+                .padding(.top, 4)
+                Toggle(isOn: $m.mipmaps) {
+                    Text("Mipmapping").foregroundColor(geText)
+                }
+                Toggle(isOn: $m.widescreen) {
+                    Text("Widescreen").foregroundColor(geText)
+                }
+            }
+        }
+    }
+
+    private var filteringSection: some View {
+        Group {
+            GeSectionTitle(text: "Texture Filtering")
+            GePanel {
+                HStack(spacing: 10) {
+                    ForEach(Array(["Nearest", "Bilinear", "Three-point"].enumerated()), id: \.offset) { i, label in
+                        Button(action: { m.filtering = i }) {
+                            Text(label)
+                                .font(.system(size: 13, weight: m.filtering == i ? .bold : .regular))
+                                .foregroundColor(m.filtering == i ? geGoldHi : geText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(m.filtering == i ? geGold.opacity(0.22) : gePanel)
+                                .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
+                        }
+                        .buttonStyle(GeButtonStyle())
+                    }
+                }
+                Text("Three-point is what the N64's own RDP did: soft rather than blurry.")
+                    .foregroundColor(geDim).font(.system(size: 12)).padding(.top, 4)
+            }
+        }
+    }
+
+    private var timingSection: some View {
+        Group {
+            GeSectionTitle(text: "Timing")
+            GePanel {
+                Toggle(isOn: $m.uncapped) {
+                    Text("Uncapped (high refresh)").foregroundColor(geText)
+                }
+                if !m.uncapped {
+                    GeStepper(label: "Frame rate cap", value: $m.framerate, range: 30...60, step: 30, suffix: " fps")
+                        .padding(.top, 8)
+                }
+            }
+        }
+    }
+
+    private var hdTexturesSection: some View {
+        Group {
+            /* Unlike the image-quality controls above, HD textures go through
+             * gfx_pc.c's backend-agnostic ge_texpack_try_override() ->
+             * GfxRenderingAPI.upload_texture, which gfx_metal.mm implements fully --
+             * this is real on tvOS/iOS today, not a renderer gap, so it belongs on
+             * this page regardless of backend. */
             GeSectionTitle(text: "HD Textures")
             GePanel {
                 VStack(alignment: .leading, spacing: 14) {
@@ -415,10 +849,46 @@ private struct VideoPage: View {
                                 .background(gePanel)
                                 .overlay(RoundedRectangle(cornerRadius: 3).stroke(geLine, lineWidth: 1))
                         }
+                        Toggle(isOn: $m.parallax) {
+                            Text("Parallax from pack height maps").foregroundColor(geText)
+                        }
                     }
                 }
             }
-            Spacer()
+        }
+    }
+
+    private var crosshairSection: some View {
+        Group {
+            GeSectionTitle(text: "Crosshair")
+            GePanel {
+                VStack(spacing: 14) {
+                    GeStepper(label: "Reticle size", value: $m.crosshairScalePct, range: 25...200, suffix: "%")
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color(red: Double(m.crosshairRPct) / 100.0,
+                                        green: Double(m.crosshairGPct) / 100.0,
+                                        blue: Double(m.crosshairBPct) / 100.0))
+                            .frame(width: 28, height: 28)
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(geLine, lineWidth: 1))
+                        Text("Color").foregroundColor(geDim).font(.system(size: 13))
+                    }
+                    GeStepper(label: "Red", value: $m.crosshairRPct, range: 0...100, suffix: "%")
+                    GeStepper(label: "Green", value: $m.crosshairGPct, range: 0...100, suffix: "%")
+                    GeStepper(label: "Blue", value: $m.crosshairBPct, range: 0...100, suffix: "%")
+                }
+            }
+        }
+    }
+
+    private var developerSection: some View {
+        Group {
+            GeSectionTitle(text: "Developer")
+            GePanel {
+                Toggle(isOn: $m.devOverlay) {
+                    Text("Show developer overlay in game").foregroundColor(geText)
+                }
+            }
         }
     }
 }
@@ -454,12 +924,13 @@ private struct ProfilePage: View {
 // MARK: - Root
 
 private enum GePage: Int, CaseIterable {
-    case mission, ruleset, horde, mods, cheats, video, profile
+    case mission, ruleset, horde, controls, mods, cheats, video, profile
     var title: String {
         switch self {
         case .mission: return "Mission"
         case .ruleset: return "Ruleset"
         case .horde: return "Horde"
+        case .controls: return "Controls"
         case .mods: return "Mods"
         case .cheats: return "Cheats"
         case .video: return "Video"
@@ -467,6 +938,44 @@ private enum GePage: Int, CaseIterable {
         }
     }
 }
+
+#if os(tvOS)
+/* tvOS-only: unlike iOS (gePortVirtualControllerInit/ge_virtual_controller.mm falls back to
+ * a real on-screen GCVirtualController when nothing physical is paired) and Mac (mouse and
+ * keyboard always work), tvOS has NO fallback input path at all -- Siri Remote can navigate
+ * this launcher's own focus-driven UI just fine, but the actual gameplay needs real analog
+ * sticks port_input.c's geControllerIsReal() gate requires, which the remote cannot provide.
+ * A first-time player who has never paired a controller would reach a game that silently
+ * does nothing the moment they press Start Mission, with no signal anywhere about why. This
+ * banner is that signal: live, not just a one-time check, since a player may plausibly open
+ * the launcher, walk over to pair a controller, and come back without relaunching. */
+private struct ControllerStatusBanner: View {
+    @State private var hasController = !GCController.controllers().isEmpty
+
+    var body: some View {
+        Group {
+            if !hasController {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(geGold)
+                    Text("No game controller paired. The Siri Remote can browse this menu, but gameplay needs a real controller -- pair one from tvOS Settings, then come back here.")
+                        .foregroundColor(geText)
+                        .font(.system(size: 14))
+                }
+                .padding(.horizontal, 24).padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(geGold.opacity(0.15))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .GCControllerDidConnect)) { _ in
+            hasController = !GCController.controllers().isEmpty
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .GCControllerDidDisconnect)) { _ in
+            hasController = !GCController.controllers().isEmpty
+        }
+    }
+}
+#endif
 
 private struct GeLauncherView: View {
     @StateObject private var m = GeLauncherModel()
@@ -513,6 +1022,10 @@ private struct GeLauncherView: View {
                 .padding(.horizontal, 24).padding(.vertical, 10)
                 .background(gePanel)
 
+                #if os(tvOS)
+                ControllerStatusBanner()
+                #endif
+
                 HStack(spacing: 0) {
                     // Nav rail. Scrollable, not a bare VStack: seven pages at any
                     // reasonable padding overflow an iPhone's landscape height (as low
@@ -551,6 +1064,7 @@ private struct GeLauncherView: View {
                         case .mission: MissionPage(m: m)
                         case .ruleset: RulesetPage(m: m)
                         case .horde: HordePage(m: m)
+                        case .controls: ControlsPage(m: m)
                         case .mods: ModsPage(m: m)
                         case .cheats: CheatsPage(m: m)
                         case .video: VideoPage(m: m)
@@ -586,8 +1100,118 @@ private struct GeLauncherView: View {
     }
 }
 
-// MARK: - Bridge to ge_tvos_main.c
+// MARK: - Bridge to ge_tvos_main.c / ge_mac_main.c
 
+#if os(macOS)
+// macOS has no focus-engine equivalent of tvOS's UIFocusSystem seeding problem (mouse/
+// keyboard/trackpad hit-testing and tab-order focus are both live the moment a window is
+// key, with no separate "nothing is focused yet" state to seed) and no scene delegate to
+// hand a window to -- SDL itself never runs NSApplicationMain-equivalent setup either, so
+// this is the first code in this whole port that has to bring up AppKit by hand. Conforms
+// to NSWindowDelegate to detect the user closing the window via the red button, which is a
+// real possible outcome on desktop unlike on tvOS/iOS: gePortLauncherRun()'s own documented
+// contract (ge_mac_main.c's header comment) is "0 to carry on into the game, non-zero if
+// the user closed the window without playing" -- this preserves that contract exactly, so
+// ge_mac_main.c needs no changes beyond which function it calls.
+private final class GeLauncherBridgeRunner: NSObject, NSWindowDelegate {
+    static let shared = GeLauncherBridgeRunner()
+    private var window: NSWindow?
+    private var finished = false
+    private var closedWithoutStarting = false
+
+    func windowWillClose(_ notification: Notification) {
+        closedWithoutStarting = true
+    }
+
+    func run() -> Int32 {
+        // See the iOS/tvOS branch below for why GETV_LAUNCHER_AUTOPLAY short-circuits
+        // identically here: automated boots need no window to tap, and model_load()+
+        // model_store() alone already reproduce what a real "Start Mission" click leaves
+        // behind. Unlike the old ImGui gePortLauncherRun(), this path is unconditional --
+        // there is no argv/--launcher gate here (see this file's own top-of-class note on
+        // that behaviour change) -- so this is the ONLY early-exit before a window shows.
+        if ProcessInfo.processInfo.environment["GETV_LAUNCHER_AUTOPLAY"] == "1" {
+            geBridgeLoad()
+            geBridgeSave()
+            return 0
+        }
+
+        // A bare command-line-style main() (port/mac/ge_mac_main.c) never triggers AppKit's
+        // usual application-lifecycle bootstrap the way an Xcode @main App or a nib-based
+        // NSApplicationMain() would -- NSApp.shared lazily creates the shared instance, but
+        // it starts as a background/accessory-style app with no Dock icon and cannot become
+        // key/frontmost until its activation policy says so.
+        //
+        // NSApplication.shared, not the NSApp global, deliberately: NSApp is populated as a
+        // SIDE EFFECT of NSApplication.shared (or the ObjC +sharedApplication) having been
+        // called at least once -- it is not itself what performs that lazy setup. A normal
+        // .app bootstrapped via NSApplicationMain()/the SwiftUI App protocol always calls it
+        // for you before your own code runs, so NSApp is never seen unpopulated there. This
+        // bare main() (ge_mac_main.c) has no such caller, so referencing the NSApp global
+        // FIRST crashed with "Unexpectedly found nil while implicitly unwrapping an
+        // Optional value" (confirmed on this exact Mac via lldb). Calling
+        // NSApplication.shared here performs that lazy setup itself; NSApp is safe to use
+        // for the rest of this function afterward, but app is used throughout instead so
+        // nothing here depends on that ordering again.
+        let app = NSApplication.shared
+        app.setActivationPolicy(.regular)
+        app.activate(ignoringOtherApps: true)
+
+        finished = false
+        closedWithoutStarting = false
+        let view = GeLauncherView(onStart: { [weak self] in self?.finished = true })
+
+        // Centered, clamped to the visible screen rather than a fixed design size -- the
+        // seven-page/two-column layout wants real width, but a window requested larger
+        // than the display just gets clipped off-screen rather than resized to fit.
+        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
+        let w = min(1180, screenFrame.width - 60)
+        let h = min(760, screenFrame.height - 60)
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: w, height: h),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered, defer: false)
+        newWindow.title = "GoldenEye 007"
+        newWindow.isReleasedWhenClosed = false
+        // NSHostingController sizes itself to its SwiftUI content's own fitting size, and
+        // assigning it as contentViewController resizes the window to match THAT -- unlike
+        // UIHostingController on iOS/tvOS, which just fills whatever UIWindow bounds it's
+        // given. Without the explicit .frame below, GeLauncherView's own ideal size (nothing
+        // here declares one) collapses the window down to a few hundred points on the real
+        // Mac this was tested on. minWidth/minHeight matched to (w,h) below makes the
+        // fitting-size calculation resolve to the size this function actually asked for;
+        // setContentSize afterward is belt-and-suspenders against any rounding in that
+        // calculation, not a substitute for it.
+        newWindow.contentViewController = NSHostingController(
+            rootView: view.frame(minWidth: w, idealWidth: w, minHeight: h, idealHeight: h))
+        newWindow.setContentSize(NSSize(width: w, height: h))
+        newWindow.center()
+        newWindow.delegate = self
+        newWindow.makeKeyAndOrderFront(nil)
+        window = newWindow
+
+        // Manual Cocoa event pump, playing the same role as the UIKit branch's
+        // CFRunLoopRunInMode loop below: this function is called synchronously from
+        // SDL_main() (via ge_mac_main.c's main(), before SDL itself initializes), so
+        // nothing else is pumping NSApplication's event queue yet -- there is no
+        // NSApp.run() anywhere in this process. NSApp.run() itself is deliberately NOT
+        // used here: it does not return until the whole application terminates, not just
+        // until this one window closes, which is the wrong lifetime for a launcher that
+        // has to hand control back to this same function's caller.
+        while !finished && !closedWithoutStarting {
+            if let event = app.nextEvent(matching: .any, until: Date().addingTimeInterval(0.1),
+                                          inMode: .default, dequeue: true) {
+                app.sendEvent(event)
+            }
+        }
+
+        window?.delegate = nil
+        if !closedWithoutStarting { window?.close() }
+        window = nil
+        return closedWithoutStarting ? 1 : 0
+    }
+}
+#else
 private final class GeLauncherBridgeRunner {
     static let shared = GeLauncherBridgeRunner()
     private var window: UIWindow?
@@ -688,6 +1312,7 @@ private final class GeLauncherBridgeRunner {
         return 0
     }
 }
+#endif
 
 @_cdecl("gePortNativeLauncherRun")
 public func gePortNativeLauncherRun() -> Int32 {

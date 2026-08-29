@@ -1,0 +1,125 @@
+name: Goldeneye-Native-Mac
+options:
+  bundleIdPrefix: org.goldeneyenative
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+targets:
+  Goldeneye-Native-Mac:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      # Shared verbatim with tvOS/iOS -- defines SDL_main(), has nothing UIKit-specific in
+      # it (see that file's own header comment). port/mac/ge_mac_main.c supplies the real
+      # main() this platform actually needs (no UIApplicationMain to get in the way, unlike
+      # tvOS/iOS's libSDL2main.a-driven entry).
+      - path: Sources/ge_tvos_main.c
+      - path: port/mac/ge_mac_main.c
+      # The native SwiftUI launcher -- GeNativeLauncher.swift's #if os(macOS) branch. Same
+      # file as tvOS/iOS on purpose: one Model, one set of Page views, one place to fix a
+      # bug in either -- only the window-hosting class (GeLauncherBridgeRunner) forks per
+      # platform, and that fork lives inside the file itself, not as a separate file here.
+      - path: Sources/GeNativeLauncher.swift
+      # Folder reference, NOT a group -- same bundled test pack as tvOS/iOS's project.yml,
+      # see that file's comment for why this needs no source change to be found. HD
+      # textures go through the SAME backend-agnostic ge_texpack_try_override() path
+      # regardless of platform.
+      - path: Resources/hdtextures
+        type: folder
+    info:
+      path: Sources/Info-Mac.plist
+      properties:
+        CFBundleDisplayName: GoldenEye 007
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        LSApplicationCategoryType: public.app-category.action-games
+        LSMinimumSystemVersion: "13.0"
+        # Without this, AppKit renders the app's own content (this SwiftUI launcher
+        # window, and later the game's own NSOpenGL/Metal window) at half resolution on a
+        # Retina display and lets the system upscale it -- the same class of blurriness
+        # UILaunchScreen's absence caused on iOS (project_ios.yml's own comment), just
+        # macOS's version of the opt-in.
+        NSHighResolutionCapable: true
+        # MANDATORY -- see project.yml's identical tvOS comment; same TCC crash class.
+        # SDL2 links CoreBluetooth for MFi/HIDAPI controller discovery on every Apple
+        # platform this port targets, macOS included.
+        NSBluetoothAlwaysUsageDescription: >-
+          GoldenEye 007 uses Bluetooth to connect game controllers.
+        NSMicrophoneUsageDescription: >-
+          Not used; required because the audio system enumerates input devices.
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        SWIFT_OBJC_BRIDGING_HEADER: port/src/GeLauncherBridge.h
+        PRODUCT_BUNDLE_IDENTIFIER: org.goldeneyenative.getv
+        PRODUCT_NAME: Goldeneye-Native-Mac
+        DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+        CODE_SIGN_STYLE: Automatic
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        HEADER_SEARCH_PATHS:
+          - ${N64TVOS_PREFIX}/sdl2-mac/include
+          - ${N64TVOS_PREFIX}/sdl2-mac/include/SDL2
+          - $(SRCROOT)/port
+          - $(SRCROOT)/port/include
+          - $(SRCROOT)/port/fast3d
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - TARGET_N64=1
+          - GE_PORT_NATIVE=1
+          - _LANGUAGE_C=1
+          - WAPI_SDL2=1
+          - GE_PLATFORM_MAC=1
+          - GE_PLATFORM_DESKTOP=1
+          - GL_SILENCE_DEPRECATION=1
+          # NOT the same thing as GE_PLATFORM_MAC: build_mac.sh's own plain-binary build
+          # (no Xcode, no Swift toolchain at all) also defines that one, and ge_mac_main.c
+          # gates its launcher choice on THIS macro specifically so that build keeps linking
+          # against ge_launcher.cpp's ImGui UI rather than an undefined gePortNativeLauncherRun
+          # symbol that only this Xcode target ever actually provides.
+          - GE_HAS_NATIVE_LAUNCHER=1
+          - ${GETV_RAPI_DEFINE}=1
+        OTHER_LDFLAGS:
+          # build_mac.sh's own libge.a -- built by `GETV_RENDERER=... ./build_mac.sh lib`,
+          # and already excludes port_ge_tvos_main.o/port_ge_mac_main.o by name (see that
+          # script's cmd_app comment) so there is no duplicate-symbol conflict with this
+          # target compiling its own copies of those two files above.
+          - $(SRCROOT)/${GETV_MAC_BUILD_DIR}/libge.a
+          - ${N64TVOS_PREFIX}/sdl2-mac/lib/libSDL2.a
+          - ${GETV_IMGUI_LIB}
+          - ${GETV_LUA_LIB}
+          - -lc++
+          - -lz
+          - -liconv
+          - -framework
+          - OpenGL
+          - -framework
+          - Cocoa
+          - -framework
+          - IOKit
+          - -framework
+          - CoreVideo
+          - -framework
+          - CoreAudio
+          - -framework
+          - AudioToolbox
+          - -framework
+          - AVFoundation
+          - -framework
+          - Carbon
+          - -framework
+          - ForceFeedback
+          - -framework
+          - Metal
+          - -framework
+          - QuartzCore
+          - -framework
+          - CoreServices
+          - -framework
+          - CoreHaptics
+          - -framework
+          - GameController
+          - -framework
+          - CoreMedia
+          - -framework
+          - UniformTypeIdentifiers

@@ -938,6 +938,104 @@ void geBridgeSetTexpackPath(const char *path) {
     snprintf(g_bridgeModel.texpack, sizeof g_bridgeModel.texpack, "%s", path);
 }
 
+int  geBridgeGetAniso(void)       { return g_bridgeModel.aniso; }
+void geBridgeSetAniso(int v)      { g_bridgeModel.aniso = v; }
+int  geBridgeGetFiltering(void)   { return g_bridgeModel.filtering; }
+void geBridgeSetFiltering(int v)  { if (v >= 0 && v <= 2) g_bridgeModel.filtering = v; }
+int  geBridgeGetWidescreen(void)  { return g_bridgeModel.widescreen ? 1 : 0; }
+void geBridgeSetWidescreen(int v) { g_bridgeModel.widescreen = (v != 0); }
+int  geBridgeGetMipmaps(void)     { return g_bridgeModel.mipmaps ? 1 : 0; }
+void geBridgeSetMipmaps(int v)    { g_bridgeModel.mipmaps = (v != 0); }
+int  geBridgeGetParallax(void)    { return g_bridgeModel.parallax ? 1 : 0; }
+void geBridgeSetParallax(int v)   { g_bridgeModel.parallax = (v != 0); }
+int  geBridgeGetCrosshairScalePct(void)  { return g_bridgeModel.crosshair_scale_pct; }
+void geBridgeSetCrosshairScalePct(int v) { g_bridgeModel.crosshair_scale_pct = v; }
+float geBridgeGetCrosshairR(void) { return g_bridgeModel.crosshair_color[0]; }
+float geBridgeGetCrosshairG(void) { return g_bridgeModel.crosshair_color[1]; }
+float geBridgeGetCrosshairB(void) { return g_bridgeModel.crosshair_color[2]; }
+void  geBridgeSetCrosshairColor(float r, float g, float b) {
+    g_bridgeModel.crosshair_color[0] = r;
+    g_bridgeModel.crosshair_color[1] = g;
+    g_bridgeModel.crosshair_color[2] = b;
+}
+int  geBridgeGetFullscreen(void)  { return g_bridgeModel.fullscreen ? 1 : 0; }
+void geBridgeSetFullscreen(int v) { g_bridgeModel.fullscreen = (v != 0); }
+const char *geBridgeGetResolution(void) { return g_bridgeModel.resolution; }
+void geBridgeSetResolution(const char *wh) {
+    if (wh == NULL) return;
+    snprintf(g_bridgeModel.resolution, sizeof g_bridgeModel.resolution, "%s", wh);
+}
+int  geBridgeGetUncapped(void)    { return g_bridgeModel.uncapped ? 1 : 0; }
+void geBridgeSetUncapped(int v)   { g_bridgeModel.uncapped = (v != 0); }
+int  geBridgeGetDevOverlay(void)  { return g_bridgeModel.dev_overlay ? 1 : 0; }
+void geBridgeSetDevOverlay(int v) { g_bridgeModel.dev_overlay = (v != 0); }
+
+int  geBridgeGetRsCustom(void)    { return g_bridgeModel.rs_custom ? 1 : 0; }
+void geBridgeSetRsCustom(int v)   { g_bridgeModel.rs_custom = (v != 0); }
+int  geBridgeGetEnemyHealth(void)      { return g_bridgeModel.enemy_health; }
+void geBridgeSetEnemyHealth(int v)     { g_bridgeModel.enemy_health = v; }
+int  geBridgeGetEnemyDamage(void)      { return g_bridgeModel.enemy_damage; }
+void geBridgeSetEnemyDamage(int v)     { g_bridgeModel.enemy_damage = v; }
+int  geBridgeGetEnemyAccuracy(void)    { return g_bridgeModel.enemy_accuracy; }
+void geBridgeSetEnemyAccuracy(int v)   { g_bridgeModel.enemy_accuracy = v; }
+int  geBridgeGetEnemyReaction(void)    { return g_bridgeModel.enemy_reaction; }
+void geBridgeSetEnemyReaction(int v)   { g_bridgeModel.enemy_reaction = v; }
+int  geBridgeGetPlayerHealth(void)     { return g_bridgeModel.player_health; }
+void geBridgeSetPlayerHealth(int v)    { g_bridgeModel.player_health = v; }
+int  geBridgeGetPlayerArmour(void)     { return g_bridgeModel.player_armour; }
+void geBridgeSetPlayerArmour(int v)    { g_bridgeModel.player_armour = v; }
+int  geBridgeGetAmmoPct(void)          { return g_bridgeModel.ammo; }
+void geBridgeSetAmmoPct(int v)         { g_bridgeModel.ammo = v; }
+int  geBridgeGetExplosionDamage(void)  { return g_bridgeModel.explosion_damage; }
+void geBridgeSetExplosionDamage(int v) { g_bridgeModel.explosion_damage = v; }
+int  geBridgeGetTurretDamage(void)     { return g_bridgeModel.turret_damage; }
+void geBridgeSetTurretDamage(int v)    { g_bridgeModel.turret_damage = v; }
+
+int  geBridgeGetMouse(void)        { return g_bridgeModel.mouse ? 1 : 0; }
+void geBridgeSetMouse(int v)       { g_bridgeModel.mouse = (v != 0); }
+int  geBridgeGetMouseSens(void)    { return g_bridgeModel.mouse_sens; }
+void geBridgeSetMouseSens(int v)   { g_bridgeModel.mouse_sens = v; }
+int  geBridgeGetMouseInvert(void)  { return g_bridgeModel.mouse_invert ? 1 : 0; }
+void geBridgeSetMouseInvert(int v) { g_bridgeModel.mouse_invert = (v != 0); }
+int  geBridgeGetKeyboard(void)     { return g_bridgeModel.keyboard ? 1 : 0; }
+void geBridgeSetKeyboard(int v)    { g_bridgeModel.keyboard = (v != 0); }
+
+const char *geBridgeGetModDir(void) { return g_bridgeModel.moddir; }
+void geBridgeSetModDir(const char *dir) {
+    if (dir == NULL) return;
+    snprintf(g_bridgeModel.moddir, sizeof g_bridgeModel.moddir, "%s", dir);
+}
+void geBridgeRescanMods(void) { mod_scan(g_bridgeModel); }
+
+int geBridgeActionCount(void) { return kActionCount; }
+const char *geBridgeActionLabel(int i)   { return (i >= 0 && i < kActionCount) ? kActions[i].label : ""; }
+const char *geBridgeActionDefault(int i) { return (i >= 0 && i < kActionCount) ? kActions[i].dflt  : ""; }
+int geBridgeSourceCount(void) { return kSourceCount; }
+const char *geBridgeSourceName(int i) { return (i >= 0 && i < kSourceCount) ? kSources[i] : ""; }
+
+int  geBridgeGetBindTab(void)  { return g_bridgeModel.bind_tab; }
+void geBridgeSetBindTab(int v) { if (v >= 0 && v <= 4) g_bridgeModel.bind_tab = v; }
+int  geBridgeGetBindAll(int action) {
+    return (action >= 0 && action < kActionCount) ? g_bridgeModel.bind_all[action] : -1;
+}
+void geBridgeSetBindAll(int action, int src) {
+    if (action >= 0 && action < kActionCount) g_bridgeModel.bind_all[action] = src;
+}
+int  geBridgeGetBindP(int player, int action) {
+    return (player >= 0 && player < 4 && action >= 0 && action < kActionCount)
+        ? g_bridgeModel.bind_p[player][action] : -1;
+}
+void geBridgeSetBindP(int player, int action, int src) {
+    if (player >= 0 && player < 4 && action >= 0 && action < kActionCount)
+        g_bridgeModel.bind_p[player][action] = src;
+}
+void geBridgeResetBindTab(void) {
+    for (int a = 0; a < kActionCount; a++) {
+        if (g_bridgeModel.bind_tab == 0) g_bridgeModel.bind_all[a] = -1;
+        else g_bridgeModel.bind_p[g_bridgeModel.bind_tab - 1][a] = -1;
+    }
+}
+
 int geBridgeModCount(void) { return g_bridgeModel.mod_count; }
 const char *geBridgeModName(int i) {
     return (i >= 0 && i < g_bridgeModel.mod_count) ? g_bridgeModel.mod_name[i] : "";
