@@ -57,7 +57,7 @@ $mingwMake = Join-Path $Mingw 'bin\mingw32-make.exe'
 $plainMake = Join-Path $Mingw 'bin\make.exe'
 if ((Test-Path $mingwMake) -and (-not (Test-Path $plainMake))) {
   Copy-Item $mingwMake $plainMake -Force
-  Write-Output "  make.exe: copied from mingw32-make.exe (the decomp's extractor needs plain `make`)"
+  Write-Output "  make.exe: copied from mingw32-make.exe, which the decomp's extractor calls by that name"
 }
 
 # ---------------------------------------------------------------- 2. SDL2

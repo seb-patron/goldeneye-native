@@ -926,8 +926,17 @@ int main(int argc, char **argv)
                 "below says what went wrong.\n\n"
                 "Press 'Copy the log', then paste it into a new issue at\n"
                 "github.com/SegfaultEvan/goldeneye-native/issues -- that is enough for someone "
-                "to tell you what to do next. Running this again is safe: it picks up where it "
-                "stopped rather than starting over.");
+                "to tell you what to do next.");
+            /* The two halves genuinely differ and saying so costs one line. Setup resumes: every
+             * step checks for its own output first, so running it again continues. A half-done
+             * DOWNLOAD does not, because git refuses to clone into a folder that is not empty --
+             * telling someone to just try again there sends them back to the same error. */
+            ImGui::TextUnformatted(
+                haveRepo
+                    ? "Running this again is safe: it picks up where it stopped rather than "
+                      "starting over."
+                    : "Before trying again, delete the folder it was downloading into, or choose "
+                      "an empty one. A part-finished download cannot be resumed in place.");
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
             EnterCriticalSection(&pipeline.lock);

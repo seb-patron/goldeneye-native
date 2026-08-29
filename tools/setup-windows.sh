@@ -52,7 +52,6 @@ command -v python3 >/dev/null 2>&1 \
 export PYTHONIOENCODING='utf-8'
 export PYTHONUTF8=1
 
-
 # ---------------------------------------------------------------------- 1. third-party
 step "third-party port sources"
 if [ -f "$HERE/getv/port/fast3d/gfx_pc.c" ]; then
@@ -155,7 +154,7 @@ fi
 # This exists because the failure it catches did not look like a failure. generate_chr_c.py,
 # generate_gun_c.py and generate_prop_model_c.py report per model and can die partway through
 # without failing the block they run in; on Windows all three died on their FIRST file, and the
-# install carried on for another twenty minutes, linked cleanly, and produced a 18.5 MB
+# install carried on for another twenty minutes, linked cleanly, and produced an 18.5 MB
 # goldeneye.exe. Measured in that tree: 1 chr, 1 gun and 1 prop model against 80, 92 and 340,
 # and 253 asset sources where macOS has 762. Nothing between the generator and a user starting
 # the game would have said a word.

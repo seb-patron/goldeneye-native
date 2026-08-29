@@ -181,7 +181,6 @@ for _spec in "chr:80" "gun:92" "prop:340"; do
 done
 echo "models: $(ls -1 "$DECOMP/assets/obseg/chr/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') chr, $(ls -1 "$DECOMP/assets/obseg/gun/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') gun, $(ls -1 "$DECOMP/assets/obseg/prop/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') prop"
 
-
 # ---------------------------------------------------------------------- 6. namespacing + 0002
 step "symbol namespacing (docs/SETUP.md 3.6)"
 if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0002-assets.patch" ) 2>/dev/null; then
