@@ -1,9 +1,8 @@
 # Goldeneye-Native
 
 **GoldenEye 007, compiled as a native application for macOS, Linux and Windows.** Mouse and
-keyboard. Real widescreen. Hundreds of frames a second with the game still running at the speed
-Rare tuned it to. Bots you can fight, split screen with all 64 characters, mods you drop in a
-folder, and a horde mode the cartridge never had.
+keyboard. Real widescreen. Hundreds of frames a second with the game still running at the original 1997 animation speed
+Rare tuned it to. AI Bots you can fight multiplayer or Co Op, split screen with all 64 characters, lau mod pack scripting, horde mode, HD upgrades, and more!
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
@@ -108,14 +107,10 @@ otherwise.
 | Platform | Renderer | State |
 |---|---|---|
 | **macOS** (Apple silicon and Intel) | OpenGL or native Metal | Builds and plays. Primary target. |
-| **Linux** (x86-64 and arm64) | OpenGL | Builds and renders. Verified on Debian 12 aarch64. |
-| **Windows** (x86-64) | OpenGL | Builds and boots, native mingw-w64. Self-test 16 of 16. |
-| **tvOS** (Apple TV) | GL ES or Metal | Bring-up. Builds, signs and deploys to real hardware. |
+| **Linux** (x86-64 and arm64) | OpenGL | Builds Verified on Debian 12 aarch64. |
+| **Windows** (x86-64) | OpenGL | Builds native mingw-w64. Self-test 16 of 16. |
+| **tvOS** (Apple TV) | GL ES or Metal | Builds, signs and deploys to real hardware. |
 | **iOS** | Metal | Bring-up. Builds; deploying needs a paired device. |
-
-Linux says "renders" rather than "plays" deliberately: it builds clean, boots, loads a level and
-draws, but nobody has sat down and played a mission through with a keyboard. That is as far as
-the claim goes.
 
 Same source tree everywhere. One build script each.
 
