@@ -95,6 +95,13 @@ build-sim-*/
 scratchpad/
 getv/scratchpad/
 
+# HD texture pack: upscaled copies of decoded N64 texture art, keyed by content hash.
+# Same rule as the ROM itself and every other extracted-asset category above -- decoding a
+# texture into a PNG and upscaling it does not change what it is, and it must never be
+# committed. GETV_TEXPACK_DUMP (getv/port/fast3d/gfx_pc.c) plus a Lanczos upscale is the
+# tool to regenerate this yourself from your own ROM dump; see docs/CONFIGURATION.md.
+getv/Resources/hdtextures/*.png
+
 # Backup files `patch` leaves behind on a fuzzy or partial match. Two showed up untracked in
 # getv/port/fast3d/ (already-gitignored third-party sources) mid-session -- a `git add -A`
 # would have picked them up.
