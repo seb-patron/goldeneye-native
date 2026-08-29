@@ -411,12 +411,19 @@ A good build prints four counts and every one reads `0 failed`:
 mac game: 167 built, 0 failed
 mac assets: 746 built, 0 failed
 mac audio: 40 built, 0 failed
-mac port layer: 64 built, 0 failed
+mac port layer: 65 built, 0 failed
 ```
 
-Linux reads 61 for the port layer, and Windows 165 for the game and 59 for the port layer. The
-asset and audio counts are the same everywhere. All of these differences are explained in
-[`docs/SETUP.md`](docs/SETUP.md) and none is a fault.
+**The asset and audio counts are identical on every platform**; measured on a fresh Windows
+install, 746 and 40, the same as above. What differs is the game and port-layer counts: Windows
+builds 165 game objects, because three N64 hardware files are excluded there by name rather than
+stubbed, and 60 port-layer objects against macOS's 65, macOS having the Metal backend and its
+Objective-C sources. Linux sits between the two for the same reason. Every one of these
+differences is explained in [`docs/SETUP.md`](docs/SETUP.md) and none is a fault.
+
+The number to watch is the one with `failed` beside it. A dropped source shows up as a changed
+built count and nothing else, which is how a Windows build shipped 237 assets instead of 746 and
+still linked.
 
 ## Contributing
 
