@@ -22,6 +22,7 @@
  * part can be tested with no I/O at all.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ge_net.h"
@@ -150,8 +151,8 @@ int geNetOpen(GeNetTransport *transport, int local_slot, int delay_ticks)
     }
 
     printf("[getv][net] session open: local slot %d, input delay %d ticks "
-           "(first %d ticks primed neutral)\n",
-           local_slot, delay_ticks, delay_ticks);
+           "(first %d ticks primed neutral), tick_base %lu\n",
+           local_slot, delay_ticks, delay_ticks, ge_net.tick_base);
     fflush(stdout);
     return 1;
 }
@@ -508,6 +509,18 @@ int geNetTickBegin(const GePlayerInput *local_input)
         GePlayerInput in;
         if (ge_net.slot[slot].kind == GE_NET_SLOT_EMPTY) { continue; }
         if (ge_net_get(slot, now, &in)) {
+            /* GETV_NET_INTRACE=1 -- every input this machine applies, per tick per slot.
+             *
+             * Lockstep's one correctness property is that every machine applies the same inputs
+             * for the same tick, and until this existed there was no way to check it: a desync
+             * report says the states disagreed, not whether the inputs did. Diffing two
+             * machines' traces answers that in one command, and it is what established that the
+             * divergence here is NOT an input problem -- two runs that desynced applied
+             * byte-identical inputs for every tick they shared. */
+            if (getenv("GETV_NET_INTRACE") != NULL) {
+                printf("[getv][in] t=%lu s=%d btn=%08x sx=%d sy=%d\n",
+                       now, slot, (unsigned) in.buttons, (int) in.stick_x, (int) in.stick_y);
+            }
             /* Back to game ticks at the boundary: the wire counts from session open, the
              * player API counts from game start. */
             gePlayerPost(slot, ge_net.tick_base + now, &in, 1);
@@ -517,8 +530,21 @@ int geNetTickBegin(const GePlayerInput *local_input)
     ge_net.stats.ticks_simulated++;
 
     /* Agreement check once a second. Cheap, and the only thing standing between a silent
-     * divergence and knowing about it. */
-    if ((now % 60) == 0) { ge_net_send_sync(now); }
+     * divergence and knowing about it.
+     *
+     * GETV_NET_SYNCEVERY=<n> tightens it. At the default 60 a report names the second the
+     * divergence was noticed, not the tick it happened on, which is the difference between
+     * knowing a run desynced and being able to look at what ran. Set it to 1 to bisect; it
+     * costs a small packet per tick and is not meant for ordinary play. */
+    {
+        static unsigned long every = 0;
+        if (every == 0) {
+            const char *e = getenv("GETV_NET_SYNCEVERY");
+            long v = (e != NULL && *e != '\0') ? atol(e) : 60;
+            every = (v > 0) ? (unsigned long) v : 60;
+        }
+        if ((now % every) == 0) { ge_net_send_sync(now); }
+    }
     return 1;
 }
 

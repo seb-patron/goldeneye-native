@@ -143,9 +143,49 @@ every tick. Machines that render at different speeds advance the world by differ
 `gePlayerPinDelta()` existed for this and had never been called; a session now pins the step
 (`0013-lockstep-pinned-sim-step.patch`).
 
-After both: 0 agree, 5 desync, and the first divergence still appears around tick 120 with both
-fixes confirmed live in the logs. Sessions are at least reliable now -- before, two of five
-trials measured nothing because one hung or never opened.
+After both: 0 agree, 5 desync, and the first divergence still appears early with both fixes
+confirmed live in the logs. Sessions are at least reliable now -- before, two of five trials
+measured nothing because one hung or never opened.
+
+### What has been ruled out, by measurement
+
+Each of these was a live hypothesis and each is now closed. They are listed so nobody spends the
+afternoon again.
+
+| Ruled out | How |
+|---|---|
+| The seed | Both sides log the same session seed; desyncs continue |
+| The simulation step | Pinned and confirmed live in both logs; desyncs continue |
+| The audio thread | `GETV_NO_AUDIO=1` gives byte-identical results to audio on |
+| Controller jitter | `joysticks=0 gamecontrollers=0 ports=0` -- there is no device to jitter |
+| Different tick origins | `tick_base` is 0 on both sides in every run |
+| **Different inputs** | `GETV_NET_INTRACE=1` on both: runs that desynced applied **byte-identical** inputs for every tick they shared |
+| A false-positive detector | Desyncs occur at `GETV_NET_SYNCEVERY=1` and at 60 alike |
+| Different frame rates | Both capped at `GETV_FPS=60`: 4 of 4 still desync |
+
+What that leaves is a divergence inside the simulation itself, with identical seed, identical
+step and identical inputs. Two properties of it are worth carrying forward. A **single** process
+is deterministic run to run -- the same binary twice with the same settings gives an identical
+RNG state at every sampled tick -- so this is not general nondeterminism. And the onset varies
+between runs (measured at ticks 7, 8, 59, 108 and 175) with occasional runs agreeing completely,
+which is the signature of a race rather than of a fixed difference.
+
+One lead is untested and is the obvious next one: `chrai.c` has `AI_IFImOnScreen`,
+`AI_IFMyRoomIsOnScreen` and `AI_IFRoomWithPadIsOnScreen`, so AI branches on render visibility,
+and `g_OnScreenPropList` is built while rendering. Equal nominal frame rates did not fix it, but
+that does not clear the coupling -- two machines can hold the same frame rate and still render
+different frames against the same tick, particularly across a stall.
+
+### Diagnostics for this
+
+`GETV_NET_SYNCEVERY=<n>` tightens the agreement check from once a second to every n ticks, so a
+report names the tick the divergence happened on rather than the second it was noticed.
+`GETV_NET_INTRACE=1` prints every input applied, per tick per slot; diff two machines' traces to
+tell an input problem from a simulation problem.
+
+Note that `[getv][net] session closed` with its stall and desync totals never prints under
+`GETV_EXIT_FRAME`, because that path calls `_exit` and `geNetClose()` never runs. The statistics
+are unreachable in exactly the automated runs that want them.
 
 **Worth knowing before choosing how to finish this.** Perfect Dark's netplay branch does not
 solve lockstep determinism; it removes the requirement. Its clients send only input and are sent
