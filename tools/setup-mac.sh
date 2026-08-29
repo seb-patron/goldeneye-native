@@ -168,6 +168,20 @@ else
   ) || die "asset generation failed -- rerun by hand per docs/SETUP.md 3.5 to see which step"
 fi
 
+# The same count check tools/setup-windows.sh and tools/install.sh make, for the same reason: the
+# chr, gun and prop generators report per model and can stop partway without failing the block
+# they run in. That was found on Windows, where all three died on their first file and the
+# install still linked cleanly and produced a complete-looking binary missing two thirds of its
+# assets. Nothing about the failure mode is Windows-specific -- an interrupted run or an
+# unreadable ROM would do it here too -- and the check costs three globs.
+for _spec in "chr:80" "gun:92" "prop:340"; do
+  _d="${_spec%%:*}"; _want="${_spec##*:}"
+  _have="$(ls -1 "$DECOMP/assets/obseg/$_d/"*/Model.c 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$_have" -ge "$_want" ] || die "only $_have of $_want $_d models exist -- the generator stopped early. Delete $DECOMP/assets/ge_animation_offsets.h and re-run, and read the log above for the first traceback."
+done
+echo "models: $(ls -1 "$DECOMP/assets/obseg/chr/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') chr, $(ls -1 "$DECOMP/assets/obseg/gun/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') gun, $(ls -1 "$DECOMP/assets/obseg/prop/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') prop"
+
+
 # ---------------------------------------------------------------------- 6. namespacing + 0002
 step "symbol namespacing (docs/SETUP.md 3.6)"
 if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0002-assets.patch" ) 2>/dev/null; then
