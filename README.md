@@ -2,7 +2,7 @@
 
 **GoldenEye 007, compiled as a native application for macOS, Linux and Windows.** Mouse and
 keyboard. Real widescreen. Hundreds of frames a second with the game still running at the original 1997 animation speed
-Rare tuned it to. AI Bots you can fight multiplayer or Co Op, split screen with all 64 characters, lau mod pack scripting, horde mode, HD upgrades, and more!
+Rare tuned it to. Online Multiplayer or Co Op, AI Bots, lau mod pack scripting, horde mode, HD upgrades, and more!
 
 ![Silo, from the walkway beside the missile](docs/images/screenshot-01.jpg)
 
