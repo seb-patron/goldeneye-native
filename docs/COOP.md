@@ -164,14 +164,14 @@ damage returns early instead.
 **Deathmatch is untouched.** `gePortCoopPlayers()` is only >= 2 under `GETV_COOP`; real
 multiplayer boots through `GETV_MP`, where shooting each other is the entire point.
 
-`GETV_COOP_FRIENDLYFIRE=1` puts it back. The first time a shot is blocked the game prints
+`GETV_COOP_FRIENDLYFIRE=1` puts it back. The first blocked shot prints
 
 ```
-[getv][coop] friendly fire blocked (player 1 -> player 0). GETV_COOP_FRIENDLYFIRE=1 allows it.
+[getv][coop] friendly fire off (GETV_COOP_FRIENDLYFIRE=1 allows it)
 ```
 
-once, so the path can be confirmed live rather than assumed. It says it once and not per shot,
-because silence and a dead team mate look the same from outside.
+once per session, because a shot that does nothing is otherwise indistinguishable from a shot
+that missed.
 
 The spawn spread itself was checked and left alone: `GETV_COOP_SPREAD` defaults to 120 units and
 already tries eight directions across three rings, falling back closer only when the stan query
