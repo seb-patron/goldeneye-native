@@ -49,7 +49,7 @@ non-US language dirs, not to rename here.
 
 Usage:  uniquify_asset_symbols.py <dir> [--recurse] [--dry-run]
 """
-import glob, os, re, subprocess, sys, tempfile
+import glob, os, re, shutil, subprocess, sys, tempfile
 
 def _host_flags():
     """Target and sysroot for the throwaway probe objects, or nothing off Apple.
@@ -85,7 +85,46 @@ CFLAGS = HOST_FLAGS + [
           '-I','.','-I','include','-I','include/PR','-I','src','-I','src/game','-I','src/inflate',
           '-DVERSION_US','-DLANG_US','-DREFRESH_NTSC','-DLEFTOVERDEBUG','-DLEFTOVERSPECTRUM',
           '-DBUGFIX_R0','-DTARGET_N64','-DGE_PORT_NATIVE','-DNON_MATCHING=1','-DAVOID_UB=1',
-          '-D_LANGUAGE_C=1','-w','-ferror-limit=0','-fno-strict-aliasing','-O1']
+          '-D_LANGUAGE_C=1','-w','-fno-strict-aliasing','-O1']
+
+# The compiler and nm are resolved rather than assumed, because this used to hardcode 'clang'
+# and that is not a safe assumption anywhere the project actually builds. The documented Windows
+# toolchain is mingw-w64 gcc and ships no clang at all, so on a machine set up exactly as
+# docs/SETUP.md says, subprocess.run raised FileNotFoundError before there was any returncode to
+# test -- the `if r.returncode != 0` guard below never saw it, and the whole pass died on a
+# traceback at the first file rather than reporting anything useful.
+#
+# GETV_CC and GETV_NM override, in case a machine has something the search does not find.
+def _which(names, env):
+    override = os.environ.get(env)
+    if override:
+        if shutil.which(override) or os.path.exists(override):
+            return override
+        sys.exit("uniquify_asset_symbols: %s=%s is not executable" % (env, override))
+    for n in names:
+        found = shutil.which(n)
+        if found:
+            return found
+    return None
+
+CC = _which(['clang', 'cc', 'gcc'], 'GETV_CC')
+NM = _which(['nm', 'llvm-nm', 'gcc-nm'], 'GETV_NM')
+if CC is None or NM is None:
+    missing = ' and '.join(x for x, v in (('a C compiler (clang, cc or gcc)', CC), ('nm', NM)) if v is None)
+    sys.exit("uniquify_asset_symbols: cannot find %s on PATH.\n"
+             "This pass compiles each asset and reads its globals with nm, so it cannot run\n"
+             "without both. On Windows the mingw-w64 toolchain that docs/SETUP.md installs\n"
+             "provides gcc.exe and nm.exe in the same bin directory; put that on PATH, or set\n"
+             "GETV_CC and GETV_NM to their full paths." % missing)
+
+# -ferror-limit=0 is a clang spelling. gcc rejects it and wants -fmax-errors=0, the same split
+# build_windows.ps1 already documents for -Wno-everything. Ask the compiler what it is rather
+# than inferring from its filename, since cc is usually a symlink to one or the other.
+try:
+    _v = subprocess.run([CC, '--version'], capture_output=True, text=True).stdout.lower()
+except OSError as e:
+    sys.exit("uniquify_asset_symbols: cannot run %s: %s" % (CC, e))
+CFLAGS += ['-ferror-limit=0'] if 'clang' in _v else ['-fmax-errors=0']
 
 # nm writes a leading underscore on every C symbol on Mach-O and nothing at all on ELF. Reading
 # for the wrong one is invisible: every file reports zero globals, every file is then declared
@@ -97,11 +136,11 @@ def nm_prefix():
     with tempfile.NamedTemporaryFile(suffix='.c', mode='w', delete=False) as t:
         t.write('int getv_nm_probe = 1;\n'); c = t.name
     o = c[:-2] + '.o'
-    r = subprocess.run(['clang','-c',c,'-o',o], capture_output=True, text=True)
+    r = subprocess.run([CC,'-c',c,'-o',o], capture_output=True, text=True)
     if r.returncode != 0:
         os.unlink(c)
         sys.exit('uniquify_asset_symbols: cannot compile a probe file:\n' + r.stderr.strip())
-    out = subprocess.run(['nm','-g',o], capture_output=True, text=True).stdout
+    out = subprocess.run([NM,'-g',o], capture_output=True, text=True).stdout
     os.unlink(c)
     if os.path.exists(o): os.unlink(o)
     for line in out.splitlines():
@@ -115,11 +154,11 @@ NM_PREFIX = nm_prefix()
 
 def globals_of(rel):
     with tempfile.NamedTemporaryFile(suffix='.o', delete=False) as t: o = t.name
-    r = subprocess.run(['clang']+CFLAGS+['-c',rel,'-o',o],cwd=ROOT,capture_output=True,text=True)
+    r = subprocess.run([CC]+CFLAGS+['-c',rel,'-o',o],cwd=ROOT,capture_output=True,text=True)
     if r.returncode != 0:
         if os.path.exists(o): os.unlink(o)
         return None
-    out = subprocess.run(['nm','-g',o],capture_output=True,text=True).stdout
+    out = subprocess.run([NM,'-g',o],capture_output=True,text=True).stdout
     if os.path.exists(o): os.unlink(o)
     syms=[]
     for line in out.splitlines():
@@ -172,7 +211,21 @@ def externise_forward_decls(s):
     return ''.join(out), n
 
 
+KNOWN_FLAGS = ('--dry-run', '--forward-decls-only', '--recurse')
+
 def main():
+    # Refuse an argument we do not recognise instead of ignoring it. This pass is destructive
+    # when it runs twice -- a second run prefixes the already-prefixed names and breaks exactly
+    # the files the first run fixed -- so a mistyped guard flag is not a harmless typo. `--dry`
+    # instead of `--dry-run` silently did the real thing to two font assets, which then had to
+    # be repaired by hand; every flag here is now checked rather than merely looked for.
+    unknown = [a for a in sys.argv[2:] if a.startswith('-') and a not in KNOWN_FLAGS]
+    if unknown:
+        sys.exit("uniquify_asset_symbols: unrecognised argument(s): %s\n"
+                 "Known flags are %s. Refusing to run, because this pass rewrites files in\n"
+                 "place and running it twice corrupts what the first run fixed."
+                 % (' '.join(unknown), ', '.join(KNOWN_FLAGS)))
+
     d = sys.argv[1]
     dry = '--dry-run' in sys.argv
     # --forward-decls-only: run just the tentative-definition pass, which is pure text and
