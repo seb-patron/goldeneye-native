@@ -1193,6 +1193,34 @@ static void geKeyboardApply(int port, struct GePadState *out)
         }
  for (i = 0; i < SDL_NUM_SCANCODES; i++) { if (k[i]) { anykey = 1; break; } }
 
+        /* GETV_AIM_SELFTEST=1 holds AIM down, so anything gated behind aim mode can be measured
+         * under GETV_EXIT_FRAME without a hand on the keyboard. Same reason as
+         * GETV_MOUSE_SELFTEST and GETV_CROUCH_SELFTEST, and it sits ahead of the idle gate for
+         * the same reason those do -- a measurement run has the keyboard present but idle, so
+         * anything read after that gate is never seen.
+         *
+         * Written for the crosshair, which gunDrawSight() only draws while aiming: without this
+         * there is no way to show GETV_CROSSHAIR_COLOR or GETV_CROSSHAIR_SCALE doing anything on
+         * an automated run, and "no crosshair on screen" looks identical to "the setting does
+         * nothing". Note that crouch is gated behind aim too (bondview2.c:5484 wants
+         * insightaimmode), so GETV_CROUCH_SELFTEST on its own cannot lower Bond either. */
+        {
+ static long aimst = -2;   /* -2 unread; 0 off; otherwise the frame to start holding from */
+ if (aimst == -2) {
+ const char *e = getenv("GETV_AIM_SELFTEST");
+ aimst = (e && *e && *e != '0') ? atol(e) : 0;
+        }
+            /* Held from a FRAME, not from the start, and the difference decides whether this
+             * works at all. bondview2.c:5643 reads aim one of two ways: as a level
+             * (`buttons & aimButtons`) when cur_player_get_aim_control() is 0, or as a TOGGLE
+             * on the rising edge (`(buttons & ~oldbuttons) & aimButtons`) otherwise. A hold
+             * that starts at frame 0 spends the whole boot and level intro down -- controls
+             * are locked for most of it -- so by the time the player has control the button is
+             * already pressed, no edge ever arrives, and the toggle never fires. Starting the
+             * hold once gameplay is running gives a clean edge and satisfies both readings. */
+ if (aimst > 0 && (long)fr >= aimst) { out->ltrigger = 1; out->lt_raw = 32767; }
+        }
+
         /* Both gates mark the port present before bailing. An early `return` here
          * would leave out->present == 0, joyGetControllerCount() would read 0, and
          * front.c:1493 would drop the front-end into MENU_NO_CONTROLLERS, a terminal
