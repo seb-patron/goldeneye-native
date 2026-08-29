@@ -21,6 +21,7 @@ Split by *when* they can be applied rather than by subject.
 | `0012-real-font-overlay.patch` | 1 file | `src/game/textrelated.c` | after `0001` |
 | `0013-lockstep-pinned-sim-step.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
 | `0014-lockstep-cull-on-the-tick.patch` | 1 file | `src/game/lv.c` | after `0001` |
+| `0015-aim-toggle.patch` | 1 file | `src/game/options.c` | after `0001` |
 
 ## The gap at 0003, 0004 and 0005 is deliberate
 
@@ -101,6 +102,7 @@ git apply ../../getv/patches/0011-netplay-tick-integration.patch
 git apply ../../getv/patches/0012-real-font-overlay.patch
 git apply ../../getv/patches/0013-lockstep-pinned-sim-step.patch
 git apply ../../getv/patches/0014-lockstep-cull-on-the-tick.patch
+git apply ../../getv/patches/0015-aim-toggle.patch
 # ... run the asset pipeline (docs/SETUP.md 3.5) and the namespacing pass (3.6) ...
 git apply ../../getv/patches/0002-assets.patch
 ```

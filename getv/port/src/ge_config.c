@@ -938,6 +938,11 @@ static int apply(const char *key_in, const char *val, int over)
      * one now is too. */
  if (strcmp(key, "fxaa") == 0) { key_bool_gate("GETV_FXAA", key, val, over); return 1; }
  if (strcmp(key, "crosshair_color") == 0) { key_crosshair_color(val, over); return 1; }
+ /* Aim as a toggle instead of a hold. Aliased because people reaching for this call it both
+  * things, and a setting nobody can find is a setting that does not exist. */
+ if (strcmp(key, "aim_toggle") == 0 || strcmp(key, "toggle_aim") == 0) {
+     key_bool_gate("GETV_AIM_TOGGLE", key, val, over); return 1;
+ }
  if (strcmp(key, "crosshair_scale") == 0 || strcmp(key, "reticle_scale") == 0) {
  key_crosshair_scale(val, over); return 1;
     }

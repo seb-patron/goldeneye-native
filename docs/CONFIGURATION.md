@@ -577,6 +577,27 @@ GETV_EXIT_FRAME = 61
 Raw names are matched before friendly ones, so a friendly key can never shadow a gate. There are
 around 250 of them; [`MODDING.md`](MODDING.md) covers the useful ones.
 
+### `aim_toggle` -- press to aim, instead of holding
+
+`0` or `1`. Default `0`, which is the retail hold. `aim_toggle = 1` makes aim a toggle: press
+once to raise the sight and again to lower it, so you are not holding a key down with the same
+hand you move with. Alias `toggle_aim`.
+
+This is GoldenEye's own option rather than something the port invented. `bondview2.c:5441`
+already branches on it: with hold, `insightaimmode` is set from the button every frame; with
+toggle, it flips on the press edge. All the port does is answer that question, which is why it
+is a four-line patch and not a latch in the input layer -- a second implementation there would
+race the real one whenever someone also set the option in the game's own menu.
+
+It is forced at the point the engine reads the value, not written once at startup, because the
+stored setting is per-player, is reloaded from a saved game by `file2.c:1438`, and can be changed
+from the options menu. Answering at the read survives all three, and leaves the menu showing
+whatever you last chose rather than quietly rewriting your save.
+
+Worth knowing before you turn it on: aim mode is still aim mode. The game stops you walking while
+the sight is up, and holds crouch behind it too, so a toggle removes the held key and does not
+turn aiming into a move-and-shoot mode. That gating is the game's, in `bondview2.c`.
+
 ### `GETV_RGBA16BE` -- explosion colour
 
 Default 1, and you should not need to touch it. RGBA16 textures were being decoded in the wrong

@@ -1,0 +1,37 @@
+--- a/src/game/options.c
++++ b/src/game/options.c
+@@ -1,4 +1,5 @@
+ #include <ultra64.h>
++#include <stdlib.h>   /* getenv, for the GETV_AIM_TOGGLE override below */
+ #include <bondconstants.h>
+ #include <boss.h>
+ #include <fr.h>
+@@ -498,6 +499,28 @@
+ 
+ u32 cur_player_get_aim_control(void)
+ {
++    /* GETV_AIM_TOGGLE=1 (config key `aim_toggle`) forces aim to behave as a toggle: press once
++     * to raise the sight, press again to lower it, instead of holding the button down.
++     *
++     * This is the GAME'S OWN feature, not a port invention. bondview2.c:5441 already branches on
++     * this value -- 0 sets insightaimmode from the button every frame, non-zero flips it on the
++     * press edge -- and the option is on GoldenEye's own controls menu. So the whole job here is
++     * to answer the question the engine is already asking, which is why this is four lines
++     * rather than a latch in the port layer. A latch there would have been a second, parallel
++     * implementation racing the real one whenever someone also set the in-game option.
++     *
++     * Forced at the READ rather than written once at startup, because the stored value is a
++     * per-player option that file2.c:1438 reloads from a saved game and the options menu can
++     * overwrite. Answering here survives both, and leaves the menu still showing whatever the
++     * player last chose rather than silently rewriting their save. */
++    {
++        static int force = -1;
++        if (force < 0) {
++            const char *e = getenv("GETV_AIM_TOGGLE");
++            force = (e != NULL && *e == '1') ? 1 : 0;
++        }
++        if (force) { return 1; }
++    }
+     return game_options_entries[PLAYER_OPTION_AIM].current_value;
+ }
+ 

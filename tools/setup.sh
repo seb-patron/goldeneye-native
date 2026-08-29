@@ -66,6 +66,7 @@ else
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0012-real-font-overlay.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0013-lockstep-pinned-sim-step.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0014-lockstep-cull-on-the-tick.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0015-aim-toggle.patch" )
     echo "cloned and patched"
 fi
 
