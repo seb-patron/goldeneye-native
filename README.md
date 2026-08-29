@@ -1,5 +1,18 @@
 # Goldeneye-Native
 
+> [!IMPORTANT]
+> **Project maintenance status**
+>
+> The original `SegfaultEvan/goldeneye-native` repository was deleted on August 29, 2026. This
+> fork preserves the latest publicly available version of upstream `main` from before its
+> deletion, including the complete Git history through commit `47fe1a1`.
+>
+> I am not the original maintainer or an expert on the full project, and I do not yet know the
+> complete state of the code or all of the work still required. I am preserving the project and
+> am happy to work alongside other contributors who are interested in reviewing, maintaining,
+> and continuing it. This is a community continuation, not an official handoff from the original
+> maintainer.
+
 **GoldenEye 007, compiled as a native application for macOS, Linux and Windows.** Mouse and
 keyboard. Real widescreen. Hundreds of frames a second with the game still running at the original 1997 animation speed
 Rare tuned it to. Online Multiplayer or Co Op, AI Bots, Lua mod pack scripting, horde mode, a free flying photo camera, HD upgrades, and more!
@@ -19,7 +32,7 @@ You supply your own legally dumped cartridge. No game data ships here, and none 
 
 **1.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**. Do not rename it.
 
-**2.** On [the project page](https://github.com/SegfaultEvan/goldeneye-native), click the green
+**2.** On [the project page](https://github.com/seb-patron/goldeneye-native), click the green
 **Code** button, then **Download ZIP**. Double-click the downloaded file to unzip it.
 
 **3.** Open the folder that appears and **double-click `Install on Mac`**.
@@ -43,10 +56,15 @@ one box matters; nothing works without it.
 
 **3.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**.
 
-**4.** Download **`setup_wizard.exe`** from
-[Releases](https://github.com/SegfaultEvan/goldeneye-native/releases) and double-click it.
+**4.** The original repository's `setup_wizard.exe` release was not preserved when that repository
+was deleted. Until a replacement release has been reviewed and published, download this repository
+and run its source installer from PowerShell:
 
-The wizard asks where to install and which file is your ROM, then does everything else itself
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+The installer asks where to install and which file is your ROM, then does everything else itself
 and shows you what it is doing. It takes 10 to 40 minutes the first time.
 
 ### On Linux
