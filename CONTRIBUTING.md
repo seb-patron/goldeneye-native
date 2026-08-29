@@ -63,6 +63,16 @@ straight into a level with `GETV_STAGE=<n>` (the numbers are the `LEVELID_*` enu
 
 For renderer changes there is a gate: `tools/render_refs.py check` recaptures every stage and
 compares it against `tools/refs/render.txt`, reporting any that drift. Run it before and after.
+
+If you touched anything in `getv/patches/`, run this too:
+
+```bash
+bash tools/check_patches.sh
+```
+
+It applies every patch to a freshly cloned decomp. Your own tree cannot answer that question,
+because it already has the changes, and three separate patches have shipped broken for exactly
+that reason.
 If your change is meant to affect one stage, that is what the output should say. If it is meant
 to affect none, likewise.
 

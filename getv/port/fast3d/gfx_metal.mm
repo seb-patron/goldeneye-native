@@ -163,10 +163,23 @@ static uint32_t mtl_render_target_w, mtl_render_target_h;
  * mirroring how gfx_opengl.c's GE_POSTFX path unifies the same three into one pass, not
  * three separate mechanisms. mtl_pp_depth backs the game's own depth test/write during that
  * pass; nothing ever reads it back afterward, so MTLStorageModeMemoryless is valid for the
- * whole thing on this TBDR GPU, not just for MSAA specifically. */
+ * whole thing on this TBDR GPU, not just for MSAA specifically.
+ *
+ * mtl_pp_color/mtl_pp_depth are always single-sample: the composite pass (gfx_metal_end_frame)
+ * only ever samples mtl_pp_color, and CAMetalLayer's drawable can never itself be multisampled,
+ * so something single-sample has to exist as the hand-off point regardless of whether MSAA is
+ * active. mtl_pp_color_ms/mtl_pp_depth_ms are the actual multisample render targets the game
+ * draws into when GETV_MSAA is active -- both MTLStorageModeMemoryless, since Metal resolves
+ * mtl_pp_color_ms into mtl_pp_color automatically via MTLStoreActionMultisampleResolve at
+ * endEncoding, and depth is never resolved (nothing reads it back either way). nil when MSAA
+ * is off, in which case the game draws straight into mtl_pp_color/mtl_pp_depth exactly as
+ * increment 3 already did. */
 static id<MTLTexture> mtl_pp_color;
 static id<MTLTexture> mtl_pp_depth;
+static id<MTLTexture> mtl_pp_color_ms;
+static id<MTLTexture> mtl_pp_depth_ms;
 static uint32_t mtl_pp_w, mtl_pp_h;
+static uint32_t mtl_pp_built_samples;
 static id<MTLRenderPipelineState> mtl_pp_pipeline;
 static id<MTLSamplerState> mtl_pp_sampler;
 
@@ -292,6 +305,11 @@ static void m_append_cycle(char *buf, size_t *len, uint8_t c[2][4], bool opt_alp
         m_append_formula_row(buf, len, c[0], opt_alpha, false, opt_alpha);
     }
 }
+
+/* Defined below (needs mtl_device, only valid after gfx_metal_init()); forward-declared here
+ * because gfx_metal_build_pipeline needs it for rasterSampleCount and shader/pipeline building
+ * lives ahead of the mipmap/aniso/MSAA sampler-state helpers in this file's layout. */
+static uint32_t ge_metal_msaa_samples(void);
 
 static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, struct ShaderProgram *prg) {
     uint8_t c[2][4], c2[2][4];
@@ -655,6 +673,31 @@ static uint32_t ge_metal_aniso_max(void) {
         const char *e = getenv("GETV_ANISO");
         long want = (e && *e) ? strtol(e, NULL, 10) : 0;
         resolved = (want > 1) ? want : 0;
+    }
+    return (uint32_t) resolved;
+}
+
+/* GETV_MSAA=<0-8> -- requested sample count, 1 (off) by default. Unlike gfx_opengl.c's SDL
+ * attribute request (gfx_sdl2.c, #ifndef RAPI_METAL -- GETV_MSAA is a no-op there under this
+ * renderer), Metal has no "ask the windowing system and see what you actually got back": the
+ * device is queried directly, descending from the requested count, since not every GPU
+ * supports every count a user might type in (some skip 8; none skip 1). Resolved once --
+ * mtl_device's capabilities cannot change at runtime, and this is only ever called after
+ * gfx_metal_init() has set mtl_device. The result also has to be threaded into every game
+ * combiner pipeline's rasterSampleCount (gfx_metal_build_pipeline below): Metal requires a
+ * pipeline's sample count to match whatever render pass it draws into exactly, and unlike
+ * mipmaps/aniso this is not purely a sampler-state concern. */
+static uint32_t ge_metal_msaa_samples(void) {
+    static long resolved = -1;
+    if (resolved < 0) {
+        const char *e = getenv("GETV_MSAA");
+        long want = (e && *e) ? strtol(e, NULL, 10) : 0;
+        if (want < 0) want = 0;
+        if (want > 8) want = 8;
+        resolved = 1;
+        for (long n = want; n > 1; n--) {
+            if ([mtl_device supportsTextureSampleCount:(NSUInteger)n]) { resolved = n; break; }
+        }
     }
     return (uint32_t) resolved;
 }

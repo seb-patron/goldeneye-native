@@ -147,6 +147,12 @@ git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c 
             assets/obseg/setup/u/UsetuplenZ.c > ../../getv/patches/0002-assets.patch
 ```
 
+**Run `bash tools/check_patches.sh` after regenerating anything.** It clones a pristine decomp
+and applies every patch to that, which is the one thing a working tree cannot tell you: a tree
+that already has the changes will accept a patch that no fresh clone would. That check is the
+difference between finding this now and a stranger finding it on their first install. It also
+verifies each patch is named by all three setup scripts.
+
 Regenerating by hand is how `0006` was corrupted: one context line was truncated, `git apply`
 rejected it, and the tree it was meant to fix would not link. That is issue #5. Round-trip every
 regenerated patch onto a pristine copy before committing it.

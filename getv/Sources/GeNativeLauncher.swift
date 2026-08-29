@@ -170,12 +170,33 @@ private struct GeSectionTitle: View {
     }
 }
 
+/* A custom ButtonStyle REPLACES tvOS's automatic focus "pop" halo entirely -- the system
+ * only applies that for the default/.plain style, so a style that doesn't render its own
+ * focus state makes every button on this screen look focus-dead under Siri Remote/game
+ * controller navigation even though the focus engine is moving normally underneath. The
+ * fix has to live in a child view, not read directly off `configuration` here: SwiftUI
+ * only resolves @Environment(\.isFocused) correctly when it's read inside the view that is
+ * itself the focusable element's body, not one level up in the style function. */
 private struct GeButtonStyle: ButtonStyle {
     var primary: Bool = false
     func makeBody(configuration: Configuration) -> some View {
+        GeButtonLabel(configuration: configuration)
+    }
+}
+
+private struct GeButtonLabel: View {
+    let configuration: GeButtonStyle.Configuration
+    @Environment(\.isFocused) private var isFocused
+    var body: some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .scaleEffect(isFocused ? 1.06 : (configuration.isPressed ? 0.98 : 1.0))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(isFocused ? geGoldHi : Color.clear, lineWidth: 3)
+            )
+            .shadow(color: isFocused ? geGoldHi.opacity(0.55) : .clear, radius: isFocused ? 12 : 0)
+            .animation(.easeOut(duration: 0.15), value: isFocused)
     }
 }
 
@@ -635,8 +656,25 @@ private final class GeLauncherBridgeRunner {
         // against that contract on both platforms already -- this is the standard,
         // long-used technique for making a UIKit-driven, event-based interaction look
         // synchronous to a caller that cannot itself be restructured into a callback.
+        //
+        // The single seed pass above can run before UIHostingController has actually
+        // installed SwiftUI's focusable items -- its view controller lifecycle is lazy,
+        // so assigning rootViewController does not guarantee the view (and therefore its
+        // focus items) exist yet on the frame that call lands in. When that race is lost,
+        // the one-shot seed finds nothing to focus and there is no retry, leaving the
+        // window permanently focus-dead -- Siri Remote/controller input looks completely
+        // ignored for the launcher's entire lifetime. Re-seed on the run loop's own early
+        // spins (cheap and a no-op once something really is focused) until the focus
+        // system reports an actual focused item, capped so this never runs forever.
+        var focusSeedAttempts = 0
         while !finished {
             CFRunLoopRunInMode(.defaultMode, 0.05, true)
+            if focusSeedAttempts < 20,
+               UIFocusSystem.focusSystem(for: newWindow)?.focusedItem == nil {
+                newWindow.setNeedsFocusUpdate()
+                newWindow.updateFocusIfNeeded()
+                focusSeedAttempts += 1
+            }
         }
 
         // Torn down completely, not just hidden: the game creates its OWN UIWindow next
