@@ -1,6 +1,8 @@
 #ifndef GFX_METAL_H
 #define GFX_METAL_H
 
+#include <stdint.h>
+
 #include "gfx_rendering_api.h"
 
 /* GfxRenderingAPI rectangles use OpenGL's lower-left origin. Metal's viewport and
@@ -9,6 +11,27 @@ static inline int gfx_metal_upper_left_y(int lower_left_y, int height, int targe
 {
     return target_height - lower_left_y - height;
 }
+
+/* Fast3D's per-tile flag says whether this draw wants filtering at all; configFiltering
+ * distinguishes ordinary bilinear (1) from the N64's three-point filter (2). Keep that
+ * combination at the Metal boundary so point-sampled HUD/text never enters the shader
+ * filter and mode 1 remains the hardware bilinear path. */
+static inline int gfx_metal_three_point_active(unsigned int filtering, int linear_filter)
+{
+    return filtering == 2 && linear_filter;
+}
+
+/* Shared byte layout for the CPU buffer and generated MSL DrawUniforms. Metal aligns a
+ * float2 to eight bytes and therefore rounds the whole structure to eight as well; the
+ * explicit final word keeps sizeof() at 32 instead of relying on compiler tail padding. */
+struct GfxMetalDrawUniforms {
+    float tex0_size[2];
+    float tex1_size[2];
+    int32_t has_height;
+    int32_t tex0_filter;
+    int32_t tex1_filter;
+    int32_t alignment_pad;
+};
 
 #ifdef __cplusplus
 extern "C" {
