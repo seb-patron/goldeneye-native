@@ -3,6 +3,13 @@
 
 #include "gfx_rendering_api.h"
 
+/* GfxRenderingAPI rectangles use OpenGL's lower-left origin. Metal's viewport and
+ * scissor origins are upper-left, so the backend must translate Y at its boundary. */
+static inline int gfx_metal_upper_left_y(int lower_left_y, int height, int target_height)
+{
+    return target_height - lower_left_y - height;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
