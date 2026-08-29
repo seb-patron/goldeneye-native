@@ -414,8 +414,9 @@ mac audio: 40 built, 0 failed
 mac port layer: 64 built, 0 failed
 ```
 
-Linux reads 61 for the port layer and Windows 165 for the game; both differences are explained in
-[`docs/SETUP.md`](docs/SETUP.md) and neither is a fault.
+Linux reads 61 for the port layer, and Windows 165 for the game and 59 for the port layer. The
+asset and audio counts are the same everywhere. All of these differences are explained in
+[`docs/SETUP.md`](docs/SETUP.md) and none is a fault.
 
 ## Contributing
 
