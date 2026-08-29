@@ -29,6 +29,7 @@
  * would produce a completely different sequence.
  */
 #include <stdio.h>   /* the draw-site trace below */
+#include <stdint.h>
 #include <stdlib.h>
 #include <PR/ultratypes.h>
 
@@ -77,6 +78,17 @@ static void ge_random_who(const void *ra)
 u32 randomGetNext(void)
 {
     ge_random_calls++;
+    /* One anchor, so the caller addresses below can be resolved back to symbols: this function's
+     * runtime address minus its address in the binary is the process's slide. Printed from in
+     * here because that is where the symbol is in scope. */
+    {
+        static int anchored = 0;
+        if (!anchored && getenv("GETV_RNG_WHO_FROM") != NULL) {
+            anchored = 1;
+            printf("[getv][rngwho] anchor randomGetNext=%p\n", (void *) (uintptr_t) &randomGetNext);
+            fflush(stdout);
+        }
+    }
     ge_random_who(__builtin_return_address(0));
     g_randomSeed = ge_random_step(g_randomSeed);
     /* dsll32 then dsra32 is a sign-extension of the low 32 bits; as a u32 return

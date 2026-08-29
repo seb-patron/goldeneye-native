@@ -376,13 +376,36 @@ bool start_process(Pipeline *p, const char *cmd, const char *cwd, std::string *e
     }
     SetHandleInformation(p->hReadPipe, HANDLE_FLAG_INHERIT, 0);
 
+    /* NUL, not NULL. STARTF_USESTDHANDLES makes all three handles significant, so a NULL stdin
+     * hands the child a handle that is invalid rather than merely empty, and anything that asks
+     * the OS for it fails outright:
+     *
+     *   python  OSError: [WinError 6] The handle is invalid, from GetStdHandle(STD_INPUT_HANDLE)
+     *           inside subprocess.run -- so gen_asset_fileview.py, gen_propdef_layout.py and
+     *           uniquify_asset_symbols.py all die the moment they try to run a compiler
+     *   msys    sha1sum: failed to set file descriptor text/binary mode: Bad file descriptor,
+     *           printing nothing, which made the ROM check compare an empty hash
+     *
+     * Reported three separate ways -- issues #6, #7 and #8 -- all of them this one line. Nothing
+     * the wizard runs wants to read stdin, so an empty device is the right answer rather than a
+     * pipe nobody writes to. */
+    HANDLE hNul = CreateFileA("NUL", GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa,
+                              OPEN_EXISTING, 0, NULL);
+    if (hNul == INVALID_HANDLE_VALUE) {
+        CloseHandle(p->hReadPipe);
+        CloseHandle(hWrite);
+        *err = "Could not open the NUL device for the command's input.";
+        return false;
+    }
+
     STARTUPINFOA si;
     memset(&si, 0, sizeof si);
     si.cb = sizeof si;
     si.dwFlags = STARTF_USESTDHANDLES;
     si.hStdOutput = hWrite;
     si.hStdError = hWrite;
-    si.hStdInput = NULL;
+    si.hStdInput = hNul;
 
     PROCESS_INFORMATION pi;
     memset(&pi, 0, sizeof pi);
@@ -393,6 +416,7 @@ bool start_process(Pipeline *p, const char *cmd, const char *cwd, std::string *e
     BOOL ok = CreateProcessA(NULL, cmdBuf.data(), NULL, NULL, TRUE, CREATE_NO_WINDOW,
                               NULL, cwd, &si, &pi);
     CloseHandle(hWrite);
+    CloseHandle(hNul);
     if (!ok) {
         CloseHandle(p->hReadPipe);
         *err = "Could not start the command.";

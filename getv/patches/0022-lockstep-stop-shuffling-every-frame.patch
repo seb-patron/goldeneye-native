@@ -1,0 +1,30 @@
+diff -ruN before/src/game/player.c after/src/game/player.c
+--- a/src/game/player.c
++++ b/src/game/player.c
+@@ -667,6 +667,26 @@
+         array_PLAYER_IDs[i] = i;
+     }
+ 
++#ifdef GE_PORT_NATIVE
++    /* Under a lockstep session the order is left as written above and no draw is made.
++     *
++     * bossMainloop() calls this every frame, and each call takes three numbers from the shared
++     * sequence. Frame cadence is a property of one machine, so two machines reach the same tick
++     * having drawn a different number of times, or the same number interleaved differently with
++     * the simulation's own draws. Either moves g_randomSeed apart, which is exactly what the
++     * desync detector compares. Measured on one machine, two processes: this site is 183 of ~200
++     * draws in a 60-frame window, and the first divergence is it landing either side of
++     * chrlvTickStand.
++     *
++     * Identity order is not a degradation here. The order decides which player is the sim owner
++     * (propobj.c:4556 assigns isSimOwner from position 0), and lockstep needs every machine to
++     * agree on that. A per-frame shuffle is the one thing that cannot agree. */
++    {
++        extern int gePortNetLockstepOn(void);
++        if (gePortNetLockstepOn()) { return; }
++    }
++#endif
++
+     for (i = 0; i < 3; i ++) {
+         random = randomGetNext();
+         temp = array_PLAYER_IDs[i];

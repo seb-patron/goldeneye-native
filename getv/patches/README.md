@@ -28,6 +28,7 @@ Split by *when* they can be applied rather than by subject.
 | `0019-coop-respawn.patch` | 1 file | `src/game/bondview2.c` | after `0018` |
 | `0020-kill-selftest.patch` | 1 file | `src/game/bondview2.c` | after `0001` |
 | `0021-stan-pointer-return-decls.patch` | 1 file | `src/game/stan.c` | after `0001` |
+| `0022-lockstep-stop-shuffling-every-frame.patch` | 1 file | `src/game/player.c` | after `0001` |
 
 ## The gap at 0003, 0004 and 0005 is deliberate
 

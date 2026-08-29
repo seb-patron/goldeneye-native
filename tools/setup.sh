@@ -73,6 +73,7 @@ else
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0019-coop-respawn.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0020-kill-selftest.patch" )
     ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0021-stan-pointer-return-decls.patch" )
+    ( cd vendor/ge-decomp && git apply "$ROOT/getv/patches/0022-lockstep-stop-shuffling-every-frame.patch" )
     echo "cloned and patched"
 fi
 
