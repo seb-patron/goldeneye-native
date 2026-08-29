@@ -869,15 +869,17 @@ static void gfx_metal_set_zmode_decal(bool zmode_decal) {
 
 static void gfx_metal_set_viewport(int x, int y, int width, int height) {
     if (!mtl_encoder) return;
-    MTLViewport vp = { (double)x, (double)y, (double)width, (double)height, 0.0, 1.0 };
+    int upper_y = gfx_metal_upper_left_y(y, height, (int)mtl_render_target_h);
+    MTLViewport vp = { (double)x, (double)upper_y, (double)width, (double)height, 0.0, 1.0 };
     [mtl_encoder setViewport:vp];
 }
 
 static void gfx_metal_set_scissor(int x, int y, int width, int height) {
     if (!mtl_encoder) return;
     NSUInteger dw = (NSUInteger)mtl_render_target_w, dh = (NSUInteger)mtl_render_target_h;
+    int upper_y = gfx_metal_upper_left_y(y, height, (int)mtl_render_target_h);
     NSUInteger sx = (NSUInteger)MAX(0, MIN(x, (int)dw));
-    NSUInteger sy = (NSUInteger)MAX(0, MIN(y, (int)dh));
+    NSUInteger sy = (NSUInteger)MAX(0, MIN(upper_y, (int)dh));
     NSUInteger sw = (NSUInteger)MAX(0, MIN(width, (int)dw - (int)sx));
     NSUInteger sh = (NSUInteger)MAX(0, MIN(height, (int)dh - (int)sy));
     MTLScissorRect sr = { sx, sy, sw, sh };
