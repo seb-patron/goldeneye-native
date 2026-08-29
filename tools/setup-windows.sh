@@ -33,6 +33,25 @@ step "checking for python3"
 command -v python3 >/dev/null 2>&1 \
   || die "python3 not found on PATH -- install it from python.org (check \"Add to PATH\" in the installer) and re-run"
 
+# Python on Windows encodes stdout as cp1252 once it is redirected rather than attached to a
+# console, and several of the decomp's generators print non-ASCII status glyphs. generate_chr_c.py
+# raises UnicodeEncodeError on the U+2713 in its per-file success line, and then its own except
+# branch raises again on the U+2717 in the error message it was trying to report -- so the
+# process dies on its FIRST character, having generated nothing, and the crash is in the
+# reporting rather than in the work.
+#
+# tools/install.ps1 has carried this fix for a while; this script never got it, and this script
+# is the one the setup wizard runs. Measured on a fresh Windows install without it:
+# generate_chr_c.py, generate_gun_c.py, generate_prop_model_c.py and sync_imagelist_with_def.py
+# all died, leaving 253 asset sources where macOS has 762. The build still linked, which is what
+# made it worth finding -- it produced an .exe missing two thirds of its assets rather than an
+# error.
+#
+# Setting it here rather than patching the generators, for the same reason install.ps1 gives:
+# the decomp is cloned fresh below, so its scripts cannot be edited in place.
+export PYTHONIOENCODING='utf-8'
+export PYTHONUTF8=1
+
 
 # ---------------------------------------------------------------------- 1. third-party
 step "third-party port sources"
@@ -130,6 +149,26 @@ else
     python3 tools/gen_propdef_layout.py
   ) || die "asset generation failed -- rerun by hand per docs/SETUP.md 3.5 to see which step"
 fi
+
+# Count what the generators produced, every run, including the "already generated" path above.
+#
+# This exists because the failure it catches did not look like a failure. generate_chr_c.py,
+# generate_gun_c.py and generate_prop_model_c.py report per model and can die partway through
+# without failing the block they run in; on Windows all three died on their FIRST file, and the
+# install carried on for another twenty minutes, linked cleanly, and produced a 18.5 MB
+# goldeneye.exe. Measured in that tree: 1 chr, 1 gun and 1 prop model against 80, 92 and 340,
+# and 253 asset sources where macOS has 762. Nothing between the generator and a user starting
+# the game would have said a word.
+#
+# Exact counts rather than a floor, because the number is a property of the ROM: these are the
+# models GoldenEye ships, and a change here means either a generator regressed or the asset set
+# genuinely moved, and both are worth stopping for.
+for _spec in "chr:80" "gun:92" "prop:340"; do
+  _d="${_spec%%:*}"; _want="${_spec##*:}"
+  _have="$(ls -1 "$DECOMP/assets/obseg/$_d/"*/Model.c 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$_have" -ge "$_want" ] || die "only $_have of $_want $_d models exist -- the generator stopped early. Delete $DECOMP/assets/ge_animation_offsets.h and re-run to regenerate, and read the log above for the first traceback."
+done
+echo "models: $(ls -1 "$DECOMP/assets/obseg/chr/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') chr, $(ls -1 "$DECOMP/assets/obseg/gun/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') gun, $(ls -1 "$DECOMP/assets/obseg/prop/"*/Model.c 2>/dev/null | wc -l | tr -d ' ') prop"
 
 # ---------------------------------------------------------------------- 6. namespacing + 0002
 step "symbol namespacing (docs/SETUP.md 3.6)"
