@@ -114,6 +114,13 @@ else
     || die "0012-real-font-overlay.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0013-lockstep-pinned-sim-step.patch" ) 2>/dev/null; then
+  echo "0013-lockstep-pinned-sim-step.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0013-lockstep-pinned-sim-step.patch" ) \
+    || die "0013-lockstep-pinned-sim-step.patch failed to apply"
+fi
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."

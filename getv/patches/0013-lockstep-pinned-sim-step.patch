@@ -1,0 +1,34 @@
+--- a/src/game/frametiming.c
++++ b/src/game/frametiming.c
+@@ -366,6 +366,31 @@
+     } while (nextFrameTime < frameDelay);
+   }
+ 
++  /* LOCKSTEP: the simulation step must not come from this machine's clock.
++   *
++   * nextFrameTime above is "how many video fields the clock says elapsed", and it is what
++   * drives the world forward. That is per-process by construction: on the synthetic clock it
++   * comes out of a counter the audio thread also increments, and under GETV_REALCLOCK=1 it is
++   * host time and moves with load. Two machines running the same inputs therefore advance the
++   * world by different amounts and diverge with nobody touching a controller, which is exactly
++   * what a two-process trial shows -- the RNG state differs at the same tick whenever the two
++   * ran at different frame rates, and matches every time when they did not.
++   *
++   * gePlayerPinDelta() was written for this and nothing had ever called it. With a session
++   * open, every machine advances by the same pinned number of fields per pass, so the step is
++   * a decision rather than a measurement. The renderer is untouched and still runs free; only
++   * what the simulation is told has elapsed is fixed.
++   *
++   * Perfect Dark's netplay branch avoids this question rather than answering it: its clients do
++   * not simulate at all, they are sent entity state (port/src/net/netmsg.c, SVC_PROP_MOVE and
++   * friends). Lockstep does not have that option -- every machine simulates, so every machine
++   * must take the same step. */
++  {
++      extern int gePlayerPinnedDelta(void);
++      const s32 pinned = (s32) gePlayerPinnedDelta();
++      if (pinned > 0) { nextFrameTime = (u32) pinned; }
++  }
++
+   /* GETV_TICKFIELDS=<n> -- hold the simulation to one update per n video fields.
+    *
+    * frameDelay is a one-shot: something sets it, waitForNextFrame honours it once, then it

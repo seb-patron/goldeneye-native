@@ -36,9 +36,12 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+/* For u64, which g_randomSeed is declared as; see the session-seed comment in GeUdpCtx. */
+#include <PR/ultratypes.h>
 #include <string.h>
 
 #include "ge_net.h"
+#include "ge_player_api.h"
 
 #if defined(_WIN32)
   #include <winsock2.h>
@@ -102,6 +105,15 @@ typedef struct GeUdpCtx {
     int  started;
     int  delay;
     struct sockaddr_in host_addr;       /* joiners: where to aim JOIN before we know anyone */
+    /* The session's agreed RNG seed. Lockstep needs every machine to start its simulation from
+     * the same random state; boss.c seeds from osGetCount(), which is per-process and under
+     * GETV_REALCLOCK=1 is a host performance counter, so two machines never agree on their own.
+     * Measured across four launches: 17820138, 11019005, 29936650, 8163261. Perfect Dark's own
+     * netplay branch does the same thing for the same reason -- its SVC_STAGE_START carries
+     * g_RngSeed and g_Rng2Seed, latched on arrival and applied at level load, symmetric with
+     * where the server sends it (their port/src/net/netmsg.c and src/game/lv.c:333). */
+    unsigned long long session_seed;
+    int  have_seed;
 } GeUdpCtx;
 
 static GeUdpCtx ge_udp;
@@ -203,7 +215,7 @@ static void ge_udp_greet(void)
  * input to itself and count its own echoes. */
 static void ge_udp_send_table(const GeUdpPeer *to, int start)
 {
-    unsigned char buf[4 + GE_NET_MAX_PEERS * GE_PEER_ENTRY];
+    unsigned char buf[4 + GE_NET_MAX_PEERS * GE_PEER_ENTRY + 8];
     int i, n = 0;
     int len;
 
@@ -230,6 +242,12 @@ static void ge_udp_send_table(const GeUdpPeer *to, int start)
     buf[2] = (unsigned char) to->slot;
     buf[3] = (unsigned char) (start ? 1 : 0);
     len = 4 + n * GE_PEER_ENTRY;
+
+    /* The seed rides on every table, not only the one carrying the start flag, so a joiner that
+     * loses a packet still has it by the time the start arrives. Eight bytes, host byte order:
+     * this protocol is already host-order throughout and both ends are the same build. */
+    memcpy(buf + len, &ge_udp.session_seed, 8);
+    len += 8;
     sendto(ge_udp.sock, (const char *) buf, (size_t) len, 0,
            (struct sockaddr *) &to->addr, sizeof(struct sockaddr_in));
 }
@@ -256,6 +274,23 @@ static void ge_udp_open_session(void)
     tp.send  = ge_udp_send_all;
     tp.recv  = ge_udp_recv_one;
     tp.close = ge_udp_shutdown;
+    /* Applied HERE, at the point both sides reach symmetrically -- the host when enough players
+     * have joined, a joiner when the start flag arrives -- and not when the packet carrying it
+     * was read. That symmetry is the whole point: it is the same position in each machine's own
+     * sequence, which is what Perfect Dark gets by applying its latched seeds in lv.c beside the
+     * server's own send. The host adopts it too rather than assuming it already holds it, so
+     * neither side depends on how far its RNG advanced during boot. */
+    if (ge_udp.have_seed) {
+        extern u64 g_randomSeed;
+        g_randomSeed = (u64) ge_udp.session_seed;
+        printf("[getv][udp] session seed %016llx adopted by slot %d\n",
+               (unsigned long long) ge_udp.session_seed, ge_udp.local_slot);
+        fflush(stdout);
+    }
+    /* Pin the simulation step for the life of the session. See the LOCKSTEP note in
+     * frametiming.c for why a clock-derived step cannot work when every machine simulates. */
+    gePlayerPinDelta(1);
+    printf("[getv][udp] simulation step pinned to 1 field for the session\n");
     geNetOpen(&tp, ge_udp.local_slot, ge_udp.delay);
     geNetSetSlotKind(ge_udp.local_slot, GE_NET_SLOT_LOCAL);
     /* Local is GE_SLOT_INJECTED too, not left as GE_SLOT_HARDWARE -- found live, not assumed:
@@ -335,6 +370,14 @@ static int ge_udp_recv_one(void *ctx, void *data, int max)
         int i;
         if (got < 4 + n * GE_PEER_ENTRY) { return 0; }
         c->local_slot = p[2];
+        /* Latched rather than applied here, the way Perfect Dark's client latches the server's
+         * seeds and applies them at level load. Writing g_randomSeed the instant a datagram
+         * arrives would move the simulation's random state at a point that depends on network
+         * timing, which is a divergence rather than a fix for one. */
+        if (got >= 4 + n * GE_PEER_ENTRY + 8) {
+            memcpy(&c->session_seed, p + 4 + n * GE_PEER_ENTRY, 8);
+            c->have_seed = 1;
+        }
 
         for (i = 0; i < n; i++) {
             const unsigned char *e = p + 4 + i * GE_PEER_ENTRY;
@@ -409,6 +452,19 @@ int gePortNetInit(void)
     ge_udp.want_players = 2;
     if ((e = getenv("GETV_NET_DELAY"))   != NULL) { ge_udp.delay = atoi(e); }
     if ((e = getenv("GETV_NET_PLAYERS")) != NULL) { ge_udp.want_players = atoi(e); }
+
+    /* The host chooses the session's seed, once, and everyone adopts it at session open. Taken
+     * from this machine's own g_randomSeed so sessions still differ from one another -- the
+     * goal is agreement between machines, not determinism across runs. GETV_NET_SEED forces it
+     * when a trial needs two sessions to be comparable. */
+    {
+        extern u64 g_randomSeed;
+        const char *sv = getenv("GETV_NET_SEED");
+        ge_udp.session_seed = (sv != NULL && *sv != '\0')
+                            ? (unsigned long long) strtoull(sv, NULL, 0)
+                            : (unsigned long long) g_randomSeed;
+        ge_udp.have_seed = 1;
+    }
     if (ge_udp.want_players < 2) { ge_udp.want_players = 2; }
     if (ge_udp.want_players > GE_NET_MAX_PEERS) { ge_udp.want_players = GE_NET_MAX_PEERS; }
 
