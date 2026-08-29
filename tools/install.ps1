@@ -72,6 +72,29 @@ if ($missing.Count -gt 0) {
 }
 Info "git and python are present"
 
+# Resolve bash ONCE, here, and never call it by bare name again.
+#
+# System32 ships its own bash.exe -- the WSL launcher stub -- and System32 comes before Git's
+# bin directory in the default PATH order. So `& bash script.sh` does not run Git's bash: it
+# runs WSL, which prints a UTF-16 "no installed distributions" message and exits. The step
+# looks like it did nothing, and nothing names the real cause. That silently blocked ROM
+# extraction on a fresh Windows machine.
+#
+# Derived from git.exe's own location, because git is already a hard requirement checked
+# above, and Git for Windows always ships bash beside it.
+$bash = Join-Path (Split-Path -Parent (Split-Path -Parent (Get-Command git).Source)) 'bin\bash.exe'
+if (-not (Test-Path $bash)) {
+  # Fall back to a PATH search, but skip anything under System32: that is the WSL stub, and
+  # taking it would put us back in the failure this whole block exists to avoid.
+  $bash = (Get-Command bash -All -ErrorAction SilentlyContinue |
+             Where-Object { $_.Source -and $_.Source -notmatch '\\System32\\' } |
+             Select-Object -First 1 -ExpandProperty Source)
+}
+if (-not $bash) {
+  Die "cannot find Git for Windows' bash.exe. Several steps here are shell scripts. It normally sits at C:\Program Files\Git\bin\bash.exe"
+}
+Info "bash: $bash"
+
 if ($SkipDeps) {
   Info "-SkipDeps given; not running fetch_deps_windows.ps1"
 } elseif (Test-Path "$Mingw\bin\gcc.exe") {
@@ -90,10 +113,7 @@ Say "third-party port-layer sources"
 if (Test-Path "$root\getv\port\fast3d\gfx_pc.c") {
   Info "already present"
 } else {
-  # The fetch script is bash. Git for Windows ships one, which is the only reason this does not
-  # need a PowerShell rewrite of it.
-  $bash = Join-Path (Split-Path -Parent (Split-Path -Parent (Get-Command git).Source)) 'bin\bash.exe'
-  if (-not (Test-Path $bash)) { $bash = 'bash' }
+  # $bash is resolved once in section 1; see the comment there for why a bare `bash` is wrong.
   & $bash -lc "cd '$($root -replace '\\','/')' && bash tools/fetch-thirdparty.sh fetch"
   if (-not (Test-Path "$root\getv\port\fast3d\gfx_pc.c")) { Die "the port-layer fetch did not produce gfx_pc.c" }
 }
@@ -279,13 +299,13 @@ Info "enabling background extraction"
 Push-Location $decomp
 try { & python "$root\tools\enable_bg_extraction.py" 2>&1 | Out-Null } finally { Pop-Location }
 
-Invoke-AssetStep 'assets\obseg\bg\bg_ame_all_p.bin'      'extracting from the ROM' 'bash' @('scripts/extract_baserom.u.sh')
+Invoke-AssetStep 'assets\obseg\bg\bg_ame_all_p.bin'      'extracting from the ROM' $bash @('scripts/extract_baserom.u.sh')
 Invoke-AssetStep 'assets\obseg\chr\*\Model.c'            'character models'        'python' @('scripts/generate_chr_c.py')
 Invoke-AssetStep 'assets\obseg\gun\*\Model.c'            'weapon models'           'python' @('scripts/generate_gun_c.py')
 Invoke-AssetStep 'assets\obseg\prop\*\Model.c'           'prop models'             'python' @('scripts/generate_prop_model_c.py')
 Invoke-AssetStep 'assets\obseg\ge_obseg_blobs.c'         'obseg blobs'             'python' @("$root\tools\gen_obseg_blobs.py")
 Invoke-AssetStep 'build\imagelist.csv'                   'image list'              'python' @('scripts/make/sync_imagelist_with_def.py','build/imagelist.csv')
-Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'        'bash' @('scripts/make/combine_images_named.sh','build/imagelist.csv','assets/images/combined')
+Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'        $bash @('scripts/make/combine_images_named.sh','build/imagelist.csv','assets/images/combined')
 # combined.bin becomes a C array rather than an object. Upstream turns it into one with
 # `ld -r -b binary`, a GNU extension with no Mach-O equivalent, so the bytes are emitted as C.
 Invoke-AssetStep 'assets\images\ge_images_segment.c'     'images segment'          'python' @("$root\tools\gen_images_segment.py")
