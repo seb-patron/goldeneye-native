@@ -217,6 +217,29 @@ cmd_regen() {
     die "regenerated patch is $newsz bytes against $oldsz -- less than half. Refusing. Re-run with FORCE=1 if this shrink is intended."
   fi
 
+  # REFUSE A PATCH THAT DELETES A MANIFEST FILE. The size check above only catches a result
+  # that is implausibly SMALL, so losing exactly one file of fifteen sails straight through it.
+  #
+  # That is not a hypothetical either. Reported from the Windows lane: under the same MSYS fork
+  # failures described above, one file's copy into $tmp/b never happened, and because diff -N
+  # treats an absent right-hand file as a deletion, the regenerated patch recorded ge_mixer.h
+  # with an epoch-zero timestamp and a pure-deletion hunk. Every real change to that file would
+  # have been replaced by an instruction to delete it, and the patch was otherwise the right
+  # size and shape.
+  #
+  # A regen must never delete a manifest file, so a deletion hunk is always a dropped copy
+  # rather than an intended change. Checked by name, so the message says which one.
+  # A file that is simply unmodified produces no hunk at all, which is normal and is NOT what
+  # this looks for. The signature of a dropped copy is a whole-file deletion: diff -N treats an
+  # absent right-hand file as one, so the hunk header reads `+0,0` and the +++ timestamp is the
+  # epoch. Neither can ever be a legitimate regen result, because a manifest file that is gone
+  # from the working tree would have stopped this function at the `is not present` check above.
+  local deleted
+  deleted=$(awk '/^\+\+\+ b\//{f=substr($2,3)} /^@@ .* \+0,0 @@/{if(f!="")print f}' "$out" | sort -u | tr '\n' ' ')
+  if [ -n "$deleted" ]; then
+    die "regenerated patch DELETES: $deleted -- a copy into the temp tree did not happen. $PATCHFILE left untouched. Re-run; this is transient under MSYS."
+  fi
+
   mv -f "$out" "$PATCHFILE"
   echo "fetch-thirdparty: wrote $PATCHFILE ($newsz bytes, was $oldsz)"
   cmd_verify
