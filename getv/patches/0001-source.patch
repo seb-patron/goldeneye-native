@@ -34439,10 +34439,10 @@ index cb031cc..251d75c 100644
  
 diff --git a/tools/gen_propdef_layout.py b/tools/gen_propdef_layout.py
 new file mode 100644
-index 0000000..6c03cb0
+index 0000000..7adc7a0
 --- /dev/null
 +++ b/tools/gen_propdef_layout.py
-@@ -0,0 +1,676 @@
+@@ -0,0 +1,682 @@
 +#!/usr/bin/env python3
 +"""Generate src/game/ge_propdef_layout.inc.c -- the N64-file -> native-record map
 +for the setup file's propDef stream.
@@ -34528,6 +34528,12 @@ index 0000000..6c03cb0
 +
 +import os, re, sys, shutil, subprocess, tempfile
 +
++# Every subprocess call below names stdin=subprocess.DEVNULL. Python otherwise inherits the
++# parent's, which means asking Windows for STD_INPUT_HANDLE before it even looks for the
++# executable -- and under the setup wizard that has come back invalid, killing the tool with
++# WinError 6 before any compiler runs. Issues #7 and #8. Nothing here reads stdin.
++
++
 +ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 +# tempfile, not '/tmp': that is not a path that exists on Windows, and Python's open()
 +# raises FileNotFoundError on it rather than creating anything.
@@ -34578,7 +34584,7 @@ index 0000000..6c03cb0
 +    open(tu, "w").write(src)
 +    out = subprocess.run(["clang"] + CFLAGS +
 +                         ["-Xclang", "-fdump-record-layouts", "-fsyntax-only", tu],
-+                         cwd=ROOT, capture_output=True, text=True).stdout
++                         cwd=ROOT, capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
 +    open(LAYOUT, "w").write(out)
 +
 +
@@ -34749,10 +34755,10 @@ index 0000000..6c03cb0
 +    open(tu, "w").write(src)
 +    exe = os.path.join(tempfile.gettempdir(), "ge_pdef_scalar_probe")
 +    r = subprocess.run(["clang"] + CFLAGS + [tu, "-o", exe], cwd=ROOT,
-+                       capture_output=True, text=True)
++                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
 +    if r.returncode != 0:
 +        die("cannot size leaf type %r:\n%s" % (base, r.stderr[-2000:]))
-+    v = subprocess.run([exe], capture_output=True, text=True).stdout.split()
++    v = subprocess.run([exe], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout.split()
 +    _probed[base] = (int(v[0]), int(v[1]))
 +    return _probed[base]
 +

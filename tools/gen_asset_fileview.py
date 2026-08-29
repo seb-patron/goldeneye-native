@@ -28,6 +28,12 @@ import shutil
 import subprocess
 import tempfile
 
+# Every subprocess call below names stdin=subprocess.DEVNULL. Python otherwise inherits the
+# parent's, which means asking Windows for STD_INPUT_HANDLE before it even looks for the
+# executable -- and under the setup wizard that has come back invalid, killing the tool with
+# WinError 6 before any compiler runs. Issues #7 and #8. Nothing here reads stdin.
+
+
 HDR = 'src/bondtypes.h'
 OUT = 'src/ge_asset_fileview.h'
 CHECK = 'src/ge_asset_fileview_check.c'
@@ -48,7 +54,7 @@ def _sysroot_flags():
         return []
     for sdk in ('macosx', 'appletvsimulator', 'appletvos'):
         r = subprocess.run(['xcrun', '-sdk', sdk, '--show-sdk-path'],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, stdin=subprocess.DEVNULL)
         path = r.stdout.strip()
         if r.returncode == 0 and path and os.path.isdir(path):
             return ['-isysroot', path]
@@ -206,7 +212,7 @@ def main():
             src = '_Static_assert(sizeof(struct %s) <= %d, "x");' % (n, mid)
             io.open(probe_c, 'w').write(src + '\n')
             r = subprocess.run([clang, '-target', 'armv7-apple-ios10.0'] + BASE + [probe_c],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, stdin=subprocess.DEVNULL)
             if 'error:' in (r.stdout + r.stderr):
                 lo = mid + 1
             else:
@@ -221,7 +227,7 @@ def main():
     shutil.rmtree(probe_dir, ignore_errors=True)
 
     r = subprocess.run([clang, '-target', 'arm64-apple-tvos17.0'] + BASE + [CHECK],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
     errs = [l for l in (r.stdout + r.stderr).split('\n') if 'error:' in l]
     bad = [l for l in errs if 'does not match' in l]
     print('\n%d of %d file views match the N64 layout exactly'

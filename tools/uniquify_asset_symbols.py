@@ -51,6 +51,12 @@ Usage:  uniquify_asset_symbols.py <dir> [--recurse] [--dry-run]
 """
 import glob, os, re, shutil, subprocess, sys, tempfile
 
+# Every subprocess call below names stdin=subprocess.DEVNULL. Python otherwise inherits the
+# parent's, which means asking Windows for STD_INPUT_HANDLE before it even looks for the
+# executable -- and under the setup wizard that has come back invalid, killing the tool with
+# WinError 6 before any compiler runs. Issues #7 and #8. Nothing here reads stdin.
+
+
 def _host_flags():
     """Target and sysroot for the throwaway probe objects, or nothing off Apple.
 
@@ -68,7 +74,7 @@ def _host_flags():
     for sdk, target in (('macosx', 'arm64-apple-macos13.0'),
                         ('appletvsimulator', 'arm64-apple-tvos17.0-simulator')):
         r = subprocess.run(['xcrun', '-sdk', sdk, '--show-sdk-path'],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, stdin=subprocess.DEVNULL)
         path = r.stdout.strip()
         if r.returncode == 0 and path and os.path.isdir(path):
             return ['-target', target, '-isysroot', path]
@@ -140,14 +146,14 @@ if NM is None:
 # build_windows.ps1 already documents for -Wno-everything. Ask the compiler what it is rather
 # than inferring from its filename, since cc is usually a symlink to one or the other.
 try:
-    _v = subprocess.run([CC, '--version'], capture_output=True, text=True).stdout.lower()
+    _v = subprocess.run([CC, '--version'], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout.lower()
 except OSError as e:
     sys.exit("uniquify_asset_symbols: cannot run %s: %s" % (CC, e))
 # -ferror-limit=0 is a clang spelling. gcc rejects it and wants -fmax-errors=0, the same split
 # build_windows.ps1 already documents for -Wno-everything. Ask the compiler what it is rather
 # than inferring from its filename, since cc is usually a symlink to one or the other.
 try:
-    _v = subprocess.run([CC, '--version'], capture_output=True, text=True).stdout.lower()
+    _v = subprocess.run([CC, '--version'], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout.lower()
 except OSError as e:
     sys.exit("uniquify_asset_symbols: cannot run %s: %s" % (CC, e))
 # -std=gnu17 on both, and it is not cosmetic. GCC 16 defaults to C23, where bool is a keyword,
@@ -175,11 +181,11 @@ def nm_prefix():
     with tempfile.NamedTemporaryFile(suffix='.c', mode='w', delete=False) as t:
         t.write('int getv_nm_probe = 1;\n'); c = t.name
     o = c[:-2] + '.o'
-    r = subprocess.run([CC,'-c',c,'-o',o], capture_output=True, text=True)
+    r = subprocess.run([CC,'-c',c,'-o',o], capture_output=True, text=True, stdin=subprocess.DEVNULL)
     if r.returncode != 0:
         os.unlink(c)
         sys.exit('uniquify_asset_symbols: cannot compile a probe file:\n' + r.stderr.strip())
-    out = subprocess.run([NM,'-g',o], capture_output=True, text=True).stdout
+    out = subprocess.run([NM,'-g',o], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
     os.unlink(c)
     if os.path.exists(o): os.unlink(o)
     for line in out.splitlines():
@@ -193,11 +199,11 @@ NM_PREFIX = nm_prefix()
 
 def globals_of(rel):
     with tempfile.NamedTemporaryFile(suffix='.o', delete=False) as t: o = t.name
-    r = subprocess.run([CC]+CFLAGS+['-c',rel,'-o',o],cwd=ROOT,capture_output=True,text=True)
+    r = subprocess.run([CC]+CFLAGS+['-c',rel,'-o',o],cwd=ROOT,capture_output=True,text=True, stdin=subprocess.DEVNULL)
     if r.returncode != 0:
         if os.path.exists(o): os.unlink(o)
         return None
-    out = subprocess.run([NM,'-g',o],capture_output=True,text=True).stdout
+    out = subprocess.run([NM,'-g',o],capture_output=True,text=True, stdin=subprocess.DEVNULL).stdout
     if os.path.exists(o): os.unlink(o)
     syms=[]
     for line in out.splitlines():
