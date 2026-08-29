@@ -338,6 +338,30 @@ say "generating the asset sources"
 # so there is nothing literal to point at.
 marker_present() {
     [ -e "$1" ] && return 0
+
+    # A glob marker of the shape <base>/*/<file> must not be satisfied by ONE match, and this
+    # used to be, because compgen -G succeeds on any single hit. The three model generators
+    # write <type>/<name>/Model.c across dozens of directories; if one dies partway having
+    # written a single file, every later run reports "already done" off that one file and the
+    # build then succeeds with the rest of the models simply absent. Nothing in the compile,
+    # the archive or the link mentions an asset it was never handed. The Windows lane hit this
+    # for real: 667 assets built, 0 failed, with 79 of 80 character models missing.
+    #
+    # So for that shape, count. Every subdirectory the generator walks should end up with the
+    # file, which makes the expected number the directory count rather than something hardcoded
+    # that drifts as assets change. Measured today: chr 80, gun 92, prop 340, all matching.
+    case "$1" in
+        */\*/*)
+            base="${1%%/\*/*}"
+            leaf="${1##*/}"
+            [ -d "$base" ] || return 1
+            want=$(find "$base" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+            have=$(find "$base" -mindepth 2 -maxdepth 2 -name "$leaf" -type f 2>/dev/null | wc -l | tr -d ' ')
+            [ "$want" -gt 0 ] && [ "$have" -eq "$want" ]
+            return $?
+            ;;
+    esac
+
     compgen -G "$1" >/dev/null 2>&1
 }
 

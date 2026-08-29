@@ -24,7 +24,9 @@ import io
 import re
 import os
 import sys
+import shutil
 import subprocess
+import tempfile
 
 HDR = 'src/bondtypes.h'
 OUT = 'src/ge_asset_fileview.h'
@@ -178,9 +180,23 @@ def main():
     if skipped:
         print('skipped (body not found): %s' % ', '.join(skipped))
 
+    # Everything from here down verifies what was written above rather than producing it. OUT is
+    # the output and the only thing the build reads; CHECK is excluded from the source list on
+    # every platform. The probe needs clang and an Apple target triple to get a 32-bit ABI, so on
+    # a host with no clang there is nothing to run -- and it says so instead of returning quietly,
+    # because a verification that silently does nothing is worse than one that is openly absent.
+    clang = shutil.which('clang')
+    if not clang:
+        print('\nskipped the layout verification: no clang on this host, so the 32-bit size '
+              'probe cannot run.\n%s was generated and is what the build uses.' % OUT)
+        return
+
+    # Was a hardcoded /tmp/sz.c, which is not a path that exists on Windows -- the generator
+    # wrote its header, reported success, and then died in its own self-check.
+    probe_dir = tempfile.mkdtemp(prefix='ge_fileview_')
+    probe_c = os.path.join(probe_dir, 'sz.c')
+
     # Ground truth: the real struct sizes under a 32-bit ABI == the N64 sizes.
-    probe = '\n'.join('_Static_assert(sizeof(struct %s) != %d, "SIZE %s=%%d");' % (n, 0, n)
-                      for n, _ in checks)
     sizes = {}
     for n, _ in checks:
         lo, hi = 1, 512
@@ -188,8 +204,8 @@ def main():
         while lo < hi:
             mid = (lo + hi) // 2
             src = '_Static_assert(sizeof(struct %s) <= %d, "x");' % (n, mid)
-            io.open('/tmp/sz.c', 'w').write(src + '\n')
-            r = subprocess.run(['clang', '-target', 'armv7-apple-ios10.0'] + BASE + ['/tmp/sz.c'],
+            io.open(probe_c, 'w').write(src + '\n')
+            r = subprocess.run([clang, '-target', 'armv7-apple-ios10.0'] + BASE + [probe_c],
                                capture_output=True, text=True)
             if 'error:' in (r.stdout + r.stderr):
                 lo = mid + 1
@@ -202,7 +218,9 @@ def main():
         '\n'.join('#define GE_N64_SIZEOF_%s %d' % (n, s) for n, s in sizes.items()) +
         '\n\n' + '\n'.join(c for _, c in checks) + '\n')
 
-    r = subprocess.run(['clang', '-target', 'arm64-apple-tvos17.0'] + BASE + [CHECK],
+    shutil.rmtree(probe_dir, ignore_errors=True)
+
+    r = subprocess.run([clang, '-target', 'arm64-apple-tvos17.0'] + BASE + [CHECK],
                        capture_output=True, text=True)
     errs = [l for l in (r.stdout + r.stderr).split('\n') if 'error:' in l]
     bad = [l for l in errs if 'does not match' in l]

@@ -95,27 +95,43 @@ CFLAGS = HOST_FLAGS + [
 # traceback at the first file rather than reporting anything useful.
 #
 # GETV_CC and GETV_NM override, in case a machine has something the search does not find.
-def _which(names, env):
-    override = os.environ.get(env)
+#
+# nm has to read what the compiler just wrote, so an nm sitting beside the compiler wins over
+# anything earlier on PATH. Pairing mingw gcc's COFF objects with some unrelated nm is how the
+# pass goes straight back to reporting zero globals for every file -- the same silent no-op,
+# reached by a third route. That preference, and the mingw location below, are the Windows
+# lane's, who found the original hardcoding.
+_TOOL_DIRS = [r'C:\mingw64\bin'] if os.name == 'nt' else []
+
+def _resolve(env_var, names, prefer_dir=None):
+    override = os.environ.get(env_var)
     if override:
-        if shutil.which(override) or os.path.exists(override):
-            return override
-        sys.exit("uniquify_asset_symbols: %s=%s is not executable" % (env, override))
+        found = shutil.which(override) or (override if os.path.isfile(override) else None)
+        if not found:
+            sys.exit("uniquify_asset_symbols: %s is set to %r, which does not resolve to an "
+                     "executable" % (env_var, override))
+        return found
+    for d in ([prefer_dir] if prefer_dir else []) + _TOOL_DIRS:
+        for n in names:
+            p = os.path.join(d, n + ('.exe' if os.name == 'nt' else ''))
+            if os.path.isfile(p):
+                return p
     for n in names:
         found = shutil.which(n)
         if found:
             return found
     return None
 
-CC = _which(['clang', 'cc', 'gcc'], 'GETV_CC')
-NM = _which(['nm', 'llvm-nm', 'gcc-nm'], 'GETV_NM')
-if CC is None or NM is None:
-    missing = ' and '.join(x for x, v in (('a C compiler (clang, cc or gcc)', CC), ('nm', NM)) if v is None)
-    sys.exit("uniquify_asset_symbols: cannot find %s on PATH.\n"
-             "This pass compiles each asset and reads its globals with nm, so it cannot run\n"
-             "without both. On Windows the mingw-w64 toolchain that docs/SETUP.md installs\n"
-             "provides gcc.exe and nm.exe in the same bin directory; put that on PATH, or set\n"
-             "GETV_CC and GETV_NM to their full paths." % missing)
+CC = _resolve('GETV_CC', ['clang', 'cc', 'gcc'])
+if CC is None:
+    sys.exit("uniquify_asset_symbols: no C compiler found. Looked for clang, cc and gcc on PATH"
+             + (" and in C:\\mingw64\\bin" if os.name == 'nt' else "")
+             + ".\nThis pass compiles each asset and reads its globals with nm, so it cannot run\n"
+             "without one. Install it, or set GETV_CC to its path.")
+NM = _resolve('GETV_NM', ['nm', 'llvm-nm', 'gcc-nm'], prefer_dir=os.path.dirname(CC))
+if NM is None:
+    sys.exit("uniquify_asset_symbols: found a compiler at %s but no nm beside it or on PATH.\n"
+             "Set GETV_NM to the nm that belongs to that toolchain." % CC)
 
 # -ferror-limit=0 is a clang spelling. gcc rejects it and wants -fmax-errors=0, the same split
 # build_windows.ps1 already documents for -Wno-everything. Ask the compiler what it is rather
@@ -124,7 +140,27 @@ try:
     _v = subprocess.run([CC, '--version'], capture_output=True, text=True).stdout.lower()
 except OSError as e:
     sys.exit("uniquify_asset_symbols: cannot run %s: %s" % (CC, e))
-CFLAGS += ['-ferror-limit=0'] if 'clang' in _v else ['-fmax-errors=0']
+# -ferror-limit=0 is a clang spelling. gcc rejects it and wants -fmax-errors=0, the same split
+# build_windows.ps1 already documents for -Wno-everything. Ask the compiler what it is rather
+# than inferring from its filename, since cc is usually a symlink to one or the other.
+try:
+    _v = subprocess.run([CC, '--version'], capture_output=True, text=True).stdout.lower()
+except OSError as e:
+    sys.exit("uniquify_asset_symbols: cannot run %s: %s" % (CC, e))
+# -std=gnu17 on both, and it is not cosmetic. GCC 16 defaults to C23, where bool is a keyword,
+# so bondtypes.h:85's `typedef s32 bool` is a syntax error and EVERY file fails to compile.
+# Every file then becomes a SKIP, the pass renames nothing, and it looks like it worked -- the
+# same silent no-op the underscore bug caused, arrived at from a different direction. Measured
+# on mingw gcc 16.2 by the Windows lane.
+#
+# -fpermissive is gcc-only and clang rejects the flag outright. GCC 14 promoted
+# incompatible-pointer-types from a warning to an error, which throws out the beta-stan file
+# Tbg_cat_all_p_stanZ.c (Caves) on its own. One skipped stan file is one level silently bound
+# to another level's data, which is exactly what this whole pass exists to prevent.
+if 'clang' in _v:
+    CFLAGS += ['-ferror-limit=0', '-std=gnu17']
+else:
+    CFLAGS += ['-fmax-errors=0', '-std=gnu17', '-fpermissive']
 
 # nm writes a leading underscore on every C symbol on Mach-O and nothing at all on ELF. Reading
 # for the wrong one is invisible: every file reports zero globals, every file is then declared

@@ -44,6 +44,23 @@ $ProgressPreference    = 'SilentlyContinue'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# Derived from git.exe's own location rather than found by bare name. System32 ships a bash.exe
+# of its own -- the WSL launcher stub -- and it comes before Git's bin directory in the default
+# PATH order, so a bare `& bash` runs WSL instead of git-bash and prints a UTF-16 "no installed
+# distributions" line that reads as nothing having happened. Script-scoped because every bash
+# call site below needs the same answer, and the two asset steps that passed the bare name
+# instead are exactly how this got through the first time.
+$Bash = Join-Path (Split-Path -Parent (Split-Path -Parent (Get-Command git).Source)) 'bin\bash.exe'
+if (-not (Test-Path $Bash)) { $Bash = 'bash' }
+
+# Python on Windows encodes stdout as cp1252 once it is redirected rather than attached to a
+# console, and several of the decomp's generators print non-ASCII status glyphs. generate_chr_c.py
+# raises UnicodeEncodeError on U+2298 and takes the whole step down with it -- a crash in the
+# reporting, not in the work. The decomp is re-cloned by this script, so its scripts cannot be
+# patched here; setting the encoding for the children is what survives a fresh clone.
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUTF8       = '1'
+
 $script:step = 0
 function Say  ($m) { $script:step++; Write-Output ""; Write-Output "== $($script:step). $m" }
 function Info ($m) { Write-Output "   $m" }
@@ -72,29 +89,6 @@ if ($missing.Count -gt 0) {
 }
 Info "git and python are present"
 
-# Resolve bash ONCE, here, and never call it by bare name again.
-#
-# System32 ships its own bash.exe -- the WSL launcher stub -- and System32 comes before Git's
-# bin directory in the default PATH order. So `& bash script.sh` does not run Git's bash: it
-# runs WSL, which prints a UTF-16 "no installed distributions" message and exits. The step
-# looks like it did nothing, and nothing names the real cause. That silently blocked ROM
-# extraction on a fresh Windows machine.
-#
-# Derived from git.exe's own location, because git is already a hard requirement checked
-# above, and Git for Windows always ships bash beside it.
-$bash = Join-Path (Split-Path -Parent (Split-Path -Parent (Get-Command git).Source)) 'bin\bash.exe'
-if (-not (Test-Path $bash)) {
-  # Fall back to a PATH search, but skip anything under System32: that is the WSL stub, and
-  # taking it would put us back in the failure this whole block exists to avoid.
-  $bash = (Get-Command bash -All -ErrorAction SilentlyContinue |
-             Where-Object { $_.Source -and $_.Source -notmatch '\\System32\\' } |
-             Select-Object -First 1 -ExpandProperty Source)
-}
-if (-not $bash) {
-  Die "cannot find Git for Windows' bash.exe. Several steps here are shell scripts. It normally sits at C:\Program Files\Git\bin\bash.exe"
-}
-Info "bash: $bash"
-
 if ($SkipDeps) {
   Info "-SkipDeps given; not running fetch_deps_windows.ps1"
 } elseif (Test-Path "$Mingw\bin\gcc.exe") {
@@ -113,8 +107,9 @@ Say "third-party port-layer sources"
 if (Test-Path "$root\getv\port\fast3d\gfx_pc.c") {
   Info "already present"
 } else {
-  # $bash is resolved once in section 1; see the comment there for why a bare `bash` is wrong.
-  & $bash -lc "cd '$($root -replace '\\','/')' && bash tools/fetch-thirdparty.sh fetch"
+  # The fetch script is bash. Git for Windows ships one, which is the only reason this does not
+  # need a PowerShell rewrite of it. $Bash is derived once at the top of this script.
+  & $Bash -lc "cd '$($root -replace '\\','/')' && bash tools/fetch-thirdparty.sh fetch"
   if (-not (Test-Path "$root\getv\port\fast3d\gfx_pc.c")) { Die "the port-layer fetch did not produce gfx_pc.c" }
 }
 
@@ -157,8 +152,23 @@ foreach ($p in (Get-ChildItem "$root\getv\patches\0*.patch" | Sort-Object Name))
       if ($LASTEXITCODE -ne 0) { Die "$($p.Name) failed to apply to a fresh checkout; see getv\patches\README.md" }
       Info "$($p.Name): applied"
     } else {
-      & git apply --check $p.FullName 2>$null
-      if ($LASTEXITCODE -eq 0) {
+      # This check is a question, not a failure, and both halves of asking it needed care.
+      #
+      # It used to discard the error stream with 2>$null, which left nothing reading the pipe.
+      # An already-applied 0001 rejects every hunk and writes far more than a pipe buffer holds,
+      # so git blocked writing its own stderr and the re-run sat at zero CPU indefinitely --
+      # against the one workflow the header above promises is safe to resume with.
+      #
+      # Merging into a consumer that drains fixes the block, but then git's stderr reaches
+      # PowerShell, and under ErrorActionPreference Stop a native command's first stderr line
+      # is a terminating NativeCommandError. So the preference is relaxed for the length of the
+      # question and restored straight after; $LASTEXITCODE is the answer being read here.
+      $eap = $ErrorActionPreference
+      $ErrorActionPreference = 'Continue'
+      & git apply --check $p.FullName 2>&1 | Out-Null
+      $checkRc = $LASTEXITCODE
+      $ErrorActionPreference = $eap
+      if ($checkRc -eq 0) {
         & git apply $p.FullName
         Info "$($p.Name): was missing from this tree, applied now"
       } else {
@@ -214,7 +224,10 @@ if ((Test-Path $romDest) -and (Get-Sha1 $romDest) -eq $romSha) {
     # looking for game data.
     foreach ($d in @("$root\roms", "$env:USERPROFILE\Desktop", "$env:USERPROFILE\Downloads")) {
       if (-not (Test-Path $d)) { continue }
-      $hit = Get-ChildItem $d -File -Include *.z64,*.n64,*.v64 -ErrorAction SilentlyContinue |
+      # The trailing \* is required: -Include is ignored unless the path itself ends in a
+      # wildcard or -Recurse is passed, so against a bare directory this matched nothing at all
+      # and every Windows run reported "no ROM" with the ROM sitting on the Desktop.
+      $hit = Get-ChildItem "$d\*" -File -Include *.z64,*.n64,*.v64 -ErrorAction SilentlyContinue |
              Where-Object { $_.Length -eq 12582912 } | Select-Object -First 1
       if ($hit) { $cand = $hit.FullName; break }
     }
@@ -270,26 +283,101 @@ Say "generating the asset sources"
 #
 # Markers are a specific file each generator writes, never the directory it writes into: an empty
 # directory left by a run that died halfway would otherwise read as "done".
-function Invoke-AssetStep ($marker, $label, $exe, $argv) {
+# Whether a step's output is present AND complete. Split out because the retry loop below asks
+# the same question after every attempt, and because the two marker shapes answer it differently.
+#
+# A per-directory marker (assets\obseg\chr\*\Model.c) needs COUNTING, not existence. One match
+# used to be enough to read as done, and generate_chr_c.py once died on its first file: every
+# later run reported "already done" off that single Model.c, and the build then linked 667 assets
+# with 0 failures and 79 of the 80 character models missing. Nothing in the compile, the archive
+# or the link says a word about an asset that was never handed to it, so the count against the
+# directories the generator walks is the only thing that can tell.
+function Get-AssetMarkerState ($marker) {
   $full = Join-Path $decomp $marker
-  if ((Test-Path $full) -or (Get-ChildItem -Path $full -ErrorAction SilentlyContinue)) {
-    Info "$label`: already done"; return
+  if ($marker -match '\\\*\\') {
+    $base = Join-Path $decomp ($marker -replace '\\\*\\.*$', '')
+    $dirs = @(Get-ChildItem -Path $base -Directory -ErrorAction SilentlyContinue)
+    $got  = @(Get-ChildItem -Path $full -ErrorAction SilentlyContinue)
+    return [pscustomobject]@{
+      Done = ($dirs.Count -gt 0 -and $got.Count -ge $dirs.Count)
+      Have = $got.Count; Want = $dirs.Count; Glob = $true
+    }
   }
-  Info $label
-  Push-Location $decomp
-  try {
-    & $exe @argv 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { Die "$label failed" }
-  } finally { Pop-Location }
+  return [pscustomobject]@{ Done = (Test-Path $full); Have = 0; Want = 0; Glob = $false }
+}
 
-  # And check it actually produced the thing, because an exit code of 0 is not the same claim.
-  # scripts/extract_baserom.u.sh returns 0 with no ROM to read and writes nothing at all, which
-  # is how a missing baserom.u.z64 travelled eleven steps before surfacing as a complaint about
-  # a file two stages further on.
-  if (-not ((Test-Path $full) -or (Get-ChildItem -Path $full -ErrorAction SilentlyContinue))) {
-    Die "$label ran and exited 0 but produced no $marker"
+function Invoke-AssetStep ($marker, $label, $exe, $argv) {
+  $st = Get-AssetMarkerState $marker
+  if ($st.Done) { Info "$label`: already done"; return }
+  if ($st.Glob -and $st.Have -gt 0) {
+    Info "$label`: incomplete, $($st.Have) of $($st.Want) present; generating the rest"
+  }
+
+  # Tried up to three times. These bash steps fork hard, and MSYS on this platform intermittently
+  # loses a child outright -- "cygheap read copy failed / forked process died unexpectedly" -- which
+  # leaves extract_baserom.u.sh exiting 0 with whole sections of its work simply not done: on one
+  # run every one of the 34 background rows was missing while the script reported success. It is
+  # transient and a repeat clears it, so the installer repeats it rather than handing that to the
+  # person running it, who has no way to tell a dropped fork from a bad ROM. Every one of these
+  # steps skips what already exists, so a repeat costs time and nothing else.
+  $out = $null
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    Info $label
+    Push-Location $decomp
+    try {
+      # Captured rather than discarded, and the preference relaxed while it runs. Under
+      # ErrorActionPreference Stop the first stderr line out of one of these generators is a
+      # terminating NativeCommandError, so a run died on the line "Traceback (most recent call
+      # last):" and threw the traceback itself away. A step that fails now prints what the tool
+      # said before it stops.
+      $eap = $ErrorActionPreference
+      $ErrorActionPreference = 'Continue'
+      $out = & $exe @argv 2>&1
+      $rc  = $LASTEXITCODE
+      $ErrorActionPreference = $eap
+    } finally { Pop-Location }
+
+    # An exit code of 0 is not the same claim as having produced the output, which is the whole
+    # reason this is checked separately.
+    $st = Get-AssetMarkerState $marker
+    if ($rc -eq 0 -and $st.Done) { return }
+
+    $why = if ($rc -ne 0) { "exit $rc" }
+           elseif ($st.Glob) { "produced $($st.Have) of $($st.Want)" }
+           else { "exited 0 but produced no $marker" }
+    if ($attempt -lt 3) {
+      Info "$label`: $why -- retrying, attempt $($attempt + 1) of 3"
+    } else {
+      $out | Select-Object -Last 40 | ForEach-Object { Write-Output "      $_" }
+      Die "$label failed after 3 attempts ($why)"
+    }
   }
 }
+
+# scripts/extract_baserom.u.sh builds the C extractor with `make -C tools/extractor` and that
+# makefile calls gcc. Neither is on git-bash's PATH: git-bash has a /mingw64/bin of its own, which
+# is Git's, not the toolchain this port installs at $Mingw, so bash sees no compiler and no make
+# even on a machine that just finished running fetch_deps_windows.ps1. The failure is a bare
+# "make: command not found" eleven lines into a bash script, which does not name the toolchain.
+#
+# mingw-w64 ships make under the name mingw32-make, so a bare `make` misses it even once $Mingw
+# is on PATH. A copy under the wanted name is the whole shim; it is not worth asking the vendored
+# decomp scripts to know what a Windows toolchain calls its make.
+# The shim is a shell script that execs the real binary where it already lives, not a renamed
+# copy of it. Only bash resolves `make` here, so a script is enough -- and copying the exe was
+# worse than unnecessary: a copy outside the toolchain directory ran and exited 0 while printing
+# nothing at all, which would have turned a missing extractor into a silent success.
+$toolshim = Join-Path $root 'build\toolshim'
+if (-not (Get-Command make -ErrorAction SilentlyContinue)) {
+  $mingwMake = Join-Path $Mingw 'bin\mingw32-make.exe'
+  if (-not (Test-Path $mingwMake)) { Die "no make: neither make on PATH nor $mingwMake" }
+  New-Item -ItemType Directory -Force -Path $toolshim | Out-Null
+  $shimBody = "#!/bin/sh`nexec '$($mingwMake -replace '\\','/')' `"`$@`"`n"
+  [IO.File]::WriteAllText((Join-Path $toolshim 'make'), $shimBody)
+  $env:PATH = "$toolshim;$env:PATH"
+  Info "make: shimmed to $mingwMake"
+}
+if (Test-Path "$Mingw\bin\gcc.exe") { $env:PATH = "$Mingw\bin;$env:PATH" }
 
 # Must run BEFORE extraction. The decomp ships 25 of the 34 bg rows with their extract flag at 0
 # because upstream builds those from checked-in .c files; this port compiles the blobs, so
@@ -297,15 +385,25 @@ function Invoke-AssetStep ($marker, $label, $exe, $argv) {
 # twice is harmless, so it is not marker-guarded.
 Info "enabling background extraction"
 Push-Location $decomp
-try { & python "$root\tools\enable_bg_extraction.py" 2>&1 | Out-Null } finally { Pop-Location }
+try {
+  $eap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  $out = & python "$root\tools\enable_bg_extraction.py" 2>&1
+  $rc  = $LASTEXITCODE
+  $ErrorActionPreference = $eap
+  # The exit code was not read here at all, so a failure was silent -- and this step is what
+  # keeps 25 of the 34 bg rows from going missing, which surfaces much later as undefined
+  # symbols at link with nothing pointing back to here.
+  if ($rc -ne 0) { $out | Select-Object -Last 20 | ForEach-Object { Write-Output "      $_" }; Die "enabling background extraction failed" }
+} finally { Pop-Location }
 
-Invoke-AssetStep 'assets\obseg\bg\bg_ame_all_p.bin'      'extracting from the ROM' $bash @('scripts/extract_baserom.u.sh')
+Invoke-AssetStep 'assets\obseg\bg\bg_ame_all_p.bin'      'extracting from the ROM' $Bash @('scripts/extract_baserom.u.sh')
 Invoke-AssetStep 'assets\obseg\chr\*\Model.c'            'character models'        'python' @('scripts/generate_chr_c.py')
 Invoke-AssetStep 'assets\obseg\gun\*\Model.c'            'weapon models'           'python' @('scripts/generate_gun_c.py')
 Invoke-AssetStep 'assets\obseg\prop\*\Model.c'           'prop models'             'python' @('scripts/generate_prop_model_c.py')
 Invoke-AssetStep 'assets\obseg\ge_obseg_blobs.c'         'obseg blobs'             'python' @("$root\tools\gen_obseg_blobs.py")
 Invoke-AssetStep 'build\imagelist.csv'                   'image list'              'python' @('scripts/make/sync_imagelist_with_def.py','build/imagelist.csv')
-Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'        $bash @('scripts/make/combine_images_named.sh','build/imagelist.csv','assets/images/combined')
+Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'        $Bash @('scripts/make/combine_images_named.sh','build/imagelist.csv','assets/images/combined')
 # combined.bin becomes a C array rather than an object. Upstream turns it into one with
 # `ld -r -b binary`, a GNU extension with no Mach-O equivalent, so the bytes are emitted as C.
 Invoke-AssetStep 'assets\images\ge_images_segment.c'     'images segment'          'python' @("$root\tools\gen_images_segment.py")
@@ -326,17 +424,37 @@ Invoke-AssetStep 'src\ge_asset_fileview.h'               'asset file views'     
 # It is idempotent by construction rather than by a guard.
 Info "switch nodes"
 Push-Location $decomp
-try { & python "$root\tools\fix_asset_switchnodes.py" 2>&1 | Out-Null } finally { Pop-Location }
+try {
+  $eap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  $out = & python "$root\tools\fix_asset_switchnodes.py" 2>&1
+  $rc  = $LASTEXITCODE
+  $ErrorActionPreference = $eap
+  if ($rc -ne 0) { $out | Select-Object -Last 20 | ForEach-Object { Write-Output "      $_" }; Die "switch nodes failed" }
+} finally { Pop-Location }
 
 # gen_propdef_layout is a CHECK, not a generator, despite sitting in a list of generators. It
 # compiles a throwaway translation unit, dumps the record layouts and asserts the N64 file layout
 # still matches the native one. It writes nothing the build consumes, so it runs every time.
-Info "propdef layout check"
-Push-Location $decomp
-try {
-  $out = & python 'tools/gen_propdef_layout.py' 2>&1
-  if ($LASTEXITCODE -ne 0) { $out | Write-Output; Die "propdef layout check failed. The output above is its report." }
-} finally { Pop-Location }
+# It reads clang's -fdump-record-layouts, which gcc has no equivalent for, so it cannot run on
+# the toolchain fetch_deps_windows.ps1 installs. Skipped with its reason rather than failed: the
+# comment above is the argument for it -- nothing the build consumes depends on it, and stopping
+# an otherwise sound install over a check that was never able to run here would be wrong. Its
+# probe files are also written to a hardcoded /tmp, which is not a path on Windows.
+if (-not (Get-Command clang -ErrorAction SilentlyContinue)) {
+  Info "propdef layout check: skipped, it needs clang and this host has none"
+} else {
+  Info "propdef layout check"
+  Push-Location $decomp
+  try {
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $out = & python 'tools/gen_propdef_layout.py' 2>&1
+    $rc  = $LASTEXITCODE
+    $ErrorActionPreference = $eap
+    if ($rc -ne 0) { $out | Write-Output; Die "propdef layout check failed. The output above is its report." }
+  } finally { Pop-Location }
+}
 
 # ---------------------------------------------------------------- 6. namespacing
 
@@ -382,6 +500,24 @@ if (-not $bare) {
     if ($bare) { break }
   }
 }
+# Third tell, for stan. Two were enough while the pass either ran to completion or not at all,
+# but it runs in six calls and stan is the last of them, so an interrupted run leaves setup and
+# the models namespaced and all 29 stan files still bare -- and the first two tells then report
+# a finished pass. Skipping stan is silent by construction: 29 definitions of tile_0 in a static
+# archive is not a link error, it just binds 28 levels to another level's collision data.
+if (-not $bare) {
+  $stanC = Get-ChildItem "$decomp\assets\obseg\stan\*.c" -ErrorAction SilentlyContinue
+  if ($stanC.Count -gt 0) {
+    $asked = $true
+    foreach ($f in $stanC) {
+      # Anchored to a declaration, not just the name. Every namespaced stan file opens with a
+      # comment block that discusses tile_0 in prose, so a looser tell reports all 29 as bare
+      # and re-runs the pass over a tree that is already done -- double-prefixing symbols while
+      # leaving their uses alone, which is a worse failure than the one being guarded against.
+      if (Select-String -Path $f.FullName -Pattern '^StandTile\s+tile_0\b' -Quiet) { $bare = $true; break }
+    }
+  }
+}
 $namespacedNow = $false
 if (($asked -and -not $bare) -or ((-not $asked) -and (Test-Path $marker))) {
   Info "already namespaced; not running again, which would corrupt it"
@@ -399,7 +535,28 @@ if (($asked -and -not $bare) -or ((-not $asked) -and (Test-Path $marker))) {
     # setup must NOT be recursed: its level setups sit flat and take the file stem as prefix.
     & python $u 'assets/obseg/setup';            if ($LASTEXITCODE -ne 0) { Die "namespacing setup failed" }
     # setup/u passed directly, which collapses the prefix to the bare stem, matching the rest.
-    & python $u 'assets/obseg/setup/u';          if ($LASTEXITCODE -ne 0) { Die "namespacing setup/u failed" }
+    #
+    # The exit code is not the test here, and this is the only step where that is true.
+    # UsetuplenZ.c stores a real CreditsEntry* in an `s32 intro[]` slot, which is not a
+    # compile-time constant at 64-bit, so the pass cannot read its globals and exits non-zero on
+    # every platform -- 0002 supplies a corrected copy a few lines below, which is the whole
+    # reason 0002 is applied after this and not before. The skip LIST is the test instead:
+    # anything in it other than UsetuplenZ.c is a setup file left silently colliding, and a
+    # colliding setup file binds a level to another level's data while the build still succeeds.
+    # install.sh has read it this way for a while; this side still treated the exit code as
+    # fatal and stopped the install before 0002 could ever be reached.
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $nsout = & python $u 'assets/obseg/setup/u' 2>&1
+    $nsrc  = $LASTEXITCODE
+    $ErrorActionPreference = $eap
+    $nslines = $nsout | ForEach-Object { $_.ToString() }
+    $unexpected = $nslines | Where-Object { $_ -match '^SKIP' -and $_ -notmatch 'UsetuplenZ\.c' }
+    if ($unexpected) {
+      $nslines | Select-Object -Last 20 | ForEach-Object { Write-Output "      $_" }
+      Die "namespacing setup/u skipped a file 0002 does not supply:`n$($unexpected -join [Environment]::NewLine)"
+    }
+    if ($nsrc -ne 0) { Info "setup/u: UsetuplenZ.c skipped, which is the known case 0002 supplies" }
     # stan is the easy one to leave out and the omission is silent: 29 definitions of _tile_0 in
     # a static archive is not an error, it just quietly binds 28 levels to the wrong collision
     # data. That is the exact fault this pass exists to prevent.
@@ -414,12 +571,24 @@ if (($asked -and -not $bare) -or ((-not $asked) -and (Test-Path $marker))) {
 # those two translation units instead of the tool producing them.
 Push-Location $decomp
 try {
-  & git apply --reverse --check "$root\getv\patches\0002-assets.patch" 2>$null
-  if ($LASTEXITCODE -eq 0) {
+  # Drained and with the preference relaxed, for the same two reasons as the patch loop in
+  # section 3: 2>$null leaves nothing reading the pipe, and 0002 carries generated asset sources,
+  # so a rejection here writes far more than a pipe buffer holds. Left as it was, this is the
+  # section 3 hang waiting to happen against a bigger patch.
+  $eap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  & git apply --reverse --check "$root\getv\patches\0002-assets.patch" 2>&1 | Out-Null
+  $revRc = $LASTEXITCODE
+  $ErrorActionPreference = $eap
+  if ($revRc -eq 0) {
     Info "0002-assets.patch: already applied"
   } else {
-    & git apply "$root\getv\patches\0002-assets.patch" 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & git apply "$root\getv\patches\0002-assets.patch" 2>&1 | Out-Null
+    $applyRc = $LASTEXITCODE
+    $ErrorActionPreference = $eap
+    if ($applyRc -eq 0) {
       Info "0002-assets.patch: applied"
     } elseif ($namespacedNow) {
       Die "0002-assets.patch failed to apply to a freshly generated tree. See getv\patches\README.md"
