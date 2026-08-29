@@ -49,17 +49,6 @@ one box matters; nothing works without it.
 The wizard asks where to install and which file is your ROM, then does everything else itself
 and shows you what it is doing. It takes 10 to 40 minutes the first time.
 
-**If there is no release yet,** the wizard has not been published for download. Until it is, do
-this instead: download the ZIP as in the Mac steps above, unzip it, hold **Shift** and
-right-click an empty part of the folder, choose **Open PowerShell window here**, and paste this
-one line:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
-```
-
-It does exactly the same work as the wizard, just without the window.
-
 ### On Linux
 
 Install `git` and `python3` from your package manager, then:

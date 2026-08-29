@@ -374,6 +374,28 @@ it yourself*, rather than *download our binary and supply a ROM at runtime*. Cha
 mean re-architecting asset delivery to load from disk at runtime, which is a significant piece of
 work and is not currently planned.
 
+### The one binary that is distributed
+
+`setup_wizard.exe`, attached to the GitHub release, is the single exception, and it is an
+exception because of what it does not contain rather than by any softening of the above. It is
+the first-run installer for Windows: it clones the public source, asks for a ROM, verifies the
+SHA-1, and drives `tools/setup-windows.sh`. All of that happens on the user's machine.
+
+Three separate restrictions apply to a binary of this project, and the wizard is outside all
+three. It carries no ROM-derived or `assets/` data, so section 5 above does not reach it. It
+carries no decompilation code, so the upstream position in section 3 does not reach it. And it
+carries no Fast3D, so the binary-redistribution restriction discussed in section 4.4(a) does not
+reach it either: the renderer is linked into `goldeneye.exe`, never into this.
+
+That is checked rather than asserted. `getv/build_wizard.ps1` links exactly three of this
+project's own sources -- `setup_wizard.cpp`, `sha1.c` and `ge_icon_apply.c` -- against Dear ImGui
+(MIT), SDL2 (zlib) and GLEW. Scanning the published 3.4 MB binary finds no namespaced asset
+symbol, no game function name, no z64 header magic, and no Fast3D symbol or source name. A ROM
+alone is 12 MB.
+
+**`goldeneye.exe` remains undistributable and that has not changed.** If the wizard ever grows a
+dependency on the port layer proper, this section stops being true and the release has to stop.
+
 `.gitignore` enforces the first point mechanically. It blocks `roms/`, every `*.z64` / `*.n64` /
 `*.v64` / `*.elf`, `**/base.zip`, `vendor/`, `deps/`, all `getv/build-*` and `build-mac-*` and
 `build-sim-*` directories, every `*.o` / `*.a` / `*.dSYM` anywhere in the tree, `*.bmp` frame
