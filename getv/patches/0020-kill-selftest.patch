@@ -1,0 +1,40 @@
+diff -ruN before/src/game/bondview2.c after/src/game/bondview2.c
+--- a/src/game/bondview2.c
++++ b/src/game/bondview2.c
+@@ -6925,6 +6925,36 @@
+     if (stick_x >= 100 || stick_x <= -100) return_null(); // __LINE__ __FILE__ (#6414 bondview.c) "joystick x has value %d!\n"
+     if (stick_y >= 100 || stick_y <= -100) return_null(); // __LINE__ __FILE__ (#6415 bondview.c) "joystick y has value %d!\n"
+     #endif
++
++#ifdef GE_PORT_NATIVE
++    /* GETV_KILL_SELFTEST=<frame> kills one player at that frame, GETV_KILL_SELFTEST_P=<n>
++     * choosing which, default 1. The co-op death rules cannot be exercised any other way on a
++     * headless run: nothing shoots the player and the harness has no way to. */
++    {
++        static s32 ge_kst = -2;
++        static s32 ge_kst_p = -1;
++        static s32 ge_kst_frames = 0;
++
++        if (ge_kst == -2) {
++            const char *e = getenv("GETV_KILL_SELFTEST");
++            ge_kst = (e != NULL && *e != '\0') ? atoi(e) : 0;
++            e = getenv("GETV_KILL_SELFTEST_P");
++            ge_kst_p = (e != NULL && *e != '\0') ? atoi(e) : 1;
++        }
++        if (ge_kst > 0) {
++            ge_kst_frames++;
++            /* A negative player number kills everyone, which is the only way to reach the
++             * team-wipe rule: with one player left standing the mission is not lost. */
++            if (ge_kst_frames >= ge_kst
++                && (ge_kst_p < 0 || get_cur_playernum() == ge_kst_p)
++                && g_CurrentPlayer->bonddead == FALSE) {
++                osSyncPrintf("[getv][killtest] killing player %d at frame %d\n",
++                             (s32) get_cur_playernum(), (s32) ge_kst_frames);
++                bondviewKillCurrentPlayer();
++            }
++        }
++    }
++#endif
+ 
+     if (g_bondviewForceDisarm > 0)
+     {

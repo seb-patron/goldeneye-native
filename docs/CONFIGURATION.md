@@ -224,6 +224,15 @@ adding a page to it is blocked by an explicit maintainer comment on `WATCH_NUMBE
 (`options.h`) not to change that constant until `struct player` is fully shiftable. See
 `docs/PERFECT_DARK.md` section 6 row 17.
 
+## Co-op team rules
+
+Read only when `coop` is 2 or more. Both are on the launcher's CO-OP page.
+
+| Setting | Value | What it does |
+|---|---|---|
+| `coop_friendly_fire` | `0` or `1`, default `0` | Whether players can damage each other. Off is the co-op default and the opposite of multiplayer: everyone starts on one pad facing the same way, so with it on the first shot usually finds a team mate. Guards, explosions and falls are unaffected either way. |
+| `coop_respawn` | seconds, 0-30, default `5` | How long a dead player waits before being put back on the level's start pad. `0` waits for a button press instead. If everyone is down at once the mission is lost and nobody returns. |
+
 ## Free camera
 
 Unpins the camera from Bond and lets it fly, which is a photo mode rather than a cheat: the game

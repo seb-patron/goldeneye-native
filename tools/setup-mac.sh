@@ -163,6 +163,13 @@ else
     || die "0019-coop-respawn.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0020-kill-selftest.patch" ) 2>/dev/null; then
+  echo "0020-kill-selftest.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0020-kill-selftest.patch" ) \
+    || die "0020-kill-selftest.patch failed to apply"
+fi
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."

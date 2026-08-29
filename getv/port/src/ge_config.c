@@ -858,6 +858,11 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "framerate") == 0)   { key_framerate(val, over); return 1; }
  if (strcmp(key, "fov") == 0)         { key_int("GETV_FOV", key, val, over, 50, 160); return 1; }
  if (strcmp(key, "coop") == 0)        { key_int("GETV_COOP", key, val, over, 0, 4); return 1; }
+    /* Co-op team rules. Only read when coop >= 2; the game gates both on gePortCoopPlayers().
+     * friendly fire defaults off, which is the opposite of multiplayer and the point of co-op. */
+ if (strcmp(key, "coop_friendly_fire") == 0)
+                                      { key_bool_gate("GETV_COOP_FRIENDLYFIRE", key, val, over); return 1; }
+ if (strcmp(key, "coop_respawn") == 0) { key_int("GETV_COOP_RESPAWN", key, val, over, 0, 30); return 1; }
  if (strcmp(key, "supersample") == 0) { key_supersample(val, over); return 1; }
  if (strcmp(key, "controls") == 0)    { key_controls(val, over); return 1; }
  if (strcmp(key, "filtering") == 0)   { key_filtering(val, over); return 1; }

@@ -285,6 +285,11 @@ struct Model {
     int  enemy_health, enemy_damage, enemy_accuracy, enemy_reaction;
     int  player_health, player_armour, ammo, explosion_damage, turret_damage;
 
+    /* co-op */
+    int  coop_players;        /* 0 = off, otherwise 2-4 sharing a solo mission */
+    bool coop_ff;             /* friendly fire; off is the co-op default */
+    int  coop_respawn;        /* seconds before a dead player returns, 0 = button only */
+
     /* horde */
     bool horde;
     int  horde_per_kill, horde_per_kill_cap, horde_max_alive;
@@ -498,6 +503,10 @@ void model_load(Model &m)
                    m.ammo != 100 || m.explosion_damage != 100 || m.turret_damage != 100);
 
     m.horde              = env_bool("GETV_HORDE", false);
+    m.coop_players       = env_int("GETV_COOP", 0);
+    m.coop_ff            = env_int("GETV_COOP_FRIENDLYFIRE", 0) != 0;
+    m.coop_respawn       = env_int("GETV_COOP_RESPAWN", 5);
+
     m.horde_per_kill     = env_int("GETV_HORDE_PER_KILL", 1);
     m.horde_per_kill_cap = env_int("GETV_HORDE_PER_KILL_CAP", 3);
     m.horde_max_alive    = env_int("GETV_HORDE_MAX_ALIVE", 12);
@@ -654,6 +663,19 @@ void model_store(const Model &m)
 
     setenv("GETV_HORDE", m.horde ? "1" : "0", 1);
     if (m.horde) {
+    /* GETV_PADS follows the player count: co-op needs a controller port per player, and a
+     * player with no port never gets input. Left alone when co-op is off. */
+    if (m.coop_players >= 2) {
+        put_int("GETV_COOP", m.coop_players);
+        put_int("GETV_PADS", m.coop_players);
+        setenv("GETV_COOP_FRIENDLYFIRE", m.coop_ff ? "1" : "0", 1);
+        put_int("GETV_COOP_RESPAWN", m.coop_respawn);
+    } else {
+        unsetenv("GETV_COOP");
+        unsetenv("GETV_COOP_FRIENDLYFIRE");
+        unsetenv("GETV_COOP_RESPAWN");
+    }
+
         put_int("GETV_HORDE_PER_KILL",     m.horde_per_kill);
         put_int("GETV_HORDE_PER_KILL_CAP", m.horde_per_kill_cap);
         put_int("GETV_HORDE_MAX_ALIVE",    m.horde_max_alive);
@@ -1735,11 +1757,11 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
     bool running = true;
     bool launch  = false;
-    /* GETV_LAUNCHER_PAGE=<0..4> opens on that page. It exists so the four pages the probe
+    /* GETV_LAUNCHER_PAGE=<0..6> opens on that page. It exists so the pages the probe
      * cannot reach -- the probe never clicks anything -- can each be rendered and looked at
      * without a human driving the mouse. */
     int  page    = env_int("GETV_LAUNCHER_PAGE", 0);
-    if (page < 0 || page > 5) page = 0;
+    if (page < 0 || page > 6) page = 0;
     const int probe_frames = env_int("GETV_LAUNCHER_PROBE", 0);
     int probe_seen = 0;
 
@@ -1854,7 +1876,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
             dl->AddLine(ImVec2(navW, headerH), ImVec2(navW, H - footerH), kLine, 1.0f);
 
             static const char *const kPages[] =
-                { "MISSION", "RULES", "CONTROLS", "CHEATS", "VIDEO", "MODS" };
+                { "MISSION", "CO-OP", "RULES", "CONTROLS", "CHEATS", "VIDEO", "MODS" };
             const int kPageCount = (int)(sizeof kPages / sizeof kPages[0]);
             ImGui::SetCursorScreenPos(ImVec2(0, headerH + 20));
             ImGui::PushStyleColor(ImGuiCol_ChildBg, v4(kPanel));
@@ -1924,7 +1946,52 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 }
             }
 
+            /* ------------------------------------------------------------ co-op */
             else if (page == 1) {
+                Section("CO-OP");
+                Hint("Two to four players share one solo mission, split screen. Everyone gets "
+                     "their own spawn and camera. The mission is written around a single Bond, "
+                     "so treat this as bring-up rather than a finished mode.");
+
+                const float cw = ImGui::GetContentRegionAvail().x * 0.55f;
+
+                /* 0 and 1 both mean off -- the game only splits the screen at 2 or more, so
+                 * offering 1 would look like a choice that does nothing. */
+                static const char *const kCoopCounts[] =
+                    { "Off", "2 players", "3 players", "4 players" };
+                int sel = (m.coop_players >= 2) ? (m.coop_players - 1) : 0;
+                /* Label above rather than to the right of the box: SliderRow puts its label on
+                 * the left and ImGui's default puts a combo's on the right, which reads as two
+                 * different forms on one page. */
+                ImGui::TextUnformatted("Players");
+                ImGui::SetNextItemWidth(cw);
+                if (ImGui::Combo("##coopplayers", &sel, kCoopCounts, 4)) {
+                    m.coop_players = (sel == 0) ? 0 : (sel + 1);
+                }
+
+                if (m.coop_players >= 2) {
+                    ImGui::Spacing();
+                    Section("TEAM RULES");
+                    ImGui::Checkbox("Friendly fire", &m.coop_ff);
+                    Hint(m.coop_ff
+                         ? "Players can damage each other. Everyone starts on one pad facing the "
+                           "same way, so the first shot usually finds a team mate."
+                         : "Players cannot damage each other. Guards, explosions and falls still "
+                           "hurt.");
+
+                    ImGui::Spacing();
+                    SliderRow("Respawn delay", &m.coop_respawn, 0, 30, "s", cw, true);
+                    Hint("Seconds before a player who died is put back on the level's start pad. "
+                         "0 waits for a button press instead. If everyone is down at once the "
+                         "mission is lost either way.");
+                }
+
+                ImGui::Spacing();
+                Hint("Pick the mission on the MISSION page. Co-op needs a controller for each "
+                     "player.");
+            }
+
+            else if (page == 2) {
                 Section("RULESET");
                 static const char *const kRsUp[] =
                     { "CLASSIC", "HARDCORE", "SURVIVAL", "CHAOS", "HORDE" };
@@ -1991,7 +2058,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 }
             }
 
-            else if (page == 2) {
+            else if (page == 3) {
                 float cw = ImGui::GetContentRegionAvail().x;
 
                 Section("MOUSE AND KEYBOARD");
@@ -2134,7 +2201,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                      "would mean synthesising a stick deflection that fights the move stick.");
             }
 
-            else if (page == 3) {
+            else if (page == 4) {
                 Section("CHEATS");
                 Hint("The game's own cheats. Those marked IN-GAME still need switching on from "
                      "the pause menu -- their effect lives in the turn-on handler, which needs "
@@ -2165,7 +2232,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 }
             }
 
-            else if (page == 4) {
+            else if (page == 5) {
                 float vw = ImGui::GetContentRegionAvail().x;
 
                 Section("DISPLAY");
@@ -2266,7 +2333,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                 ImGui::Checkbox("Show the developer overlay in game", &m.dev_overlay);
             }
 
-            else if (page == 5) {
+            else if (page == 6) {
                 float mw = ImGui::GetContentRegionAvail().x;
 
                 Section("MOD DIRECTORY");

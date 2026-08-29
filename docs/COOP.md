@@ -236,11 +236,29 @@ section above sets `g_isBondKIA`, and the respawn checks that flag -- so anyone 
 down does not come back into a run that is over. Without that check the mission would be
 unloseable rather than merely survivable.
 
-**Not yet seen happen.** Every check here is that the code is reached, compiles and changes
-nothing else: solo still renders `tris submitted=874 drawn=278` walking forward, byte-identical
-to before, and co-op still walks to the same two positions. Killing a player on a headless run is
-not something the harness can currently arrange, so the first real test is two people playing and
-one of them dying on purpose.
+### Seen happen
+
+`GETV_KILL_SELFTEST=<frame>` kills a player on a headless run, `GETV_KILL_SELFTEST_P=<n>` picking
+which and a negative value killing everyone. It fires only on a player whose `bonddead` is FALSE,
+so the number of kills in a run is the number of times that player was alive to be killed --
+which is what makes the respawn measurable without watching it.
+
+BUNKER1, co-op, player 1 killed at frame 900, run to 1801:
+
+```
+GETV_COOP_RESPAWN=0   1 kill    the timer is off, nobody presses a button, they stay down
+GETV_COOP_RESPAWN=3   3 kills   they come back twice and are killed again each time
+GETV_KILL_SELFTEST_P=-1, RESPAWN=3
+                      2 kills   both players go down one frame apart and neither returns
+```
+
+The last row is the team-wipe rule: with nobody left standing `g_isBondKIA` is set, the respawn
+checks it, and the run stays lost. The middle row against the first is the respawn itself -- same
+kill, same frame, the only difference is the timer.
+
+Friendly fire is the one rule still not measured directly, because making one player shoot
+another needs more than a kill hook. Its guard is three lines in `record_damage_kills` and the
+symptom it fixes was found by playing.
 
 ## Reproducing
 
