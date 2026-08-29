@@ -122,10 +122,38 @@ Two things came out of wiring it, both worth knowing before trusting a session:
 - A multi-million-line runaway in `gePortNetPoll`'s drain loop was hit once and never
   reproduced. A 256-packet cap bounds the consequence; it is not a fix for whatever caused it.
 
-**It is wired, not finished.** Roughly half of automated no-human-input trials still desync:
-host fingerprint clean, joiner disagrees, nothing pressed on either side. Same machine, same
-binary, so this is not the cross-architecture float risk the determinism audit flags as its one
-open item. Do not describe network play as working. `geNetLocalSlot()` has
+**It is wired, not finished.** `tools/netplay_trial.sh` runs a real host and joiner as two
+processes with no input and counts agree, desync, no-session and hung separately. Five trials on
+one Mac: **zero agreed.** Same machine, same binary, nothing pressed, so this is not the
+cross-architecture float risk the determinism audit flags as its one open item. Do not describe
+network play as working.
+
+Two causes have been found and fixed, and neither was sufficient.
+
+**The seed.** `boss.c` seeds the RNG from `osGetCount()`, which is per-process, and under
+`GETV_REALCLOCK=1` -- the GoldenEye+ default -- it is a host performance counter. Four launches
+gave 17820138, 11019005, 29936650 and 8163261. The host now chooses a session seed, it rides on
+every peer table, and both sides adopt it at session open.
+
+**The simulation step.** `frametiming.c` derives how far to advance the world from the clock:
+`nextFrameTime` is how many video fields `osGetCount()` says elapsed. Measured with a control --
+the same binary twice with identical settings gives an identical RNG state at every sampled
+tick, and changing only the frame rate, holding clock and seed fixed, makes it differ at almost
+every tick. Machines that render at different speeds advance the world by different amounts.
+`gePlayerPinDelta()` existed for this and had never been called; a session now pins the step
+(`0013-lockstep-pinned-sim-step.patch`).
+
+After both: 0 agree, 5 desync, and the first divergence still appears around tick 120 with both
+fixes confirmed live in the logs. Sessions are at least reliable now -- before, two of five
+trials measured nothing because one hung or never opened.
+
+**Worth knowing before choosing how to finish this.** Perfect Dark's netplay branch does not
+solve lockstep determinism; it removes the requirement. Its clients send only input and are sent
+entity state back (`SVC_PROP_MOVE`, `SVC_PROP_SPAWN`, `SVC_CHR_DAMAGE`, in
+`port/src/net/netmsg.c`), so one simulation exists and a desync cannot happen. Their own
+documentation still says to expect nothing to work right, with cloaking and several weapons
+unsynced. That is where a mature port of the same engine family landed having taken the easier
+road. Lockstep does not offer it: every machine simulates, so every machine has to agree. `geNetLocalSlot()` has
 been added (`ge_net.c`/`ge_net.h`) since nothing exposed which slot is this machine's own; every
 other piece of "am I local" plumbing already threads slot numbers through correctly (verified by
 reading `geNetTickBegin`'s publish/drain/post sequence), so this was the one real gap in that

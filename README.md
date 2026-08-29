@@ -374,9 +374,12 @@ discovery parser and the launcher page are all written, the discovery parser has
 and the game loop now drives the session tick by tick, which it did not until recently. Two
 processes over UDP complete a real handshake, exchange input and shut down cleanly.
 
-What stops it being a feature: about half of automated trials still drift out of sync with
-nobody touching a controller. That is being worked on, and until it is fixed, treat LAN play as
-something to experiment with rather than something to plan an evening around.
+What stops it being a feature: the two machines drift out of sync with nobody touching a
+controller. Measured on one Mac, five trials of two real processes, no input on either side:
+zero agreed. Two causes have been found and fixed since -- the machines did not agree on a
+random seed, and each advanced the world by however many video fields its own clock said had
+passed -- and neither fixed it, so at least one more remains. Until that changes, treat LAN
+play as something to experiment with rather than something to plan an evening around.
 
 **Can two people play the single-player missions?** Partly, and it is honest to call it alpha.
 Two to four players spawn into a solo mission with its own geometry, props and objectives, and
