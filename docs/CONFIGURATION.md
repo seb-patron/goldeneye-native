@@ -577,6 +577,16 @@ GETV_EXIT_FRAME = 61
 Raw names are matched before friendly ones, so a friendly key can never shadow a gate. There are
 around 250 of them; [`MODDING.md`](MODDING.md) covers the useful ones.
 
+### `GETV_RGBA16BE` -- explosion colour
+
+Default 1, and you should not need to touch it. RGBA16 textures were being decoded in the wrong
+byte order, which turned explosions magenta and read on screen as confetti. Mode 1 corrects it,
+mode 0 is the old behaviour, mode 2 is a control kept for comparison.
+
+It is listed here because the symptom was reported often enough to be worth naming: coloured
+confetti on crate and barrel explosions is this, and it is not the paintball cheat. See
+[`COLOUR_BUGS.md`](COLOUR_BUGS.md) for the measurements.
+
 ### `GETV_REAL_FONTS` -- the real-font text overlay
 
 Off by default, and a raw gate rather than a friendly key because it is not finished enough to

@@ -37,16 +37,45 @@ Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680:
   byte-identical frame. `GETV_LIGHTTRACE` then showed why: **there are no RGBA32 uploads at
   all** in the scene. The probe was inert, which is the useful result.
 
-### Why `GETV_RGBA16BE=1` is NOT yet promoted to the default
+### `GETV_RGBA16BE=1` is the default now
 
-**The census has no coverage.** Five levels compared at mode 0 and mode 1 gave byte-identical
-frames, which reads like proof of safety and is not: `GETV_LIGHTTRACE` reports **zero RGBA16
-uploads** in those idle frames. The only RGBA16 consumer observed anywhere is the explosion
-flare, where the count moves 8 -> 9 as the explosion appears.
+The old census could not support promoting it, and said so: five levels compared at mode 0 and
+mode 1 gave byte-identical frames, but `GETV_LIGHTTRACE` reported **zero RGBA16 uploads** in
+those idle frames. Identical output from a setting that nothing exercises is not evidence of
+safety, it is evidence the comparison was of the wrong frames.
 
-So what is established is "mode 1 fixes explosions" and "nothing else measured uses RGBA16
-yet". Promoting it needs frames that actually exercise RGBA16 elsewhere -- the wall-hole
-impact rows 8..15 in `s_impactimages` are RGBA/16b and are the obvious next subject.
+Redone against frames that do reach it. Three stages, idle and firing a rocket, both modes,
+`GETV_EXIT_FRAME=681` with the capture at 680:
+
+| stage | firing | RGBA16 uploads | mode 0 vs mode 1 |
+|---|---|---|---|
+| 9 Bunker 1 | no | 0 | byte-identical |
+| 9 Bunker 1 | yes | 166 | differ |
+| 20 Silo | no | 0 | byte-identical |
+| 20 Silo | yes | 0 | byte-identical |
+| 25 Train | no | 0 | byte-identical |
+| 25 Train | yes | 150 | differ |
+
+The rule holds in all six pairs: **where no RGBA16 is uploaded the two modes are byte-identical,
+and they differ only where it is.** So the setting cannot disturb anything that does not use the
+format. And the only consumer found anywhere is the explosion and impact path -- a 681-frame
+Bunker 1 run uploads no RGBA16 at all until the rocket is fired, which is why the earlier idle
+census found nothing to compare.
+
+Where it does apply it is the fix and not merely a change, on two independent stages:
+
+| stage | mode 0 | mode 1 |
+|---|---|---|
+| 9 Bunker 1 | (140, 82, 167) magenta | (186, 154, 74) orange |
+| 25 Train | (143, 84, 159) magenta | (179, 148, 71) orange |
+
+A default build with no environment variable set now produces a byte-identical frame to an
+explicit `GETV_RGBA16BE=1`. `GETV_RGBA16BE=0` restores the old behaviour, and mode 2 is still
+there as the u16-store control.
+
+The remaining subject, unchanged: the wall-hole impact rows 8..15 in `s_impactimages` are
+RGBA/16b, and no scenario here has been shown to upload them specifically. Firing a rocket
+exercises the format; which rows it exercises has not been separated.
 
 ## 2. Blue strips at Bunker doorways are the sky, not a texture
 
