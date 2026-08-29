@@ -1378,7 +1378,41 @@ int gePortStandHeld(void)
 #endif
 }
 
-void gePortInputPollPort(int port, struct GePadState *out)
+/* GETV_MOVE_SELFTEST=<frame>: hold the left stick forward on every port from that frame.
+ * GETV_MOVE_SELFTEST_Y=<counts> sets the axis; default is full forward, positive walks back.
+ *
+ * From a frame rather than from zero, like GETV_AIM_SELFTEST: controls are locked through the
+ * boot and the intro, so a hold starting at zero is already down before the player has control.
+ *
+ * Wraps the whole poll rather than living in one applier, because with GETV_PADS=2 the two co-op
+ * players take different paths -- port 0 is claimed by geKeyboardApply and returns early, port 1
+ * reaches geSynthState. Driving only one of them looks exactly like one player being stuck.
+ *
+ * Forward is negative; the struct documents SDL's +Y down. */
+static void geMoveSelftestApply(int port, struct GePadState *out)
+{
+    static long movest = -2;   /* -2 unread; 0 off; otherwise the frame to start holding from */
+
+    (void) port;
+    if (out == NULL) { return; }
+    if (movest == -2) {
+        const char *e = getenv("GETV_MOVE_SELFTEST");
+        movest = (e != NULL && *e != '\0' && *e != '0') ? atol(e) : 0;
+    }
+    if (movest <= 0 || (long) geSynthFrame < movest) { return; }
+
+    {
+        static int ycount = 1;   /* 1 = unread */
+        if (ycount == 1) {
+            const char *e = getenv("GETV_MOVE_SELFTEST_Y");
+            ycount = (e != NULL && *e != '\0') ? atoi(e) : -32000;
+        }
+        out->present = 1;   /* a port the game believes is absent is never read */
+        out->ly      = ycount;
+    }
+}
+
+static void gePortInputPollPortInner(int port, struct GePadState *out)
 {
  SDL_GameController *gc;
 
@@ -1489,3 +1523,11 @@ void gePortInputPollPort(int port, struct GePadState *out)
  geKeyboardApply(port, out);
 #endif
 }
+
+/* One entry point: the inner function has six returns and the self-test must survive all of them. */
+void gePortInputPollPort(int port, struct GePadState *out)
+{
+    gePortInputPollPortInner(port, out);
+    geMoveSelftestApply(port, out);
+}
+
