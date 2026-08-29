@@ -142,6 +142,27 @@ else
     || die "0016-freecam.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0017-coop-friendly-fire.patch" ) 2>/dev/null; then
+  echo "0017-coop-friendly-fire.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0017-coop-friendly-fire.patch" ) \
+    || die "0017-coop-friendly-fire.patch failed to apply"
+fi
+
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0018-coop-one-death-is-not-the-team.patch" ) 2>/dev/null; then
+  echo "0018-coop-one-death-is-not-the-team.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0018-coop-one-death-is-not-the-team.patch" ) \
+    || die "0018-coop-one-death-is-not-the-team.patch failed to apply"
+fi
+
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0019-coop-respawn.patch" ) 2>/dev/null; then
+  echo "0019-coop-respawn.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0019-coop-respawn.patch" ) \
+    || die "0019-coop-respawn.patch failed to apply"
+fi
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."

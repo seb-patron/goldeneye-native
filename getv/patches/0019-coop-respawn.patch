@@ -1,0 +1,46 @@
+diff -ruN before/src/game/bondview2.c after/src/game/bondview2.c
+--- a/src/game/bondview2.c
++++ b/src/game/bondview2.c
+@@ -10000,6 +10000,42 @@
+                         {
+                             total += g_playerPlayerData[i].kill_counts[cur];
+                         }
++#ifdef GE_PORT_NATIVE
++                        /* Co-op respawn. This branch is already reached -- it is chosen on
++                         * getPlayerCount() >= 2 -- but the gate below it is a deathmatch rule:
++                         * SCENARIO_YOLT is You Only Live Twice and `total` counts kills scored on
++                         * this player, neither of which a campaign fills in.
++                         *
++                         * Comes back on a timer rather than only on a button, because a player who
++                         * does not know to press one sees a black screen that never ends.
++                         * GETV_COOP_RESPAWN=<seconds>, default 5, 0 for button only.
++                         *
++                         * g_isBondKIA is checked so a team wipe stays lost. */
++                        if (gePortCoopPlayers() >= 2)
++                        {
++                            static s32 ge_rs_wait[4];
++                            static s32 ge_rs_secs = -1;
++                            s32 ge_cp = get_cur_playernum();
++
++                            if (ge_rs_secs < 0)
++                            {
++                                const char *e = getenv("GETV_COOP_RESPAWN");
++                                ge_rs_secs = (e != NULL && *e != '\0') ? atoi(e) : 5;
++                                if (ge_rs_secs < 0) { ge_rs_secs = 0; }
++                            }
++                            if (ge_cp >= 0 && ge_cp < 4) { ge_rs_wait[ge_cp]++; }
++
++                            if (!g_isBondKIA
++                                && (joyGetButtons(ge_cp, 0xB000)
++                                    || (ge_rs_secs > 0 && ge_cp >= 0 && ge_cp < 4
++                                        && ge_rs_wait[ge_cp] >= ge_rs_secs * 60)))
++                            {
++                                if (ge_cp >= 0 && ge_cp < 4) { ge_rs_wait[ge_cp] = 0; }
++                                mp_respawn_handler();
++                            }
++                        }
++                        else
++#endif
+                         if ((scenario != SCENARIO_YOLT) || (total < 2))
+                         {
+                             if (joyGetButtons(get_cur_playernum(), 0xB000))

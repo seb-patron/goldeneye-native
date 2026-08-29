@@ -103,7 +103,8 @@ for p in 0001-source 0006-fov-live-setter 0007-load-trace \
          0008-crosshair-color 0009-freerun-divider 0010-state-dump-player-position \
          0011-netplay-tick-integration 0012-real-font-overlay \
          0013-lockstep-pinned-sim-step 0014-lockstep-cull-on-the-tick 0015-aim-toggle \
-         0016-freecam; do
+         0016-freecam 0017-coop-friendly-fire \
+         0018-coop-one-death-is-not-the-team 0019-coop-respawn; do
   if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/$p.patch" ) 2>/dev/null; then
     echo "$p.patch: already applied"
   else

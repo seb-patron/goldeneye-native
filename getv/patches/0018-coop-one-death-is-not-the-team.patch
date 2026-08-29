@@ -1,0 +1,37 @@
+diff -ruN before/src/game/bondview2.c after/src/game/bondview2.c
+--- a/src/game/bondview2.c
++++ b/src/game/bondview2.c
+@@ -10107,7 +10107,33 @@
+             trigger_solo_watch_menu(1);
+         }
+ 
++#ifdef GE_PORT_NATIVE
++        /* Co-op: the mission is only lost when nobody is left standing. g_isBondKIA is global and
++         * front.c treats it as final -- frontCompleteAllObjectivesAliveSuccess() returns 0 and the
++         * end screen prints KILLED IN ACTION -- so setting it per death made one casualty fail the
++         * run for everyone.
++         *
++         * Solo is unchanged: with one player there is never another survivor.
++         * chrai.c's AI_BondKilledInAction is left alone; that is a scripted mission failure. */
++        {
++            s32 ge_others_alive = 0;
++            if (gePortCoopPlayers() >= 2) {
++                s32 ge_p;
++                for (ge_p = 0; ge_p < 4; ge_p++) {
++                    if (g_playerPointers[ge_p] != NULL
++                        && g_playerPointers[ge_p] != g_CurrentPlayer
++                        && g_playerPointers[ge_p]->bonddead == FALSE) {
++                        ge_others_alive++;
++                    }
++                }
++            }
++            if (ge_others_alive == 0) {
++                g_isBondKIA = 1;
++            }
++        }
++#else
+         g_isBondKIA = 1;
++#endif
+         g_CurrentPlayer->bonddead = 1;
+ 
+         g_CurrentPlayer->previous_collision_info = g_CurrentPlayer->field_488;

@@ -5,14 +5,24 @@ split screen. It is bring-up quality: the mission is authored around one Bond, s
 are present rather than accounted for. `GETV_MP` is the separate, unrelated path that boots a
 real multiplayer arena setup instead.
 
-**Harness caveat, worth knowing before trusting any scripted-input measurement below:**
-`GETV_SCRIPT` has never been shown to move a player, in any mode. Solo on Dam travels from
-(16872, 9502) to (17795, 18011) over 570 frames identically with the script and without it --
-that travel is the intro swirl camera animating, not input driving the player. So a comparison
-like "solo moves 900 units, co-op moves nothing" is comparing a camera animation to a genuinely
-stationary player, not proving anything about co-op input handling on its own. See
-[`HARNESS.md`](HARNESS.md) for the working alternative (`gePlayerClaim`/`gePlayerPost`, the
-player API).
+**Use `GETV_MOVE_SELFTEST` for any input measurement here.** It holds the left stick forward on
+every port from a given frame, which is what makes a co-op measurement mean anything: the other
+paths each reach one player. `GETV_SCRIPT` drives port 0 and has never been shown to move anyone
+in any mode -- solo on Dam travels identically with it and without it, and that travel is the
+intro camera animating rather than input driving the player. The player API
+(`gePlayerClaim`/`gePlayerPost`, see [`HARNESS.md`](HARNESS.md)) addresses a single slot.
+
+Two knobs, both read once:
+
+```
+GETV_MOVE_SELFTEST=<frame>     hold forward on every port from this frame
+GETV_MOVE_SELFTEST_Y=<counts>  the axis value; default -32000, positive walks backwards
+```
+
+Hold from a frame rather than from zero, for the same reason `GETV_AIM_SELFTEST` does: controls
+are locked through the boot and the level intro, so anything held from frame 0 is already down
+before the player has control. On BUNKER1 the dispatch reaches `cammode=4 branch=MoveBond` at
+about frame 600, so 700 is a safe start and 1501 a run long enough to see travel.
 
 ## Fixed: per-player spawn and camera
 
@@ -77,38 +87,160 @@ motion is the single-player intro swirl dragging every player through its own sc
 player-driven, and the campaign intro assumes exactly one player, so a second can fall through
 the level. Kept as a diagnostic knob, not a fix.
 
-## Still open: movement
+## Resolved: both players walk
 
-With both camera bugs fixed, positions are correct and stable rather than frozen or falling
-through the ground -- `property_pos` moves and `g_CurrentPlayer->pos` follows it one frame
-later, so the pipeline demonstrably works. **Nobody walks yet.**
+**Superseded. The section this replaces said "Nobody walks yet" and pointed at a guard inside
+`bondviewCalcUpdatePlayerCollision` that refuses the movement offset "specifically when a second
+player exists". Measured on macOS, that is wrong on both halves: the collision step applies the
+offset, and the same symptom reproduces with one player.**
 
-The furthest a trace has gotten: with the camera fix in place, `dispatch cammode=4
-timeractive=1 stick=(0,68) branch=MoveBond lockctl=0` shows the injected stick reaching the
-real movement dispatch (not the frozen one), `bondviewProcessInput` produces
-`speedforwards=0.972`, and `bondview2.c:7781` builds a `move_offset` from speed and camera
-rotation that grows every frame (`-0.762 -> -1.447 -> -2.063`). That offset reaches
-`bondviewCalcUpdatePlayerCollision`, and the position does not change. Not the other player:
-at `GETV_COOP_SPREAD=6000` the players are 6000 units apart and player 0 is equally stuck, so
-mutual collision is excluded. The next step is inside `bondviewCalcUpdatePlayerCollision`
-(`bondview2.c:2861`) -- find which of its guards refuses the offset specifically when a second
-player exists.
+What was actually missing was a way to give both players a stick. Every injection path in the
+tree reaches exactly one: `GETV_SCRIPT` drives port 0, and the player API addresses a single
+slot. That matters more than it sounds, because the default control style is 2.2 Galore, a
+TWO-CONTROLLER style, and `bondview2.c:5420` takes the walk axis from controller 2
+(`moveData.analogWalk = tmpc2sticky`). Injecting on the wrong pad leaves `analogWalk` at 0 with
+`canLookAhead` already 1, and a player who is never asked to walk is indistinguishable from a
+player who cannot.
 
-Treat that trace as provisional rather than conclusive, given the harness caveat up top: at the
-same dispatch site (`bondview2.c:8615`), a separate measurement under plain `GETV_SCRIPT` found
-both branches receiving `stick=(0,0)`:
+`GETV_MOVE_SELFTEST=<frame>` fills that gap. It holds the left stick forward on EVERY port from
+that frame, applied around the whole of `gePortInputPollPort` rather than inside one of its
+appliers -- necessary because with `GETV_PADS=2` the two players do not come down the same path:
+port 0 is claimed by the keyboard applier and returns early, port 1 reaches the synth block.
+`GETV_MOVE_SELFTEST_Y=<counts>` sets the axis, so a positive value walks backwards.
 
-```c
-if (mode == NONE || (mode == FP && is_timer_active) || mode == FADE_TO_TITLE)
-    MoveBond(stick_x, stick_y, buttons, ...);      /* real movement */
-else
-    bondviewFrozenMoveBond(...);                   /* input discarded */
+### The measurement
+
+Co-op, two players, both held forward from frame 700, BUNKER1, `GETV_EXIT_FRAME=1501`, **n=3 and
+byte-identical across all three**:
+
+```
+control, no input     no [coll] lines at all -- neither player moves
+both held forward     p0 colpos (-1381.4,2284.4) -> (-1413.8,2486.7)   77 distinct
+                      p1 colpos (-1369.0,2387.6) -> (-1361.3,2506.6)   68 distinct
 ```
 
-If the injected stick is not reliably reaching this function, the collision-rejection lead
-needs re-confirming with a working input path -- the player API in
-[`HARNESS.md`](HARNESS.md) -- before it can be trusted as the actual blocker. The next real
-test is a person playing co-op, not another scripted run.
+Solo, the same knob, confirmed against the renderer rather than a position field:
+
+```
+standing still        tris submitted=908  drawn=326
+walking forward       tris submitted=874  drawn=278
+walking backward      tris submitted=1088 drawn=404
+```
+
+Three different scenes, so the world genuinely moves around the player.
+
+### One trap worth keeping
+
+**Do not judge movement by the `pos=` column in `[getv][who]`.** It prints
+`g_CurrentPlayer->pos`, which is byte-identical between a forward run and a backward run whose
+collision positions differ by 377 units. The field that tracks the player through the world is
+`field_488.collision_position`, which `[getv][coll]` prints. Reading the wrong column is what
+makes working movement look frozen, and it is most of why the previous version of this section
+concluded what it did.
+
+`[getv][walk]` is also conditional -- it only prints when `speedforwards` or the offset is
+non-zero -- so its absence means the speed was never set, not that the code did not run. And
+`[getv][move] ... GATE canLookAhead=` sits inside `if (g_PlayerIsInTank == 1)`; it is a tank
+trace and will never fire on foot.
+
+## Fixed: players cannot shoot each other
+
+Found the way COOP.md said it would have to be: two people sat down and played it. Player 2
+spawns behind player 1, both facing the same way, and the first trigger pull killed a team mate
+instantly. No scripted run had produced that, and none was going to -- it needs two humans and
+one of them pointing a gun at the other's back.
+
+`record_damage_kills` (`bondview2.c`) takes `playerid`, the player who CAUSED the damage, or -1
+for anything that is not a player: guards, unowned explosions, gas, falling. `g_CurrentPlayer` is
+the victim, because the function runs in the victim's context. So
+
+```
+playerid >= 0 && playerid != get_cur_playernum()
+```
+
+is exactly one player hurting another, and under `gePortCoopPlayers() >= 2` that is co-op. The
+damage returns early instead.
+
+**Deathmatch is untouched.** `gePortCoopPlayers()` is only >= 2 under `GETV_COOP`; real
+multiplayer boots through `GETV_MP`, where shooting each other is the entire point.
+
+`GETV_COOP_FRIENDLYFIRE=1` puts it back. The first time a shot is blocked the game prints
+
+```
+[getv][coop] friendly fire blocked (player 1 -> player 0). GETV_COOP_FRIENDLYFIRE=1 allows it.
+```
+
+once, so the path can be confirmed live rather than assumed. It says it once and not per shot,
+because silence and a dead team mate look the same from outside.
+
+The spawn spread itself was checked and left alone: `GETV_COOP_SPREAD` defaults to 120 units and
+already tries eight directions across three rings, falling back closer only when the stan query
+finds no tile. Players start close in a corridor because the corridor is narrow, not because the
+placement is careless.
+
+## Fixed: one player dying does not fail the mission
+
+`g_isBondKIA` is a global, and `bondviewKillCurrentPlayer` set it from a single player's death.
+Two places in `front.c` treat it as final: `frontCompleteAllObjectivesAliveSuccess()` returns 0
+outright, and the end screen prints KILLED IN ACTION. In co-op that meant the moment anyone died,
+the mission became unwinnable for everybody -- the survivor could go on to complete every
+objective and still be told they failed.
+
+It is now set only when nobody is left standing. Solo is unchanged by construction: with one
+player there is never another survivor, so the new condition is the old behaviour written out.
+Verified as a number rather than by reading: solo walking forward renders `tris submitted=874
+drawn=278` both before and after, byte-identical.
+
+The AI opcode that also sets the flag (`AI_BondKilledInAction`, `chrai.c`) is deliberately left
+alone. That is a mission script declaring the run lost for a scripted reason -- an escort dying,
+say -- and it should end the mission for the team.
+
+See the respawn section below: the dead player now comes back rather than sitting out the rest
+of the mission.
+
+## Fixed: the dead player comes back
+
+The respawn machinery already existed and co-op was already reaching it. `mp_respawn_handler()`
+does the whole job -- `init_player_BONDdata()`, `bondviewPlayerBeginLife()`, clearing `bonddead`
+and the death-animation flags, and placing the player on a start pad -- and the branch that calls
+it is chosen on `getPlayerCount() >= 2`, which co-op satisfies.
+
+What stopped it was the gate around the call, which is a deathmatch rule:
+
+```c
+if ((scenario != SCENARIO_YOLT) || (total < 2))
+    if (joyGetButtons(get_cur_playernum(), 0xB000))
+        mp_respawn_handler();
+```
+
+`SCENARIO_YOLT` is You Only Live Twice, and `total` counts how many times the other players have
+killed this one. A campaign has no scenario and nobody is scoring kills, so both terms are
+meaningless here and the `kill_counts` read is of data no co-op mission ever fills in.
+
+Waiting for a button is a deathmatch habit too. A multiplayer player knows they respawn and is
+holding a pad; someone who has just died halfway through Bunker does not necessarily know there
+is anything to press, and a black screen that never ends reads as a hang. Co-op therefore comes
+back on its own after a delay, with the button as a way to skip the wait rather than the only way
+out.
+
+| Setting | Value | What it does |
+|---|---|---|
+| `GETV_COOP_RESPAWN` | seconds, default `5` | How long a dead player waits. `0` turns the timer off and leaves only the button, which is the multiplayer behaviour. |
+
+`mp_respawn_handler()` needs `startpadcount > 0`, and a campaign level always has at least the pad
+the mission starts you on, so a dead player returns to where the level began rather than to their
+team mate. Respawning next to the survivor would be better and is not what this does.
+
+**A team wipe is still a lost mission.** If the last player standing goes down, the guard from the
+section above sets `g_isBondKIA`, and the respawn checks that flag -- so anyone already counting
+down does not come back into a run that is over. Without that check the mission would be
+unloseable rather than merely survivable.
+
+**Not yet seen happen.** Every check here is that the code is reached, compiles and changes
+nothing else: solo still renders `tris submitted=874 drawn=278` walking forward, byte-identical
+to before, and co-op still walks to the same two positions. Killing a player on a headless run is
+not something the harness can currently arrange, so the first real test is two people playing and
+one of them dying on purpose.
 
 ## Reproducing
 

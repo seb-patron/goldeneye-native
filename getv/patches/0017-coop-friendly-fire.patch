@@ -1,0 +1,33 @@
+diff -ruN before/src/game/bondview2.c after/src/game/bondview2.c
+--- a/src/game/bondview2.c
++++ b/src/game/bondview2.c
+@@ -10157,6 +10157,29 @@
+  */
+ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 playerid, s32 affects_armor) {
+     f32 damage_dealt = g_playerPerm->handicap * damage_amount;
++#ifdef GE_PORT_NATIVE
++    /* Co-op: players cannot damage each other. playerid is who caused the damage, or -1 for
++     * anything that is not a player. g_CurrentPlayer is the victim, so a real playerid that is
++     * not the victim is one player shooting another.
++     *
++     * Deathmatch is untouched -- gePortCoopPlayers() is only >= 2 under GETV_COOP.
++     * GETV_COOP_FRIENDLYFIRE=1 restores it. */
++    if (playerid >= 0 && playerid != get_cur_playernum() && gePortCoopPlayers() >= 2) {
++        static s32 ge_ff = -1;
++        if (ge_ff < 0) {
++            const char *e = getenv("GETV_COOP_FRIENDLYFIRE");
++            ge_ff = (e != NULL && *e == '1');
++        }
++        if (!ge_ff) {
++            static s32 ge_ff_said = 0;
++            if (!ge_ff_said) {
++                ge_ff_said = 1;
++                osSyncPrintf("[getv][coop] friendly fire off (GETV_COOP_FRIENDLYFIRE=1 allows it)\n");
++            }
++            return;
++        }
++    }
++#endif
+     s32 cur_player_num;
+     f32 angle;
+     s32 padding;
