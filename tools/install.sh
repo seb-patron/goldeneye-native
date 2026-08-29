@@ -224,10 +224,25 @@ ROM_DEST="roms/ge007.u.z64"
 DECOMP_ROM="vendor/ge-decomp/baserom.u.z64"
 ROM_SHA="abe01e4aeb033b6c0836819f549c791b26cfde83"
 
+# python3 last, and it matters. Under the setup wizard, which runs the installer with its output
+# on a pipe, MSYS coreutils can fail with "failed to set file descriptor text/binary mode" and
+# print nothing while the pipeline still completes. A caller that trusts the result then compares
+# an empty string to the expected hash and tells the user their ROM is wrong when it was never
+# read. python3 is already a prerequisite here, so it costs nothing to be sure.
 sha1_of() {
-    if   have shasum;   then shasum -a 1 "$1" | awk '{print $1}'
-    elif have sha1sum;  then sha1sum "$1"     | awk '{print $1}'
-    else die "no shasum or sha1sum available to verify the ROM"; fi
+    out=""
+    if   have shasum;  then out="$(shasum -a 1 "$1" 2>/dev/null | awk '{print $1}')"
+    elif have sha1sum; then out="$(sha1sum "$1"    2>/dev/null | awk '{print $1}')"
+    fi
+    if [ -z "$out" ] && have python3; then
+        out="$(python3 -c 'import hashlib,sys
+h=hashlib.sha1()
+with open(sys.argv[1],"rb") as f:
+    for b in iter(lambda: f.read(1<<20), b""): h.update(b)
+print(h.hexdigest())' "$1" 2>/dev/null)"
+    fi
+    [ -n "$out" ] || die "could not compute a SHA-1 on this machine -- no working shasum, sha1sum or python3. The ROM has not been checked and may well be fine."
+    printf '%s' "$out"
 }
 
 # A dump in the wrong byte order is the normal case, not the exception, and the file

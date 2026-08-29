@@ -113,10 +113,44 @@ for p in 0001-source 0006-fov-live-setter 0007-load-trace \
   fi
 done
 
+# The ROM's SHA-1, from whichever tool this machine actually has.
+#
+# sha1sum on its own is not enough. Under the setup wizard, which runs this script with its output
+# on a pipe, MSYS coreutils can fail with "failed to set file descriptor text/binary mode: Bad
+# file descriptor" and produce nothing on stdout while still exiting through the pipeline. The
+# check below then compared an EMPTY string against the expected hash and reported the ROM as
+# wrong -- the user is told to find a different dump when the dump was never read. Reported as
+# issue #6 by three people, all with correct ROMs.
+#
+# python3 is already a checked prerequisite of this script, so it is the reliable last resort
+# rather than an extra dependency.
+ge_rom_sha1() {
+  if command -v sha1sum >/dev/null 2>&1; then
+    sha1sum "$1" 2>/dev/null | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 1 "$1" 2>/dev/null | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha1 "$1" 2>/dev/null | awk '{print $NF}'
+  fi
+}
+
+ge_rom_sha1_py() {
+  python3 -c 'import hashlib,sys
+h=hashlib.sha1()
+with open(sys.argv[1],"rb") as f:
+    for b in iter(lambda: f.read(1<<20), b""): h.update(b)
+print(h.hexdigest())' "$1" 2>/dev/null
+}
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."
-SHA="$(sha1sum "$ROM" | awk '{print $1}')"
+SHA="$(ge_rom_sha1 "$ROM")"
+# Empty means the hashing tool failed, not that the ROM is wrong. Fall back before judging it.
+if [ -z "$SHA" ]; then
+  SHA="$(ge_rom_sha1_py "$ROM")"
+fi
+[ -n "$SHA" ] || die "could not compute the ROM's SHA-1 on this machine -- no working sha1sum, shasum, openssl or python3. The ROM itself has not been checked and may well be fine."
 WANT="abe01e4aeb033b6c0836819f549c791b26cfde83"
 [ "$SHA" = "$WANT" ] || die "ROM SHA-1 $SHA does not match $WANT -- see docs/SETUP.md 3.4"
 cp -f "$ROM" "$DECOMP/baserom.u.z64"
