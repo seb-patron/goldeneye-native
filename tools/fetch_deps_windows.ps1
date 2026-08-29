@@ -126,10 +126,18 @@ if (-not (Test-Path "$imguiPrefix\lib\libimgui.a")) {
     "$i\imgui.cpp","$i\imgui_draw.cpp","$i\imgui_tables.cpp","$i\imgui_widgets.cpp",
     "$i\imgui_demo.cpp","$i\backends\imgui_impl_sdl2.cpp","$i\backends\imgui_impl_opengl2.cpp"
   )
+  # ImGui's IM_ASSERT expands __FILE__, so without this every assert string in libimgui.a
+  # carries the absolute path it was compiled from -- and $tmp is $env:TEMP, which on a normal
+  # Windows account is C:\Users\<name>\AppData\Local\Temp. That put the builder's account name
+  # into setup_wizard.exe, a file this project publishes as a release asset for other people to
+  # download. Measured: 12 such strings in the first wizard build. Mapping the prefix rewrites
+  # __FILE__ at compile time, so the strings read "imgui/imgui.cpp" and identify nobody.
+  $imguiMap = "$tmp\imguisrc"
   $objs = @()
   foreach ($f in $src) {
     $o = Join-Path $tmp ("imgui_" + [IO.Path]::GetFileNameWithoutExtension($f) + ".o")
     & $gxx -std=c++17 -O2 -w -fno-exceptions -fno-rtti -I"$i" -I"$i\backends" `
+           "-ffile-prefix-map=$imguiMap=imgui" "-fmacro-prefix-map=$imguiMap=imgui" `
            -I"$Mingw\include\SDL2" -c $f -o $o
     if (Test-Path $o) { $objs += $o }
   }

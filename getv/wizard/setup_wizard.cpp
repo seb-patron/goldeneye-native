@@ -480,6 +480,37 @@ void ui_step_label(const char *text)
     ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, 1.0f), "%s", text);
 }
 
+/* The eight banners tools/setup-windows.sh prints, in the order it prints them, so that a live
+ * "== build ==" can be turned into "step 8 of 8" and a filled bar.
+ *
+ * This exists because the RUNNING page is on screen for 10 to 40 minutes and, without it, shows
+ * only a scrolling log. Someone who does not read build output cannot tell a slow step from a
+ * hung one, and the reasonable thing for them to do at that point is close the window -- part
+ * way through asset generation, which is the one moment it costs them the whole run.
+ *
+ * The order is the contract. A step added to setup-windows.sh belongs here too; one that is not
+ * in this list returns -1 and the caller keeps the position it already had, so an unrecognised
+ * banner stalls the bar rather than making it jump backwards. */
+const char *const kSetupSteps[] = {
+    "checking for python3",
+    "third-party port sources",
+    "mingw toolchain, SDL2, GLEW, Lua, Dear ImGui, Tracy",
+    "decompiled game source",
+    "ROM",
+    "asset generation (docs/SETUP.md 3.5)",
+    "symbol namespacing (docs/SETUP.md 3.6)",
+    "build",
+};
+const int kSetupStepCount = (int) (sizeof kSetupSteps / sizeof kSetupSteps[0]);
+
+int setup_step_index(const std::string &step)
+{
+    for (int i = 0; i < kSetupStepCount; i++) {
+        if (step == kSetupSteps[i]) return i;
+    }
+    return -1;
+}
+
 void ui_error(const char *text)
 {
     ImGui::PushTextWrapPos(0.0f);
@@ -825,6 +856,34 @@ int main(int argc, char **argv)
             DWORD code = pipeline.exitCode;
 
             ui_step_label(step.empty() ? "Starting..." : step.c_str());
+
+            /* Held across frames on purpose: between two banners currentStep is whatever the
+             * last one was, and during the clone it is not one of ours at all. Keeping the last
+             * recognised index means the bar waits rather than resetting to zero. */
+            static int lastStepIdx = -1;
+            {
+                const int idx = setup_step_index(step);
+                if (idx >= 0) lastStepIdx = idx;
+            }
+            {
+                /* Fraction is steps COMPLETED, so the bar is never full while work is still
+                 * running -- a bar that sits at 100% for ten minutes reads as a hang. */
+                const float frac = (lastStepIdx < 0) ? 0.0f
+                                 : (float) lastStepIdx / (float) kSetupStepCount;
+                char label[64];
+                if (lastStepIdx < 0) {
+                    snprintf(label, sizeof label, "starting");
+                } else {
+                    snprintf(label, sizeof label, "step %d of %d", lastStepIdx + 1, kSetupStepCount);
+                }
+                ImGui::ProgressBar(frac, ImVec2(-1.0f, 0.0f), label);
+            }
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextUnformatted(
+                "This takes 10 to 40 minutes and only has to happen once. It is safe to leave "
+                "it running and do something else. Do not close this window.");
+            ImGui::PopTextWrapPos();
+
             ImGui::Spacing();
             ImGui::BeginChild("log", ImVec2(0, -8.0f), true);
             ImGuiListClipper clipper;
@@ -857,15 +916,18 @@ int main(int argc, char **argv)
                      (unsigned long) pipeline.exitCode);
             ui_error(hdr);
             ImGui::PushTextWrapPos(0.0f);
-            if (haveRepo) {
-                ImGui::TextUnformatted(
-                    "Scroll the log below for details, or run tools\\setup-windows.sh yourself "
-                    "from a git-bash prompt to see the full output.");
-            } else {
-                ImGui::TextUnformatted(
-                    "Scroll the log below for details, or run git clone yourself from a "
-                    "command prompt to see the full output.");
-            }
+            /* Deliberately not "run setup-windows.sh from a git-bash prompt", which is what
+             * this said first. Someone who reached this screen by double-clicking an .exe does
+             * not have a git-bash prompt and does not want one; telling them to get one is how
+             * a fixable error becomes an abandoned install. What they CAN do is hand the log to
+             * somebody who reads logs, so the button below exists to make that one click. */
+            ImGui::TextUnformatted(
+                "Nothing on this computer has been damaged and nothing needs undoing. The log "
+                "below says what went wrong.\n\n"
+                "Press 'Copy the log', then paste it into a new issue at\n"
+                "github.com/SegfaultEvan/goldeneye-native/issues -- that is enough for someone "
+                "to tell you what to do next. Running this again is safe: it picks up where it "
+                "stopped rather than starting over.");
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
             EnterCriticalSection(&pipeline.lock);
@@ -880,6 +942,19 @@ int main(int argc, char **argv)
             clipper.End();
             ImGui::EndChild();
             LeaveCriticalSection(&pipeline.lock);
+            if (ImGui::Button("Copy the log", ImVec2(160, 32))) {
+                /* Rebuilt from the line vector rather than kept as a running string: the log is
+                 * a few hundred lines at worst, and this only runs on a click. */
+                std::string all;
+                EnterCriticalSection(&pipeline.lock);
+                for (size_t i = 0; i < pipeline.lines.size(); i++) {
+                    all += pipeline.lines[i];
+                    all += "\r\n";   /* CRLF: this gets pasted into Windows programs. */
+                }
+                LeaveCriticalSection(&pipeline.lock);
+                ImGui::SetClipboardText(all.c_str());
+            }
+            ImGui::SameLine();
             if (ImGui::Button("Quit", ImVec2(100, 32))) running = false;
             break;
         }

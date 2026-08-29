@@ -38,8 +38,14 @@ if (-not (Test-Path (Join-Path $imgui 'lib\libimgui.a'))) {
 
 New-Item -ItemType Directory -Force -Path $build | Out-Null
 
+# Same reason as the ImGui block in tools/fetch_deps_windows.ps1: assert and __FILE__ strings
+# otherwise carry the absolute path this was built from, and the resulting binary is published
+# for other people to download. $root is wherever the developer happened to clone, so it is
+# mapped to a fixed token rather than shipped.
 $cflags = @(
   '-std=c++17', '-O1', '-w',
+  "-ffile-prefix-map=$root=goldeneye-native",
+  "-fmacro-prefix-map=$root=goldeneye-native",
   "-I$wiz",
   "-I$root\getv\port\src",
   "-I$imgui\include",
@@ -68,7 +74,9 @@ foreach ($s in $sources) {
 Write-Output "== linking =="
 $bin = Join-Path $build 'setup_wizard.exe'
 Remove-Item $bin -Force -ErrorAction SilentlyContinue
-$linkArgs = @('-o', $bin) + $objs + @(
+# -s strips the symbol table. Nothing here is debugged from a shipped binary, and a symbol
+# table is another place build paths survive.
+$linkArgs = @('-o', $bin, '-s') + $objs + @(
   (Join-Path $imgui 'lib\libimgui.a'),
   '-lglew32', '-lmingw32', '-lSDL2',
   '-static-libgcc', '-static-libstdc++',
