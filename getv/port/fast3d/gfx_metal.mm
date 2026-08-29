@@ -159,7 +159,7 @@ static uint32_t mtl_depth_w, mtl_depth_h;
 static uint32_t mtl_render_target_w, mtl_render_target_h;
 
 /* GETV-SUPERSAMPLE / GETV_MSAA / GETV_FXAA offscreen path. One shared intermediate colour
- * target serves MSAA-resolve, supersample-downsample and (a fast follow) FXAA input alike --
+ * target serves MSAA-resolve, supersample-downsample and FXAA input alike --
  * mirroring how gfx_opengl.c's GE_POSTFX path unifies the same three into one pass, not
  * three separate mechanisms. mtl_pp_depth backs the game's own depth test/write during that
  * pass; nothing ever reads it back afterward, so MTLStorageModeMemoryless is valid for the
@@ -569,6 +569,15 @@ ge_metal_fs_early_exit:
     pd.vertexDescriptor = vd;
     pd.colorAttachments[0].pixelFormat = mtl_layer.pixelFormat;
     pd.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
+    /* Must match whatever render pass this pipeline draws into exactly, or Metal refuses to
+     * bind it -- see ge_metal_msaa_samples()'s own comment. 1 (its off-value) is correct for
+     * both the fast path (draws straight into the single-sample drawable) and the postfx
+     * path with MSAA off (mtl_pp_color is single-sample too); only when GETV_MSAA actually
+     * resolved to >1 does gfx_metal_start_frame aim the game's encoder at the multisampled
+     * mtl_pp_color_ms instead, and this is what lets that pipeline still be legal. Safe to
+     * set unconditionally on every pipeline: the resolved sample count is fixed for the
+     * process's whole lifetime, never toggled after gfx_metal_init(). */
+    pd.rasterSampleCount = ge_metal_msaa_samples();
     if (opt_alpha) {
         pd.colorAttachments[0].blendingEnabled = YES;
         pd.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
@@ -700,6 +709,19 @@ static uint32_t ge_metal_msaa_samples(void) {
         }
     }
     return (uint32_t) resolved;
+}
+
+/* GETV_FXAA=1 -- off by default, resolved once like every other gate in this file. Folded
+ * into ge_metal_postfx_active() below so FXAA alone (no supersample, no MSAA requested)
+ * still routes draws through the offscreen target: a screen-space filter needs a resolved
+ * image to sample, and the drawable itself is never a legal sample source. */
+static bool ge_metal_fxaa_enabled(void) {
+    static int resolved = -1;
+    if (resolved < 0) {
+        const char *e = getenv("GETV_FXAA");
+        resolved = (e && *e == '1') ? 1 : 0;
+    }
+    return resolved != 0;
 }
 
 static void gfx_metal_upload_texture(const uint8_t *rgba32_buf, int width, int height) {
@@ -927,15 +949,14 @@ static void gfx_metal_build_depth_states(void) {
 }
 
 /* Whether THIS frame's game draws should land in the offscreen mtl_pp_color/mtl_pp_depth
- * pair instead of the drawable directly. Supersample>1 only for now (increment 3) --
- * increments 4/5 (MSAA, FXAA) extend this same gate, since both also need the offscreen
- * path even when supersample itself is 1 (unlike gfx_opengl.c's desktop GE_POSTFX gate,
- * which deliberately excludes MSAA because GL can multisample the default framebuffer
- * directly; CAMetalLayer's drawable has no equivalent, so Metal MSAA has no path that
- * avoids this offscreen target -- see gfx_metal_ensure_offscreen_targets' own MSAA
- * extension when it lands). */
+ * pair instead of the drawable directly. supersample>1, msaa>1 or fxaa alone all need it --
+ * unlike gfx_opengl.c's desktop GE_POSTFX gate, which deliberately excludes MSAA because GL
+ * can multisample the default framebuffer directly, CAMetalLayer's drawable has no
+ * equivalent, so Metal MSAA has no path that avoids this offscreen target. FXAA alone (no
+ * supersample, no MSAA) still needs it too -- the composite pass is the only place a
+ * screen-space filter has a resolved image to sample; the drawable is never a legal source. */
 static bool ge_metal_postfx_active(void) {
-    return gfx_supersample > 1;
+    return gfx_supersample > 1 || ge_metal_msaa_samples() > 1 || ge_metal_fxaa_enabled();
 }
 
 /* One shared offscreen colour+depth pair, sized to the INFLATED (w,h) -- gfx_current_dimensions
@@ -943,9 +964,20 @@ static bool ge_metal_postfx_active(void) {
  * gfx_start_frame, unconditional, backend-agnostic), not re-derived from drawableSize*factor.
  * mtl_pp_color: MTLStorageModePrivate + ShaderRead, since the composite pass samples it.
  * mtl_pp_depth: MTLStorageModeMemoryless -- nothing ever reads game depth back after this
- * pass ends, so it never needs to leave tile memory on this TBDR GPU. */
+ * pass ends, so it never needs to leave tile memory on this TBDR GPU.
+ *
+ * When GETV_MSAA resolved to >1, also builds mtl_pp_color_ms/mtl_pp_depth_ms -- the actual
+ * multisample targets the game draws into (see those globals' own header comment). Both
+ * MTLStorageModeMemoryless: raw MSAA samples never need to leave tile memory, since
+ * gfx_metal_start_frame resolves mtl_pp_color_ms into mtl_pp_color automatically on
+ * endEncoding and nothing ever reads multisample depth back either way. Rebuilds whenever
+ * the resolved sample count changes, not just w/h -- mtl_pp_built_samples exists for exactly
+ * that comparison, mirroring mtl_pp_w/h's own rebuild-on-change role, even though in practice
+ * the sample count is fixed for the process's whole lifetime once gfx_metal_init() resolves
+ * it, same as w/h can still legitimately change (window resize, orientation). */
 static void gfx_metal_ensure_offscreen_targets(uint32_t w, uint32_t h) {
-    if (mtl_pp_color && mtl_pp_w == w && mtl_pp_h == h) return;
+    uint32_t samples = ge_metal_msaa_samples();
+    if (mtl_pp_color && mtl_pp_w == w && mtl_pp_h == h && mtl_pp_built_samples == samples) return;
     @autoreleasepool {
         MTLTextureDescriptor *cd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:mtl_layer.pixelFormat
                                                                                         width:w height:h mipmapped:NO];
@@ -958,8 +990,30 @@ static void gfx_metal_ensure_offscreen_targets(uint32_t w, uint32_t h) {
         dd.usage = MTLTextureUsageRenderTarget;
         dd.storageMode = MTLStorageModeMemoryless;
         mtl_pp_depth = [mtl_device newTextureWithDescriptor:dd];
+
+        if (samples > 1) {
+            MTLTextureDescriptor *cmd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:mtl_layer.pixelFormat
+                                                                                             width:w height:h mipmapped:NO];
+            cmd.textureType = MTLTextureType2DMultisample;
+            cmd.sampleCount = samples;
+            cmd.usage = MTLTextureUsageRenderTarget;
+            cmd.storageMode = MTLStorageModeMemoryless;
+            mtl_pp_color_ms = [mtl_device newTextureWithDescriptor:cmd];
+
+            MTLTextureDescriptor *dmd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                                                             width:w height:h mipmapped:NO];
+            dmd.textureType = MTLTextureType2DMultisample;
+            dmd.sampleCount = samples;
+            dmd.usage = MTLTextureUsageRenderTarget;
+            dmd.storageMode = MTLStorageModeMemoryless;
+            mtl_pp_depth_ms = [mtl_device newTextureWithDescriptor:dmd];
+        } else {
+            mtl_pp_color_ms = nil;
+            mtl_pp_depth_ms = nil;
+        }
     }
     mtl_pp_w = w; mtl_pp_h = h;
+    mtl_pp_built_samples = samples;
 }
 
 /* Full-screen-triangle composite pass: samples mtl_pp_color (the offscreen target the
@@ -969,12 +1023,18 @@ static void gfx_metal_ensure_offscreen_targets(uint32_t w, uint32_t h) {
  * new MTLLibrary per N64 shader_id, this is a SEPARATE, single pipeline with no vertex
  * buffer at all (vertex_id-driven), since none of the 128 possible combiner variants have
  * that shape -- every one of them assumes real per-vertex [[stage_in]] attributes from the
- * game's own VBO layout. FXAA (a fast follow) extends this same fragment shader rather than
- * adding a second pass, so it is written with that branch already in mind. */
+ * game's own VBO layout. FXAA extends this same fragment shader rather than adding a second
+ * pass -- see ge_metal_fxaa_enabled()'s compile-time branch below. */
 static void gfx_metal_ensure_postfx_pipeline(void) {
     if (mtl_pp_pipeline) return;
     @autoreleasepool {
-        NSString *src =
+        /* FXAA baked into the shader SOURCE via a compile-time branch, not a runtime uniform
+         * bool -- ge_metal_fxaa_enabled() is resolved once and never changes for the process's
+         * lifetime, so there is no case where the other variant is ever needed once this
+         * pipeline is built. Ported from gfx_opengl.c's kPPFrag `fxaa()` (FXAA 3.11 console
+         * variant), GLSL vec2/vec3/texture2D -> MSL float2/float3/tex.sample, otherwise the
+         * same algorithm line for line. */
+        NSMutableString *src = [NSMutableString stringWithString:
             @"#include <metal_stdlib>\n"
              "using namespace metal;\n"
              "struct PPVarying { float4 position [[position]]; float2 uv; };\n"
@@ -984,12 +1044,47 @@ static void gfx_metal_ensure_postfx_pipeline(void) {
              "    out.position = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);\n"
              "    out.uv = uv;\n"
              "    return out;\n"
-             "}\n"
-             "fragment float4 ppFragment(PPVarying in [[stage_in]],\n"
-             "                           texture2d<float> tex [[texture(0)]],\n"
-             "                           sampler samp [[sampler(0)]]) {\n"
-             "    return tex.sample(samp, in.uv);\n"
-             "}\n";
+             "}\n"];
+        if (ge_metal_fxaa_enabled()) {
+            [src appendString:
+                @"float3 ge_fxaa_fetch(texture2d<float> tex, sampler samp, float2 uv) {\n"
+                 "    return tex.sample(samp, uv).rgb;\n"
+                 "}\n"
+                 "float3 ge_fxaa(texture2d<float> tex, sampler samp, float2 uv, float2 res) {\n"
+                 "    float2 px = 1.0 / res;\n"
+                 "    float3 L  = float3(0.299, 0.587, 0.114);\n"
+                 "    float3 c  = ge_fxaa_fetch(tex, samp, uv);\n"
+                 "    float3 nw = ge_fxaa_fetch(tex, samp, uv + float2(-px.x, -px.y));\n"
+                 "    float3 ne = ge_fxaa_fetch(tex, samp, uv + float2( px.x, -px.y));\n"
+                 "    float3 sw = ge_fxaa_fetch(tex, samp, uv + float2(-px.x,  px.y));\n"
+                 "    float3 se = ge_fxaa_fetch(tex, samp, uv + float2( px.x,  px.y));\n"
+                 "    float lnw = dot(nw,L), lne = dot(ne,L), lsw = dot(sw,L), lse = dot(se,L), lc = dot(c,L);\n"
+                 "    float lmin = min(lc, min(min(lnw,lne), min(lsw,lse)));\n"
+                 "    float lmax = max(lc, max(max(lnw,lne), max(lsw,lse)));\n"
+                 "    if (lmax - lmin < max(0.0625, lmax * 0.125)) return c;\n"
+                 "    float2 dir = float2(-((lnw + lne) - (lsw + lse)), ((lnw + lsw) - (lne + lse)));\n"
+                 "    float red = max((lnw + lne + lsw + lse) * 0.03125, 0.0078125);\n"
+                 "    float rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + red);\n"
+                 "    dir = clamp(dir * rcp, -8.0, 8.0) * px;\n"
+                 "    float3 a = 0.5 * (ge_fxaa_fetch(tex, samp, uv + dir * (1.0/3.0 - 0.5)) + ge_fxaa_fetch(tex, samp, uv + dir * (2.0/3.0 - 0.5)));\n"
+                 "    float3 b = a * 0.5 + 0.25 * (ge_fxaa_fetch(tex, samp, uv + dir * -0.5) + ge_fxaa_fetch(tex, samp, uv + dir * 0.5));\n"
+                 "    float lb = dot(b, L);\n"
+                 "    return (lb < lmin || lb > lmax) ? a : b;\n"
+                 "}\n"
+                 "fragment float4 ppFragment(PPVarying in [[stage_in]],\n"
+                 "                           texture2d<float> tex [[texture(0)]],\n"
+                 "                           sampler samp [[sampler(0)]],\n"
+                 "                           constant float2 &uRes [[buffer(0)]]) {\n"
+                 "    return float4(ge_fxaa(tex, samp, in.uv, uRes), 1.0);\n"
+                 "}\n"];
+        } else {
+            [src appendString:
+                @"fragment float4 ppFragment(PPVarying in [[stage_in]],\n"
+                 "                           texture2d<float> tex [[texture(0)]],\n"
+                 "                           sampler samp [[sampler(0)]]) {\n"
+                 "    return tex.sample(samp, in.uv);\n"
+                 "}\n"];
+        }
         NSError *err = nil;
         id<MTLLibrary> lib = [mtl_device newLibraryWithSource:src options:nil error:&err];
         if (!lib) {
@@ -1139,14 +1234,26 @@ static void gfx_metal_start_frame(void) {
             mtl_cmdbuf = [mtl_queue commandBuffer];
 
             MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
-            pass.colorAttachments[0].texture = mtl_pp_color;
             pass.colorAttachments[0].loadAction = MTLLoadActionClear;
             pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
-            pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-            pass.depthAttachment.texture = mtl_pp_depth;
             pass.depthAttachment.loadAction = MTLLoadActionClear;
             pass.depthAttachment.clearDepth = 1.0;
             pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+            if (mtl_pp_color_ms) {
+                /* MSAA active: the game draws into the multisample target, Metal resolves it
+                 * into mtl_pp_color automatically on endEncoding (MultisampleResolve), no
+                 * manual blit needed -- simpler than GL's explicit resolve. Depth is never
+                 * resolved (mtl_pp_depth stays unused on this path); nothing reads it back
+                 * either way. */
+                pass.colorAttachments[0].texture = mtl_pp_color_ms;
+                pass.colorAttachments[0].resolveTexture = mtl_pp_color;
+                pass.colorAttachments[0].storeAction = MTLStoreActionMultisampleResolve;
+                pass.depthAttachment.texture = mtl_pp_depth_ms;
+            } else {
+                pass.colorAttachments[0].texture = mtl_pp_color;
+                pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+                pass.depthAttachment.texture = mtl_pp_depth;
+            }
 
             gfx_metal_begin_game_pass(pass, iw, ih);
             /* mtl_drawable deliberately NOT acquired here -- deferred to
@@ -1340,6 +1447,15 @@ static void gfx_metal_end_frame(void) {
                 [ppenc setRenderPipelineState:mtl_pp_pipeline];
                 [ppenc setFragmentTexture:mtl_pp_color atIndex:0];
                 [ppenc setFragmentSamplerState:mtl_pp_sampler atIndex:0];
+                if (ge_metal_fxaa_enabled()) {
+                    /* mtl_pp_color's own size, not the drawable's -- the FXAA pass samples
+                     * mtl_pp_color, and texel spacing has to match the texture being
+                     * neighbour-sampled, not the (possibly different, post-downsample)
+                     * output size. Matches gfx_metal_ensure_postfx_pipeline's ppFragment,
+                     * which declares this buffer only when FXAA is compiled in. */
+                    float res[2] = { (float)mtl_pp_w, (float)mtl_pp_h };
+                    [ppenc setFragmentBytes:res length:sizeof res atIndex:0];
+                }
                 [ppenc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
                 [ppenc endEncoding];
             }
