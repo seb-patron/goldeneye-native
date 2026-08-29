@@ -143,6 +143,16 @@ with open(sys.argv[1],"rb") as f:
 print(h.hexdigest())' "$1" 2>/dev/null
 }
 
+# certutil ships with Windows. It is last because it is the least portable, and it is here at all
+# because on the machine in issue #6 every other option failed at once -- MSYS coreutils and
+# python3 alike, which is the signature of a broken stdin rather than of missing tools. certutil
+# is a plain Win32 program with no such dependency. Its second line is the digest, spaced in
+# groups on older builds and unspaced on newer ones, so the spaces come out either way.
+ge_rom_sha1_certutil() {
+  command -v certutil >/dev/null 2>&1 || return 0
+  certutil -hashfile "$1" SHA1 2>/dev/null | sed -n 2p | tr -d ' \r\n'
+}
+
 # ---------------------------------------------------------------------- 4. the ROM
 step "ROM"
 [ -f "$ROM" ] || die "no ROM at $ROM -- see README.md 'Bring your own ROM'. Not something this script can fetch for you."
@@ -151,7 +161,10 @@ SHA="$(ge_rom_sha1 "$ROM")"
 if [ -z "$SHA" ]; then
   SHA="$(ge_rom_sha1_py "$ROM")"
 fi
-[ -n "$SHA" ] || die "could not compute the ROM's SHA-1 on this machine -- no working sha1sum, shasum, openssl or python3. The ROM itself has not been checked and may well be fine."
+if [ -z "$SHA" ]; then
+  SHA="$(ge_rom_sha1_certutil "$ROM")"
+fi
+[ -n "$SHA" ] || die "could not compute the ROM's SHA-1 on this machine -- no working sha1sum, shasum, openssl, python3 or certutil. The ROM itself has not been checked and may well be fine."
 WANT="abe01e4aeb033b6c0836819f549c791b26cfde83"
 [ "$SHA" = "$WANT" ] || die "ROM SHA-1 $SHA does not match $WANT -- see docs/SETUP.md 3.4"
 cp -f "$ROM" "$DECOMP/baserom.u.z64"
