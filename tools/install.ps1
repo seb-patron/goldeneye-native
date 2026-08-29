@@ -306,9 +306,27 @@ function Get-AssetMarkerState ($marker) {
   return [pscustomobject]@{ Done = (Test-Path $full); Have = 0; Want = 0; Glob = $false }
 }
 
+# Reads a validator's answer as a BOOLEAN rather than trusting what the block returned.
+#
+# `& $scriptblock` hands back everything the block wrote to the OUTPUT stream, not just the value
+# it returned, and Info in this file is Write-Output. So $combinedComplete below, on the one path
+# that matters, emits its "incomplete" line and then returns $false -- and the caller receives
+# @("   combined.bin is ... incomplete", $false). A two-element array. PowerShell treats any
+# non-empty array as true, so the check PASSED precisely when it had just found the file
+# truncated, which is the silent corruption it exists to catch.
+#
+# Taking the last element and coercing means a validator can only ever answer yes or no, however
+# chatty it is. An empty result is a no: a validator that returned nothing did not say yes.
+function Test-Validator ($validate) {
+  if (-not $validate) { return $true }
+  $r = @(& $validate)
+  if ($r.Count -eq 0) { return $false }
+  return [bool]$r[-1]
+}
+
 function Invoke-AssetStep ($marker, $label, $exe, $argv, $validate) {
   $st = Get-AssetMarkerState $marker
-  if ($st.Done -and (-not $validate -or (& $validate))) { Info "$label`: already done"; return }
+  if ($st.Done -and (Test-Validator $validate)) { Info "$label`: already done"; return }
   if ($st.Glob -and $st.Have -gt 0) {
     Info "$label`: incomplete, $($st.Have) of $($st.Want) present; generating the rest"
   }
@@ -341,7 +359,7 @@ function Invoke-AssetStep ($marker, $label, $exe, $argv, $validate) {
     # reason this is checked separately. Nor is the output EXISTING the same claim as it being
     # complete, which is what $validate is for.
     $st = Get-AssetMarkerState $marker
-    $valid = (-not $validate -or (& $validate))
+    $valid = Test-Validator $validate
     if ($rc -eq 0 -and $st.Done -and $valid) { return }
 
     $why = if ($rc -ne 0) { "exit $rc" }
