@@ -195,9 +195,31 @@ be read as one. The coupling it removes is real and provable from the code, whic
 kept, but it is evidently not the dominant cause.
 
 What that leaves: a race, inside the simulation, with identical inputs, seed, step and now
-room culling. `bgRoomVisibilityRelated()` does more than set `room_rendered` --
-`room_neighbor_to_rendered` and `room_loaded_mask` are cleared in the same loop and have their
-own readers, which is the next thing to look at.
+room culling.
+
+### The rest of that visibility loop, checked and closed
+
+`bgRoomVisibilityRelated()` clears `room_neighbor_to_rendered` and `room_loaded_mask` in the same
+loop as `room_rendered`, and an earlier version of this document named them as the next thing to
+look at. Both are now closed, negatively:
+
+- **`room_neighbor_to_rendered` has no readers at all.** Its accessor
+  `getROOMID_isNeighborToRendered()` (`bg.c:2938`) is called from nowhere in the tree. Nothing can
+  diverge on a value nothing reads.
+- **`room_loaded_mask` is read in exactly one place**, `sub_GAME_7F0B39BC()` at `bg.c:646`, and
+  every one of that function's callers is inside `bg.c` passing `g_CurrentPlayer->screensize` --
+  it is the portal walk itself. So the field is written and read entirely inside the pass that
+  `0014` already moved onto the tick. Pinning the walk pins this with it.
+
+Two adjacent hypotheses were eliminated at the same time and are worth recording so they are not
+tried again:
+
+- **`g_GlobalTimerDelta` is not clock-derived.** It is assigned the constant `1.0f` once at level
+  init (`lv.c:368`, under `VERSION_US`) and nothing recomputes it per frame. Its 78 readers in
+  `bondview2.c` all see the same number on both machines.
+- **The pinned simulation step really is a constant.** `gePlayerPinDelta(1)` is called from one
+  place, `ge_net_udp.c:292`, in the session-open path immediately after the session seed is
+  adopted -- so both sides pin to the same literal 1 in the same code path.
 
 ### Diagnostics for this
 
@@ -463,8 +485,10 @@ merely agreement. Agreement is easy -- a session that stalls forever agrees perf
 
 ## Build status
 
-This was written in a session where compilation could not run: every compiler invocation exits 1
-with no diagnostics on either stream, including `-fsyntax-only` on a trivially valid file. A good
-file and a deliberately broken one fail identically, so the exit code carries no information
-about the code. **`ge_net.c` and `ge_bot_ai.c` are therefore unverified against a compiler** and
-should be built before being trusted.
+`ge_net.c` and `ge_bot_ai.c` build and link. Both produce objects in the normal port-layer batch
+and their symbols are in the binary (`geNetOpen`, `geNetDeliver`, `geBotArbitrate` among others).
+
+This section previously said they were unverified, because it was written in a session where every
+compiler invocation exited 1 with no diagnostics on either stream -- a good file and a deliberately
+broken one failed identically, so the exit code carried no information. That was the toolchain,
+not the code.
