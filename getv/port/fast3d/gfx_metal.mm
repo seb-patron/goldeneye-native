@@ -22,9 +22,9 @@
 // KNOWN v1 GAPS, deliberate, staged: no ImGui/launcher rendering on this backend yet (the
 // ge_imgui.h hooks are safe no-ops when never initialised -- see gfx_sdl2.c), no
 // supersample/CRT/FXAA post-processing (the GE_POSTFX/TVOS_SUPERSAMPLE machinery in
-// gfx_opengl.c is GL-specific and has no Metal equivalent yet), no 3-point texture
-// filtering (configFiltering==2). None of these block a first real frame; all are fast
-// follows once one renders. GETV_SHOTFRAME capture (ge_shot_maybe_metal(), below) is done
+// gfx_opengl.c is GL-specific and has no Metal equivalent yet). None of these block a first
+// real frame; all are fast follows once one renders. GETV_SHOTFRAME capture
+// (ge_shot_maybe_metal(), below) is done
 // -- same env vars and BMP layout as gfx_opengl.c's ge_shot_maybe(), for headless
 // verification without a screenshot-capable window (this port's whole reason to exist on
 // tvOS/iOS, where nothing else can photograph the screen).
@@ -95,21 +95,6 @@ struct MetalTexture {
 
 struct FrameUniforms {
     int32_t frame_count;
-};
-
-/* Mirrors gfx_opengl.c's uTex0Size/uTex1Size/uTex0Filter/uTex1Filter uniforms -- needed
- * for correctness whenever both textures are sampled (the TEXEL1 rescale, see the
- * fragment shader body below), not just for the 3-point filter this port does not yet
- * implement on Metal. has_height mirrors GL's uHasHeight: whether THIS draw's tile-0
- * texture has a real height companion bound (gfx_metal_draw_triangles decides, per draw,
- * from metal_tex[0]->has_height) or is reading the neutral placeholder. int32_t, not bool,
- * to match this struct's layout byte-for-byte against the MSL `struct DrawUniforms` it is
- * read as through a raw buffer binding -- MSL bool is not guaranteed the same size as C++
- * bool across compilers, int32_t is unambiguous on both sides. */
-struct DrawUniforms {
-    float tex0_size[2];
-    float tex1_size[2];
-    int32_t has_height;
 };
 
 static struct ShaderProgram shader_program_pool[SHADER_PROGRAM_POOL_SIZE];
@@ -441,10 +426,31 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
     vs[vs_len] = '\0';
 
     m_append_line(fs, &fs_len, "struct FrameUniforms { int frameCount; };");
-    m_append_line(fs, &fs_len, "struct DrawUniforms { float2 tex0Size; float2 tex1Size; int hasHeight; };");
-    if (used_textures[0] && used_textures[1]) {
+    m_append_line(fs, &fs_len,
+        "struct DrawUniforms { float2 tex0Size; float2 tex1Size; int hasHeight; int tex0Filter; int tex1Filter; int alignmentPad; };");
+    if (used_textures[0] || used_textures[1]) {
+        /* The RDP's three-point filter interpolates inside one of the two triangles that
+         * divide a texel square. This is an independent MSL expression of that rule: find
+         * the triangle from the fractional texel position, sample its three corners, then
+         * apply the two barycentric edge weights. Sampling at texel centres makes the
+         * underlying linear sampler return the corner texel exactly. */
         m_append_line(fs, &fs_len,
-            "float4 sampleTex(texture2d<float> t, sampler s, float2 uv) { return t.sample(s, uv); }");
+            "float4 filter3point(texture2d<float> t, sampler s, float2 uv, float2 texSize) {");
+        m_append_line(fs, &fs_len, "  float2 offset = fract(uv * texSize - float2(0.5));");
+        m_append_line(fs, &fs_len, "  offset -= step(1.0, offset.x + offset.y);");
+        m_append_line(fs, &fs_len, "  float4 c0 = t.sample(s, uv - offset / texSize);");
+        m_append_line(fs, &fs_len,
+            "  float4 c1 = t.sample(s, uv - float2(offset.x - sign(offset.x), offset.y) / texSize);");
+        m_append_line(fs, &fs_len,
+            "  float4 c2 = t.sample(s, uv - float2(offset.x, offset.y - sign(offset.y)) / texSize);");
+        m_append_line(fs, &fs_len,
+            "  return c0 + abs(offset.x) * (c1 - c0) + abs(offset.y) * (c2 - c0);");
+        m_append_line(fs, &fs_len, "}");
+        m_append_line(fs, &fs_len,
+            "float4 sampleTex(texture2d<float> t, sampler s, float2 uv, float2 texSize, int doFilter) {");
+        m_append_line(fs, &fs_len, "  if (doFilter != 0) return filter3point(t, s, uv, texSize);");
+        m_append_line(fs, &fs_len, "  return t.sample(s, uv);");
+        m_append_line(fs, &fs_len, "}");
     }
     m_append_line(fs, &fs_len, "fragment float4 fragmentShader(");
     m_append_line(fs, &fs_len, "  V2F in [[stage_in]],");
@@ -489,15 +495,18 @@ static id<MTLRenderPipelineState> gfx_metal_build_pipeline(uint64_t shader_id, s
         m_append_line(fs, &fs_len, "    float parallaxHeight = uTexHeight.sample(uSampHeight, in.texCoord).r - 0.5;");
         m_append_line(fs, &fs_len, "    texCoord0 = in.texCoord + parallaxViewDir.xy * (parallaxHeight * 0.04);");
         m_append_line(fs, &fs_len, "  }");
-        m_append_line(fs, &fs_len, "  float4 texVal0 = uTex0.sample(uSamp0, texCoord0);");
+        m_append_line(fs, &fs_len,
+            "  float4 texVal0 = sampleTex(uTex0, uSamp0, texCoord0, uDraw.tex0Size, uDraw.tex0Filter);");
     }
     if (used_textures[1]) {
         /* Same TEXEL1 rescale as gfx_opengl.c: one shared UV, normalised by TEXEL0's
          * dimensions; TEXEL1 (often a different LOD/size) rescales by the size ratio. */
         if (used_textures[0])
-            m_append_line(fs, &fs_len, "  float4 texVal1 = uTex1.sample(uSamp1, in.texCoord * (uDraw.tex0Size / uDraw.tex1Size));");
+            m_append_line(fs, &fs_len,
+                "  float4 texVal1 = sampleTex(uTex1, uSamp1, in.texCoord * (uDraw.tex0Size / uDraw.tex1Size), uDraw.tex1Size, uDraw.tex1Filter);");
         else
-            m_append_line(fs, &fs_len, "  float4 texVal1 = uTex1.sample(uSamp1, in.texCoord);");
+            m_append_line(fs, &fs_len,
+                "  float4 texVal1 = sampleTex(uTex1, uSamp1, in.texCoord, uDraw.tex1Size, uDraw.tex1Filter);");
     }
 
     m_append_str(fs, &fs_len, opt_alpha ? "  float4 texel = " : "  float3 texel = ");
@@ -906,7 +915,7 @@ static void gfx_metal_draw_triangles(float buf_vbo[], size_t buf_vbo_len, size_t
     struct FrameUniforms fu = { (int32_t)frame_count };
     [mtl_encoder setFragmentBytes:&fu length:sizeof fu atIndex:0];
 
-    struct DrawUniforms du;
+    struct GfxMetalDrawUniforms du = {0};
     du.tex0_size[0] = metal_tex[0] ? metal_tex[0]->size[0] : 1.0f;
     du.tex0_size[1] = metal_tex[0] ? metal_tex[0]->size[1] : 1.0f;
     du.tex1_size[0] = metal_tex[1] ? metal_tex[1]->size[0] : 1.0f;
@@ -915,6 +924,10 @@ static void gfx_metal_draw_triangles(float buf_vbo[], size_t buf_vbo_len, size_t
      * see MetalTexture::has_height's own comment for why this is read per-slot, per draw,
      * rather than cached anywhere. */
     du.has_height = (metal_tex[0] && metal_tex[0]->has_height) ? 1 : 0;
+    du.tex0_filter = metal_tex[0]
+        ? gfx_metal_three_point_active(configFiltering, metal_tex[0]->linear_filter) : 0;
+    du.tex1_filter = metal_tex[1]
+        ? gfx_metal_three_point_active(configFiltering, metal_tex[1]->linear_filter) : 0;
     [mtl_encoder setFragmentBytes:&du length:sizeof du atIndex:1];
 
     if (cur_prg->used_textures[0] && metal_tex[0]) {
