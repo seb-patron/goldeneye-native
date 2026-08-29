@@ -310,8 +310,10 @@ Written plainly, because a README that oversells is worse than one that undersel
   causes have been found and fixed and neither was sufficient. Treat LAN play as something to
   experiment with, not to plan an evening around. [`docs/NETPLAY.md`](docs/NETPLAY.md)
 - **Linux is unplayed.** It builds and renders; nobody has played a mission through on it.
-- **Windows is unfinished.** It builds and boots and passes the self-test. Field of view and
-  crosshair settings are untested there specifically, rather than known broken.
+- **Windows is unplayed too.** It builds, boots, passes the self-test 16 of 16, and the settings
+  have since been measured there rather than assumed: field of view, crosshair scale, the CRT
+  filter and HD texture packs all take effect, and netplay opens a session. What nobody has done
+  on Windows is sit down and play a mission through.
 - **The MI5 crest is missing** on the multiplayer character select. The same asset renders
   correctly on the file-select screen, so the decode path is sound and the fault is elsewhere.
 - **Select File draws a flat black background** where the original has a faint watermark.
