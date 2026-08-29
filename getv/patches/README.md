@@ -22,6 +22,7 @@ Split by *when* they can be applied rather than by subject.
 | `0013-lockstep-pinned-sim-step.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
 | `0014-lockstep-cull-on-the-tick.patch` | 1 file | `src/game/lv.c` | after `0001` |
 | `0015-aim-toggle.patch` | 1 file | `src/game/options.c` | after `0001` |
+| `0016-freecam.patch` | 2 files | `src/game/bg.c`, `src/game/bondview2.c` | after `0001` |
 
 ## The gap at 0003, 0004 and 0005 is deliberate
 

@@ -224,6 +224,34 @@ adding a page to it is blocked by an explicit maintainer comment on `WATCH_NUMBE
 (`options.h`) not to change that constant until `struct player` is fully shiftable. See
 `docs/PERFECT_DARK.md` section 6 row 17.
 
+## Free camera
+
+Unpins the camera from Bond and lets it fly, which is a photo mode rather than a cheat: the game
+carries on around you, guards keep patrolling, and nothing about the simulation changes.
+
+The camera itself is not new code. `debug_camera.c` has carried a six-degree fly camera since
+1997 and `lv.c` already called it every frame, gated behind a debug mode that a retail cartridge
+could not reach. What it never had was a consumer -- nothing outside that file read
+`debugCameraPosition`, so it moved its own state and no render path ever saw it. This supplies
+the missing half in a form a keyboard can drive.
+
+| Setting | Value | What it does |
+|---|---|---|
+| `GETV_FREECAM` | `1`, or a frame number | `1` enables it and leaves it to `F8`. A frame number switches it on by itself at that frame, which is the only way to exercise it on a measurement run. |
+| `GETV_FREECAM_MOVE` | `x,y,z` | Displaces the camera from Bond by a fixed offset the moment it starts. The repeatable half for screenshots, and the only way to move it with no keyboard present. |
+| `GETV_FREECAM_KEEPDIR` | `1` | Substitutes the position only and leaves the game's own look direction alone. A diagnostic, not a feature: it separates "the camera is in the wrong place" from "the camera is pointing the wrong way", which one frame of empty geometry cannot. |
+
+`F8` toggles. `W` `A` `S` `D` fly, the arrows look, `R` and `F` rise and descend, and shift or
+ctrl changes pace while held.
+
+**What is still beta about it.** Visibility stays rooted at Bond's room. Moving around inside
+that room keeps the geometry intact; flying above the ceiling or out of the room entirely culls
+the world, which is what a portal engine rooting visibility at the player is supposed to do. Re-
+rooting the portal walk at the camera was tried and is deliberately not shipped -- every trace of
+it reported `walksteps=0` with the printed position still Bond's, even with the camera 900 units
+away, so it could never be shown to run. Fly-anywhere is its own piece of work and it starts by
+finding where the visibility root is actually read.
+
 ## Controls
 
 ### `controls`

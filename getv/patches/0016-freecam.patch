@@ -1,0 +1,133 @@
+diff -ruN before/src/game/bg.c after/src/game/bg.c
+--- a/src/game/bg.c	2026-08-29 08:32:08.321417100 -0700
++++ b/src/game/bg.c	2026-08-29 08:32:08.116934700 -0700
+@@ -1705,6 +1705,61 @@
+     pos = bondviewGetCurrentPlayersPosition();
+     pos3 = bondviewGetCurrentPlayersPosition3();
+ 
++#ifdef GE_PORT_NATIVE
++    /* GETV FREECAM: advance the camera's own state, and decide when it starts.
++     *
++     * Here rather than in the input layer because this runs once per rendered frame with the
++     * player already resolved, and the player is what the camera has to be seeded FROM. The
++     * substitution that actually moves the view is the one in bondview2.c; this half only ticks
++     * and seeds.
++     *
++     * Visibility is deliberately NOT re-rooted at the camera. The note further down records that
++     * approach, why it was tried, and the measurement that retired it. */
++    {
++        extern int  gePortFreecamEnabled(void);
++        extern int  gePortFreecamActive(void);
++        extern int  gePortFreecamSeeded(void);
++        extern int  gePortFreecamNeedsSeed(void);
++        extern void gePortFreecamSeed(float x, float y, float z, float yaw, float pitch);
++        extern void gePortFreecamTick(void);
++        extern void gePortFreecamGetPos(float *out_xyz);
++        extern f32  bondviewGetPlayerYawRadians(void);
++
++        if (gePortFreecamEnabled()) {
++            /* Ticked from here rather than from the input layer because this runs once per
++             * rendered frame with the player already resolved, which is also the only place
++             * that can seed it. */
++            gePortFreecamTick();
++
++            /* Seeded when the camera is switched ON, not when it is merely enabled, and the
++             * difference is not cosmetic. Enabled is true from frame 1, so seeding there parked
++             * the camera where Bond stood during the intro; by the time it actually switched on
++             * he had walked the level and the camera sat over a thousand units away in another
++             * room. Every room then culled and it looked exactly like broken visibility --
++             * measured as pos=(113.5 392.7 -956.5) against a camera at (524.7 -377.9 565.7).
++             * Yaw comes from the player so the first frame under the camera matches the last
++             * frame before it. */
++            if (gePortFreecamNeedsSeed()) {
++                gePortFreecamSeed(pos->x, pos->y, pos->z,
++                                  bondviewGetPlayerYawRadians() * (180.0f / 3.14159265358979323846f),
++                                  0.0f);
++            }
++
++            /* NOT re-rooted here, deliberately. An earlier version overrode pos3 with the camera
++             * so the portal walk below would step from Bond's room to the camera's. It never
++             * once ran: every trace shows walksteps=0, and the pos3 the trace prints stays
++             * Bond's even with the camera 900 units away. Rather than ship a hook that cannot
++             * be shown to do anything, it is gone.
++             *
++             * It is also not needed for what this camera is for. Moving within the room keeps
++             * drawn=2 and the geometry intact; what culls is flying above the ceiling or far
++             * enough out to leave the room entirely, which is correct for a portal engine that
++             * roots visibility at the player. Re-rooting is its own piece of work, and it starts
++             * by finding where the visibility root is actually read -- not here. */
++        }
++    }
++#endif
++
+     // FAKE
+     if (1) {}
+ 
+diff -ruN before/src/game/bondview2.c after/src/game/bondview2.c
+--- a/src/game/bondview2.c	2026-08-29 08:32:08.337039600 -0700
++++ b/src/game/bondview2.c	2026-08-29 08:32:08.179436900 -0700
+@@ -8883,6 +8883,64 @@
+         }
+     }
+ 
++    /* GETV FREECAM: substituted here, in the same shape as the interpolator above, and AFTER it
++     * so the camera wins rather than being blended back towards Bond.
++     *
++     * This is the only correct place for it, which cost a build to learn. Overriding field_64
++     * further down moves nothing: field_64 feeds field_10CC, which is the CPU-side world-space
++     * copy used for portal projection, fog and the watch. What the renderer actually transforms
++     * by is spC4, built a few lines below from (cam_pos - current_model_pos) * scale and handed
++     * to guMtxF2L. The two matrices are built in different spaces from the same cam_pos, so the
++     * one substitution that moves both consistently is cam_pos itself, up here.
++     *
++     * cam_look_dir is a DIRECTION, not a target -- the clpos line below adds it to the position
++     * to get a look-at point -- so free look comes out of the same hook for nothing. */
++    {
++        extern int  gePortFreecamActive(void);
++        extern void gePortFreecamGetPos(float *out_xyz);
++        extern void gePortFreecamGetAngles(float *out_yaw, float *out_pitch);
++
++        if (gePortFreecamActive()) {
++            static coord3d fc_pos, fc_dir, fc_up;
++            float p[3], yaw = 0.0f, pitch = 0.0f, ry, rp, cp;
++
++            gePortFreecamGetPos(p);
++            gePortFreecamGetAngles(&yaw, &pitch);
++
++            fc_pos.x = p[0];
++            fc_pos.y = p[1];
++            fc_pos.z = p[2];
++
++            ry = yaw   * (3.14159265358979323846f / 180.0f);
++            rp = pitch * (3.14159265358979323846f / 180.0f);
++            cp = cosf(rp);
++            fc_dir.x =  sinf(ry) * cp;
++            fc_dir.y =  sinf(rp);
++            fc_dir.z = -cosf(ry) * cp;
++
++            fc_up.x = 0.0f;
++            fc_up.y = 1.0f;
++            fc_up.z = 0.0f;
++
++            /* GETV_FREECAM_KEEPDIR=1 substitutes the POSITION only and leaves the game's own
++             * look direction and up vector alone. It is a diagnostic, not a feature: it splits
++             * "the camera is in the wrong place" from "the camera is pointing the wrong way",
++             * which a single frame of empty geometry cannot distinguish on its own. */
++            {
++                static int keepdir = -1;
++                if (keepdir < 0) {
++                    const char *e = getenv("GETV_FREECAM_KEEPDIR");
++                    keepdir = (e && *e && *e != '0');
++                }
++                cam_pos = &fc_pos;
++                if (!keepdir) {
++                    cam_look_dir = &fc_dir;
++                    cam_up       = &fc_up;
++                }
++            }
++        }
++    }
++
+     /* GETV_INTERPTRACE=1: the camera position actually handed to the matrices, once per
+      * rendered frame. Placed after the swap so it reports what is drawn on both paths, which
+      * is what makes the interpolated run and the GETV_INTERP=0 control comparable. */

@@ -162,6 +162,7 @@ moved in 1997 and the picture is as smooth as your monitor can show.
 | **Real-font text** | **Done** | Optional crisp menu text through a TrueType atlas instead of stretched 24-pixel glyphs. Off by default. |
 | **Saves** | **Done** | Persistent, in your platform's normal application-data directory. |
 | **Around 250 settings** | **Done** | Every development gate settable by name, from the config file or the command line. |
+| **Free camera** | **Beta** | Photo mode. `F8` unpins the camera from Bond and hands you the room: fly it on `W` `A` `S` `D`, look with the arrows, rise and drop on `R` and `F`, hold shift or ctrl to change pace. The camera is Rare's own -- a six-degree fly camera that shipped inside the cartridge and was never reachable from a controller. Visibility still roots at Bond, so leaving his room culls the world behind you. |
 | **Bots** | **Beta** | Fightable opponents with skill tiers that vary five dials, not one. [`BOTS.md`](docs/BOTS.md) |
 | **Horde mode** | **Beta** | Waves of enemies. Never in the original. [`COOP.md`](docs/COOP.md) |
 | **Co-op** | **Beta** | Two to four players through a solo mission's own geometry, objectives and cutscenes. The mission is authored around one Bond, so extra players are present rather than accounted for. |
@@ -274,6 +275,11 @@ one; issues containing game data get closed without being read.
 
 The game prints this list at startup, so it is never a guess. `GETV_KEYBOARD=0` turns the
 keyboard binding off if you would rather use only a pad.
+
+`F8` hands the camera to you. It flies on the same `W` `A` `S` `D`, looks with the arrows, rises
+and drops on `R` and `F`, and changes pace while shift or ctrl is held. Those keys keep their
+normal jobs at the same time -- `R` still cycles weapons underneath you -- because the game does
+not pause while you fly. `F8` again gives the camera back to Bond.
 
 All eight retail control styles are implemented, including the two-controller layouts, and a
 gamepad is picked up automatically when one is plugged in. Mouse sensitivity and inversion are
