@@ -14,64 +14,82 @@ can only work around, this one just fixes.
 
 You supply your own legally dumped cartridge. No game data ships here, and none ever will.
 
-## Play GoldenEye 007 on PC, Mac or Linux
+## Install it
 
-Four steps. Only one of them is a thing nobody can do for you.
+### On a Mac
 
-| You need | Why |
-|---|---|
-| **Git** and **Python 3** | The installer uses them. It will not install system packages for you. |
-| **Your own GoldenEye 007 ROM** | This project does not provide it, download it, or contain any part of the game. |
-| About 4 GB of disk | The decompilation, the extracted assets and the build. |
-| 10 to 40 minutes, once | Mostly asset extraction. After that a rebuild is seconds. |
+**1.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**. Do not rename it.
 
-### 1. Install the two prerequisites
+**2.** On [the project page](https://github.com/SegfaultEvan/goldeneye-native), click the green
+**Code** button, then **Download ZIP**. Double-click the downloaded file to unzip it.
 
-- **Windows:** [git-scm.com/download/win](https://git-scm.com/download/win) and
-  [python.org](https://www.python.org/downloads/windows/). When the Python installer offers
-  "Add python.exe to PATH", tick it.
-- **macOS:** open Terminal, run `xcode-select --install`, then `brew install cmake`.
-- **Linux:** your package manager. Run the installer and it prints the exact command for your
-  distribution if anything is missing.
+**3.** Open the folder that appears and **double-click `Install on Mac`**.
 
-Skip this and the installer stops on its first step and tells you what is missing, by name.
+A window opens and does the rest. It takes 10 to 40 minutes the first time, almost all of it
+reading your cartridge, and you can leave it running. If macOS says the file is from an
+unidentified developer, right-click it and choose **Open** instead, then **Open** again.
 
-### 2. Download the project
+**4.** When it finishes, **double-click `Play GoldenEye`** in the same folder.
 
-On [the GitHub page](https://github.com/SegfaultEvan/goldeneye-native), click the green **Code**
-button, then **Download ZIP**. Unzip it to your Desktop. It becomes a folder called
-`goldeneye-native-main`; GitHub adds the branch name and that is normal.
+That is it. Drag `Play GoldenEye` to your Dock if you want it there permanently.
 
-A ZIP works. The installer never needs the folder to be a git checkout, and that is tested, not
-assumed.
+### On Windows
 
-### 3. Put your ROM somewhere obvious
+**1.** Install **Git for Windows** from [git-scm.com](https://git-scm.com/download/win). Click
+Next through the installer; every default is correct.
 
-Leave it on your **Desktop** or in **Downloads**. The installer looks in both, and in the project
-folder, and finds it on its own. No renaming.
+**2.** Install **Python** from [python.org](https://www.python.org/downloads/windows/). On the
+first screen of the installer, **tick "Add python.exe to PATH"** before clicking Install. This
+one box matters; nothing works without it.
 
-Any of the three common N64 byte orders works, and any of `.z64`, `.n64` or `.v64`. The installer
-reads the header, converts if it has to, and checks the result against the known-good SHA-1
-before using it.
+**3.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**.
 
-### 4. Run the installer
+**4.** Download **`setup_wizard.exe`** from
+[Releases](https://github.com/SegfaultEvan/goldeneye-native/releases) and double-click it.
 
-**Windows.** Open the folder, hold **Shift** and right-click an empty area, choose **Open
-PowerShell window here**, then paste:
+The wizard asks where to install and which file is your ROM, then does everything else itself
+and shows you what it is doing. It takes 10 to 40 minutes the first time.
+
+**If there is no release yet,** the wizard has not been published for download. Until it is, do
+this instead: download the ZIP as in the Mac steps above, unzip it, hold **Shift** and
+right-click an empty part of the folder, choose **Open PowerShell window here**, and paste this
+one line:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
 ```
 
-**macOS and Linux.** Open Terminal and run:
+It does exactly the same work as the wizard, just without the window.
+
+### On Linux
+
+Install `git` and `python3` from your package manager, then:
 
 ```bash
-cd ~/Desktop/goldeneye-native-main
 bash tools/install.sh
 ```
 
-It prints every step, stops on the first real problem and names it, and is safe to re-run to
-resume. When it finishes it tells you the command to start the game.
+It prints the exact package command for your distribution if anything is missing.
+
+### If something goes wrong
+
+Nothing here can break your computer or your ROM, and nothing is ever uploaded anywhere.
+
+- **It stopped partway.** Run it again. It picks up where it left off rather than starting over.
+- **It cannot find your ROM.** Put the file on your Desktop with a `.z64`, `.n64` or `.v64`
+  ending. Any of the three common formats works and it converts what it needs to.
+- **It says Git or Python is missing.** Go back to step 1 or 2. On Windows this is almost always
+  the "Add python.exe to PATH" box.
+- **Anything else.** Open an issue with the last twenty lines it printed. Never attach your ROM
+  or a save file.
+
+### What you need, in full
+
+| | |
+|---|---|
+| Your own GoldenEye 007 cartridge dump | Nothing playable ships here, ever |
+| About 4 GB of free disk | The source, the extracted assets and the build |
+| 10 to 40 minutes, once | After that, starting the game is instant |
 
 ## Screenshots
 
