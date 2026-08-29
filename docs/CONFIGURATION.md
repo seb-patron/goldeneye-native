@@ -410,7 +410,7 @@ not-implemented notice rather than silently doing nothing.
 | `fxaa` | 0 \| 1 | Edge antialiasing over the finished frame, off by default. An image-quality setting like `msaa` rather than a look, which is why it lives here and the CRT terms live in `mods/crt_screen`. |
 | `parallax` | 0 \| 1 | On by default, and does nothing on its own. It decides whether a texture pack's `<hash>_h.png` height maps displace the diffuse UVs. There is no height data in the game's own assets, so with no pack this changes nothing either way. `97 Console` turns it off so the same installed pack means resolution only. |
 | `crosshair_scale` | 0.25 to 2.0 | Default `1.0`, the retail sight size exactly. Alias `reticle_scale`. Applied after the 16:9 and PAL aspect corrections in `gunDrawSight()`, so the shape never changes and only the size does. The 1997 sight was 32 pixels against a 320x240 field of view on a CRT across a room; at 1280x960 on a desk it covers rather more of what you are aiming at. GoldenEye+ asks for `0.6`. Out-of-range values are refused rather than clamped, so a typo is reported instead of silently becoming something else. |
-| `crosshair_color` | RRGGBB hex | Default `FFFFFF`, retail's own hardcoded value -- `gunfire.c`'s `gunDrawSight()` multiplies the sight texture by this RDP primitive colour instead of always white. How cleanly a non-white choice recolours it depends on the baked N64 asset, which this port has not independently confirmed; see `port_support.c`'s `GETV_CROSSHAIR_COLOR` comment. |
+| `crosshair_color` | RRGGBB hex | Default `FFFFFF`, retail's own hardcoded value -- `gunfire.c`'s `gunDrawSight()` multiplies the sight texture by this RDP primitive colour instead of always white. How cleanly a non-white choice recolours it depends on the baked N64 asset, which this port has not independently confirmed; **Measured, and it tints rather than recolours.** The Windows lane captured 2342 of 14400 reticle pixels changing, but sampled pixels move only from (153,170,176) to (153,173,179): the baked N64 sight carries its own hue and an RDP primitive multiply cannot pull it to a pure colour. Expect a tint, not a colour picker. |
 
 
 
@@ -597,6 +597,22 @@ whatever you last chose rather than quietly rewriting your save.
 Worth knowing before you turn it on: aim mode is still aim mode. The game stops you walking while
 the sight is up, and holds crouch behind it too, so a toggle removes the held key and does not
 turn aiming into a move-and-shoot mode. That gating is the game's, in `bondview2.c`.
+
+### Things that will cost you an afternoon
+
+Measured on Windows and true everywhere, collected because each one looks like a broken feature
+rather than a setting.
+
+- **`GETV_KEYBOARD_IDLE` is on whenever `GETV_EXIT_FRAME` is set.** Scripted input is then
+  ignored with no error printed, so an input test looks like a null result rather than a
+  disabled one.
+- **Screenshots are always 24-bit BMP**, whatever extension `GETV_SHOTPATH` is given. Naming a
+  file `.png` produces a BMP called `.png`.
+- **`GETV_AIM_SELFTEST` takes a frame number, not a boolean.** Aim is read as a toggle on the
+  rising edge, and a hold starting at frame 0 is already down through the locked-controls intro,
+  so no edge ever arrives and nothing happens. Give it a frame after the intro.
+- **`run_tests.ps1` defaults to `-Mingw C:\msys64\mingw64`** while the project installs to
+  `C:\mingw64`. Run it without the flag and it silently uses a different compiler.
 
 ### `GETV_RGBA16BE` -- explosion colour
 
