@@ -170,11 +170,34 @@ RNG state at every sampled tick -- so this is not general nondeterminism. And th
 between runs (measured at ticks 7, 8, 59, 108 and 175) with occasional runs agreeing completely,
 which is the signature of a race rather than of a fixed difference.
 
-One lead is untested and is the obvious next one: `chrai.c` has `AI_IFImOnScreen`,
-`AI_IFMyRoomIsOnScreen` and `AI_IFRoomWithPadIsOnScreen`, so AI branches on render visibility,
-and `g_OnScreenPropList` is built while rendering. Equal nominal frame rates did not fix it, but
-that does not clear the coupling -- two machines can hold the same frame rate and still render
-different frames against the same tick, particularly across a stall.
+### The render-visibility coupling, chased and real
+
+`chrai.c` branches on render visibility in three opcodes, and one of them read state that the
+renderer produced on a different cadence from the AI that consumed it.
+
+- `AI_IFImOnScreen` reads `PROPFLAG_ONSCREEN`. **Not a problem**: it is set in `chrTick()` and
+  cleared in `playerTick()`, both on the tick path.
+- `AI_IFMyRoomIsOnScreen` reads `getROOMID_isRendered()`, which returns
+  `g_BgRoomInfo[].room_rendered`. That is cleared and rebuilt by `bgDetermineVisibleRooms()`,
+  reached from `bgRoomVisibilityRelated()` at `lv.c:815` -- **deliberately outside the
+  simulation divider**, with a comment saying culling is a property of where the camera is now
+  rather than of the tick. That is correct for one machine and fatal for lockstep: run every
+  rendered frame, the state the AI reads is a function of how fast this machine draws, so two
+  machines arrive at the same tick having culled a different number of times.
+
+`0014-lockstep-cull-on-the-tick.patch` moves the pass inside the divider when, and only when, a
+session is open. Offline is untouched and verified byte-identical -- the seed at tick 299 is
+`f81ba764` before and after.
+
+**It did not fix the desync.** Five trials after: 1 agreed, 4 desynced. Runs had agreed
+occasionally before the change too, so at n=5 that is not a measured improvement and should not
+be read as one. The coupling it removes is real and provable from the code, which is why it is
+kept, but it is evidently not the dominant cause.
+
+What that leaves: a race, inside the simulation, with identical inputs, seed, step and now
+room culling. `bgRoomVisibilityRelated()` does more than set `room_rendered` --
+`room_neighbor_to_rendered` and `room_loaded_mask` are cleared in the same loop and have their
+own readers, which is the next thing to look at.
 
 ### Diagnostics for this
 

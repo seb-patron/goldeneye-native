@@ -587,6 +587,13 @@ void gePortNetPoll(void)
  * The caller MUST treat 0 as "do nothing this pass" -- skip the simulation and the render both,
  * the same "nothing to do" shape boss.c already uses for its own frame-pacing skip -- or a
  * stalled machine runs ahead of input it does not have yet and desyncs. */
+/* Is a lockstep session actually running? The decomp asks this to decide whether culling may
+ * float with the render rate or must be pinned to the tick; see the LOCKSTEP note in lv.c. */
+int gePortNetLockstepOn(void)
+{
+    return (ge_net_active && geNetIsOpen()) ? 1 : 0;
+}
+
 int gePortNetTick(void)
 {
     GePlayerInput local;

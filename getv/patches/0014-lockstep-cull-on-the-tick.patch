@@ -1,0 +1,43 @@
+--- a/src/game/lv.c
++++ b/src/game/lv.c
+@@ -812,16 +812,37 @@
+ 
+             DL = viSetupScreensForNumPlayers(DL);
+             DL = skyRender(DL);
+-            bgRoomVisibilityRelated();
++            /* LOCKSTEP: culling is an INPUT TO THE AI, not only to the renderer.
++             *
++             * chrai.c's AI_IFImOnScreen, AI_IFMyRoomIsOnScreen and AI_IFRoomWithPadIsOnScreen
++             * branch on what this pass leaves behind -- getROOMID_isRendered() reads
++             * g_BgRoomInfo[].room_rendered, which bgDetermineVisibleRooms() clears and rebuilds
++             * here. Run every rendered frame, that state is a function of how fast this machine
++             * draws, so two machines in a lockstep session reach the same tick having culled a
++             * different number of times and their AI takes different branches from the same
++             * inputs. It costs an RNG draw or two and the simulations part company.
++             *
++             * With a session open the pass therefore moves inside the divider, so culling is a
++             * property of the tick and is identical everywhere. Offline it stays where it was,
++             * because the comment below is right there: culling really is a property of where
++             * the camera is now, and pinning it to the tick would leave the frames between
++             * ticks culled against a stale camera. */
++            {
++                extern int gePortNetLockstepOn(void);
++                if (!gePortNetLockstepOn()) { bgRoomVisibilityRelated(); }
++            }
+ 
+             /* GETV_SIMDIV: everything from here to propsTickPlayer() advances the
+              * simulation. The draw calls around it run every frame regardless, so a divider
+              * greater than 1 renders the previous simulation state again rather than
+-             * skipping a frame. bgRoomVisibilityRelated() stays outside because culling is
+-             * a property of where the camera is now, not of the tick. */
++             * skipping a frame. */
+             {
+                 extern s32 gePortSimShouldTick(void);
+                 if (gePortSimShouldTick()) {
++                    {
++                        extern int gePortNetLockstepOn(void);
++                        if (gePortNetLockstepOn()) { bgRoomVisibilityRelated(); }
++                    }
+                     propsTick();
+                     {
+                         /* Record where everything ended up, so the frames between ticks can be
