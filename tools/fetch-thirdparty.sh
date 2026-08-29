@@ -171,9 +171,17 @@ cmd_regen() {
     mkdir -p "$tmp/b/$(dirname "$dst")"
     cp "$ROOT/$dst" "$tmp/b/$dst"
   done < <(manifest)
-  # -U0: zero context. The patch is applied to an exact pinned commit, so no context is
+  # -u0: zero context. The patch is applied to an exact pinned commit, so no context is
   # needed to place the hunks, and omitting it keeps unmodified upstream lines out of a
   # file this repository does distribute.
+  #
+  # -u0 AND NOT -U0, WHICH IS NOT THE SAME THING HERE. GNU diffutils 3.12 ignores an attached
+  # -U0 and emits three lines of context anyway; -U 0 and --unified=0 do too. Only the old
+  # lowercase spelling still means zero. The consequence is not a failure, which is what makes
+  # it worth this paragraph: regen keeps working, cmd_verify still passes 15/15, and the patch
+  # is simply rewritten in a different format -- a three-line edit came back as a 1,917-line
+  # diff, with every real change buried in reformatting nobody can review. Checked against
+  # diffutils 3.12; the committed patch's `@@ -4,0 +5,3 @@` hunks are what -u0 produces.
   #
   # WRITE TO A TEMPORARY AND MOVE ONLY ON SUCCESS. This used to redirect straight into
   # $PATCHFILE, and `>` TRUNCATES BEFORE THE SUBSHELL RUNS -- so any failure inside destroyed the
@@ -188,7 +196,7 @@ cmd_regen() {
   # cmd_verify below did report DIFFERS on every file -- the signal existed, but it arrived after
   # the destruction rather than before it.
   local out="$tmp/patch.new"
-  if ! ( cd "$tmp" && diff -ruN -U0 a b ) > "$out"; then
+  if ! ( cd "$tmp" && diff -ruN -u0 a b ) > "$out"; then
     # diff exits 1 when files differ, which is the NORMAL case here and not an error. Only a
     # status above 1 is real trouble.
     [ $? -gt 1 ] && die "diff failed; $PATCHFILE left untouched"

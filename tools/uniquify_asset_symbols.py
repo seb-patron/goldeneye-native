@@ -104,7 +104,10 @@ CFLAGS = HOST_FLAGS + [
 _TOOL_DIRS = [r'C:\mingw64\bin'] if os.name == 'nt' else []
 
 def _resolve(env_var, names, prefer_dir=None):
-    override = os.environ.get(env_var)
+    # GE_CC/GE_NM are accepted alongside GETV_CC/GETV_NM: the Windows lane wrote and documented
+    # the shorter spelling, and breaking it to enforce this repository's GETV_ convention would
+    # cost someone a confusing afternoon for no gain.
+    override = os.environ.get(env_var) or os.environ.get(env_var.replace('GETV_', 'GE_', 1))
     if override:
         found = shutil.which(override) or (override if os.path.isfile(override) else None)
         if not found:

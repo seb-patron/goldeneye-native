@@ -82,10 +82,15 @@ foreach ($t in $tests) {
     continue
   }
 
-  $out = & $exe 2>&1
+  # $runOut, NOT $out. $out is the _bin directory, set once above and read every iteration by
+  # the Join-Path that builds $exe. Assigning the test's stdout to it destroyed that path after
+  # the FIRST test ran, so every later iteration compiled to a nonsense location, found no exe
+  # and reported BUILD FAIL -- 1 passed, 15 failed, with the one pass being whichever test sorts
+  # first. It reads exactly like fifteen broken tests rather than one clobbered variable.
+  $runOut = & $exe 2>&1
   $rc = $LASTEXITCODE
-  $out | ForEach-Object { Write-Host $_ }
-  $n = @($out | Where-Object { $_ -match '^\s*(ok|OK|PASS|FAIL)' }).Count
+  $runOut | ForEach-Object { Write-Host $_ }
+  $n = @($runOut | Where-Object { $_ -match '^\s*(ok|OK|PASS|FAIL)' }).Count
 
   # A test that exits 0 having reported nothing is not a passing test, it is a test that did not
   # run. Three of these printed only on failure, so they scored zero checks and read as green

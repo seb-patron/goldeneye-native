@@ -189,6 +189,12 @@ tvos/
 # BUILD= directory are created during parallel development and are not part of the
 # project. build_mac.sh itself is tracked.
 getv/build_mac_*.sh
+# ...except the ones that are real. The rule above exists for the per-investigation scratch
+# scripts (build_mac_anim.sh, build_mac_audit.sh and forty-odd others), and it silently
+# swallowed a permanent one: build_mac_app.sh builds the macOS .app bundle and could not be
+# committed at all, with nothing reporting that. A wildcard that hides scratch files will hide
+# a real file the moment one is named to match.
+!getv/build_mac_app.sh
 getv/build_sim_*.sh
 
 # Screenshots used in the documentation. These are the one deliberate exception to the

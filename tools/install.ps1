@@ -306,9 +306,9 @@ function Get-AssetMarkerState ($marker) {
   return [pscustomobject]@{ Done = (Test-Path $full); Have = 0; Want = 0; Glob = $false }
 }
 
-function Invoke-AssetStep ($marker, $label, $exe, $argv) {
+function Invoke-AssetStep ($marker, $label, $exe, $argv, $validate) {
   $st = Get-AssetMarkerState $marker
-  if ($st.Done) { Info "$label`: already done"; return }
+  if ($st.Done -and (-not $validate -or (& $validate))) { Info "$label`: already done"; return }
   if ($st.Glob -and $st.Have -gt 0) {
     Info "$label`: incomplete, $($st.Have) of $($st.Want) present; generating the rest"
   }
@@ -338,12 +338,15 @@ function Invoke-AssetStep ($marker, $label, $exe, $argv) {
     } finally { Pop-Location }
 
     # An exit code of 0 is not the same claim as having produced the output, which is the whole
-    # reason this is checked separately.
+    # reason this is checked separately. Nor is the output EXISTING the same claim as it being
+    # complete, which is what $validate is for.
     $st = Get-AssetMarkerState $marker
-    if ($rc -eq 0 -and $st.Done) { return }
+    $valid = (-not $validate -or (& $validate))
+    if ($rc -eq 0 -and $st.Done -and $valid) { return }
 
     $why = if ($rc -ne 0) { "exit $rc" }
            elseif ($st.Glob) { "produced $($st.Have) of $($st.Want)" }
+           elseif ($st.Done -and -not $valid) { "produced an incomplete $marker" }
            else { "exited 0 but produced no $marker" }
     if ($attempt -lt 3) {
       Info "$label`: $why -- retrying, attempt $($attempt + 1) of 3"
@@ -403,7 +406,37 @@ Invoke-AssetStep 'assets\obseg\gun\*\Model.c'            'weapon models'        
 Invoke-AssetStep 'assets\obseg\prop\*\Model.c'           'prop models'             'python' @('scripts/generate_prop_model_c.py')
 Invoke-AssetStep 'assets\obseg\ge_obseg_blobs.c'         'obseg blobs'             'python' @("$root\tools\gen_obseg_blobs.py")
 Invoke-AssetStep 'build\imagelist.csv'                   'image list'              'python' @('scripts/make/sync_imagelist_with_def.py','build/imagelist.csv')
-Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'        $Bash @('scripts/make/combine_images_named.sh','build/imagelist.csv','assets/images/combined')
+# combine_images_named.sh appends each listed .bin with `cat file >> combined.bin` and never reads
+# cat's exit status -- its only guard is whether the file EXISTS. Under the MSYS fork failures this
+# machine produces ("forked process died unexpectedly"), a cat dies, its bytes are never appended,
+# and the script finishes reporting success. It cost a boot: combined.bin came out 14,072 bytes
+# short of its own inputs with zero files missing and no warning printed, texInflateZlib was then
+# handed bytes that are not valid deflate, inflate ran the output pointer off to 2 GB, and the game
+# died at 0xC0000005 in texture loading with nothing pointing back here.
+#
+# The size is the only witness, so it is checked: the concatenation cannot be smaller than the
+# files that went into it. Padding to the next 16 bytes makes the real file slightly larger, hence
+# -lt rather than -ne. The script is the decomp's own and is re-cloned every install, so this
+# belongs here rather than in it.
+$combinedComplete = {
+  $csv = Join-Path $decomp 'build\imagelist.csv'
+  $bin = Join-Path $decomp 'assets\images\combined\combined.bin'
+  if (-not (Test-Path $csv) -or -not (Test-Path $bin)) { return $false }
+  $want = 0
+  foreach ($line in [IO.File]::ReadAllLines($csv)) {
+    $p = $line.Split(',')
+    if ($p.Count -lt 3) { continue }
+    $f = Join-Path $decomp ($p[2].Trim() -replace '/', '\')
+    if (Test-Path $f) { $want += (Get-Item $f).Length }
+  }
+  $have = (Get-Item $bin).Length
+  if ($have -lt $want) {
+    Info "combined.bin is $have bytes against $want of input -- incomplete"
+    return $false
+  }
+  return $true
+}
+Invoke-AssetStep 'assets\images\combined\combined.bin'   'combining images'        $Bash @('scripts/make/combine_images_named.sh','build/imagelist.csv','assets/images/combined') $combinedComplete
 # combined.bin becomes a C array rather than an object. Upstream turns it into one with
 # `ld -r -b binary`, a GNU extension with no Mach-O equivalent, so the bytes are emitted as C.
 Invoke-AssetStep 'assets\images\ge_images_segment.c'     'images segment'          'python' @("$root\tools\gen_images_segment.py")
@@ -602,6 +635,40 @@ try {
     }
   }
 } finally { Pop-Location }
+
+# getv\port\include\PR and platform_info.h are relative symlinks into vendor\ge-decomp\include.
+# Git for Windows clones with core.symlinks=false unless told otherwise, and then materialises
+# each one as an ORDINARY TEXT FILE whose contents are the link target. Nothing complains at
+# checkout; the build simply cannot find <PR/gbi.h>, which reads as a missing header rather than
+# as a clone that never made the link -- 16 port-layer files fail and the run ends on "the build
+# reported success but goldeneye.exe is not there".
+#
+# build_linux.sh guards this with require_symlinks and stops. Stopping is not enough here: on
+# Windows this is the DEFAULT clone behaviour, not a misconfiguration, so telling the person to
+# re-clone with symlinks enabled would make it their problem for doing the normal thing. A
+# junction stands in for the directory and a hard link for the file; neither needs the elevation
+# a real symlink would, and both track the decomp rather than copying it stale.
+function Repair-PortLink ($linkPath, $isDir) {
+  $full = Join-Path $root $linkPath
+  if (-not (Test-Path $full)) { return }
+  # A real link resolves; only a materialised placeholder is a small file holding a relative path.
+  $item = Get-Item -LiteralPath $full -Force
+  if ($item.PSIsContainer -or $item.LinkType) { return }
+  if ($item.Length -gt 512) { return }
+  $target = (Get-Content -LiteralPath $full -Raw).Trim()
+  if (-not $target -or $target -notmatch '^\.\.[\\/]') { return }
+  $resolved = Join-Path (Split-Path -Parent $full) ($target -replace '/', '\')
+  if (-not (Test-Path $resolved)) { Die "$linkPath points at $target, which does not exist" }
+  Remove-Item -LiteralPath $full -Force
+  if ($isDir) {
+    New-Item -ItemType Junction -Path $full -Target (Resolve-Path $resolved) | Out-Null
+  } else {
+    New-Item -ItemType HardLink -Path $full -Target (Resolve-Path $resolved) | Out-Null
+  }
+  Info "$linkPath`: re-made as a $(if ($isDir) { 'junction' } else { 'hard link' }); this clone had no symlink support"
+}
+Repair-PortLink 'getv\port\include\PR' $true
+Repair-PortLink 'getv\port\include\platform_info.h' $false
 
 # ---------------------------------------------------------------- 7. build
 

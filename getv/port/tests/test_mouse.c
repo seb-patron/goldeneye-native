@@ -162,13 +162,25 @@ static void equivalence(void)
         static const long edge[] = { 0, 1, -1, 20, 21, 22, -21, 32767, -32767, 65535, -65535,
                                      1000000, -1000000 };
         int  i, j;
-        long bad = 0;
+        long bad = 0, edge_skipped = 0;
+        /* Same limit the sweep above applies, for the same reason, and it has to be applied
+         * here too: reference() forms dx * 32767 * sens, and this block feeds it 1000000 at
+         * sens 100 -- about 3.3e12, which a 32-bit long cannot hold. On LP64 nothing is
+         * skipped and every pair runs. On LLP64 the reference overflowed instead, so it was
+         * the REFERENCE that was wrong and geMouseAccumulate was reported as the mismatch:
+         * one failure on Windows, while the 11600-call sweep beside it passed bit-identical
+         * because it does guard the same product. */
+        const long edge_max = LONG_MAX / (32767L * 100L);
 
         for (i = 0; i < (int) (sizeof edge / sizeof edge[0]); i++) {
             for (j = 0; j < (int) (sizeof edge / sizeof edge[0]); j++) {
                 long ax = 0, ay = 0, bx = 0, by = 0;
                 long r_rx = 0, r_ry = 0, g_rx = 0, g_ry = 0;
+                long ei = edge[i] < 0 ? -edge[i] : edge[i];
+                long ej = edge[j] < 0 ? -edge[j] : edge[j];
                 int  rep;
+
+                if (ei > edge_max || ej > edge_max) { edge_skipped++; continue; }
 
                 /* Three calls, so a difference in what the carry retains is visible rather
                  * than only a difference in what is emitted. */
@@ -178,6 +190,11 @@ static void equivalence(void)
                     if (r_rx != g_rx || r_ry != g_ry || ax != bx || ay != by) { bad++; }
                 }
             }
+        }
+        /* Said out loud rather than quietly shrinking the domain, exactly as the sweep does. */
+        if (edge_skipped > 0) {
+            printf("  %ld boundary pair(s) skipped: a 32-bit long cannot hold the reference's"
+                   " product\n", edge_skipped);
         }
         check(bad == 0, "identical on every boundary pair, carried over three calls");
     }

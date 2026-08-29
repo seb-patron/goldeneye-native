@@ -365,11 +365,22 @@ marker_present() {
     compgen -G "$1" >/dev/null 2>&1
 }
 
+# Some steps produce a file whose EXISTENCE is not the same claim as its completeness. Set
+# STEP_VALIDATE to the name of a function that returns 0 when the output is genuinely finished,
+# and the step is re-run when it is not. Cleared after each step so it cannot leak to the next.
+STEP_VALIDATE=""
+
+step_valid() {
+    [ -z "$STEP_VALIDATE" ] && return 0
+    "$STEP_VALIDATE"
+}
+
 run_asset_step() {
     marker="$1"; shift
     label="$1"; shift
-    if marker_present "vendor/ge-decomp/$marker"; then
+    if marker_present "vendor/ge-decomp/$marker" && step_valid; then
         info "$label: already done"
+        STEP_VALIDATE=""
         return 0
     fi
     info "$label"
@@ -383,6 +394,37 @@ run_asset_step() {
     if ! marker_present "vendor/ge-decomp/$marker"; then
         die "$label ran and exited 0 but produced no $marker"
     fi
+    if ! step_valid; then
+        die "$label ran and exited 0 but produced an incomplete $marker"
+    fi
+    STEP_VALIDATE=""
+}
+
+# combine_images_named.sh appends each listed .bin with `cat file >> combined.bin` and never
+# reads cat's exit status; its only guard is whether the file exists. The Windows lane lost a
+# boot to this: an MSYS fork failure killed one cat, its bytes were never appended, the script
+# reported success, and combined.bin came out 14,072 bytes short with no file missing and no
+# warning. texInflateZlib was then handed bytes that are not valid deflate, ran its output
+# pointer to about 2 GB and the game died at 0xC0000005 in texture loading, with nothing
+# pointing back here. The fork failures are theirs; the missing guard is the decomp's, and it
+# is re-cloned every install, so the check belongs on this side.
+#
+# The concatenation cannot be smaller than the files that went into it. It is padded up to a
+# 16-byte boundary, so the real file is slightly larger -- hence smaller-than rather than
+# not-equal.
+combined_bin_complete() {
+    csv="vendor/ge-decomp/build/imagelist.csv"
+    bin="vendor/ge-decomp/assets/images/combined/combined.bin"
+    [ -f "$csv" ] && [ -f "$bin" ] || return 1
+    want=$(awk -F, '{ if (NF >= 3) print $3 }' "$csv" | while read -r f; do
+               [ -f "vendor/ge-decomp/$f" ] && wc -c < "vendor/ge-decomp/$f"
+           done | awk '{t += $1} END {print t + 0}')
+    have=$(wc -c < "$bin" | tr -d ' ')
+    if [ "$have" -lt "$want" ]; then
+        info "combined.bin is $have bytes against $want of input -- incomplete"
+        return 1
+    fi
+    return 0
 }
 
 # enable_bg_extraction must run BEFORE extraction. The decomp ships 25 of the 34 bg rows with
@@ -400,6 +442,7 @@ run_asset_step "assets/obseg/gun/*/Model.c"          "weapon models"            
 run_asset_step "assets/obseg/prop/*/Model.c"         "prop models"              python3 scripts/generate_prop_model_c.py
 run_asset_step "assets/obseg/ge_obseg_blobs.c"       "obseg blobs"              python3 ../../tools/gen_obseg_blobs.py
 run_asset_step "build/imagelist.csv"                 "image list"               python3 scripts/make/sync_imagelist_with_def.py build/imagelist.csv
+STEP_VALIDATE=combined_bin_complete
 run_asset_step "assets/images/combined/combined.bin" "combining images"         bash scripts/make/combine_images_named.sh build/imagelist.csv assets/images/combined
 # combined.bin becomes a C array rather than an object. Upstream turns it into one with
 # `ld -r -b binary`, a GNU extension Mach-O has no equivalent for.

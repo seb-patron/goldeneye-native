@@ -71,10 +71,16 @@
 #include <process.h>   /* _execv */
 #else
 #include <unistd.h>
-
-/* Same icon as the game window, from the same pixels. See ge_icon_apply.c. */
-extern "C" void gePortSetWindowIcon(SDL_Window *w);
 #endif
+
+/* Same icon as the game window, from the same pixels. See ge_icon_apply.c.
+ *
+ * Declared outside the _WIN32 split, not inside its #else. ge_icon_apply.c builds on every
+ * desktop platform and the call site below is guarded by GE_PLATFORM_DESKTOP, so keeping the
+ * declaration on the non-Windows branch alone left Windows compiling the call with nothing in
+ * scope -- "gePortSetWindowIcon was not declared in this scope; did you mean SDL_SetWindowIcon".
+ * The platform split above is about which system headers to pull in, which this is not. */
+extern "C" void gePortSetWindowIcon(SDL_Window *w);
 
 #ifdef RAPI_METAL
 /* The launcher's own window uses its own standalone Metal context

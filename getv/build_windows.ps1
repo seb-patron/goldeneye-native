@@ -394,9 +394,14 @@ function Build-App {
   # and forces SDL2 to link statically too, which then needs its entire Windows dependency
   # set (imm32, ole32, setupapi, version, winmm...). These two cover the DLLs that actually
   # go missing on a machine without the toolchain; the rest are copied beside the exe below.
+  # -lws2_32 is Winsock, for ge_net_udp.c. Netplay is the only thing that needs it, which is why
+  # it was missing: every other port-layer source links without it, so the omission stayed
+  # invisible until netplay landed and then surfaced as a wall of undefined __imp_ symbols
+  # (WSAStartup, socket, bind, sendto, recvfrom, closesocket, htons, htonl, inet_addr,
+  # ioctlsocket) with nothing naming Winsock. The other three builds get these from libc.
   $linkArgs = @('-o', $bin) + $roots + @($lib) + $luaLibs + $imguiLibs + $glewLibs + $sdlLibs +
               @('-static-libgcc','-static-libstdc++',
-                '-lstdc++','-lopengl32','-lgdi32','-limm32','-ldbghelp','-lm')
+                '-lstdc++','-lopengl32','-lgdi32','-limm32','-ldbghelp','-lws2_32','-lm')
   $out = & $gcc @linkArgs 2>&1
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $bin)) {
     $out | Select-Object -First 40 | ForEach-Object { Write-Output $_ }
