@@ -43,6 +43,23 @@ if (-not $SkipToolchain -and -not (Test-Path "$Mingw\bin\gcc.exe")) {
 if (-not (Test-Path "$Mingw\bin\gcc.exe")) { throw "no gcc at $Mingw\bin -- toolchain step failed" }
 $gcc = "$Mingw\bin\gcc.exe"; $gxx = "$Mingw\bin\g++.exe"; $ar = "$Mingw\bin\ar.exe"
 
+# WinLibs ships GNU make as mingw32-make.exe and nothing called "make". The decomp's
+# scripts/extract_baserom.u.sh builds its ROM extractor with a bare `make -C tools/extractor`,
+# and when that is not on PATH the failure is silent rather than fatal: the extraction below it
+# is guarded on the extractor binary existing, so the whole pass prints "skip" for every asset
+# and returns 0. The install then runs for another twenty minutes and dies at the link with 40
+# undefined C<name>Z symbols. Measured on a fresh Windows install: 232 asset objects built
+# instead of 746, 514 short.
+#
+# A copy rather than a hardlink or a .cmd shim: those need either privilege or a shell that
+# expands them, and this has to work from git-bash, which runs .exe files directly.
+$mingwMake = Join-Path $Mingw 'bin\mingw32-make.exe'
+$plainMake = Join-Path $Mingw 'bin\make.exe'
+if ((Test-Path $mingwMake) -and (-not (Test-Path $plainMake))) {
+  Copy-Item $mingwMake $plainMake -Force
+  Write-Output "  make.exe: copied from mingw32-make.exe (the decomp's extractor needs plain `make`)"
+}
+
 # ---------------------------------------------------------------- 2. SDL2
 # The official mingw development package. Its x86_64-w64-mingw32 subtree has exactly the
 # include/lib/bin layout the toolchain expects, so it merges straight in.

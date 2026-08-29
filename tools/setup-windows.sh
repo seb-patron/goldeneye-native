@@ -33,6 +33,18 @@ step "checking for python3"
 command -v python3 >/dev/null 2>&1 \
   || die "python3 not found on PATH -- install it from python.org (check \"Add to PATH\" in the installer) and re-run"
 
+# make is checked here, at the start, because its absence is invisible where it is actually used.
+# scripts/extract_baserom.u.sh line 47 builds the ROM extractor with `make -C tools/extractor`
+# only if the binary is missing, and the extraction underneath it is guarded on that binary
+# existing -- so with no make the whole pass prints "skip" for every asset and exits 0. Nothing
+# reports a problem until the link, twenty minutes later, fails with 40 undefined C<name>Z
+# symbols that name characters rather than anything to do with make. Measured: 232 asset objects
+# built instead of 746.
+#
+# WinLibs installs it as mingw32-make.exe; tools/fetch_deps_windows.ps1 copies that to make.exe.
+command -v make >/dev/null 2>&1 \
+  || die "make not found on PATH -- re-run tools\\fetch_deps_windows.ps1, which copies mingw32-make.exe to make.exe, then start this again"
+
 # ---------------------------------------------------------------------- 1. third-party
 step "third-party port sources"
 if [ -f "$HERE/getv/port/fast3d/gfx_pc.c" ]; then
@@ -91,6 +103,11 @@ else
     cd "$DECOMP"
     python3 "$HERE/tools/enable_bg_extraction.py"
     bash scripts/extract_baserom.u.sh
+    # The extractor is what reads the ROM, and its build is the one step above that can fail
+    # without failing the script. Everything after this point consumes what it produced, so a
+    # missing binary here is worth one line now rather than a link error later.
+    [ -x tools/extractor/extractor ] || [ -x tools/extractor/extractor.exe ] \
+      || die "tools/extractor was never built, so no assets were extracted -- check that make works"
     python3 scripts/generate_chr_c.py
     python3 scripts/generate_gun_c.py
     python3 scripts/generate_prop_model_c.py
