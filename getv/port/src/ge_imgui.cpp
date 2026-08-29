@@ -322,7 +322,15 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
     const char *e = getenv("GETV_IMGUI");
     if (e != NULL && *e != '\0' && strcmp(e, "0") != 0) {
         printf("[getv][imgui] GETV_IMGUI is set but this binary was built without ImGui.\n");
+        /* Name the script for the platform actually running, not the one this was written on.
+         * Telling a Linux user to run build_mac.sh reads as the port not knowing what it is. */
+#if defined(__APPLE__)
         printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_mac.sh all\n");
+#elif defined(_WIN32)
+        printf("[getv][imgui] run tools/fetch_imgui.sh, then .\\getv\\build_windows.ps1 all\n");
+#else
+        printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_linux.sh all\n");
+#endif
         fflush(stdout);
     }
 }

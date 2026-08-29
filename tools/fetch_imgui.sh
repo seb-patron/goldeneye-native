@@ -152,13 +152,23 @@ if [ "$(uname -s)" = "Darwin" ]; then
   SOURCES+=( "$SRC/backends/imgui_impl_metal.mm" )
 fi
 
+# -fobjc-arc is Objective-C ARC and only means anything for the .mm Metal backend, which is
+# added to SOURCES on Darwin alone. Passing it unconditionally was harmless on macOS, where
+# clang ignores it for a .cpp, and fatal on Linux, where g++ rejects the flag outright:
+# "unrecognized command-line option '-fobjc-arc'". All seven translation units failed, and
+# because a failed ImGui fetch is non-fatal the installer printed one line about the launcher
+# being unavailable and carried on. So Linux has silently never had the launcher, and nothing
+# in the build counts or the self-test would ever have said so.
+ARCFLAG=()
+if [ "$(uname -s)" = "Darwin" ]; then ARCFLAG=(-fobjc-arc); fi
+
 ok=0; fail=0
 for f in "${SOURCES[@]}"; do
   b="$(basename "$f")"; b="${b%.*}"
   [ -f "$f" ] || { fail=$((fail+1)); echo "  MISSING: $f"; continue; }
   if "$CXX" -c "$f" -o "$OBJDIR/$b.o" \
        ${TARGETFLAGS[@]+"${TARGETFLAGS[@]}"} \
-       -std=c++17 -O2 -fPIC -fno-exceptions -fno-rtti -fobjc-arc \
+       -std=c++17 -O2 -fPIC -fno-exceptions -fno-rtti ${ARCFLAG[@]+"${ARCFLAG[@]}"} \
        -I "$SRC" -I "$SRC/backends" ${SDLINC[@]+"${SDLINC[@]}"} \
        -DGL_SILENCE_DEPRECATION -w
   then
