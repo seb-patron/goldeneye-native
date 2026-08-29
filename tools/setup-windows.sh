@@ -33,17 +33,6 @@ step "checking for python3"
 command -v python3 >/dev/null 2>&1 \
   || die "python3 not found on PATH -- install it from python.org (check \"Add to PATH\" in the installer) and re-run"
 
-# make is checked here, at the start, because its absence is invisible where it is actually used.
-# scripts/extract_baserom.u.sh line 47 builds the ROM extractor with `make -C tools/extractor`
-# only if the binary is missing, and the extraction underneath it is guarded on that binary
-# existing -- so with no make the whole pass prints "skip" for every asset and exits 0. Nothing
-# reports a problem until the link, twenty minutes later, fails with 40 undefined C<name>Z
-# symbols that name characters rather than anything to do with make. Measured: 232 asset objects
-# built instead of 746.
-#
-# WinLibs installs it as mingw32-make.exe; tools/fetch_deps_windows.ps1 copies that to make.exe.
-command -v make >/dev/null 2>&1 \
-  || die "make not found on PATH -- re-run tools\\fetch_deps_windows.ps1, which copies mingw32-make.exe to make.exe, then start this again"
 
 # ---------------------------------------------------------------------- 1. third-party
 step "third-party port sources"
@@ -61,7 +50,26 @@ else
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HERE/tools/fetch_deps_windows.ps1" \
     || die "fetch_deps_windows.ps1 failed"
 fi
-export PATH="$MINGW/bin:$PATH"
+# $MINGW is a Windows path, and a Windows path in PATH is silently unusable from git-bash:
+# "C:\mingw64/bin" is not a directory it can search, so this export has never actually put
+# anything on PATH. Measured on a clean machine -- after the old line ran, `command -v gcc` and
+# `command -v make` both returned nothing. cygpath is what converts it, and git-bash ships it;
+# the sed is a fallback that does the same C:\mingw64 -> /c/mingw64 rewrite by hand.
+MINGW_POSIX="$(cygpath -u "$MINGW" 2>/dev/null \
+  || printf '%s' "$MINGW" | sed 's|\\|/|g; s|^\([A-Za-z]\):|/\1|')"
+export PATH="$MINGW_POSIX/bin:$PATH"
+
+# Checked here rather than at the top, because here is the first point at which it could be
+# true. The decomp's scripts/extract_baserom.u.sh builds its ROM extractor with a bare
+# `make -C tools/extractor`, and its absence is invisible where it is used: the extraction
+# underneath that line is guarded on the extractor binary existing, so with no make the whole
+# pass prints "skip" for every asset and exits 0. Nothing reports a problem until the link,
+# twenty minutes later, fails with 40 undefined C<name>Z symbols that name characters and say
+# nothing about make. Measured: 232 asset objects built instead of 746.
+#
+# WinLibs installs it as mingw32-make.exe; tools/fetch_deps_windows.ps1 copies that to make.exe.
+command -v make >/dev/null 2>&1 \
+  || die "make is not on PATH even after adding $MINGW_POSIX/bin -- re-run tools\\fetch_deps_windows.ps1, which copies mingw32-make.exe to make.exe"
 
 # ---------------------------------------------------------------------- 3. the decomp
 step "decompiled game source"
