@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The four externs ge_config.c expects from the rest of the port and the game. None is
- * exercised by a key tested here; they only have to exist for the unit to link. */
+/* The four externs ge_config.c expects from the rest of the port and the game. Filtering is
+ * exercised below; the other three only have to exist for the unit to link. */
 unsigned int  configFiltering = 2;
 void set_debug_testingmanpos_flag(int flag) { (void) flag; }
 unsigned char g_CheatPlayerTextRelated[256];
@@ -86,6 +86,9 @@ static void reset(void)
     unsetenv("GETV_WIDESCREEN");
     unsetenv("GETV_WINDOW");
     unsetenv("GETV_SUPERSAMPLE");
+    unsetenv("GETV_FILTERING");
+    unsetenv("GETV_POINT_FILTER");
+    configFiltering = 2;
     g_errors = 0;
 }
 
@@ -228,6 +231,31 @@ int main(void)
     reset();
     check("supersample=3 refused",        set("supersample", "3"), 1);
     check("supersample=3 counts an error", g_errors, 1);
+
+    /* Filtering has one consumer that cannot use getenv(): configFiltering is read directly
+     * by Fast3D. The shell environment is therefore loaded into that global by a constructor
+     * before main(), and the file pass must not overwrite it by assigning the global directly.
+     * This used to make the one key resolve as CLI > file > environment while every other key
+     * followed the documented CLI > environment > file order. */
+    reset();
+    setenv("GETV_FILTERING", "0", 1);
+    configFiltering = 0;   /* the constructor's result before geConfigInit() */
+    check("filtering file value accepted", apply("filtering", "three-point", 0), 1);
+    check("environment filtering beats the file", (int)configFiltering, 0);
+    check_env("environment filtering remains canonical", "GETV_FILTERING", "0");
+    check_env("point companion follows effective environment", "GETV_POINT_FILTER", "1");
+
+    check("filtering CLI value accepted", set("filtering", "bilinear"), 1);
+    check("CLI filtering beats the environment", (int)configFiltering, 1);
+    check_env("CLI filtering becomes canonical", "GETV_FILTERING", "1");
+    check_env("bilinear clears the point companion", "GETV_POINT_FILTER", "0");
+
+    reset();
+    check("filtering file value accepted without environment",
+          apply("filtering", "three-point", 0), 1);
+    check("file filtering reaches the global", (int)configFiltering, 2);
+    check_env("file filtering is visible to the launcher", "GETV_FILTERING", "2");
+    check_env("three-point clears the point companion", "GETV_POINT_FILTER", "0");
 
     /* An unknown key is reported rather than ignored: a typo in a config file that silently
      * does nothing is indistinguishable from a setting that does not work. */
