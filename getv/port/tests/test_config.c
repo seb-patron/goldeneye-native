@@ -19,9 +19,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The four externs ge_config.c expects from the rest of the port and the game. Filtering is
- * exercised below; the other three only have to exist for the unit to link. */
+/* The externs ge_config.c expects from the rest of the port and the game. Filtering and
+ * widescreen are exercised below; the other three only have to exist for the unit to link. */
 unsigned int  configFiltering = 2;
+unsigned int  configWidescreen = 1;
 void set_debug_testingmanpos_flag(int flag) { (void) flag; }
 unsigned char g_CheatPlayerTextRelated[256];
 int           num_chars_selectable_mp = 8;
@@ -89,6 +90,7 @@ static void reset(void)
     unsetenv("GETV_FILTERING");
     unsetenv("GETV_POINT_FILTER");
     configFiltering = 2;
+    configWidescreen = 1;
     g_errors = 0;
 }
 
@@ -206,12 +208,20 @@ int main(void)
     /* ---- a few neighbours, so a change here does not go unnoticed --------------------- */
 
     reset();
-    check("widescreen=0 accepted",        set("widescreen", "0"), 1);
-    check_env("widescreen=0 set",         "GETV_WIDESCREEN", "0");
+    check("widescreen file value accepted", apply("widescreen", "0", 0), 1);
+    check_env("widescreen file value set", "GETV_WIDESCREEN", "0");
+    check("widescreen file reaches the global", (int)configWidescreen, 0);
 
     reset();
-    check("widescreen=on accepted",       set("widescreen", "on"), 1);
-    check_env("widescreen=on is 1",       "GETV_WIDESCREEN", "1");
+    setenv("GETV_WIDESCREEN", "0", 1);
+    configWidescreen = 0;   /* the constructor's result before geConfigInit() */
+    check("widescreen environment test accepts file value", apply("widescreen", "on", 0), 1);
+    check_env("widescreen environment beats the file", "GETV_WIDESCREEN", "0");
+    check("widescreen environment remains in the global", (int)configWidescreen, 0);
+
+    check("widescreen CLI value accepted", set("widescreen", "on"), 1);
+    check_env("widescreen CLI beats the environment", "GETV_WIDESCREEN", "1");
+    check("widescreen CLI reaches the global", (int)configWidescreen, 1);
 
     reset();
     check("resolution accepted",          set("resolution", "1600x900"), 1);
