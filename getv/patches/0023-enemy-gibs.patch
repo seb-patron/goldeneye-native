@@ -1,0 +1,358 @@
+--- a/src/game/chr.c
++++ b/src/game/chr.c
+@@ -41,6 +41,8 @@
+  * ============================================================================ */
+ #ifdef GE_PORT_NATIVE
+ extern char *getenv(const char *);
++extern void gePortGibsForgetCharacter(const void *character);
++extern void gePortGibExplosionDeath(ChrRecord *character);
+ 
+ s32 g_geChrDbgAlloc;      /* chrAllocate returned non-NULL                  */
+ s32 g_geChrDbgAllocFail;  /* chrpropAllocate/init returned NULL             */
+@@ -1842,6 +1844,11 @@
+ 
+     setsuboffset(arg1, arg2);
+     setsubroty(arg1, arg3);
++
++#ifdef GE_PORT_NATIVE
++    /* Slots are recycled. A previous occupant may have been gibbed and removed. */
++    gePortGibsForgetCharacter(var_s0);
++#endif
+ 
+     #if defined(VERSION_EU)
+     modelSetAnimPlaySpeed(arg1, animation_rate * 1.2f, 0.0f);
+@@ -4611,6 +4618,52 @@
+ s32 gePortHordeKills(void) { return ge_horde_kills; }
+ s32 gePortHordeWave(void)  { return ge_horde_wave;  }
+ 
++#ifdef GE_PORT_NATIVE
++/* A fatal explosion is awkward to aim at a guard reproducibly in a headless run. This gate
++ * drives the real explosion-death function against the first eligible guard once, then reports
++ * both halves of the visible contract: the intact model is transparent and eight marked chunks
++ * entered the renderer's bounded particle pool. It is inert unless explicitly requested. */
++static void gePortGibsSelftestTick(void)
++{
++    static s32 tick;
++    static s32 at = -2;
++
++    if (at == -2) {
++        const char *value = getenv("GETV_GIBS_SELFTEST");
++        at = (value != NULL && *value != '\0') ? atoi(value) : -1;
++    }
++    tick++;
++    if (at <= 0 || tick != at) {
++        return;
++    }
++
++    {
++        s32 i;
++        for (i = 0; i < g_NumChrSlots; i++) {
++            ChrRecord *chr = &g_ChrSlots[i];
++            if (chr->model != NULL && chr->prop != NULL && chr->prop->stan != NULL &&
++                chr->actiontype != ACT_DIE && chr->actiontype != ACT_DEAD &&
++                chr->prop->type == PROP_TYPE_CHR) {
++                coord3d source = chr->prop->pos;
++                s32 killed;
++
++                source.f[0] -= 1.0f;
++                killed = chrlvExplosionDamage(chr, &source, 4.0f, 0);
++                if (killed) {
++                    gePortGibExplosionDeath(chr);
++                }
++                printf("[getv][gibs] selftest: slot %d killed=%d alpha=%u chunks=%d\n",
++                       i, killed, (u32)chr->fadealpha, explosionCountGibParticles());
++                return;
++            }
++        }
++    }
++
++    printf("[getv][gibs] selftest: no eligible guard among %d slots at tick %d\n",
++           (s32)g_NumChrSlots, at);
++}
++#endif
++
+ void gePortHordeTick(void)
+ {
+     extern int gePortHordeEnabled(void);
+@@ -4626,6 +4679,10 @@
+     s32 i;
+     s32 per_kill;
+ 
++#ifdef GE_PORT_NATIVE
++    gePortGibsSelftestTick();
++#endif
++
+     if (!gePortHordeEnabled()) {
+         return;
+     }
+--- a/src/game/chraction.c
++++ b/src/game/chraction.c
+@@ -17,6 +17,7 @@
+ #include "chr.h"
+ #include "chr_b.h"
+ #include "chrai.h"
++#include "explosion.h"
+ #include "file.h"
+ #include "front.h"
+ #include "glass.h"
+@@ -39,6 +40,10 @@
+ s32 g_geChrDbgSpawnStan;
+ s32 g_geChrDbgSpawnHdr;
+ extern s32 ge_chr_dbg_on(void);
++extern s32 gePortGibsShouldSpawn(s32 cause, s32 newly_dead);
++extern s32 gePortGibsMarkCharacter(const void *character);
++extern s32 gePortGibsIsCharacter(const void *character);
++extern void gePortGibsForgetCharacter(const void *character);
+ #endif
+ 
+ 
+@@ -2856,7 +2861,24 @@
+     return 0;
+ }
+ 
++#ifdef GE_PORT_NATIVE
++/* Called by explosion.c only after its real blast dispatcher produces a new death. Keep this
++ * separate from chrlvExplosionDamage(): the tank also reuses that animation/damage function,
++ * but vehicle deaths are not part of the explosion-only initial mode. */
++void gePortGibExplosionDeath(ChrRecord *self)
++{
++    if (gePortGibsShouldSpawn(1, 1) && gePortGibsMarkCharacter(self)) {
++        coord3d gibpos = self->prop->pos;
++        u32 seed = ((u32)g_GlobalTimer << 16) ^ (u16)self->chrnum;
+ 
++        gibpos.f[1] += self->chrheight * 0.25f;
++        explosionInitGibParticles(&gibpos, &self->fallspeed, 8, seed);
++        self->fadealpha = 0;
++    }
++}
++#endif
++
++
+ /**
+  * Address 0x7F027BF4.
+  * 
+@@ -5348,7 +5370,18 @@
+         if (self->act_init.padding[0] >= CHRLV_TICK_DEAD_CHECK)
+         {
+             self->hidden |= CHRHIDDEN_REMOVE;
++#ifdef GE_PORT_NATIVE
++            gePortGibsForgetCharacter(self);
++#endif
+         }
++#ifdef GE_PORT_NATIVE
++        else if (gePortGibsIsCharacter(self))
++        {
++            /* ACT_DIE already hid this model. Keep it hidden while the ordinary corpse timer
++             * runs instead of letting the stock fade path bring it back for a few seconds. */
++            self->fadealpha = 0;
++        }
++#endif
+         else
+         {
+             self->fadealpha = (u8) ((s32) ((CHRLV_TICK_DEAD_CHECK - self->act_init.padding[0]) * 0xFF) / CHRLV_TICK_DEAD_CHECK);
+--- a/src/game/explosion.c
++++ b/src/game/explosion.c
+@@ -26,6 +26,10 @@
+ #include "bgroomtrans.h"
+ #include <assets/oddtextures.h>
+ 
++#ifdef GE_PORT_NATIVE
++extern void gePortGibExplosionDeath(ChrRecord *character);
++#endif
++
+ // bss
+ //CODE.bss:8007A100
+ // possibly   printf("Allocating %d bytes for glass data (%d bits)\n",DAT_83bd5fb0 * 0x88 + 0xf & 0xfffffff0,         DAT_83bd5fb0);
+@@ -223,6 +227,28 @@
+ /*** prototypes */
+ 
+ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
++
++#ifdef GE_PORT_NATIVE
++#define GE_FLYING_PARTICLE_GIB 0x47494253
++
++/* Cosmetic randomness must not advance randomGetNext(). That generator also drives gameplay,
++ * so spending extra draws on an optional effect would change later AI decisions and could
++ * desynchronise a lockstep session whose peers chose different visual settings. */
++static u32 geGibRand(u32 *state)
++{
++    u32 x = *state;
++    x ^= x << 13;
++    x ^= x >> 17;
++    x ^= x << 5;
++    *state = x;
++    return x;
++}
++
++static f32 geGibRandUnit(u32 *state)
++{
++    return (f32)(geGibRand(state) & 0xffffU) * (1.0f / 65535.0f);
++}
++#endif
+ s32 explosionRoundFloat(f32 arg0);
+ void explosionSetBulletImpactAlpha(s32 arg0);
+ void explosionInflictDamage(PropRecord *arg0, f32 arg1, f32 arg2);
+@@ -618,7 +644,14 @@
+ 
+                         if (temp_s0->type == PROP_TYPE_CHR)
+                         {
++#ifdef GE_PORT_NATIVE
++                            if (chrlvExplosionDamage(temp_s0->chr, &arg0->pos, minfrac, 1))
++                            {
++                                gePortGibExplosionDeath(temp_s0->chr);
++                            }
++#else
+                             chrlvExplosionDamage(temp_s0->chr, &arg0->pos, minfrac, 1);
++#endif
+                         }
+                         else
+                         {
+@@ -1544,6 +1577,7 @@
+     rand3 = (2.0f * (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX))) - 1.0f;
+ 
+     g_FlyingParticlesBuffer[g_NumParticleEntries].unk00 = 1;
++    g_FlyingParticlesBuffer[g_NumParticleEntries].unk34 = 0;
+ 
+     g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[0] = spawnpos->f[0] + (spawn_rand_scale * rand1);
+     g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[1] = spawnpos->f[1] + (spawn_rand_scale * rand2);
+@@ -1642,8 +1676,108 @@
+     if (g_NumParticleEntries >= max_particles)
+     {
+         g_NumParticleEntries = 0;
++    }
++}
++
++#ifdef GE_PORT_NATIVE
++/* The first gib pass deliberately reuses the engine's short-lived shrapnel pool. It gives the
++ * effect rotation, gravity, a fixed memory ceiling and both renderers for free, while the marker
++ * in unk34 keeps its state distinguishable for the headless integration check. See docs/GIBS.md
++ * for the boundary where persistent colliding body parts should become their own prop type. */
++void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, s32 count, u32 seed)
++{
++    s32 i;
++
++    if (g_FlyingParticlesBuffer == NULL || max_particles <= 0 || count <= 0) {
++        return;
++    }
++
++    seed ^= 0x9e3779b9U;
++    if (seed == 0) {
++        seed = 1;
++    }
++
++    for (i = 0; i < count; i++) {
++        struct FlyingParticles *particle = &g_FlyingParticlesBuffer[g_NumParticleEntries];
++        f32 rx = geGibRandUnit(&seed) * 2.0f - 1.0f;
++        f32 ry = geGibRandUnit(&seed);
++        f32 rz = geGibRandUnit(&seed) * 2.0f - 1.0f;
++        f32 size = 9.0f + geGibRandUnit(&seed) * 7.0f;
++        s16 texs = (s16)((geGibRand(&seed) & 3U) << 8);
++        s16 text = (s16)((geGibRand(&seed) & 3U) << 8);
++        s32 v;
++
++        particle->unk00 = 1;
++        particle->unk34 = GE_FLYING_PARTICLE_GIB;
++        particle->position.f[0] = spawnpos->f[0] + rx * 28.0f;
++        particle->position.f[1] = spawnpos->f[1] + ry * 55.0f;
++        particle->position.f[2] = spawnpos->f[2] + rz * 28.0f;
++
++        particle->position_drift.f[0] = rx * 2.8f + blastvel->f[0] * 0.35f;
++        particle->position_drift.f[1] = 5.5f + ry * 5.5f + blastvel->f[1] * 0.20f;
++        particle->position_drift.f[2] = rz * 2.8f + blastvel->f[2] * 0.35f;
++
++        particle->vertex_list[0].v.ob[0] = (s16)size;
++        particle->vertex_list[0].v.ob[1] = 0;
++        particle->vertex_list[0].v.ob[2] = (s16)(size * 0.75f);
++        particle->vertex_list[1].v.ob[0] = (s16)(size * 0.65f);
++        particle->vertex_list[1].v.ob[1] = 0;
++        particle->vertex_list[1].v.ob[2] = (s16)-size;
++        particle->vertex_list[2].v.ob[0] = (s16)-size;
++        particle->vertex_list[2].v.ob[1] = 0;
++        particle->vertex_list[2].v.ob[2] = (s16)(size * -0.70f);
++        particle->vertex_list[3].v.ob[0] = (s16)(size * -0.70f);
++        particle->vertex_list[3].v.ob[1] = 0;
++        particle->vertex_list[3].v.ob[2] = (s16)size;
++
++        particle->vertex_list[0].v.tc[0] = texs + 0xe0;
++        particle->vertex_list[0].v.tc[1] = text + 0xe0;
++        particle->vertex_list[1].v.tc[0] = texs + 0xe0;
++        particle->vertex_list[1].v.tc[1] = text;
++        particle->vertex_list[2].v.tc[0] = texs;
++        particle->vertex_list[2].v.tc[1] = text;
++        particle->vertex_list[3].v.tc[0] = texs;
++        particle->vertex_list[3].v.tc[1] = text + 0xe0;
++
++        for (v = 0; v < 4; v++) {
++            u8 shade = (u8)(geGibRand(&seed) & 0x1fU);
++            particle->vertex_list[v].v.cn[0] = (u8)(0x70 + shade);
++            particle->vertex_list[v].v.cn[1] = (u8)(shade >> 2);
++            particle->vertex_list[v].v.cn[2] = (u8)(shade >> 3);
++            particle->vertex_list[v].v.cn[3] = 0xdc;
++        }
++
++        particle->rotation.f[0] = geGibRandUnit(&seed) * M_TAU_F;
++        particle->rotation.f[1] = geGibRandUnit(&seed) * M_TAU_F;
++        particle->rotation.f[2] = geGibRandUnit(&seed) * M_TAU_F;
++        particle->rotation_drift.f[0] = (geGibRandUnit(&seed) - 0.5f) * 0.20f;
++        particle->rotation_drift.f[1] = (geGibRandUnit(&seed) - 0.5f) * 0.20f;
++        particle->rotation_drift.f[2] = (geGibRandUnit(&seed) - 0.5f) * 0.20f;
++
++        g_NumParticleEntries++;
++        if (g_NumParticleEntries >= max_particles) {
++            g_NumParticleEntries = 0;
++        }
++    }
++}
++
++s32 explosionCountGibParticles(void)
++{
++    s32 i;
++    s32 count = 0;
++
++    if (g_FlyingParticlesBuffer == NULL) {
++        return 0;
++    }
++    for (i = 0; i < max_particles; i++) {
++        if (g_FlyingParticlesBuffer[i].unk00 > 0 &&
++            g_FlyingParticlesBuffer[i].unk34 == GE_FLYING_PARTICLE_GIB) {
++            count++;
++        }
+     }
++    return count;
+ }
++#endif
+ 
+ 
+ void explosionUpdateFlyingParticles(void)
+@@ -1688,7 +1822,17 @@
+             }
+ 
+             // handles particles life time
+-            if ((g_FlyingParticlesBuffer[i].unk00 >= 0x65) && (!(randomGetNext() & 0x1F) || (g_FlyingParticlesBuffer[i].unk00 == 0x12C)))
++            if (g_FlyingParticlesBuffer[i].unk00 >= 0x65
++#ifdef GE_PORT_NATIVE
++                && ((g_FlyingParticlesBuffer[i].unk34 == GE_FLYING_PARTICLE_GIB
++                     && g_FlyingParticlesBuffer[i].unk00 >= 0x96)
++                    || (g_FlyingParticlesBuffer[i].unk34 != GE_FLYING_PARTICLE_GIB
++                        && (!(randomGetNext() & 0x1F)
++                            || g_FlyingParticlesBuffer[i].unk00 == 0x12C)))
++#else
++                && (!(randomGetNext() & 0x1F) || g_FlyingParticlesBuffer[i].unk00 == 0x12C)
++#endif
++               )
+             {
+                 g_FlyingParticlesBuffer[i].unk00 = 0;
+             }
+--- a/src/game/explosion.h
++++ b/src/game/explosion.h
+@@ -172,6 +172,10 @@
+ 
+ void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *rooms, s32 flags);
+ void explosionUpdateFlyingParticles(void);
++#ifdef GE_PORT_NATIVE
++void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, s32 count, u32 seed);
++s32 explosionCountGibParticles(void);
++#endif
+ u8 explosionChrpropSmokeTick(PropRecord* prop);
+ u8 explosionChrpropExplosionTick(PropRecord* prop);
+ void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* result);

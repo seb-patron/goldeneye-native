@@ -597,6 +597,20 @@ stable before the features land.
 
 Integer keys are clamped to their range rather than rejected.
 
+## Enemy gibs
+
+`gibs = off | explosions`, default `off`. The aliases `on`, `true`, `yes` and `explosion` enable
+the current `explosions` mode. A fatal explosion replaces a non-player character's intact model
+with eight short-lived tumbling chunks while the original death record continues through scoring,
+AI notification, dropped items, objectives and cleanup. Players and non-explosion deaths are
+unchanged.
+
+This first pass deliberately has no persistent collision or model-specific limbs, and
+`PROP_TYPE_CHR` also covers some friendly and civilian mission actors. See [GIBS.md](GIBS.md) for
+the exact boundary, the integration gate and the recommended expansion path.
+
+Sets `GETV_GIBS=0|1`. Raw values other than `0` and `1` fail closed to off.
+
 ## Raw gates
 
 Any of the port's development gates can be set by its real name, in the file or on the command

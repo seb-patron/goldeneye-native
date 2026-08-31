@@ -89,6 +89,7 @@ static void reset(void)
     unsetenv("GETV_SUPERSAMPLE");
     unsetenv("GETV_FILTERING");
     unsetenv("GETV_POINT_FILTER");
+    unsetenv("GETV_GIBS");
     configFiltering = 2;
     configWidescreen = 1;
     g_errors = 0;
@@ -241,6 +242,22 @@ int main(void)
     reset();
     check("supersample=3 refused",        set("supersample", "3"), 1);
     check("supersample=3 counts an error", g_errors, 1);
+
+    /* Gibbing is opt-in and the initial implementation has exactly one cause. Keep the named
+     * value future-proof instead of treating every nonzero integer as a mode that exists. */
+    reset();
+    check("gibs=explosions accepted", set("gibs", "explosions"), 1);
+    check("gibs=explosions no error", g_errors, 0);
+    check_env("gibs mode normalized", "GETV_GIBS", "1");
+
+    reset();
+    check("gibs=off accepted", set("gibs", "off"), 1);
+    check_env("gibs off normalized", "GETV_GIBS", "0");
+
+    reset();
+    check("gibs=always refused until implemented", set("gibs", "always"), 1);
+    check("unimplemented gib mode counts an error", g_errors, 1);
+    check_env("unimplemented gib mode sets nothing", "GETV_GIBS", NULL);
 
     /* Filtering has one consumer that cannot use getenv(): configFiltering is read directly
      * by Fast3D. The shell environment is therefore loaded into that global by a constructor
