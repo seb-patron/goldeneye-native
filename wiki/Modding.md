@@ -70,9 +70,9 @@ through, not measured. Treat it as untested.
 
 ## Where the seams are
 
-[`docs/MODDING.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/MODDING.md)
+[`docs/MODDING.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/MODDING.md)
 covers how the tree is arranged and where the extension points are.
-[`docs/PLAYER_API.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/PLAYER_API.md)
+[`docs/PLAYER_API.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/PLAYER_API.md)
 and
-[`docs/ENEMY_API.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/ENEMY_API.md)
+[`docs/ENEMY_API.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/ENEMY_API.md)
 cover the input and character seams, which are the ones the bots and network play both use.

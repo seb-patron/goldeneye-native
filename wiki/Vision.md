@@ -2,7 +2,7 @@
 
 Where this could go and what it would cost. [Roadmap](Roadmap) is the short list of what is
 being worked on now; this is the long arc behind it. The full version, scored item by item, is
-[`docs/VISION.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/VISION.md).
+[`docs/VISION.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/VISION.md).
 
 ## Three projects sharing a source tree
 

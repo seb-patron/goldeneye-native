@@ -1,7 +1,7 @@
 # Setup
 
 The full step-by-step guide, with the expected output of every command and a troubleshooting
-section, is [`docs/SETUP.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/SETUP.md)
+section, is [`docs/SETUP.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/SETUP.md)
 in the repository. This page is the shape of it, so you know what you are agreeing to before
 you start.
 

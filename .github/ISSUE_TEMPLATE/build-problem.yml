@@ -1,62 +1,89 @@
-name: Build problem
-description: The build fails, or produces something that will not run.
+name: Build or installation problem
+description: The project does not install, build, launch or complete its self-test.
+title: "[Build]: "
 labels: ["build"]
 body:
   - type: markdown
     attributes:
       value: |
-        Before filing, please check section 7 of [docs/SETUP.md](../blob/main/docs/SETUP.md).
-        It covers the failures that are expected, and several that look alarming but are not -
-        in particular `mac game: 167 built, 1 failed` is a correct build, and the one failure
-        is always `src/tlb_manage.c`.
+        Check the troubleshooting section of
+        [docs/SETUP.md](https://github.com/seb-patron/goldeneye-native/blob/main/docs/SETUP.md)
+        before filing. A successful current build reports `0 failed` in every build phase.
 
-        **Do not attach a ROM, a `base.zip`, or any file generated from them.** That includes
-        extracted `.bin` blobs and generated asset `.c` files. Issues carrying that data will
-        be deleted. Build logs and error text are fine, and are what is actually useful here.
+        **Do not attach a ROM, `base.zip`, save file or anything extracted from one.** Do not
+        paste their contents or upload generated asset source. Error text and build logs are fine.
+
+        Search existing issues first and use one report for one problem.
+  - type: input
+    id: commit
+    attributes:
+      label: Commit tested
+      description: Run `git rev-parse --short HEAD` in the repository.
+      placeholder: "7a77917"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS Apple silicon
+        - macOS Intel
+        - Windows x86-64
+        - Linux x86-64
+        - Linux arm64
+        - tvOS or iOS bring-up
+        - Android bring-up
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System and toolchain details
+      description: OS version, architecture, compiler and SDK or distribution version.
+      placeholder: "macOS 26.4.1, arm64, Apple clang 21.0.0, SDK 26.5"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      description: Include the command and relevant environment variables, with personal paths removed.
+      render: shell
+    validations:
+      required: true
   - type: textarea
     id: counts
     attributes:
-      label: The four build counts
-      description: The last lines of `./build_mac.sh all`. Paste them verbatim, even if the build died before reaching them.
+      label: Build or self-test summary
+      description: Paste every phase count or the complete self-test summary that was printed.
       placeholder: |
-        mac game: 167 built, 1 failed
+        mac game: 167 built, 0 failed
         mac assets: 746 built, 0 failed
         mac audio: 40 built, 0 failed
-        mac port layer: 23 built, 0 failed
+        mac port layer: 67 built, 0 failed
       render: text
     validations:
       required: true
   - type: textarea
     id: error
     attributes:
-      label: The error
-      description: The first failure, not the last. A wall of undefined symbols usually has one earlier cause.
+      label: First meaningful failure
+      description: Include a short excerpt beginning at the first error, not only later follow-on errors.
       render: text
     validations:
       required: true
-  - type: input
-    id: os
+  - type: textarea
+    id: clean_retry
     attributes:
-      label: macOS version and architecture
-      placeholder: "14.5, arm64 (output of `sw_vers -productVersion` and `uname -m`)"
-    validations:
-      required: true
-  - type: input
-    id: sdk
-    attributes:
-      label: SDK
-      description: Output of `xcrun -sdk macosx --show-sdk-path`
+      label: Clean retry and other troubleshooting
+      description: Say whether current `main`, a clean build or the setup guide changed the result.
     validations:
       required: true
   - type: checkboxes
-    id: steps
+    id: data_rules
     attributes:
-      label: Which steps did you complete?
+      label: Game-data check
       options:
-        - label: "`tools/fetch-thirdparty.sh fetch` then `verify`, and verify passed"
-        - label: "Applied `0001-source.patch` to a fresh decomp clone"
-        - label: "ROM in place, and its SHA-1 matches section 3.3"
-        - label: "Ran `enable_bg_extraction.py` before extraction"
-        - label: "Ran the whole of section 3.5, in order"
-        - label: "Ran all five namespacing invocations in section 3.6"
-        - label: "Applied `0002-assets.patch` after 3.6, not before"
+        - label: I have not attached a ROM, save, `base.zip` or extracted game data.
+          required: true

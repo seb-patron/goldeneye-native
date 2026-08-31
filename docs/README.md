@@ -23,6 +23,7 @@ Start with [`SETUP.md`](SETUP.md). Everything else is here because someone neede
 | | |
 |---|---|
 | [ROADMAP.md](ROADMAP.md) | Current state, known issues, planned work. |
+| [MAINTAINING.md](MAINTAINING.md) | Community workflow and future upstream replay. |
 | [VISION.md](VISION.md) | The long arc, scored honestly against what the tree does today. |
 | [REUSE_AUDIT.md](REUSE_AUDIT.md) | What to borrow from the N64 port ecosystem, what is already borrowed, and what is licence-quarantined. |
 | [PLAYER_API.md](PLAYER_API.md) | Design for the API bots, netplay and external AI all drive: one seam, several consumers. |

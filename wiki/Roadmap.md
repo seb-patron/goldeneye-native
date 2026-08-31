@@ -1,7 +1,7 @@
 # Roadmap
 
 The live list, with the measurements behind each item, is
-[`docs/ROADMAP.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/ROADMAP.md).
+[`docs/ROADMAP.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/ROADMAP.md).
 This page is the honest summary of where things stand.
 
 ## Working
