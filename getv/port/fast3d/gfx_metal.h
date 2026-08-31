@@ -21,6 +21,35 @@ static inline int gfx_metal_three_point_active(unsigned int filtering, int linea
     return filtering == 2 && linear_filter;
 }
 
+/* The shared depth-test toggle follows Fast3D/OpenGL's inclusive comparison: a fragment
+ * at the stored depth passes. Decal mode still controls Metal's depth bias, but must not
+ * change that comparison policy. Keep the mapping in plain C so it can be tested without
+ * a Metal device, window, ROM, or extracted assets. */
+enum GfxMetalDepthCompare {
+    GFX_METAL_DEPTH_COMPARE_ALWAYS,
+    GFX_METAL_DEPTH_COMPARE_LESS_EQUAL,
+};
+
+static inline enum GfxMetalDepthCompare gfx_metal_depth_compare(bool depth_test, bool zmode_decal)
+{
+    (void)zmode_decal;
+    return depth_test ? GFX_METAL_DEPTH_COMPARE_LESS_EQUAL : GFX_METAL_DEPTH_COMPARE_ALWAYS;
+}
+
+/* GoldenEye uses the RDP's translucent coverage-save ("cloud surface") Z mode for blob
+ * shadows that sit almost on the surface receiving them. Metal's float-depth rasterization
+ * otherwise rejects parts that OpenGL keeps, so give exactly that state a modest
+ * slope-aware offset. Ordinary translucent draws stay untouched; decals retain their
+ * existing, smaller offset. */
+static inline float gfx_metal_depth_slope_bias(bool depth_test, bool depth_mask, bool zmode_decal,
+                                                bool zmode_cloud)
+{
+    if (zmode_decal) {
+        return -2.0f;
+    }
+    return depth_test && !depth_mask && zmode_cloud ? -8.0f : 0.0f;
+}
+
 /* Shared byte layout for the CPU buffer and generated MSL DrawUniforms. Metal aligns a
  * float2 to eight bytes and therefore rounds the whole structure to eight as well; the
  * explicit final word keeps sizeof() at 32 instead of relying on compiler tail padding. */

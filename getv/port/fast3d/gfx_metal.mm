@@ -177,6 +177,7 @@ static size_t mtl_vbo_offset;
 static id<MTLDepthStencilState> mtl_depth_states[2][2][2];
 
 static bool cur_depth_test = false, cur_depth_mask = true, cur_zmode_decal = false;
+static bool cur_zmode_cloud = false;
 
 static bool gfx_metal_z_is_from_0_to_1(void) {
     /* Metal's NDC z range is [0,1], unlike GL's [-1,1] -- this is the one place that
@@ -856,11 +857,9 @@ static void gfx_metal_apply_depth_state(void) {
     if (force_no_depth < 0) { const char *e = getenv("GETV_NODEPTH"); force_no_depth = (e && *e == '1'); }
     if (force_no_depth) { [mtl_encoder setDepthStencilState:mtl_depth_states[0][0][0]]; return; }
     [mtl_encoder setDepthStencilState:mtl_depth_states[cur_depth_test][cur_depth_mask][cur_zmode_decal]];
-    if (cur_zmode_decal) {
-        [mtl_encoder setDepthBias:-2.0f slopeScale:-2.0f clamp:0.0f];
-    } else {
-        [mtl_encoder setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
-    }
+    float slope_bias = gfx_metal_depth_slope_bias(cur_depth_test, cur_depth_mask, cur_zmode_decal,
+                                                   cur_zmode_cloud);
+    [mtl_encoder setDepthBias:(cur_zmode_decal ? -2.0f : 0.0f) slopeScale:slope_bias clamp:0.0f];
 }
 
 static void gfx_metal_set_depth_test(bool depth_test) {
@@ -873,6 +872,10 @@ static void gfx_metal_set_depth_mask(bool z_upd) {
 }
 static void gfx_metal_set_zmode_decal(bool zmode_decal) {
     cur_zmode_decal = zmode_decal;
+    gfx_metal_apply_depth_state();
+}
+static void gfx_metal_set_zmode_cloud(bool zmode_cloud) {
+    cur_zmode_cloud = zmode_cloud;
     gfx_metal_apply_depth_state();
 }
 
@@ -955,8 +958,10 @@ static void gfx_metal_build_depth_states(void) {
             for (int decal = 0; decal < 2; decal++) {
                 MTLDepthStencilDescriptor *dd = [MTLDepthStencilDescriptor new];
                 dd.depthWriteEnabled = mask ? YES : NO;
-                dd.depthCompareFunction = !test ? MTLCompareFunctionAlways
-                                                 : (decal ? MTLCompareFunctionLessEqual : MTLCompareFunctionLess);
+                dd.depthCompareFunction =
+                    gfx_metal_depth_compare(test != 0, decal != 0) == GFX_METAL_DEPTH_COMPARE_LESS_EQUAL
+                        ? MTLCompareFunctionLessEqual
+                        : MTLCompareFunctionAlways;
                 mtl_depth_states[test][mask][decal] = [mtl_device newDepthStencilStateWithDescriptor:dd];
             }
         }
@@ -1222,7 +1227,7 @@ static void gfx_metal_begin_game_pass(MTLRenderPassDescriptor *pass, uint32_t w,
      * straddle the near plane -- room walls and animated characters, not the small,
      * stable gun/HUD geometry that kept rendering without it. */
     [mtl_encoder setDepthClipMode:MTLDepthClipModeClamp];
-    cur_depth_test = false; cur_depth_mask = true; cur_zmode_decal = false;
+    cur_depth_test = false; cur_depth_mask = true; cur_zmode_decal = false; cur_zmode_cloud = false;
     gfx_metal_apply_depth_state();
     mtl_render_target_w = w; mtl_render_target_h = h;
     gfx_metal_set_viewport(0, 0, (int)w, (int)h);
@@ -1572,6 +1577,7 @@ struct GfxRenderingAPI gfx_metal_api = {
     gfx_metal_set_depth_test,
     gfx_metal_set_depth_mask,
     gfx_metal_set_zmode_decal,
+    gfx_metal_set_zmode_cloud,
     gfx_metal_set_viewport,
     gfx_metal_set_scissor,
     gfx_metal_set_use_alpha,
