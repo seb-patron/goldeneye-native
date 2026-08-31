@@ -444,24 +444,44 @@ static void key_supersample(const char *v, int over)
 
 static void key_filtering(const char *v, int over)
 {
+ const char *mode;
+
     /* Two independent mechanisms exist and they do not mean the same thing:
      * configFiltering (port_support.c:107)  0=nearest 1=bilinear 2=three-point,
      * read by gfx_opengl.c:391 / gfx_pc.c:1966
      * GETV_POINT_FILTER (gfx_pc.c:1963) forces the literal N64 point-sample
      * We set both consistently so they cannot disagree. */
  if (strcmp(v, "point") == 0 || strcmp(v, "nearest") == 0 || strcmp(v, "n64") == 0) {
- configFiltering = 0;
- put("GETV_POINT_FILTER", "1", over);
+ mode = "0";
     } else if (strcmp(v, "bilinear") == 0 || strcmp(v, "linear") == 0) {
- configFiltering = 1;
- put("GETV_POINT_FILTER", "0", over);
+ mode = "1";
     } else if (strcmp(v, "three-point") == 0 || strcmp(v, "threepoint") == 0 ||
  strcmp(v, "3point") == 0 || strcmp(v, "default") == 0) {
- configFiltering = 2;   /* what the N64 RDP actually did */
- put("GETV_POINT_FILTER", "0", over);
+ mode = "2";   /* what the N64 RDP actually did */
     } else {
  ge_err("filtering=\"%s\" - expected point, bilinear or three-point%s", v, "");
+ return;
     }
+
+    /* Filtering is the one friendly key whose consumer is a global rather than a getenv()
+     * call. Put the numeric form into the same precedence mechanism as every other setting,
+     * then read back the value that actually won before updating that global. In particular,
+     * a file pass uses overwrite=0, so filtering=three-point must not displace a process that
+     * started with GETV_FILTERING=0. Publishing the value also lets the launcher see a choice
+     * that came from the file rather than falling back to its compiled-in default. */
+ put("GETV_FILTERING", mode, over);
+ {
+ const char *effective = getenv("GETV_FILTERING");
+ if (effective && *effective >= '0' && *effective <= '2' && effective[1] == '\0') {
+ configFiltering = (unsigned int)(*effective - '0');
+        } else {
+            /* An invalid raw environment value is ignored by port_support.c's constructor;
+             * keep the same fallback here rather than letting it suppress a valid friendly
+             * config line. */
+ configFiltering = (unsigned int)(*mode - '0');
+        }
+    }
+ put("GETV_POINT_FILTER", configFiltering == 0 ? "1" : "0", over);
 }
 
 /* ---- gamepad profile / bindings / deadzone / invert-look ------------------------
