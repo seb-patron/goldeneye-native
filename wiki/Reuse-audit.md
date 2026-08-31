@@ -3,7 +3,7 @@
 The N64 port ecosystem is generous and there is a lot of solved work in it. Some of it can be
 borrowed, some of it cannot, and the difference is licence rather than quality. The full audit
 is
-[`docs/REUSE_AUDIT.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/REUSE_AUDIT.md).
+[`docs/REUSE_AUDIT.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/REUSE_AUDIT.md).
 
 ## Quarantined: the 1964 and Mouse Injector lineage
 

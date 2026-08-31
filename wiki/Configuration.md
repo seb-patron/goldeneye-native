@@ -1,7 +1,7 @@
 # Configuration
 
 Every key, which are implemented and which are reserved, is in
-[`docs/CONFIGURATION.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/CONFIGURATION.md).
+[`docs/CONFIGURATION.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/CONFIGURATION.md).
 This page covers where the file lives, how precedence works, and the keys most people change.
 
 ## Where it lives

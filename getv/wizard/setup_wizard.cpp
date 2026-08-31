@@ -466,7 +466,7 @@ bool start_clone(Pipeline *p, const char *dest, std::string *err)
         return false;
     }
     const char *url = getenv("GETV_WIZARD_REPO_URL");
-    if (url == NULL || *url == '\0') url = "https://github.com/SegfaultEvan/goldeneye-native";
+    if (url == NULL || *url == '\0') url = "https://github.com/seb-patron/goldeneye-native";
 
     char cmd[MAX_PATH * 2 + 64];
     snprintf(cmd, sizeof cmd, "\"%s\" clone \"%s\" \"%s\"", git, url, dest);
@@ -949,7 +949,7 @@ int main(int argc, char **argv)
                 "Nothing on this computer has been damaged and nothing needs undoing. The log "
                 "below says what went wrong.\n\n"
                 "Press 'Copy the log', then paste it into a new issue at\n"
-                "github.com/SegfaultEvan/goldeneye-native/issues -- that is enough for someone "
+                "github.com/seb-patron/goldeneye-native/issues -- that is enough for someone "
                 "to tell you what to do next.");
             /* The two halves genuinely differ and saying so costs one line. Setup resumes: every
              * step checks for its own output first, so running it again continues. A half-done

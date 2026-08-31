@@ -1,8 +1,11 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Setup guide
-    url: https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/SETUP.md
+    url: https://github.com/seb-patron/goldeneye-native/blob/main/docs/SETUP.md
     about: Every prerequisite and every command, with a troubleshooting section covering the common failures.
   - name: Where the game data comes from
-    url: https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md
+    url: https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md
     about: Why no game data ships here, and what you have to supply yourself.
+  - name: Security vulnerability
+    url: https://github.com/seb-patron/goldeneye-native/security/policy
+    about: Report security problems privately instead of opening a public issue.

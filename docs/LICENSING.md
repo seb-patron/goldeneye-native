@@ -138,9 +138,10 @@ no longer tracked at all.
 
 ### 2.4 The repository is now published
 
-It is at `https://github.com/SegfaultEvan/goldeneye-native`, which is also what `origin` resolves
-to. The earlier mismatch between the configured remote and the intended release repository has
-been reconciled.
+The repository was originally published at `https://github.com/SegfaultEvan/goldeneye-native`.
+After that repository was deleted on August 29, 2026, its public history was preserved at
+`https://github.com/seb-patron/goldeneye-native`. A current clone's `origin` should resolve to the
+community continuation while the original repository remains unavailable.
 
 That changes the cost of everything above. While the history was local, rewriting it was cheap;
 now it is not. The history was therefore made clean *before* the first push rather than after, and

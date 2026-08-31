@@ -55,4 +55,4 @@ Related, and separate: `roster = 64` unlocks the full multiplayer character list
 because it is derived from the save rather than being a flag.
 
 Full detail is in
-[`docs/CHEATS.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/CHEATS.md).
+[`docs/CHEATS.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/CHEATS.md).

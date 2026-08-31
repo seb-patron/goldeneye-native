@@ -12,6 +12,14 @@
 > am happy to work alongside other contributors who are interested in reviewing, maintaining,
 > and continuing it. This is a community continuation, not an official handoff from the original
 > maintainer.
+>
+> Development continues on this fork. Reviewed fixes are merged into a stable, playable `main`
+> one at a time and recorded in the [`PATCH_QUEUE.md`](PATCH_QUEUE.md) so they can be offered back
+> individually if the original upstream returns. See the
+> [community maintenance workflow](docs/MAINTAINING.md) for the branch and replay process.
+>
+> Found a problem? [Open a guided bug report](https://github.com/seb-patron/goldeneye-native/issues/new/choose).
+> Community patches are welcome.
 
 **GoldenEye 007, compiled as a native application for macOS, Linux and Windows.** Mouse and
 keyboard. Real widescreen. Hundreds of frames a second with the game still running at the original 1997 animation speed
@@ -263,9 +271,11 @@ extension, or pass the path directly: `bash tools/install.sh --rom /path/to/rom.
 bash getv/port/tests/run_tests.sh
 ```
 
-**Reporting a problem.** Include your platform, the four build counts the installer printed, and
-the last twenty lines before it stopped. Never attach a ROM, a save, or anything extracted from
-one; issues containing game data get closed without being read.
+**Reporting a problem.** Use the
+[guided issue forms](https://github.com/seb-patron/goldeneye-native/issues/new/choose) and include
+your exact commit, platform, the four build counts the installer printed, and the first meaningful
+error. Never attach a ROM, a save, or anything extracted from one; issues containing game data get
+closed without being read.
 
 ## Controls
 
@@ -404,6 +414,8 @@ project uses on itself are all in `tools/`.
 | [`docs/NETPLAY.md`](docs/NETPLAY.md) | Network play, including what is broken and why. |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | Measurements. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | State, known issues, planned work. |
+| [`docs/MAINTAINING.md`](docs/MAINTAINING.md) | Community workflow and future upstream replay. |
+| [`PATCH_QUEUE.md`](PATCH_QUEUE.md) | One-by-one index of community fixes. |
 | [`docs/LICENSING.md`](docs/LICENSING.md) | Every third-party component and its licence. |
 
 ## Building from source
@@ -443,7 +455,9 @@ still linked.
 ## Contributing
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. The short version: say what you measured, run
-the self-test, and run `tools/check_patches.sh` if you touched anything in `getv/patches/`.
+the self-test, and run `tools/check_patches.sh` if you touched anything in `getv/patches/`. File
+one problem per [issue](https://github.com/seb-patron/goldeneye-native/issues/new/choose) and keep
+each pull request to one logical fix so it remains reviewable and independently replayable.
 
 Never attach a ROM, a save file or extracted game data to an issue or a pull request.
 

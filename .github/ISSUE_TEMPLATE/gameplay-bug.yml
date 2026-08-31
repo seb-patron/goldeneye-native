@@ -1,49 +1,102 @@
-name: Gameplay or rendering bug
-description: The game builds and runs, but something is wrong in it.
+name: Gameplay, configuration or rendering bug
+description: The game builds and runs, but its behavior or picture is wrong.
+title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Check the known issues in the [README](../blob/main/README.md) first. Several are listed
-        there, and a few things that look like bugs are faithful to the original.
+        Check the known limitations in the
+        [README](https://github.com/seb-patron/goldeneye-native/blob/main/README.md) and search
+        existing issues first. File one problem per report so a fix can remain small and
+        independently reviewable.
 
-        **If the problem is combat pacing, try `--framerate=30` before filing.** Enemy fire
-        rates, ammunition and AI stepping advance once per rendered frame, so at 60 they run
-        roughly twice as fast as the console did. 30 runs them at the intended cadence. That
-        is a known gap, not something to report again.
-
-        A stage that refuses to load and prints a reason is usually working as intended:
-        ten stage ids carry no data in the ROM, and six more are multiplayer-only and need
-        `GETV_MP=2`. The message says which.
-
-        **Do not attach a ROM or anything extracted from one.** Screenshots of the running game
-        are fine and are usually the fastest way to explain a rendering problem.
+        **Do not attach a ROM, `base.zip`, save file or anything extracted from one.** Screenshots
+        of the running game and short logs are useful and are allowed.
+  - type: input
+    id: commit
+    attributes:
+      label: Commit tested
+      description: Run `git rev-parse --short HEAD` in the repository.
+      placeholder: "7a77917"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Platform and hardware
+      description: Include OS version, architecture and GPU or device model when relevant.
+      placeholder: "macOS 26.4.1, arm64, Apple M5 Max"
+    validations:
+      required: true
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Renderer
+      options:
+        - OpenGL
+        - Metal
+        - OpenGL ES
+        - Not renderer-specific or unknown
+    validations:
+      required: true
   - type: input
     id: stage
     attributes:
-      label: Level
-      description: The name, and the `GETV_STAGE` value if you booted straight into it.
-      placeholder: "Cradle (GETV_STAGE=41)"
-    validations:
-      required: true
+      label: Level or screen
+      description: Give the name and `GETV_STAGE` value if one is involved.
+      placeholder: "Cuba credits (GETV_STAGE=54)"
   - type: textarea
-    id: what
+    id: settings
     attributes:
-      label: What happens, and what should happen instead
-    validations:
-      required: true
-  - type: textarea
-    id: repro
-    attributes:
-      label: How to reach it
-      description: Every step from launching the binary. Include any `GETV_*` variables you set.
+      label: Relevant settings
+      description: Include profile, player count, config, command-line options and `GETV_*` values.
       render: text
-    validations:
-      required: true
-  - type: input
-    id: hardware
+  - type: textarea
+    id: actual
     attributes:
-      label: macOS version and Mac model
+      label: What happened
     validations:
       required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead
+      description: Explain the reference behavior and why it is expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Exact reproduction steps
+      description: Start from launching the binary and include every input needed to reach the problem.
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - Every time
+        - Often
+        - Intermittent
+        - Happened once
+    validations:
+      required: true
+  - type: textarea
+    id: comparison
+    attributes:
+      label: Clean-main or renderer comparison
+      description: Say whether it reproduces on current `main`, after a clean build, or in another renderer.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs and screenshots
+      description: Add screenshots of the running game or a short log excerpt. Never upload game data.
+  - type: checkboxes
+    id: data_rules
+    attributes:
+      label: Game-data check
+      options:
+        - label: I have not attached a ROM, save, `base.zip` or extracted game data.
+          required: true

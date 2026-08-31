@@ -7,6 +7,26 @@ Read [`docs/SETUP.md`](docs/SETUP.md) first - a working build is a prerequisite 
 useful change, and its troubleshooting section covers the failures that look alarming but are
 expected.
 
+## Community continuation workflow
+
+This fork keeps a stable, playable `main` while the original `SegfaultEvan/goldeneye-native`
+repository is unavailable. File one problem per issue and submit one logical fix per pull request.
+Search the existing issues and pull requests first so two people do not unknowingly solve the same
+problem.
+
+Create fix branches from the latest `main`. Keep the source change and its focused test in one
+replayable commit when practical. Do not mix a second bug, opportunistic cleanup or community
+governance changes into that commit. Link the issue, give exact reproduction and validation
+evidence, and identify any fix that must land first.
+
+The canonical fix commit is recorded in [`PATCH_QUEUE.md`](PATCH_QUEUE.md). This allows the
+community `main` to keep improving while each patch remains available for a clean, one-at-a-time
+submission if the original upstream returns. Patch-queue bookkeeping is community-only; if it is
+updated in the same pull request, keep it in a separate commit from the code and test.
+
+Read [`docs/MAINTAINING.md`](docs/MAINTAINING.md) for the full branch, integration and future
+upstream-replay process.
+
 ## 1. Never commit game data
 
 This is the one rule with no exceptions.

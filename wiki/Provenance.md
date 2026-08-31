@@ -37,15 +37,15 @@ build came out of somebody's own cartridge dump.
 
 ## Per-directory origin
 
-[`getv/port/PROVENANCE.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/getv/port/PROVENANCE.md)
+[`getv/port/PROVENANCE.md`](https://github.com/seb-patron/goldeneye-native/blob/main/getv/port/PROVENANCE.md)
 records where every part of the platform layer came from, directory by directory. It is the file
 to read before copying anything out of this project into another one.
 
-[`docs/THIRD_PARTY.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/THIRD_PARTY.md)
+[`docs/THIRD_PARTY.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/THIRD_PARTY.md)
 covers the fifteen fetched files: what they are, where they come from, and why they are not
 vendored.
 
-[`docs/LICENSING.md`](https://github.com/SegfaultEvan/goldeneye-native/blob/main/docs/LICENSING.md)
+[`docs/LICENSING.md`](https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md)
 covers where every part came from and which terms are settled.
 
 ## Not affiliated

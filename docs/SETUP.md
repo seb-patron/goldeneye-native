@@ -178,7 +178,7 @@ There are three separate acquisitions. Only the first is this repository.
 ### 2.1 Clone this repository
 
 ```bash
-git clone https://github.com/SegfaultEvan/goldeneye-native.git
+git clone https://github.com/seb-patron/goldeneye-native.git
 cd goldeneye-native
 ```
 
