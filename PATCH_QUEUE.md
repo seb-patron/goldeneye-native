@@ -17,6 +17,7 @@ Historical original-upstream anchor:
 | Restore depth-tested Metal blob shadows | [#3](https://github.com/seb-patron/goldeneye-native/pull/3), merged | `6d39a867c249345aa51cb59c6fd847c1fc110e49` | three-point filtering (#1) | pending after #1 |
 | Honor `GETV_FILTERING` environment precedence | [#4](https://github.com/seb-patron/goldeneye-native/pull/4), merged | `6e60fac1293f6585c37d265f1e1f7d637f743b62` | none | pending |
 | Apply the config-file widescreen setting | [#5](https://github.com/seb-patron/goldeneye-native/pull/5), merged | `8b11f0b35b33668f4206438f0bc1a910903e9047` | filtering precedence (#4) | pending after #4 |
+| Add opt-in fatal-explosion gibs | [#7](https://github.com/seb-patron/goldeneye-native/pull/7), open | `ce9031bf4f7a7189c85193c5dad5b0a876d0af78` | filtering precedence (#4), widescreen config (#5) | pending after #4 and #5 |
 
 ## Replay audit
 
@@ -26,7 +27,9 @@ historical upstream anchor `47fe1a1`:
 - three-point filtering (#1) applied cleanly by itself;
 - blob shadows (#3) conflicted in `gfx_metal.h` by itself, then applied cleanly after #1;
 - filtering precedence (#4) applied cleanly by itself;
-- widescreen config (#5) applied cleanly after #4; and
+- widescreen config (#5) applied cleanly after #4;
+- explosion gibs (#7) conflicted in `test_config.c` by itself, then applied cleanly after #4 and
+  #5; and
 - the full order #1, #3, #4, #5 applied without conflicts.
 
 This proves that the recorded queue can be reconstructed from the last known upstream commit. It
