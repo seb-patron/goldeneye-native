@@ -66,6 +66,7 @@ int ge_config_controls = -1;
  * drags in the Fast3D config surface, and this is all we touch. It is defined in
  * port/src/port_support.c; this file only assigns to it. */
 extern unsigned int configFiltering;   /* 0 = nearest, 1 = bilinear, 2 = three-point */
+extern unsigned int configWidescreen;  /* 0 = retail 4:3 pillarbox, 1 = fill real window */
 
 /* Rare's own leftover position readout. src/game/debugmenu_handler.c:1018 - a
  * three-line exported setter for `g_DebugManPos` (a plain s32 in BSS at :266),
@@ -484,6 +485,35 @@ static void key_filtering(const char *v, int over)
  put("GETV_POINT_FILTER", configFiltering == 0 ? "1" : "0", over);
 }
 
+static void key_widescreen(const char *v, int over)
+{
+ const char *mode;
+
+ if (is_true(v))       { mode = "1"; }
+ else if (is_false(v)) { mode = "0"; }
+ else {
+ ge_err("widescreen=%s - expected 0 or 1%s", v, "");
+ return;
+    }
+
+    /* Like filtering above, widescreen is consumed through a global that its constructor
+     * resolves before main(). A config file is read later, so setting only the environment
+     * left configWidescreen at its compiled-in default. Read back the winning value after
+     * put(): overwrite=0 preserves a higher-priority environment value, while overwrite=1
+     * lets the command line replace it. */
+ put("GETV_WIDESCREEN", mode, over);
+ {
+ const char *effective = getenv("GETV_WIDESCREEN");
+ if (effective && *effective >= '0' && *effective <= '1' && effective[1] == '\0') {
+ configWidescreen = (unsigned int)(*effective - '0');
+        } else {
+            /* Match port_support.c's constructor: ignore an invalid raw environment value
+             * and keep the valid friendly setting. */
+ configWidescreen = (unsigned int)(*mode - '0');
+        }
+    }
+}
+
 /* ---- gamepad profile / bindings / deadzone / invert-look ------------------------
  *
  * These nine keys are this file's own names for gates that already exist:
@@ -886,7 +916,7 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "supersample") == 0) { key_supersample(val, over); return 1; }
  if (strcmp(key, "controls") == 0)    { key_controls(val, over); return 1; }
  if (strcmp(key, "filtering") == 0)   { key_filtering(val, over); return 1; }
- if (strcmp(key, "widescreen") == 0)  { key_bool_gate("GETV_WIDESCREEN", key, val, over); return 1; }
+ if (strcmp(key, "widescreen") == 0)  { key_widescreen(val, over); return 1; }
  /* hd_textures: off by default (configHDTextures, port_support.c) -- unlike widescreen and
   * filtering above, this path has had no compiler available to verify it against. texpack
   * is a bare directory path, same pass-through shape as moddir below. */
