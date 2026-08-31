@@ -128,6 +128,7 @@ to the issue. The same one-fix, measured-evidence and provenance rules apply.
 - Require one bug per issue and one logical fix per pull request.
 - Confirm failures against current `main` before attributing them to a patch.
 - Preserve the canonical fix commit and record dependencies in `PATCH_QUEUE.md`.
+- Replay queued commits in a disposable clone before describing them as independent.
 - Keep ROMs, saves and extracted game data out of Git, issues and pull requests.
 - Do not rewrite published history or detach this repository from its fork network casually.
 - If more maintainers join, use review and branch protection rather than sharing credentials.

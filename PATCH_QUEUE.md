@@ -14,9 +14,24 @@ Historical original-upstream anchor:
 |---|---|---|---|---|
 | Metal three-point texture filtering | [#1](https://github.com/seb-patron/goldeneye-native/pull/1), merged | `f7c0f44de68bb4f7fdc4ea6ea95359f3cb3003e4` | none | pending |
 | Explain upstream deletion and maintenance status | [#2](https://github.com/seb-patron/goldeneye-native/pull/2), merged | `6df8186385f30243a78cc46342ea9cf1d9bb257d` | none | community-only |
-| Restore depth-tested Metal blob shadows | [#3](https://github.com/seb-patron/goldeneye-native/pull/3), open | `6d39a867c249345aa51cb59c6fd847c1fc110e49` | none | pending after community review |
+| Restore depth-tested Metal blob shadows | [#3](https://github.com/seb-patron/goldeneye-native/pull/3), open | `6d39a867c249345aa51cb59c6fd847c1fc110e49` | three-point filtering (#1) | pending after #1 and community review |
 | Honor `GETV_FILTERING` environment precedence | [#4](https://github.com/seb-patron/goldeneye-native/pull/4), open | `6e60fac1293f6585c37d265f1e1f7d637f743b62` | none | pending after community review |
 | Apply the config-file widescreen setting | [#5](https://github.com/seb-patron/goldeneye-native/pull/5), open and stacked | `8b11f0b35b33668f4206438f0bc1a910903e9047` | filtering precedence (#4) | pending after #4 |
+
+## Replay audit
+
+On August 31, 2026, the recorded commits were cherry-picked in disposable clones starting at the
+historical upstream anchor `47fe1a1`:
+
+- three-point filtering (#1) applied cleanly by itself;
+- blob shadows (#3) conflicted in `gfx_metal.h` by itself, then applied cleanly after #1;
+- filtering precedence (#4) applied cleanly by itself;
+- widescreen config (#5) applied cleanly after #4; and
+- the full order #1, #3, #4, #5 applied without conflicts.
+
+This proves that the recorded queue can be reconstructed from the last known upstream commit. It
+does not guarantee a conflict-free cherry-pick onto future upstream changes, so repeat the audit
+against the restored repository's current `main` before opening each submission.
 
 ## Updating the queue
 
