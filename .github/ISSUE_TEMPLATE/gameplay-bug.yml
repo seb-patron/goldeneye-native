@@ -11,8 +11,9 @@ body:
         existing issues first. File one problem per report so a fix can remain small and
         independently reviewable.
 
-        **Do not attach a ROM, `base.zip`, save file or anything extracted from one.** Screenshots
-        of the running game and short logs are useful and are allowed.
+        **Never include a ROM, ever.** Do not attach, paste, encode, archive or link to one. Do not
+        attach `base.zip`, a save file or anything extracted from game data. Screenshots of the
+        running game and sanitized logs are useful and are allowed.
   - type: input
     id: commit
     attributes:
@@ -92,11 +93,16 @@ body:
     id: evidence
     attributes:
       label: Logs and screenshots
-      description: Add screenshots of the running game or a short log excerpt. Never upload game data.
+      description: Add screenshots of the running game or sanitized log evidence. Never upload game data or personal paths.
+  - type: textarea
+    id: assistance
+    attributes:
+      label: Report preparation
+      description: Optionally name any agent or automated harness that helped prepare the report. Do not paste private reasoning or transcripts.
   - type: checkboxes
     id: data_rules
     attributes:
       label: Game-data check
       options:
-        - label: I have not attached a ROM, save, `base.zip` or extracted game data.
+        - label: I have not included, attached, pasted, encoded, archived or linked to a ROM, save, `base.zip` or extracted game data.
           required: true

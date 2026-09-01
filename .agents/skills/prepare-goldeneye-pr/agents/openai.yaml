@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare a GoldenEye PR"
+  short_description: "Build measured, reviewable GoldenEye pull requests"
+  default_prompt: "Use $prepare-goldeneye-pr to prepare a focused GoldenEye-Native pull request with complete evidence."
