@@ -15,6 +15,7 @@ Start with [`SETUP.md`](SETUP.md). Everything else is here because someone neede
 | | |
 |---|---|
 | [MODDING.md](MODDING.md) | How the tree is arranged and where the seams are. |
+| [GIBS.md](GIBS.md) | The opt-in explosion-gib implementation and a staged path to dismemberment and persistent pieces. |
 | [FRAME_TIMING.md](FRAME_TIMING.md) | Why frame rate is not a simple slider in this game, and what a real fix needs. |
 | [STANCE.md](STANCE.md) | Crouch, and the case for jump and lean; guard weapons as a cheat. |
 

@@ -292,6 +292,23 @@ static void key_crosshair_color(const char *v, int over)
     put("GETV_CROSSHAIR_COLOR", v, over);
 }
 
+static void key_gibs(const char *v, int over)
+{
+    if (is_false(v)) {
+        put("GETV_GIBS", "off", over);
+    } else if (is_true(v) || strcmp(v, "explosion") == 0 ||
+               strcmp(v, "explosions") == 0) {
+        put("GETV_GIBS", "explosions", over);
+    } else if (strcmp(v, "high_damage") == 0 || strcmp(v, "high-damage") == 0 ||
+               strcmp(v, "highdamage") == 0) {
+        put("GETV_GIBS", "high_damage", over);
+    } else if (strcmp(v, "always") == 0) {
+        put("GETV_GIBS", "always", over);
+    } else {
+        ge_err("gibs=\"%s\" - expected off|explosions|high_damage|always%s", v, "");
+    }
+}
+
 /* Mirrors port_support.c's own clamp exactly, same reasoning as key_crosshair_color above:
  * a value this layer accepts has to be one that layer will actually use. Silently taking a
  * number and then ignoring it is the failure this whole file is written against. */
@@ -1068,6 +1085,7 @@ static int apply(const char *key_in, const char *val, int over)
  if (strcmp(key, "realclock") == 0 || strcmp(key, "real_clock") == 0) {
  key_bool_gate("GETV_REALCLOCK", key, val, over); return 1;
     }
+ if (strcmp(key, "gibs") == 0) { key_gibs(val, over); return 1; }
 
     /* ---- Rare's own left-in developer features ------------------------------ */
 
@@ -1284,6 +1302,7 @@ static void usage(void)
 "deadzone=0..40 stick deadzone, percent, clamped to range          [20]\n"
 "invert_look=0|1 forces look inversion; UNSET = save file decides   [unset]\n"
 "fullscreen=0|1 audio=0|1 unlock_all=0|1 save_dir=PATH\n"
+"gibs=off|explosions|high_damage|always controls which deaths produce physics chunks [off]\n"
 "cheats=a,b,c GE's OWN named cheat flags (NOT GameShark addresses)\n"
 "roster=8|64 multiplayer character count\n"
 "debug_position=0|1 Rare's room + XYZ + heading readout\n"
@@ -1382,6 +1401,7 @@ static const char *DEFAULT_CFG =
 "\n"
 "# --- misc ------------------------------------------------------------------\n"
 "audio       = 1\n"
+"# gibs       = explosions # off | explosions | high_damage | always. Default: off.\n"
 "# unlock_all = 1          # show every mission on the file-select screen\n"
 "# save_dir   = /path/to/saves\n"
 "\n"

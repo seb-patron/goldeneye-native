@@ -597,6 +597,27 @@ stable before the features land.
 
 Integer keys are clamped to their range rather than rejected.
 
+## Enemy gibs
+
+`gibs = off | explosions | high_damage | always`, default `off`.
+
+| Value | Qualifying deaths |
+|---|---|
+| `off` | None; retail behavior. |
+| `explosions` | Area explosions and direct rocket impacts. |
+| `high_damage` | A final hit dealing at least `4.0` internal damage units. |
+| `always` | Every observed non-player character death, including scripted deaths. |
+
+Every enabled policy uses the same effect: twelve solid chunks launch from the character, collide
+with level floors and walls, bounce up to three times, settle for about ten seconds, then fade.
+The original death record still handles scoring, AI notification, dropped items, objectives and
+cleanup. Players remain unaffected.
+
+`on`, `true`, `yes`, `1` and `explosion` are aliases for `explosions`. The setting maps to the same
+canonical names in `GETV_GIBS`. Unknown values fail closed to `off`. `PROP_TYPE_CHR` also covers
+some friendly and civilian mission actors, so `always` truly means all NPC actors rather than
+hostiles only. See [GIBS.md](GIBS.md) for implementation boundaries, tests and expansion guidance.
+
 ## Raw gates
 
 Any of the port's development gates can be set by its real name, in the file or on the command

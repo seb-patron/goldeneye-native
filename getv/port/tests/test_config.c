@@ -89,6 +89,7 @@ static void reset(void)
     unsetenv("GETV_SUPERSAMPLE");
     unsetenv("GETV_FILTERING");
     unsetenv("GETV_POINT_FILTER");
+    unsetenv("GETV_GIBS");
     configFiltering = 2;
     configWidescreen = 1;
     g_errors = 0;
@@ -241,6 +242,32 @@ int main(void)
     reset();
     check("supersample=3 refused",        set("supersample", "3"), 1);
     check("supersample=3 counts an error", g_errors, 1);
+
+    /* Gibbing is opt-in. Named policies describe which killing events qualify while every
+     * enabled policy uses the same effect implementation. */
+    reset();
+    check("gibs=explosions accepted", set("gibs", "explosions"), 1);
+    check("gibs=explosions no error", g_errors, 0);
+    check_env("gibs explosion policy normalized", "GETV_GIBS", "explosions");
+
+    reset();
+    check("gibs=high_damage accepted", set("gibs", "high_damage"), 1);
+    check("gibs=high_damage no error", g_errors, 0);
+    check_env("gibs high damage policy normalized", "GETV_GIBS", "high_damage");
+
+    reset();
+    check("gibs=always accepted", set("gibs", "always"), 1);
+    check("gibs=always no error", g_errors, 0);
+    check_env("gibs always policy normalized", "GETV_GIBS", "always");
+
+    reset();
+    check("gibs=off accepted", set("gibs", "off"), 1);
+    check_env("gibs off normalized", "GETV_GIBS", "off");
+
+    reset();
+    check("unknown gib policy refused", set("gibs", "sometimes"), 1);
+    check("unknown gib policy counts an error", g_errors, 1);
+    check_env("unknown gib policy sets nothing", "GETV_GIBS", NULL);
 
     /* Filtering has one consumer that cannot use getenv(): configFiltering is read directly
      * by Fast3D. The shell environment is therefore loaded into that global by a constructor

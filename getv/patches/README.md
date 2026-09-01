@@ -29,6 +29,7 @@ Split by *when* they can be applied rather than by subject.
 | `0020-kill-selftest.patch` | 1 file | `src/game/bondview2.c` | after `0001` |
 | `0021-stan-pointer-return-decls.patch` | 1 file | `src/game/stan.c` | after `0001` |
 | `0022-lockstep-stop-shuffling-every-frame.patch` | 1 file | `src/game/player.c` | after `0001` |
+| `0023-enemy-gibs.patch` | 5 files | `src/game/chr.c`, `chraction.c`, `explosion.c`, `explosion.h`, `propobj.c` | after `0022` |
 
 ## The gap at 0003, 0004 and 0005 is deliberate
 
@@ -110,6 +111,14 @@ git apply ../../getv/patches/0012-real-font-overlay.patch
 git apply ../../getv/patches/0013-lockstep-pinned-sim-step.patch
 git apply ../../getv/patches/0014-lockstep-cull-on-the-tick.patch
 git apply ../../getv/patches/0015-aim-toggle.patch
+git apply ../../getv/patches/0016-freecam.patch
+git apply ../../getv/patches/0017-coop-friendly-fire.patch
+git apply ../../getv/patches/0018-coop-one-death-is-not-the-team.patch
+git apply ../../getv/patches/0019-coop-respawn.patch
+git apply ../../getv/patches/0020-kill-selftest.patch
+git apply ../../getv/patches/0021-stan-pointer-return-decls.patch
+git apply ../../getv/patches/0022-lockstep-stop-shuffling-every-frame.patch
+git apply ../../getv/patches/0023-enemy-gibs.patch
 # ... run the asset pipeline (docs/SETUP.md 3.5) and the namespacing pass (3.6) ...
 git apply ../../getv/patches/0002-assets.patch
 ```
