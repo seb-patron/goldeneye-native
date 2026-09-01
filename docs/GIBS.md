@@ -40,10 +40,12 @@ recommended next steps below.
 | `GETV_GIBS_SELFTEST` | Drives one real explosion death and reports the model alpha and active gib count for integration tests. |
 
 No new game asset is required. Each chunk is an irregular quad using the existing flying-particle
-material with dark-red vertex colors. The pool is already capped at 200 entries, so a burst can
-replace old cosmetic debris but cannot grow memory use. Gib creation and retirement use no calls
-to the gameplay random generator; turning the effect on therefore does not shift later AI or
-gameplay random choices.
+material with opaque red vertex colors. The chunks are deliberately larger and inherit a strong
+outward blast impulse so they clear the standard rocket explosion's long-lived flare cloud; their
+four-second lifetime leaves a visible tail after the blast. The pool is already capped at 200
+entries, so a burst can replace old cosmetic debris but cannot grow memory use. Gib creation and
+retirement use no calls to the gameplay random generator; turning the effect on therefore does
+not shift later AI or gameplay random choices.
 
 The intact character is hidden with `fadealpha`, not destroyed. A small port-side registry keeps
 that alpha at zero through the stock corpse timer, then forgets the pointer when normal cleanup

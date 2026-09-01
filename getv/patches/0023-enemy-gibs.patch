@@ -223,10 +223,10 @@
 +}
 +
 +#ifdef GE_PORT_NATIVE
-+/* The first gib pass deliberately reuses the engine's short-lived shrapnel pool. It gives the
-+ * effect rotation, gravity, a fixed memory ceiling and both renderers for free, while the marker
-+ * in unk34 keeps its state distinguishable for the headless integration check. See docs/GIBS.md
-+ * for the boundary where persistent colliding body parts should become their own prop type. */
++/* The first gib pass deliberately reuses the engine's short-lived shrapnel pool. Chunks are
++ * large, opaque and fast enough to escape a rocket's flare cloud, while the marker in unk34
++ * keeps them distinguishable for the headless integration check. See docs/GIBS.md for the
++ * boundary where persistent colliding body parts should become their own prop type. */
 +void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, s32 count, u32 seed)
 +{
 +    s32 i;
@@ -245,7 +245,7 @@
 +        f32 rx = geGibRandUnit(&seed) * 2.0f - 1.0f;
 +        f32 ry = geGibRandUnit(&seed);
 +        f32 rz = geGibRandUnit(&seed) * 2.0f - 1.0f;
-+        f32 size = 9.0f + geGibRandUnit(&seed) * 7.0f;
++        f32 size = 16.0f + geGibRandUnit(&seed) * 10.0f;
 +        s16 texs = (s16)((geGibRand(&seed) & 3U) << 8);
 +        s16 text = (s16)((geGibRand(&seed) & 3U) << 8);
 +        s32 v;
@@ -256,9 +256,9 @@
 +        particle->position.f[1] = spawnpos->f[1] + ry * 55.0f;
 +        particle->position.f[2] = spawnpos->f[2] + rz * 28.0f;
 +
-+        particle->position_drift.f[0] = rx * 2.8f + blastvel->f[0] * 0.35f;
-+        particle->position_drift.f[1] = 5.5f + ry * 5.5f + blastvel->f[1] * 0.20f;
-+        particle->position_drift.f[2] = rz * 2.8f + blastvel->f[2] * 0.35f;
++        particle->position_drift.f[0] = rx * 5.5f + blastvel->f[0] * 0.80f;
++        particle->position_drift.f[1] = 8.0f + ry * 7.0f + blastvel->f[1] * 0.35f;
++        particle->position_drift.f[2] = rz * 5.5f + blastvel->f[2] * 0.80f;
 +
 +        particle->vertex_list[0].v.ob[0] = (s16)size;
 +        particle->vertex_list[0].v.ob[1] = 0;
@@ -284,10 +284,10 @@
 +
 +        for (v = 0; v < 4; v++) {
 +            u8 shade = (u8)(geGibRand(&seed) & 0x1fU);
-+            particle->vertex_list[v].v.cn[0] = (u8)(0x70 + shade);
-+            particle->vertex_list[v].v.cn[1] = (u8)(shade >> 2);
-+            particle->vertex_list[v].v.cn[2] = (u8)(shade >> 3);
-+            particle->vertex_list[v].v.cn[3] = 0xdc;
++            particle->vertex_list[v].v.cn[0] = (u8)(0xa0 + shade);
++            particle->vertex_list[v].v.cn[1] = (u8)(0x10 + (shade >> 1));
++            particle->vertex_list[v].v.cn[2] = (u8)(0x08 + (shade >> 2));
++            particle->vertex_list[v].v.cn[3] = 0xff;
 +        }
 +
 +        particle->rotation.f[0] = geGibRandUnit(&seed) * M_TAU_F;
@@ -332,7 +332,7 @@
 +            if (g_FlyingParticlesBuffer[i].unk00 >= 0x65
 +#ifdef GE_PORT_NATIVE
 +                && ((g_FlyingParticlesBuffer[i].unk34 == GE_FLYING_PARTICLE_GIB
-+                     && g_FlyingParticlesBuffer[i].unk00 >= 0x96)
++                     && g_FlyingParticlesBuffer[i].unk00 >= 0xf0)
 +                    || (g_FlyingParticlesBuffer[i].unk34 != GE_FLYING_PARTICLE_GIB
 +                        && (!(randomGetNext() & 0x1F)
 +                            || g_FlyingParticlesBuffer[i].unk00 == 0x12C)))
