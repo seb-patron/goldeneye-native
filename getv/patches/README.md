@@ -17,7 +17,7 @@ Split by *when* they can be applied rather than by subject.
 | `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c`, colour and scale | after `0001` |
 | `0009-freerun-divider.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
 | `0010-state-dump-player-position.patch` | 1 file | `src/game/objective_status.c` | after `0001` |
-| `0011-netplay-tick-integration.patch` | 2 KB, 2 files | `src/boss.c`, `src/ge_port_decls.h` | after `0001` |
+| `0011-netplay-tick-integration.patch` | 2 files | `src/boss.c`, `src/ge_port_decls.h`; native netplay gate and developer-command game-thread hook | after `0001` |
 | `0012-real-font-overlay.patch` | 1 file | `src/game/textrelated.c` | after `0001` |
 | `0013-lockstep-pinned-sim-step.patch` | 1 file | `src/game/frametiming.c` | after `0001` |
 | `0014-lockstep-cull-on-the-tick.patch` | 1 file | `src/game/lv.c` | after `0001` |

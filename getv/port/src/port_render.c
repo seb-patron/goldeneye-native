@@ -114,15 +114,24 @@ static void geSkyDump(void *firstGdl, int frame)
 /* Set once the GL context and Fast3D are up; the harness calls gfx_init() before it
  * enters the game's boot path, but a display list arriving before that would be fatal. */
 static int ge_render_ready = 0;
+/* Number of frames that have completed presentation.  Before a tick builds its display list this
+ * is also the zero-based index of the frame that tick is about to affect.  The console records
+ * that value at its game-thread pump rather than sampling a renderer-backend counter. */
+static unsigned long ge_rendered_frames = 0;
 
 void gePortRenderReady(void)
 {
     ge_render_ready = 1;
 }
 
+unsigned long gePortRenderedFrame(void)
+{
+    return ge_rendered_frames;
+}
+
 void gePortRenderDisplayList(void *firstGdl)
 {
-    static int rendered = 0;
+    int rendered = (int)ge_rendered_frames;
 
     if (!ge_render_ready || firstGdl == NULL) {
         return;
@@ -211,7 +220,8 @@ void gePortRenderDisplayList(void *firstGdl)
         }
         geGpuTimerFrameEnd();
     }
-    rendered++;
+    ge_rendered_frames++;
+    rendered = (int)ge_rendered_frames;
 
     /* ---- GETV_PACETRACE=1: the two frame deltas, side by side, per frame -----------
      *
