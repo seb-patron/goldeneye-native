@@ -12,6 +12,10 @@
 #ifndef GE_PORT_INPUT_H
 #define GE_PORT_INPUT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The N64 has four controller ports and the game's MAXCONTROLLERS is 4. Multiplayer
  * needs all four; solo only ever reads port 0. */
 #define GE_PORT_MAX_PADS 4
@@ -105,5 +109,13 @@ int gePortPadProfile(int port);
 /* The printable label for a positional glyph under `port`'s profile -- e.g.
  * GE_GLYPH_SOUTH is "A" on Xbox, "Cross" on PlayStation, "B" on Switch. Never NULL. */
 const char *gePortPadGlyph(int port, int glyph);
+
+/* The developer console releases relative mouse mode while it owns keyboard/mouse input and
+ * restores the player's prior capture intent when it closes. */
+void gePortInputConsoleCapture(int capture);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GE_PORT_INPUT_H */

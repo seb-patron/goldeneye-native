@@ -90,6 +90,8 @@ static void reset(void)
     unsetenv("GETV_FILTERING");
     unsetenv("GETV_POINT_FILTER");
     unsetenv("GETV_GIBS");
+    unsetenv("GETV_IMGUI");
+    unsetenv("GETV_CONSOLE_KEY");
     configFiltering = 2;
     configWidescreen = 1;
     g_errors = 0;
@@ -103,6 +105,12 @@ static int set(const char *key, const char *val) { return apply(key, val, 1); }
 int main(void)
 {
     printf("test_config\n");
+
+    reset();
+    check("developer_tools accepted", set("developer_tools", "1"), 1);
+    check_env("developer_tools enables ImGui", "GETV_IMGUI", "1");
+    check("console_key accepted", set("console_key", "F10"), 1);
+    check_env("console_key reaches SDL UI", "GETV_CONSOLE_KEY", "F10");
 
     /* ---- framerate: the key that keeps going wrong ---------------------------------- */
 
