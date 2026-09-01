@@ -1,34 +1,96 @@
+diff --git a/src/game/chr.c b/src/game/chr.c
+index b2fe88a..622cb1e 100644
 --- a/src/game/chr.c
 +++ b/src/game/chr.c
-@@ -41,6 +41,8 @@
+@@ -41,6 +41,14 @@
   * ============================================================================ */
  #ifdef GE_PORT_NATIVE
  extern char *getenv(const char *);
 +extern void gePortGibsForgetCharacter(const void *character);
-+extern void gePortGibExplosionDeath(ChrRecord *character);
- 
++extern s32 gePortGibsMode(void);
++extern s32 gePortGibsShouldSpawn(s32 cause, s32 newly_dead, f32 hit_damage);
++extern void gePortGibsRecordHit(const void *character, s32 cause, f32 damage,
++                                f32 impulse_x, f32 impulse_y, f32 impulse_z);
++extern s32 gePortGibsGetLastHit(const void *character, s32 *cause, f32 *damage,
++                                f32 *impulse_x, f32 *impulse_y, f32 *impulse_z);
++extern void gePortGibCharacterDeath(ChrRecord *character, coord3d *impulse);
+
  s32 g_geChrDbgAlloc;      /* chrAllocate returned non-NULL                  */
  s32 g_geChrDbgAllocFail;  /* chrpropAllocate/init returned NULL             */
-@@ -1842,6 +1844,11 @@
- 
+@@ -1843,6 +1851,11 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
      setsuboffset(arg1, arg2);
      setsubroty(arg1, arg3);
-+
+
 +#ifdef GE_PORT_NATIVE
 +    /* Slots are recycled. A previous occupant may have been gibbed and removed. */
 +    gePortGibsForgetCharacter(var_s0);
 +#endif
- 
++
      #if defined(VERSION_EU)
      modelSetAnimPlaySpeed(arg1, animation_rate * 1.2f, 0.0f);
-@@ -4611,6 +4618,52 @@
+     #else
+@@ -4603,6 +4616,9 @@ s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct co
+ #define GE_HORDE_MARKS 512
+
+ static unsigned char ge_horde_dead_mark[GE_HORDE_MARKS];
++#ifdef GE_PORT_NATIVE
++static unsigned char ge_gib_dead_mark[GE_HORDE_MARKS];
++#endif
+ static s32 ge_horde_kills;
+ static s32 ge_horde_wave;
+ static s32 ge_horde_alive;      /* guards spawned by this system that are still up */
+@@ -4611,6 +4627,101 @@ static s32 ge_horde_spawned;    /* lifetime total, for the summary line */
  s32 gePortHordeKills(void) { return ge_horde_kills; }
  s32 gePortHordeWave(void)  { return ge_horde_wave;  }
- 
+
 +#ifdef GE_PORT_NATIVE
++/* Death causes can be delayed by ACT_PREARGH and scripted deaths have no weapon call site at
++ * all. Observe each slot once after propsTick, when actiontype is authoritative, and combine it
++ * with the most recent hit context recorded at the real damage path. */
++static void gePortGibsDeathTick(void)
++{
++    s32 i;
++
++    if (gePortGibsMode() == 0) {
++        return;
++    }
++
++    for (i = 0; i < g_NumChrSlots && i < GE_HORDE_MARKS; i++) {
++        ChrRecord *chr = &g_ChrSlots[i];
++        s32 dying;
++
++        if (chr->model == NULL || chr->prop == NULL || chr->prop->type != PROP_TYPE_CHR) {
++            ge_gib_dead_mark[i] = 0;
++            continue;
++        }
++
++        dying = chr->actiontype == ACT_DIE || chr->actiontype == ACT_DEAD;
++        if (!dying) {
++            ge_gib_dead_mark[i] = 0;
++            continue;
++        }
++        if (ge_gib_dead_mark[i]) {
++            continue;
++        }
++        ge_gib_dead_mark[i] = 1;
++
++        {
++            s32 cause = 0;
++            f32 damage = 0.0f;
++            coord3d impulse = chr->fallspeed;
++
++            gePortGibsGetLastHit(chr, &cause, &damage,
++                                 &impulse.f[0], &impulse.f[1], &impulse.f[2]);
++            if (gePortGibsShouldSpawn(cause, 1, damage)) {
++                gePortGibCharacterDeath(chr, &impulse);
++            }
++        }
++    }
++}
++
 +/* A fatal explosion is awkward to aim at a guard reproducibly in a headless run. This gate
 + * drives the real explosion-death function against the first eligible guard once, then reports
-+ * both halves of the visible contract: the intact model is transparent and eight marked chunks
++ * both halves of the visible contract: the intact model is transparent and twelve marked chunks
 + * entered the renderer's bounded particle pool. It is inert unless explicitly requested. */
 +static void gePortGibsSelftestTick(void)
 +{
@@ -57,7 +119,12 @@
 +                source.f[0] -= 1.0f;
 +                killed = chrlvExplosionDamage(chr, &source, 4.0f, 0);
 +                if (killed) {
-+                    gePortGibExplosionDeath(chr);
++                    gePortGibsRecordHit(chr, 1, 4.0f,
++                                        chr->fallspeed.f[0], chr->fallspeed.f[1],
++                                        chr->fallspeed.f[2]);
++                    if (gePortGibsShouldSpawn(1, 1, 4.0f)) {
++                        gePortGibCharacterDeath(chr, &chr->fallspeed);
++                    }
 +                }
 +                printf("[getv][gibs] selftest: slot %d killed=%d alpha=%u chunks=%d\n",
 +                       i, killed, (u32)chr->fadealpha, explosionCountGibParticles());
@@ -74,20 +141,23 @@
  void gePortHordeTick(void)
  {
      extern int gePortHordeEnabled(void);
-@@ -4626,6 +4679,10 @@
+@@ -4626,6 +4737,11 @@ void gePortHordeTick(void)
      s32 i;
      s32 per_kill;
- 
+
 +#ifdef GE_PORT_NATIVE
 +    gePortGibsSelftestTick();
++    gePortGibsDeathTick();
 +#endif
 +
      if (!gePortHordeEnabled()) {
          return;
      }
+diff --git a/src/game/chraction.c b/src/game/chraction.c
+index 491ee6f..a86bef8 100644
 --- a/src/game/chraction.c
 +++ b/src/game/chraction.c
-@@ -17,6 +17,7 @@
+@@ -17,6 +17,7 @@ extern s32 gePortTimeFireOn(void);
  #include "chr.h"
  #include "chr_b.h"
  #include "chrai.h"
@@ -95,43 +165,62 @@
  #include "file.h"
  #include "front.h"
  #include "glass.h"
-@@ -39,6 +40,10 @@
+@@ -39,6 +40,11 @@ s32 g_geChrDbgSpawn;
  s32 g_geChrDbgSpawnStan;
  s32 g_geChrDbgSpawnHdr;
  extern s32 ge_chr_dbg_on(void);
-+extern s32 gePortGibsShouldSpawn(s32 cause, s32 newly_dead);
++extern void gePortGibsRecordHit(const void *character, s32 cause, f32 damage,
++                                f32 impulse_x, f32 impulse_y, f32 impulse_z);
 +extern s32 gePortGibsMarkCharacter(const void *character);
 +extern s32 gePortGibsIsCharacter(const void *character);
 +extern void gePortGibsForgetCharacter(const void *character);
  #endif
- 
- 
-@@ -2856,7 +2861,24 @@
+
+
+@@ -2662,6 +2668,19 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
+             damageToCause = 0.0f;
+         }
+
++#ifdef GE_PORT_NATIVE
++        if (self->actiontype != ACT_DIE && self->actiontype != ACT_DEAD) {
++            f32 impact = bondwalkItemGetForceOfImpact(weaponid);
++            if (impact <= 0.0f) {
++                impact = damageToCause * 2.0f;
++            }
++            gePortGibsRecordHit(self, 2, damageToCause,
++                                vector->f[0] * impact,
++                                vector->f[1] * impact,
++                                vector->f[2] * impact);
++        }
++#endif
++
+         if (self->prop->type == PROP_TYPE_VIEWER)
+         {
+             playerNum = get_cur_playernum();
+@@ -2856,6 +2875,22 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
      return 0;
  }
- 
+
 +#ifdef GE_PORT_NATIVE
-+/* Called by explosion.c only after its real blast dispatcher produces a new death. Keep this
-+ * separate from chrlvExplosionDamage(): the tank also reuses that animation/damage function,
-+ * but vehicle deaths are not part of the explosion-only initial mode. */
-+void gePortGibExplosionDeath(ChrRecord *self)
++/* The policy is evaluated by chr.c's one-shot death observer. This function owns only the
++ * visual replacement so explosion, high-damage, always and delayed deaths share one effect. */
++void gePortGibCharacterDeath(ChrRecord *self, coord3d *impulse)
 +{
-+    if (gePortGibsShouldSpawn(1, 1) && gePortGibsMarkCharacter(self)) {
++    if (self != NULL && self->prop != NULL && gePortGibsMarkCharacter(self)) {
 +        coord3d gibpos = self->prop->pos;
 +        u32 seed = ((u32)g_GlobalTimer << 16) ^ (u16)self->chrnum;
- 
++
 +        gibpos.f[1] += self->chrheight * 0.25f;
-+        explosionInitGibParticles(&gibpos, &self->fallspeed, 8, seed);
++        explosionInitGibParticles(&gibpos, impulse, self->prop->stan, 12, seed);
 +        self->fadealpha = 0;
 +    }
 +}
 +#endif
 +
-+
+
  /**
   * Address 0x7F027BF4.
-  * 
-@@ -5348,7 +5370,18 @@
+@@ -5348,7 +5383,18 @@ void chrlvTickDead(ChrRecord *self)
          if (self->act_init.padding[0] >= CHRLV_TICK_DEAD_CHECK)
          {
              self->hidden |= CHRHIDDEN_REMOVE;
@@ -150,26 +239,45 @@
          else
          {
              self->fadealpha = (u8) ((s32) ((CHRLV_TICK_DEAD_CHECK - self->act_init.padding[0]) * 0xFF) / CHRLV_TICK_DEAD_CHECK);
+diff --git a/src/game/explosion.c b/src/game/explosion.c
+index e4ff818..2d48106 100644
 --- a/src/game/explosion.c
 +++ b/src/game/explosion.c
-@@ -26,6 +26,10 @@
+@@ -26,6 +26,11 @@
  #include "bgroomtrans.h"
  #include <assets/oddtextures.h>
- 
+
 +#ifdef GE_PORT_NATIVE
-+extern void gePortGibExplosionDeath(ChrRecord *character);
++extern void gePortGibsRecordHit(const void *character, s32 cause, f32 damage,
++                                f32 impulse_x, f32 impulse_y, f32 impulse_z);
 +#endif
 +
  // bss
  //CODE.bss:8007A100
  // possibly   printf("Allocating %d bytes for glass data (%d bits)\n",DAT_83bd5fb0 * 0x88 + 0xf & 0xfffffff0,         DAT_83bd5fb0);
-@@ -223,6 +227,28 @@
+@@ -223,6 +228,126 @@ Vtx g_BulletImpactDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
  /*** prototypes */
- 
+
  void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
 +
 +#ifdef GE_PORT_NATIVE
 +#define GE_FLYING_PARTICLE_GIB 0x47494253
++#define GE_GIB_ACTIVE_CAP 72
++#define GE_GIB_RETAIL_RESERVE 24
++#define GE_GIB_MAX_BOUNCES 3
++#define GE_GIB_SETTLED_TICKS 600
++#define GE_GIB_FADE_TICKS 60
++
++struct GeGibPhysics {
++    StandTile *stan;
++    f32 floor_offset;
++    s32 settled_at;
++    u8 settled;
++    u8 bounces;
++};
++
++static struct GeGibPhysics ge_gib_physics[MAX_FLYING_PARTICLES];
++static s32 ge_gib_selftest_age = -1;
 +
 +/* Cosmetic randomness must not advance randomGetNext(). That generator also drives gameplay,
 + * so spending extra draws on an optional effect would change later AI decisions and could
@@ -188,18 +296,108 @@
 +{
 +    return (f32)(geGibRand(state) & 0xffffU) * (1.0f / 65535.0f);
 +}
++
++static s32 geGibIsActive(s32 index)
++{
++    return g_FlyingParticlesBuffer[index].unk00 > 0
++        && g_FlyingParticlesBuffer[index].unk34 == GE_FLYING_PARTICLE_GIB;
++}
++
++static s32 geGibEffectiveCap(void)
++{
++    s32 cap = max_particles - GE_GIB_RETAIL_RESERVE;
++
++    if (cap < 1) {
++        cap = max_particles / 2;
++    }
++    if (cap > GE_GIB_ACTIVE_CAP) {
++        cap = GE_GIB_ACTIVE_CAP;
++    }
++    return cap > 0 ? cap : 1;
++}
++
++/* Retail debris still uses its circular allocation order, but cannot erase a persistent gib.
++ * The gib cap always leaves a slice of the pool available, so this scan terminates quickly. */
++static void geSelectRetailParticleSlot(void)
++{
++    s32 offset;
++
++    for (offset = 0; offset < max_particles; offset++) {
++        s32 index = (g_NumParticleEntries + offset) % max_particles;
++        if (!geGibIsActive(index)) {
++            g_NumParticleEntries = index;
++            ge_gib_physics[index].stan = NULL;
++            ge_gib_physics[index].settled = 0;
++            ge_gib_physics[index].settled_at = 0;
++            ge_gib_physics[index].bounces = 0;
++            return;
++        }
++    }
++}
++
++static s32 geSelectGibParticleSlot(void)
++{
++    s32 active = 0;
++    s32 inactive = -1;
++    s32 retail = -1;
++    s32 oldest = -1;
++    s32 oldest_settled = -1;
++    s32 oldest_age = -1;
++    s32 oldest_settled_age = -1;
++    s32 offset;
++
++    for (offset = 0; offset < max_particles; offset++) {
++        s32 index = (g_NumParticleEntries + offset) % max_particles;
++        struct FlyingParticles *particle = &g_FlyingParticlesBuffer[index];
++
++        if (geGibIsActive(index)) {
++            active++;
++            if (particle->unk00 > oldest_age) {
++                oldest = index;
++                oldest_age = particle->unk00;
++            }
++            if (ge_gib_physics[index].settled && particle->unk00 > oldest_settled_age) {
++                oldest_settled = index;
++                oldest_settled_age = particle->unk00;
++            }
++        } else if (particle->unk00 <= 0 && inactive < 0) {
++            inactive = index;
++        } else if (retail < 0) {
++            retail = index;
++        }
++    }
++
++    if (active >= geGibEffectiveCap()) {
++        return oldest_settled >= 0 ? oldest_settled : oldest;
++    }
++    if (inactive >= 0) {
++        return inactive;
++    }
++    if (retail >= 0) {
++        return retail;
++    }
++    return oldest >= 0 ? oldest : 0;
++}
 +#endif
  s32 explosionRoundFloat(f32 arg0);
  void explosionSetBulletImpactAlpha(s32 arg0);
  void explosionInflictDamage(PropRecord *arg0, f32 arg1, f32 arg2);
-@@ -618,7 +644,14 @@
- 
+@@ -618,7 +743,22 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
+
                          if (temp_s0->type == PROP_TYPE_CHR)
                          {
 +#ifdef GE_PORT_NATIVE
-+                            if (chrlvExplosionDamage(temp_s0->chr, &arg0->pos, minfrac, 1))
 +                            {
-+                                gePortGibExplosionDeath(temp_s0->chr);
++                                ChrRecord *hit_chr = temp_s0->chr;
++                                s32 was_dying = hit_chr->actiontype == ACT_DIE
++                                    || hit_chr->actiontype == ACT_DEAD;
++                                chrlvExplosionDamage(hit_chr, &arg0->pos, minfrac, 1);
++                                if (!was_dying) {
++                                    gePortGibsRecordHit(hit_chr, 1, minfrac,
++                                                        hit_chr->fallspeed.f[0],
++                                                        hit_chr->fallspeed.f[1],
++                                                        hit_chr->fallspeed.f[2]);
++                                }
 +                            }
 +#else
                              chrlvExplosionDamage(temp_s0->chr, &arg0->pos, minfrac, 1);
@@ -207,32 +405,51 @@
                          }
                          else
                          {
-@@ -1544,6 +1577,7 @@
+@@ -1543,7 +1683,12 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
+     rand2 = ((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 1.12f) - 0.12f;
      rand3 = (2.0f * (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX))) - 1.0f;
- 
+
++#ifdef GE_PORT_NATIVE
++    geSelectRetailParticleSlot();
++#endif
++
      g_FlyingParticlesBuffer[g_NumParticleEntries].unk00 = 1;
 +    g_FlyingParticlesBuffer[g_NumParticleEntries].unk34 = 0;
- 
+
      g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[0] = spawnpos->f[0] + (spawn_rand_scale * rand1);
      g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[1] = spawnpos->f[1] + (spawn_rand_scale * rand2);
-@@ -1642,8 +1676,108 @@
-     if (g_NumParticleEntries >= max_particles)
-     {
-         g_NumParticleEntries = 0;
-+    }
-+}
-+
+@@ -1645,6 +1790,263 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
+     }
+ }
+
 +#ifdef GE_PORT_NATIVE
-+/* The first gib pass deliberately reuses the engine's short-lived shrapnel pool. Chunks are
-+ * large, opaque and fast enough to escape a rocket's flare cloud, while the marker in unk34
-+ * keeps them distinguishable for the headless integration check. See docs/GIBS.md for the
-+ * boundary where persistent colliding body parts should become their own prop type. */
-+void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, s32 count, u32 seed)
++/* One Quake-like visual is shared by every policy: irregular solid chunks with strong launch
++ * velocity, wall/floor response, several bounces, then a long-lived settled state. The chunks
++ * remain cosmetic and use a bounded sidecar instead of consuming gameplay prop slots. */
++void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, StandTile *stan,
++                               s32 count, u32 seed)
 +{
++    f32 blastlen;
++    f32 blastx = 0.0f;
++    f32 blasty = 0.0f;
++    f32 blastz = 0.0f;
 +    s32 i;
 +
 +    if (g_FlyingParticlesBuffer == NULL || max_particles <= 0 || count <= 0) {
 +        return;
++    }
++
++    if (getenv("GETV_GIBS_SELFTEST") != NULL && ge_gib_selftest_age == -1) {
++        ge_gib_selftest_age = 0;
++    }
++
++    blastlen = sqrtf(blastvel->f[0] * blastvel->f[0]
++                   + blastvel->f[1] * blastvel->f[1]
++                   + blastvel->f[2] * blastvel->f[2]);
++    if (blastlen > 0.01f) {
++        blastx = blastvel->f[0] / blastlen;
++        blasty = blastvel->f[1] / blastlen;
++        blastz = blastvel->f[2] / blastlen;
 +    }
 +
 +    seed ^= 0x9e3779b9U;
@@ -241,36 +458,40 @@
 +    }
 +
 +    for (i = 0; i < count; i++) {
-+        struct FlyingParticles *particle = &g_FlyingParticlesBuffer[g_NumParticleEntries];
++        s32 index = geSelectGibParticleSlot();
++        struct FlyingParticles *particle = &g_FlyingParticlesBuffer[index];
++        struct GeGibPhysics *physics = &ge_gib_physics[index];
 +        f32 rx = geGibRandUnit(&seed) * 2.0f - 1.0f;
 +        f32 ry = geGibRandUnit(&seed);
 +        f32 rz = geGibRandUnit(&seed) * 2.0f - 1.0f;
-+        f32 size = 16.0f + geGibRandUnit(&seed) * 10.0f;
++        f32 size = i < 4
++            ? 24.0f + geGibRandUnit(&seed) * 10.0f
++            : 14.0f + geGibRandUnit(&seed) * 9.0f;
 +        s16 texs = (s16)((geGibRand(&seed) & 3U) << 8);
 +        s16 text = (s16)((geGibRand(&seed) & 3U) << 8);
 +        s32 v;
 +
 +        particle->unk00 = 1;
 +        particle->unk34 = GE_FLYING_PARTICLE_GIB;
-+        particle->position.f[0] = spawnpos->f[0] + rx * 28.0f;
-+        particle->position.f[1] = spawnpos->f[1] + ry * 55.0f;
-+        particle->position.f[2] = spawnpos->f[2] + rz * 28.0f;
++        particle->position.f[0] = spawnpos->f[0] + rx * 24.0f;
++        particle->position.f[1] = spawnpos->f[1] + 12.0f + ry * 48.0f;
++        particle->position.f[2] = spawnpos->f[2] + rz * 24.0f;
 +
-+        particle->position_drift.f[0] = rx * 5.5f + blastvel->f[0] * 0.80f;
-+        particle->position_drift.f[1] = 8.0f + ry * 7.0f + blastvel->f[1] * 0.35f;
-+        particle->position_drift.f[2] = rz * 5.5f + blastvel->f[2] * 0.80f;
++        particle->position_drift.f[0] = rx * 5.8f + blastx * 3.5f;
++        particle->position_drift.f[1] = 7.0f + ry * 6.0f + blasty * 2.0f;
++        particle->position_drift.f[2] = rz * 5.8f + blastz * 3.5f;
 +
-+        particle->vertex_list[0].v.ob[0] = (s16)size;
-+        particle->vertex_list[0].v.ob[1] = 0;
-+        particle->vertex_list[0].v.ob[2] = (s16)(size * 0.75f);
-+        particle->vertex_list[1].v.ob[0] = (s16)(size * 0.65f);
-+        particle->vertex_list[1].v.ob[1] = 0;
-+        particle->vertex_list[1].v.ob[2] = (s16)-size;
-+        particle->vertex_list[2].v.ob[0] = (s16)-size;
-+        particle->vertex_list[2].v.ob[1] = 0;
-+        particle->vertex_list[2].v.ob[2] = (s16)(size * -0.70f);
-+        particle->vertex_list[3].v.ob[0] = (s16)(size * -0.70f);
-+        particle->vertex_list[3].v.ob[1] = 0;
++        particle->vertex_list[0].v.ob[0] = 0;
++        particle->vertex_list[0].v.ob[1] = (s16)size;
++        particle->vertex_list[0].v.ob[2] = 0;
++        particle->vertex_list[1].v.ob[0] = (s16)(size * -1.0f);
++        particle->vertex_list[1].v.ob[1] = (s16)(size * -0.4f);
++        particle->vertex_list[1].v.ob[2] = (s16)(size * -0.7f);
++        particle->vertex_list[2].v.ob[0] = (s16)(size * 0.8f);
++        particle->vertex_list[2].v.ob[1] = (s16)(size * -0.4f);
++        particle->vertex_list[2].v.ob[2] = (s16)(size * -0.5f);
++        particle->vertex_list[3].v.ob[0] = 0;
++        particle->vertex_list[3].v.ob[1] = (s16)(size * -0.4f);
 +        particle->vertex_list[3].v.ob[2] = (s16)size;
 +
 +        particle->vertex_list[0].v.tc[0] = texs + 0xe0;
@@ -297,7 +518,17 @@
 +        particle->rotation_drift.f[1] = (geGibRandUnit(&seed) - 0.5f) * 0.20f;
 +        particle->rotation_drift.f[2] = (geGibRandUnit(&seed) - 0.5f) * 0.20f;
 +
-+        g_NumParticleEntries++;
++        physics->stan = stan;
++        physics->floor_offset = size * 0.4f;
++        physics->settled_at = 0;
++        physics->settled = 0;
++        physics->bounces = 0;
++        if (physics->stan == NULL) {
++            f32 floory;
++            physics->stan = stanFindTileBelowPos(&particle->position, NULL, &floory);
++        }
++
++        g_NumParticleEntries = index + 1;
 +        if (g_NumParticleEntries >= max_particles) {
 +            g_NumParticleEntries = 0;
 +        }
@@ -317,63 +548,281 @@
 +            g_FlyingParticlesBuffer[i].unk34 == GE_FLYING_PARTICLE_GIB) {
 +            count++;
 +        }
-     }
++    }
 +    return count;
- }
++}
++
++static void geGibSetAlpha(struct FlyingParticles *particle, u8 alpha)
++{
++    s32 i;
++    for (i = 0; i < 4; i++) {
++        particle->vertex_list[i].v.cn[3] = alpha;
++    }
++}
++
++static void geGibUpdateOne(s32 index, s32 steps)
++{
++    struct FlyingParticles *particle = &g_FlyingParticlesBuffer[index];
++    struct GeGibPhysics *physics = &ge_gib_physics[index];
++    s32 j;
++
++    if (physics->settled) {
++        s32 settled_ticks = particle->unk00 - physics->settled_at;
++
++        if (settled_ticks >= GE_GIB_SETTLED_TICKS + GE_GIB_FADE_TICKS) {
++            particle->unk00 = 0;
++            particle->unk34 = 0;
++            return;
++        }
++        if (settled_ticks > GE_GIB_SETTLED_TICKS) {
++            s32 fade_ticks = settled_ticks - GE_GIB_SETTLED_TICKS;
++            geGibSetAlpha(particle,
++                (u8)(255 * (GE_GIB_FADE_TICKS - fade_ticks) / GE_GIB_FADE_TICKS));
++        }
++        return;
++    }
++
++    particle->rotation.f[0] += particle->rotation_drift.f[0] * steps;
++    particle->rotation.f[1] += particle->rotation_drift.f[1] * steps;
++    particle->rotation.f[2] += particle->rotation_drift.f[2] * steps;
++
++    for (j = 0; j < steps; j++) {
++        f32 oldx = particle->position.f[0];
++        f32 oldz = particle->position.f[2];
++        f32 destx = oldx + particle->position_drift.f[0];
++        f32 destz = oldz + particle->position_drift.f[2];
++        StandTile *nextstan = physics->stan;
++
++        if (nextstan == NULL || stanTestLineUnobstructed(&nextstan, oldx, oldz,
++                destx, destz, 0, 0.0f, 1.0f, 0.0f, 1.0f)) {
++            particle->position.f[0] = destx;
++            particle->position.f[2] = destz;
++            physics->stan = nextstan;
++        } else {
++            coord3d edge_a;
++            coord3d edge_b;
++
++            if (getCollisionEdge_maybe(&edge_a, &edge_b)) {
++                f32 edgex = edge_b.f[0] - edge_a.f[0];
++                f32 edgez = edge_b.f[2] - edge_a.f[2];
++                f32 edge_len_sq = edgex * edgex + edgez * edgez;
++
++                if (edge_len_sq > 0.001f) {
++                    f32 along = (particle->position_drift.f[0] * edgex
++                               + particle->position_drift.f[2] * edgez) / edge_len_sq;
++                    f32 parallelx = edgex * along;
++                    f32 parallelz = edgez * along;
++                    f32 perpx = particle->position_drift.f[0] - parallelx;
++                    f32 perpz = particle->position_drift.f[2] - parallelz;
++
++                    particle->position_drift.f[0] = parallelx * 0.65f - perpx * 0.45f;
++                    particle->position_drift.f[2] = parallelz * 0.65f - perpz * 0.45f;
++                } else {
++                    particle->position_drift.f[0] *= -0.45f;
++                    particle->position_drift.f[2] *= -0.45f;
++                }
++            } else {
++                particle->position_drift.f[0] *= -0.45f;
++                particle->position_drift.f[2] *= -0.45f;
++            }
++        }
++
++        particle->position.f[1] += particle->position_drift.f[1];
++        if (particle->position_drift.f[1] > -8.0f) {
++            particle->position_drift.f[1] -= 0.22f;
++        }
++
++        if (physics->stan == NULL) {
++            f32 unused_floor;
++            physics->stan = stanFindTileBelowPos(&particle->position, NULL, &unused_floor);
++        }
++
++        if (physics->stan != NULL && particle->position_drift.f[1] <= 0.0f) {
++            f32 floory = stanGetPositionYValue(physics->stan,
++                                              particle->position.f[0],
++                                              particle->position.f[2]);
++            f32 resting_y = floory + physics->floor_offset;
++
++            if (particle->position.f[1] <= resting_y) {
++                f32 impact = -particle->position_drift.f[1];
++                particle->position.f[1] = resting_y;
++
++                if (physics->bounces < GE_GIB_MAX_BOUNCES && impact > 1.6f) {
++                    physics->bounces++;
++                    particle->position_drift.f[1] = impact * 0.36f;
++                    particle->position_drift.f[0] *= 0.72f;
++                    particle->position_drift.f[2] *= 0.72f;
++                    particle->rotation_drift.f[0] *= 0.75f;
++                    particle->rotation_drift.f[1] *= 0.75f;
++                    particle->rotation_drift.f[2] *= 0.75f;
++                } else {
++                    physics->settled = 1;
++                    physics->settled_at = particle->unk00;
++                    particle->position_drift.f[0] = 0.0f;
++                    particle->position_drift.f[1] = 0.0f;
++                    particle->position_drift.f[2] = 0.0f;
++                    particle->rotation_drift.f[0] = 0.0f;
++                    particle->rotation_drift.f[1] = 0.0f;
++                    particle->rotation_drift.f[2] = 0.0f;
++                    particle->rotation.f[0] = 0.0f;
++                    particle->rotation.f[2] = 0.0f;
++                    break;
++                }
++            }
++        }
++    }
++
++    if (particle->position.f[1] < -30000.0f || particle->position.f[1] > 30000.0f) {
++        particle->unk00 = 0;
++        particle->unk34 = 0;
++    }
++}
 +#endif
- 
- 
++
+
  void explosionUpdateFlyingParticles(void)
-@@ -1688,7 +1822,17 @@
+ {
+@@ -1668,6 +2070,13 @@ void explosionUpdateFlyingParticles(void)
+         {
+             g_FlyingParticlesBuffer[i].unk00 += (s32) scalar;
+
++#ifdef GE_PORT_NATIVE
++            if (g_FlyingParticlesBuffer[i].unk34 == GE_FLYING_PARTICLE_GIB) {
++                geGibUpdateOne(i, (s32)scalar);
++                continue;
++            }
++#endif
++
+             g_FlyingParticlesBuffer[i].rotation.f[0] += g_FlyingParticlesBuffer[i].rotation_drift.f[0] * scalar;
+             g_FlyingParticlesBuffer[i].rotation.f[1] += g_FlyingParticlesBuffer[i].rotation_drift.f[1] * scalar;
+             g_FlyingParticlesBuffer[i].rotation.f[2] += g_FlyingParticlesBuffer[i].rotation_drift.f[2] * scalar;
+@@ -1688,7 +2097,8 @@ void explosionUpdateFlyingParticles(void)
              }
- 
+
              // handles particles life time
 -            if ((g_FlyingParticlesBuffer[i].unk00 >= 0x65) && (!(randomGetNext() & 0x1F) || (g_FlyingParticlesBuffer[i].unk00 == 0x12C)))
 +            if (g_FlyingParticlesBuffer[i].unk00 >= 0x65
-+#ifdef GE_PORT_NATIVE
-+                && ((g_FlyingParticlesBuffer[i].unk34 == GE_FLYING_PARTICLE_GIB
-+                     && g_FlyingParticlesBuffer[i].unk00 >= 0xf0)
-+                    || (g_FlyingParticlesBuffer[i].unk34 != GE_FLYING_PARTICLE_GIB
-+                        && (!(randomGetNext() & 0x1F)
-+                            || g_FlyingParticlesBuffer[i].unk00 == 0x12C)))
-+#else
-+                && (!(randomGetNext() & 0x1F) || g_FlyingParticlesBuffer[i].unk00 == 0x12C)
-+#endif
-+               )
++                && (!(randomGetNext() & 0x1F) || g_FlyingParticlesBuffer[i].unk00 == 0x12C))
              {
                  g_FlyingParticlesBuffer[i].unk00 = 0;
              }
+@@ -1700,6 +2110,17 @@ void explosionUpdateFlyingParticles(void)
+             }
+         }
+     }
++
++#ifdef GE_PORT_NATIVE
++    if (ge_gib_selftest_age >= 0) {
++        ge_gib_selftest_age += (s32)scalar;
++        if (ge_gib_selftest_age >= 360) {
++            printf("[getv][gibs] selftest persistence: after=360 chunks=%d\n",
++                   explosionCountGibParticles());
++            ge_gib_selftest_age = -2;
++        }
++    }
++#endif
+ }
+
+
+@@ -1714,6 +2135,9 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
+     s32 i;
+     Mtx *temp_v0_2;
+     struct FlyingParticles *particles;
++#ifdef GE_PORT_NATIVE
++    s32 opaque = 0;
++#endif
+
+     gSPClearGeometryMode(gdl++, G_CULL_BOTH);
+     gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical((void*)pGlobalimagetable));
+@@ -1739,6 +2163,18 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
+
+         if (particles->unk00 > 0)
+         {
++#ifdef GE_PORT_NATIVE
++            s32 wants_opaque = particles->unk34 == GE_FLYING_PARTICLE_GIB
++                && particles->vertex_list[0].v.cn[3] == 0xff;
++            if (wants_opaque != opaque) {
++                opaque = wants_opaque;
++                if (opaque) {
++                    gDPSetRenderMode(gdl++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
++                } else {
++                    gDPSetRenderMode(gdl++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
++                }
++            }
++#endif
+             matrix_4x4_set_position_and_rotation_around_xyz(&particles->position, &particles->rotation, &sp80);
+             matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &sp80);
+
+@@ -1754,7 +2190,16 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
+
+                 gSPMatrix(gdl++, osVirtualToPhysical((void*)temp_v0_2), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+                 gSPVertex(gdl++, osVirtualToPhysical((void*)g_FlyingParticlesBuffer[i].vertex_list), 4, 0)
++#ifdef GE_PORT_NATIVE
++                if (particles->unk34 == GE_FLYING_PARTICLE_GIB) {
++                    gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
++                    gSP2Triangles(gdl++, 0, 3, 1, 0, 1, 3, 2, 0);
++                } else {
++                    gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
++                }
++#else
+                 gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
++#endif
+             }
+         }
+     }
+@@ -2378,5 +2823,3 @@ Gfx * explosionCallRenderBulletImpactOnProp(Gfx *arg0)
+ {
+     return explosionRenderBulletImpactOnProp(arg0, NULL, 0);
+ }
+-
+-
+diff --git a/src/game/explosion.h b/src/game/explosion.h
+index a839e2a..b560b8b 100644
 --- a/src/game/explosion.h
 +++ b/src/game/explosion.h
-@@ -172,6 +172,10 @@
- 
+@@ -172,6 +172,11 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *arg0, PropRecord *arg1, s32 arg2);
+
  void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *rooms, s32 flags);
  void explosionUpdateFlyingParticles(void);
 +#ifdef GE_PORT_NATIVE
-+void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, s32 count, u32 seed);
++void explosionInitGibParticles(coord3d *spawnpos, coord3d *blastvel, StandTile *stan,
++                               s32 count, u32 seed);
 +s32 explosionCountGibParticles(void);
 +#endif
  u8 explosionChrpropSmokeTick(PropRecord* prop);
  u8 explosionChrpropExplosionTick(PropRecord* prop);
  void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* result);
+diff --git a/src/game/propobj.c b/src/game/propobj.c
+index 23f8cab..4dfe174 100644
 --- a/src/game/propobj.c
 +++ b/src/game/propobj.c
-@@ -57,6 +57,7 @@
+@@ -57,6 +57,8 @@
  /* GETV_DLCOLPROBE=1 counters -- global on purpose so `nm` proves the rebuild landed. */
  long ge_dlcol_mon_calls = 0, ge_dlcol_mon_rejected = 0, ge_dlcol_mon_wrote = 0, ge_dlcol_mon_novtx = 0;
  extern int ge_dlcol_probe;   /* model.c; -1 until GETV_DLCOLPROBE is read */
-+extern void gePortGibExplosionDeath(ChrRecord *character);
- 
++extern void gePortGibsRecordHit(const void *character, s32 cause, f32 damage,
++                                f32 impulse_x, f32 impulse_y, f32 impulse_z);
+
  /* ===================== GETV-SUBWORD3INIT =====================
   *
-@@ -4825,7 +4826,14 @@
+@@ -4825,7 +4827,24 @@ s32 objTick(struct PropRecord *prop)
  							projectileStopped = 1;
  							if (var_v0_3 == 3)
  							{
 +#ifdef GE_PORT_NATIVE
-+								if (chrlvExplosionDamage((ChrRecord *) playerProp2->chr, &obj->runtime_pos, 2.0f, 1))
 +								{
-+									gePortGibExplosionDeath((ChrRecord *) playerProp2->chr);
++									ChrRecord *hit_chr = (ChrRecord *)playerProp2->chr;
++									s32 was_dying = hit_chr->actiontype == ACT_DIE
++										|| hit_chr->actiontype == ACT_DEAD;
++									chrlvExplosionDamage(hit_chr, &obj->runtime_pos, 2.0f, 1);
++									/* A direct rocket is a high-damage event even though GoldenEye
++									 * splits its damage between this impact and the following blast. */
++									if (!was_dying) {
++										gePortGibsRecordHit(hit_chr, 1, 4.0f,
++										                    hit_chr->fallspeed.f[0],
++										                    hit_chr->fallspeed.f[1],
++										                    hit_chr->fallspeed.f[2]);
++									}
 +								}
 +#else
  								chrlvExplosionDamage((ChrRecord *) playerProp2->chr, &obj->runtime_pos, 2.0f, 1);

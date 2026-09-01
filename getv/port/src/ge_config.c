@@ -295,12 +295,17 @@ static void key_crosshair_color(const char *v, int over)
 static void key_gibs(const char *v, int over)
 {
     if (is_false(v)) {
-        put("GETV_GIBS", "0", over);
+        put("GETV_GIBS", "off", over);
     } else if (is_true(v) || strcmp(v, "explosion") == 0 ||
                strcmp(v, "explosions") == 0) {
-        put("GETV_GIBS", "1", over);
+        put("GETV_GIBS", "explosions", over);
+    } else if (strcmp(v, "high_damage") == 0 || strcmp(v, "high-damage") == 0 ||
+               strcmp(v, "highdamage") == 0) {
+        put("GETV_GIBS", "high_damage", over);
+    } else if (strcmp(v, "always") == 0) {
+        put("GETV_GIBS", "always", over);
     } else {
-        ge_err("gibs=\"%s\" - expected off|explosions%s", v, "");
+        ge_err("gibs=\"%s\" - expected off|explosions|high_damage|always%s", v, "");
     }
 }
 
@@ -1297,7 +1302,7 @@ static void usage(void)
 "deadzone=0..40 stick deadzone, percent, clamped to range          [20]\n"
 "invert_look=0|1 forces look inversion; UNSET = save file decides   [unset]\n"
 "fullscreen=0|1 audio=0|1 unlock_all=0|1 save_dir=PATH\n"
-"gibs=off|explosions makes fatal explosions replace enemy bodies with chunks [off]\n"
+"gibs=off|explosions|high_damage|always controls which deaths produce physics chunks [off]\n"
 "cheats=a,b,c GE's OWN named cheat flags (NOT GameShark addresses)\n"
 "roster=8|64 multiplayer character count\n"
 "debug_position=0|1 Rare's room + XYZ + heading readout\n"
@@ -1396,7 +1401,7 @@ static const char *DEFAULT_CFG =
 "\n"
 "# --- misc ------------------------------------------------------------------\n"
 "audio       = 1\n"
-"# gibs       = explosions # opt-in; fatal explosions gib enemies. Default: off.\n"
+"# gibs       = explosions # off | explosions | high_damage | always. Default: off.\n"
 "# unlock_all = 1          # show every mission on the file-select screen\n"
 "# save_dir   = /path/to/saves\n"
 "\n"

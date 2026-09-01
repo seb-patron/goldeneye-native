@@ -599,17 +599,24 @@ Integer keys are clamped to their range rather than rejected.
 
 ## Enemy gibs
 
-`gibs = off | explosions`, default `off`. The aliases `on`, `true`, `yes` and `explosion` enable
-the current `explosions` mode. A fatal explosion replaces a non-player character's intact model
-with eight short-lived tumbling chunks while the original death record continues through scoring,
-AI notification, dropped items, objectives and cleanup. Players and non-explosion deaths are
-unchanged.
+`gibs = off | explosions | high_damage | always`, default `off`.
 
-This first pass deliberately has no persistent collision or model-specific limbs, and
-`PROP_TYPE_CHR` also covers some friendly and civilian mission actors. See [GIBS.md](GIBS.md) for
-the exact boundary, the integration gate and the recommended expansion path.
+| Value | Qualifying deaths |
+|---|---|
+| `off` | None; retail behavior. |
+| `explosions` | Area explosions and direct rocket impacts. |
+| `high_damage` | A final hit dealing at least `4.0` internal damage units. |
+| `always` | Every observed non-player character death, including scripted deaths. |
 
-Sets `GETV_GIBS=0|1`. Raw values other than `0` and `1` fail closed to off.
+Every enabled policy uses the same effect: twelve solid chunks launch from the character, collide
+with level floors and walls, bounce up to three times, settle for about ten seconds, then fade.
+The original death record still handles scoring, AI notification, dropped items, objectives and
+cleanup. Players remain unaffected.
+
+`on`, `true`, `yes`, `1` and `explosion` are aliases for `explosions`. The setting maps to the same
+canonical names in `GETV_GIBS`. Unknown values fail closed to `off`. `PROP_TYPE_CHR` also covers
+some friendly and civilian mission actors, so `always` truly means all NPC actors rather than
+hostiles only. See [GIBS.md](GIBS.md) for implementation boundaries, tests and expansion guidance.
 
 ## Raw gates
 

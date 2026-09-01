@@ -169,7 +169,7 @@ moved in 1997 and the picture is as smooth as your monitor can show.
 | **Built-in CRT filter** | **Done** | Scanlines, shadow mask, curvature and vignette, each adjustable. No shader pack to install. |
 | **Cheats, built in** | **Done** | The game's own cheat system exposed by name, without the unlock grind. Not GameShark codes. [`CHEATS.md`](docs/CHEATS.md) |
 | **Game mode presets** | **Done** | `classic`, `hardcore`, `survival`, `chaos` and `horde` rulesets, freely combinable. |
-| **Enemy gibs** | **Beta** | Opt-in fatal-explosion gibs with bounded, short-lived chunks. Retail behavior remains the default. [`GIBS.md`](docs/GIBS.md) |
+| **Enemy gibs** | **Beta** | `off`, explosion, high-damage or always policies feeding one Quake-like effect: solid chunks bounce, settle and linger without changing gameplay. [`GIBS.md`](docs/GIBS.md) |
 | **Graphics profiles** | **Done** | One switch: `97 Console` for the faithful look, `GoldenEye+` for everything this port adds. |
 | **Toggle aim** | **Done** | Press once to raise the sight instead of holding the button. The game's own option, exposed as `aim_toggle`. |
 | **Coloured reticle** | **Done** | Any RRGGBB, and a smaller modern sight size. How cleanly a colour takes depends on the baked asset. |

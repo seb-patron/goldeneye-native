@@ -35,6 +35,7 @@ static void reset_characters(void)
 
     for (i = 0; i < GE_GIBBED_CHARACTER_CAPACITY; i++) {
         ge_gibbed_characters[i] = NULL;
+        ge_gib_hit_records[i].character = NULL;
     }
 }
 
@@ -45,29 +46,66 @@ int main(void)
     set_mode(NULL);
     check("retail default is off", gePortGibsMode(), GE_GIBS_OFF);
     check("default explosion stays intact",
-          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 1), 0);
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 1, 4.0f), 0);
 
     set_mode("1");
     check("explosion mode resolves", gePortGibsMode(), GE_GIBS_EXPLOSIONS);
     check("new fatal explosion gibs",
-          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 1), 1);
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 1, 1.0f), 1);
     check("nonfatal explosion does not gib",
-          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 0), 0);
-    check("bullet death is not in the initial scope",
-          gePortGibsShouldSpawn(GE_GIB_CAUSE_BULLET, 1), 0);
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 0, 100.0f), 0);
+    check("ordinary hit death stays intact in explosion policy",
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_HIT, 1, 100.0f), 0);
     check("unknown cause does not gib",
-          gePortGibsShouldSpawn(GE_GIB_CAUSE_NONE, 1), 0);
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_NONE, 1, 0.0f), 0);
+
+    set_mode("high_damage");
+    check("high damage mode resolves", gePortGibsMode(), GE_GIBS_HIGH_DAMAGE);
+    check("damage below threshold stays intact",
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_HIT, 1, 3.99f), 0);
+    check("damage at threshold gibs",
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_HIT, 1, 4.0f), 1);
+    check("large explosion gibs in high damage mode",
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_EXPLOSION, 1, 4.0f), 1);
+
+    set_mode("always");
+    check("always mode resolves", gePortGibsMode(), GE_GIBS_ALWAYS);
+    check("scripted death gibs in always mode",
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_NONE, 1, 0.0f), 1);
+    check("always still requires a new death",
+          gePortGibsShouldSpawn(GE_GIB_CAUSE_NONE, 0, 100.0f), 0);
 
     reset_characters();
     check("null character is refused", gePortGibsMarkCharacter(NULL), 0);
     check("new gibbed character is tracked", gePortGibsMarkCharacter((void *)1), 1);
     check("gibbed character stays hidden", gePortGibsIsCharacter((void *)1), 1);
-    check("duplicate marker is idempotent", gePortGibsMarkCharacter((void *)1), 1);
+    check("duplicate marker does not emit twice", gePortGibsMarkCharacter((void *)1), 0);
+    check("second character is tracked", gePortGibsMarkCharacter((void *)2), 1);
+    gePortGibsForgetCharacter((void *)1);
+    check("a registry gap cannot duplicate a later marker",
+          gePortGibsMarkCharacter((void *)2), 0);
+    check("forgotten character can be tracked again", gePortGibsMarkCharacter((void *)1), 1);
+
+    gePortGibsRecordHit((void *)1, GE_GIB_CAUSE_HIT, 6.0f, 1.0f, 2.0f, 3.0f);
+    {
+        int cause = 0;
+        float damage = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
+        check("last hit is found",
+              gePortGibsGetLastHit((void *)1, &cause, &damage, &x, &y, &z), 1);
+        check("last hit cause is retained", cause, GE_GIB_CAUSE_HIT);
+        check("last hit damage is retained", damage == 6.0f, 1);
+        check("last hit impulse is retained", x == 1.0f && y == 2.0f && z == 3.0f, 1);
+    }
     gePortGibsForgetCharacter((void *)1);
     check("cleaned character is forgotten", gePortGibsIsCharacter((void *)1), 0);
+    check("cleaned character loses hit context",
+          gePortGibsGetLastHit((void *)1, NULL, NULL, NULL, NULL, NULL), 0);
 
     set_mode("2");
-    check("unimplemented raw mode fails closed", gePortGibsMode(), GE_GIBS_OFF);
+    check("raw numeric future mode fails closed", gePortGibsMode(), GE_GIBS_OFF);
 
     set_mode("1junk");
     check("malformed raw mode fails closed", gePortGibsMode(), GE_GIBS_OFF);
