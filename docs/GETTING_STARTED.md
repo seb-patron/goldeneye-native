@@ -16,48 +16,76 @@ No ROM or extracted game data is downloaded, bundled, or uploaded by this projec
 
 ### macOS
 
-Download and unzip the repository, then double-click **Install on Mac**. If Gatekeeper blocks it,
-right-click the file, choose **Open**, and confirm once.
+1. Put your legally dumped GoldenEye 007 ROM on your **Desktop**. Do not rename it.
+2. On [the project page](https://github.com/seb-patron/goldeneye-native), click the green
+   **Code** button, then **Download ZIP**. Double-click the downloaded file to unzip it.
+3. Open the folder and double-click **Install on Mac**. If Gatekeeper blocks it, right-click the
+   file, choose **Open**, and confirm once.
+4. When installation finishes, double-click **Play GoldenEye** in the same folder.
 
-The terminal equivalent, run from the repository root, is:
+The first install takes about 10 to 40 minutes. Re-running the installer resumes completed work.
+
+**Optional terminal install.** If you cloned the repository or prefer the terminal, run this from
+the repository root instead of step 3:
+
+```bash
+bash tools/install.sh
+```
+
+It finds a supported ROM on your Desktop or in Downloads. Pass an explicit file only when needed:
 
 ```bash
 bash tools/install.sh --rom /path/to/your/rom.z64
 ```
 
-The ROM path is optional. Without it, the installer searches common locations such as Desktop and
-Downloads. The build supports Apple silicon and Intel Macs as separate native targets; see
-[`SETUP.md`](SETUP.md) for the complete macOS toolchain and manual pipeline.
+The build supports Apple silicon and Intel Macs as separate native targets; see [`SETUP.md`](SETUP.md)
+for the complete macOS toolchain and manual pipeline.
 
 ### Linux
 
-Install the packages named by the script for your distribution, then rerun the same command:
+1. Install `git` and `python3` from your package manager.
+2. Download and unzip this repository, or clone it with Git, then open a terminal in that folder.
+3. Run:
+
+```bash
+bash tools/install.sh
+```
+
+The installer finds a supported ROM on your Desktop or in Downloads. It never runs `sudo`; if a
+system dependency is missing, it prints the appropriate package-manager command and stops. After
+installing that package, run the same command again.
+
+Use an explicit ROM path or add a per-user applications-menu entry only when needed:
 
 ```bash
 bash tools/install.sh --rom /path/to/your/rom.z64
-```
-
-Add `--desktop` if you also want a per-user applications-menu entry:
-
-```bash
 bash tools/install.sh --rom /path/to/your/rom.z64 --desktop
 ```
 
-The script never runs `sudo`; it prints the appropriate package-manager command when a system
-dependency is missing.
-
 ### Windows
 
-Install [Git for Windows](https://git-scm.com/download/win) and
-[Python](https://www.python.org/downloads/windows/) first. Enable **Add python.exe to PATH** in the
-Python installer. From PowerShell in the repository root, run:
+1. Install [Git for Windows](https://git-scm.com/download/win) with its default options.
+2. Install [Python](https://www.python.org/downloads/windows/). Enable **Add python.exe to PATH**
+   on the first installer screen.
+3. Put your legally dumped GoldenEye 007 ROM on your **Desktop**.
+4. On [the project page](https://github.com/seb-patron/goldeneye-native), click the green
+   **Code** button, then **Download ZIP**. Double-click the downloaded file to unzip it.
+5. Open PowerShell in that folder and run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+The original repository's `setup_wizard.exe` release was not preserved, so PowerShell is currently
+the supported install path. The installer asks where to install and which file is your ROM. To
+skip the ROM picker, add an explicit file:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -Rom C:\path\to\rom.z64
 ```
 
-Omit `-Rom` to let the installer search the usual locations. It downloads its build toolchain into
-user-controlled directories and does not alter the system-wide `PATH`.
+It downloads its build toolchain into user-controlled directories and does not alter the
+system-wide `PATH`.
 
 ## Run
 

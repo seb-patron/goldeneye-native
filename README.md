@@ -63,6 +63,19 @@ unidentified developer, right-click it and choose **Open** instead, then **Open*
 
 That is it. Drag `Play GoldenEye` to your Dock if you want it there permanently.
 
+**Optional terminal install.** If you cloned the repository or prefer the terminal, run this from
+the repository root instead of step 3:
+
+```bash
+bash tools/install.sh
+```
+
+It finds a supported ROM on your Desktop or in Downloads. Pass an explicit file only when needed:
+
+```bash
+bash tools/install.sh --rom /path/to/your/rom.z64
+```
+
 ### On Windows
 
 **1.** Install **Git for Windows** from [git-scm.com](https://git-scm.com/download/win). Click
@@ -74,12 +87,21 @@ one box matters; nothing works without it.
 
 **3.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**.
 
-**4.** The original repository's `setup_wizard.exe` release was not preserved when that repository
-was deleted. Until a replacement release has been reviewed and published, download this repository
-and run its source installer from PowerShell:
+**4.** On [the project page](https://github.com/seb-patron/goldeneye-native), click the green
+**Code** button, then **Download ZIP**. Double-click the downloaded file to unzip it.
+
+**5.** Open PowerShell in that folder and run the source installer:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+The original repository's `setup_wizard.exe` release was not preserved when that repository was
+deleted, so PowerShell is currently the supported install path. To skip the ROM picker, add an
+explicit file:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -Rom C:\path\to\rom.z64
 ```
 
 The installer asks where to install and which file is your ROM, then does everything else itself
@@ -87,13 +109,20 @@ and shows you what it is doing. It takes 10 to 40 minutes the first time.
 
 ### On Linux
 
-Install `git` and `python3` from your package manager, then:
+**1.** Install `git` and `python3` from your package manager.
+
+**2.** Download and unzip this repository, or clone it with Git, then open a terminal in that
+folder.
+
+**3.** Run:
 
 ```bash
 bash tools/install.sh
 ```
 
-It prints the exact package command for your distribution if anything is missing.
+It finds a supported ROM on your Desktop or in Downloads and prints the exact package command for
+your distribution if anything is missing. Use `--rom /path/to/your/rom.z64` to select the file
+explicitly and `--desktop` to add a per-user applications-menu entry.
 
 ### If something goes wrong
 
