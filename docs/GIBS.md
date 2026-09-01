@@ -18,7 +18,8 @@ fail closed to off.
 
 The initial scope is deliberately narrow:
 
-- only a new death returned to `explosion.c`'s real blast dispatcher emits gibs;
+- only a new death returned by `explosion.c`'s real blast dispatcher or the rocket's direct-impact
+  explosion damage emits gibs;
 - players are unaffected because the explosion system sends player props down a separate damage
   path;
 - bullet, melee, fall, vehicle and scripted deaths keep their original models;
@@ -35,7 +36,7 @@ recommended next steps below.
 | Part | Responsibility |
 |---|---|
 | `getv/port/src/ge_gibs.c` | Parses the selected policy and tracks which recycled character slots must stay visually hidden. |
-| `getv/patches/0023-enemy-gibs.patch` | Hooks the real explosion-death transition, preserves normal cleanup, and creates/renders the chunks. |
+| `getv/patches/0023-enemy-gibs.patch` | Hooks area-blast and direct-rocket explosion deaths, preserves normal cleanup, and creates/renders the chunks. |
 | `explosion.c`'s flying-particle pool | Supplies bounded allocation, gravity, rotation, lifetime and an existing OpenGL/Metal render path. |
 | `GETV_GIBS_SELFTEST` | Drives one real explosion death and reports the model alpha and active gib count for integration tests. |
 
