@@ -18,7 +18,7 @@ Historical original-upstream anchor:
 | Honor `GETV_FILTERING` environment precedence | [#4](https://github.com/seb-patron/goldeneye-native/pull/4), merged | `6e60fac1293f6585c37d265f1e1f7d637f743b62` | none | pending |
 | Apply the config-file widescreen setting | [#5](https://github.com/seb-patron/goldeneye-native/pull/5), merged | `8b11f0b35b33668f4206438f0bc1a910903e9047` | filtering precedence (#4) | pending after #4 |
 | Add opt-in fatal-explosion gibs | [#7](https://github.com/seb-patron/goldeneye-native/pull/7), open | `ce9031bf4f7a7189c85193c5dad5b0a876d0af78` | filtering precedence (#4), widescreen config (#5) | pending after #4 and #5 |
-| Add typed developer-console command core | [#16](https://github.com/seb-patron/goldeneye-native/pull/16), open | `405a705296125c66e8523f047008beeb7687d6f9` | none | pending |
+| Add typed developer-console command core | [#16](https://github.com/seb-patron/goldeneye-native/pull/16), open | `405a705296125c66e8523f047008beeb7687d6f9`, then `df0272401efe1a1d5ffe83c3eb03f5ef04182e3a` | none | pending |
 
 ## Replay audit
 
