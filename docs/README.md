@@ -1,55 +1,74 @@
 # Documentation
 
-Start with [`SETUP.md`](SETUP.md). Everything else is here because someone needed it once.
+Choose the path that matches what you are trying to do.
 
-## Getting it running
+## Play and configure
 
-| | |
+| Guide | Use it for |
 |---|---|
-| [SETUP.md](SETUP.md) | The build guide, start to finish. Read this first. |
-| [CONFIGURATION.md](CONFIGURATION.md) | Every config key, which are implemented, which are reserved. |
-| [CHEATS.md](CHEATS.md) | The game's own cheat system, exposed by name. |
+| [`GETTING_STARTED.md`](GETTING_STARTED.md) | Install, launch, configure, update, and run a first check on macOS, Linux, or Windows. |
+| [`CONTROLS.md`](CONTROLS.md) | Complete keyboard/mouse map, gamepad defaults, rebinding, control styles, and live shortcuts. |
+| [`CONFIGURATION.md`](CONFIGURATION.md) | Full config-file, command-line, environment-gate, and launcher reference. |
+| [`SETUP.md`](SETUP.md) | Detailed manual macOS pipeline and deep build troubleshooting. |
+| [`FAQ.md`](FAQ.md) | Common player and project questions. |
+| [`CHEATS.md`](CHEATS.md) | GoldenEye's built-in named cheat system. |
 
-## Playing with it
+## Contribute
 
-| | |
+| Guide | Use it for |
 |---|---|
-| [MODDING.md](MODDING.md) | How the tree is arranged and where the seams are. |
-| [GIBS.md](GIBS.md) | The opt-in explosion-gib implementation and a staged path to dismemberment and persistent pieces. |
-| [FRAME_TIMING.md](FRAME_TIMING.md) | Why frame rate is not a simple slider in this game, and what a real fix needs. |
-| [STANCE.md](STANCE.md) | Crouch, and the case for jump and lean; guard weapons as a cheat. |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Contribution rules, game-data boundary, provenance, review scope, and evidence expectations. |
+| [`AGENTIC_CONTRIBUTING.md`](AGENTIC_CONTRIBUTING.md) | Safe agent-assisted bug reports and pull requests. |
+| [`CODEBASE.md`](CODEBASE.md) | Architecture, build/runtime/input flows, repository map, and where a change belongs. |
+| [`DEVELOPMENT.md`](DEVELOPMENT.md) | Branch, edit, rebuild, test, validate, and review loop. |
+| [`../getv/patches/README.md`](../getv/patches/README.md) | Safely record changes to the ignored decompilation. |
+| [`HARNESS.md`](HARNESS.md) | Deterministic runtime harness and automated scenarios. |
+| [`TASK_QUEUE.md`](TASK_QUEUE.md) | Current task inventory and evidence state. |
 
-## Where it is going
+## Features and subsystems
 
-| | |
+| Guide | Subject |
 |---|---|
-| [ROADMAP.md](ROADMAP.md) | Current state, known issues, planned work. |
-| [MAINTAINING.md](MAINTAINING.md) | Community workflow and future upstream replay. |
-| [AGENTIC_CONTRIBUTING.md](AGENTIC_CONTRIBUTING.md) | Safe agent-assisted bug reports and pull requests. |
-| [VISION.md](VISION.md) | The long arc, scored honestly against what the tree does today. |
-| [REUSE_AUDIT.md](REUSE_AUDIT.md) | What to borrow from the N64 port ecosystem, what is already borrowed, and what is licence-quarantined. |
-| [PLAYER_API.md](PLAYER_API.md) | Design for the API bots, netplay and external AI all drive: one seam, several consumers. |
+| [`MODDING.md`](MODDING.md) | Lua mods, environment gates, asset seams, and HD texture packs. |
+| [`MOUSE.md`](MOUSE.md) | Mouse-look design, measurements, and tests. |
+| [`FRAME_TIMING.md`](FRAME_TIMING.md) | Decoupled simulation and rendering clocks. |
+| [`PERFORMANCE.md`](PERFORMANCE.md) | Performance profiles and measurements. |
+| [`BOTS.md`](BOTS.md) | Bot architecture and skill policies. |
+| [`COOP.md`](COOP.md) | Cooperative mission behavior and limitations. |
+| [`NETPLAY.md`](NETPLAY.md) | LAN implementation and known synchronization failures. |
+| [`GIBS.md`](GIBS.md) | Opt-in enemy-gib implementation and policies. |
+| [`STANCE.md`](STANCE.md) | Crouch, stance, jump, and lean design notes. |
+| [`COLOUR_BUGS.md`](COLOUR_BUGS.md) | Texture/colour decoding investigations. |
 
-## How it works
+## Internal interfaces and ports
 
-| | |
+| Guide | Subject |
 |---|---|
-| [PORTING.md](PORTING.md) | The platform layer, per file. |
-| [ASSET_LOADING.md](ASSET_LOADING.md) | How level assets get from the ROM into the running game. |
-| [asset-converter-spec.md](asset-converter-spec.md) | The converter's contract. |
-| [PERFECT_DARK.md](PERFECT_DARK.md) | What the MIT-licensed Perfect Dark port offers this one. |
-| [WINDOWS_STAN_ORDERING.md](WINDOWS_STAN_ORDERING.md) | The Windows rendering bug: root cause and fix, with before/after measurements. |
+| [`PLAYER_API.md`](PLAYER_API.md) | Player state and control API used by bots, netplay, and automation. |
+| [`ENEMY_API.md`](ENEMY_API.md) | Live enemy accessor surface. |
+| [`ASSET_LOADING.md`](ASSET_LOADING.md) | ROM asset conversion and runtime loading. |
+| [`asset-converter-spec.md`](asset-converter-spec.md) | Asset converter contract. |
+| [`PORTING.md`](PORTING.md) | Platform-port history, constraints, and build baselines. |
+| [`WINDOWS_STAN_ORDERING.md`](WINDOWS_STAN_ORDERING.md) | Windows geometry-ordering root cause and fix. |
+| [`PERFECT_DARK.md`](PERFECT_DARK.md) | Audited opportunities from the MIT-licensed Perfect Dark port. |
 
-## Provenance
+## Direction and maintenance
 
-| | |
+| Guide | Subject |
 |---|---|
-| [LICENSING.md](LICENSING.md) | Where every part came from and which terms are settled. |
-| [THIRD_PARTY.md](THIRD_PARTY.md) | The fetched files: what, whence, and why they are not vendored. |
+| [`ROADMAP.md`](ROADMAP.md) | Current state, known issues, and planned work. |
+| [`VISION.md`](VISION.md) | Long-term project direction. |
+| [`MAINTAINING.md`](MAINTAINING.md) | Community branch workflow and future upstream replay. |
+| [`../PATCH_QUEUE.md`](../PATCH_QUEUE.md) | Independently replayable community fixes. |
+| [`REUSE_AUDIT.md`](REUSE_AUDIT.md) | Evaluated reuse candidates and license boundaries. |
 
-## Research
+## Licensing and provenance
 
-[`research/`](research/) holds ten documents on the N64 hardware, GoldenEye's own systems and
-the wider decomp ecosystem. Every claim in them is tagged VERIFIED, CONTESTED or FOLKLORE, and
-each carries an explicit note on what could not be established. They exist so nobody has to
-rediscover this the expensive way.
+| Guide | Subject |
+|---|---|
+| [`LICENSING.md`](LICENSING.md) | Repository-wide provenance and permitted sources. |
+| [`THIRD_PARTY.md`](THIRD_PARTY.md) | Fetched dependencies, versions, and redistribution constraints. |
+| [`../getv/port/PROVENANCE.md`](../getv/port/PROVENANCE.md) | File-level port-layer origin record. |
+
+If two documents disagree about a command or setting, treat the executable/script help and current
+source as authoritative, then fix the stale document. Documentation changes are welcome.

@@ -31,7 +31,7 @@
  *   1. $GETV_CONFIG                                    (explicit override)
  *   2. --config=<path>                                 (explicit override)
  *   3. <dir of argv[0]>/goldeneye.cfg                  (beside the binary)
- *   4. ~/Library/Application Support/GoldenEye/goldeneye.cfg   (macOS user config)
+ *   4. platform user-data directory/goldeneye.cfg
  *
  * argv[0] is used rather than _NSGetExecutablePath() deliberately: this file is globbed
  * into the port layer too (build_sim.sh / build.sh compile port/src/*.c), and
@@ -1205,9 +1205,9 @@ static int locate(const char *argv0, const char *cliPath)
         }
     }
 
-    /* Search step 4: the per-user config directory. On macOS this is exactly the
-     * "$HOME/Library/Application Support/GoldenEye/goldeneye.cfg" this function used
-     * to build by hand; see getv/port/src/port_paths.c for the other hosts. */
+    /* Search step 4: the per-user config directory. On macOS this is
+     * "$HOME/Library/Application Support/Goldeneye-Native/goldeneye.cfg"; see
+     * getv/port/src/port_paths.c for the other hosts. */
  if (gePortUserDataDir("Goldeneye-Native", "Goldeneye-Native", dir, sizeof dir) == 0) {
  snprintf(buf, sizeof buf, "%s/" GE_CFG_BASENAME, dir);
  if (try_path(buf)) { return 1; }
@@ -1265,7 +1265,7 @@ static void read_file(void)
 static void usage(void)
 {
  printf(
-"GoldenEye 007 - native macOS port\n"
+"GoldenEye 007 - native port\n"
 "\n"
 "goldeneye [--key=value ...]\n"
 "\n"
@@ -1273,7 +1273,7 @@ static void usage(void)
 "1. these command-line flags\n"
 "2. GETV_* environment variables      (unchanged; every existing gate works)\n"
 "3. " GE_CFG_BASENAME " beside the binary, or\n"
-"~/Library/Application Support/GoldenEye/" GE_CFG_BASENAME "\n"
+"the platform user-data directory\n"
 "4. built-in defaults\n"
 "\n"
 "--config=PATH read this config file instead of searching\n"
@@ -1313,7 +1313,7 @@ static void usage(void)
 }
 
 static const char *DEFAULT_CFG =
-"# goldeneye.cfg - GoldenEye 007, native macOS port\n"
+"# goldeneye.cfg - GoldenEye 007, native port\n"
 "#\n"
 "# Lines are key = value.  '#' and ';' start a comment.\n"
 "# Precedence: command line  > GETV_* environment  > this file  > defaults.\n"

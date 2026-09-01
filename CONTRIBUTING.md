@@ -3,9 +3,36 @@
 Patches are welcome. This file covers the handful of things that are specific to this project and
 easy to get wrong; everything else is ordinary.
 
-Read [`docs/SETUP.md`](docs/SETUP.md) first - a working build is a prerequisite for almost any
-useful change, and its troubleshooting section covers the failures that look alarming but are
-expected.
+For a first checkout, use [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md). A working build is
+a prerequisite for code changes; [`docs/SETUP.md`](docs/SETUP.md) covers the manual macOS pipeline
+and deep troubleshooting.
+
+Read [`docs/CODEBASE.md`](docs/CODEBASE.md) before deciding where a change belongs and
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for the edit/build/test loop.
+
+## Quick contribution workflow
+
+1. Search existing issues and pull requests, then choose one problem.
+2. Reproduce it on current `main` and record the exact commit, platform, command, and result.
+3. Create a focused branch from current `main`.
+4. Make the smallest change at the correct source boundary and add focused coverage.
+5. Run the applicable checks in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#validation-matrix).
+6. Review every changed and untracked path before committing.
+7. Open one pull request that links the issue and reports commands and actual results.
+
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c fix/short-description
+bash getv/port/tests/run_tests.sh
+git diff --check
+git status --short --branch
+git diff
+```
+
+Documentation fixes are welcome and do not require a local ROM or game build when they only change
+Markdown. Verify commands and links against the current scripts/source, inspect the rendered
+Markdown, and run `git diff --check`.
 
 ## Community continuation workflow
 
@@ -74,6 +101,18 @@ Regenerate each over its own paths. A bare `git diff` sweeps the whole extracted
 
 Changes to the port layer itself - `getv/port/` - are ordinary tracked files and need none of this.
 
+Some Fast3D files under `getv/port/` are also ignored because they are reconstructed from a pinned
+sm64ex revision. Check a file before editing it:
+
+```bash
+git ls-files --error-unmatch path/to/file
+```
+
+If the file is one of the fifteen fetched paths in `getv/patches/thirdparty/MANIFEST`, run
+`tools/fetch-thirdparty.sh regen` after editing. The tracked third-party patch is the only copy of
+that work that survives a fresh checkout. [`docs/CODEBASE.md`](docs/CODEBASE.md#where-a-change-belongs)
+has the complete path-to-subsystem map.
+
 ## 3. Say what you measured
 
 The build prints four counts, and they are the cheapest evidence that a change did what you think:
@@ -102,6 +141,12 @@ If you touched anything in `getv/patches/`, run this too:
 
 ```bash
 bash tools/check_patches.sh
+```
+
+If you changed one of the fetched port-layer files, verify its reconstruction too:
+
+```bash
+bash tools/fetch-thirdparty.sh verify
 ```
 
 It applies every patch to a freshly cloned decomp. Your own tree cannot answer that question,

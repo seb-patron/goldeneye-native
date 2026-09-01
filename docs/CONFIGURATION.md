@@ -3,6 +3,9 @@
 Every setting has the same name on the command line and in the configuration file. Source of
 truth is `getv/port/src/ge_config.c`.
 
+For the player-facing keyboard, mouse, gamepad, rebinding, and shortcut guide, start with
+[`CONTROLS.md`](CONTROLS.md). This document is the exhaustive setting reference.
+
 ## Where the file lives
 
 The first of these that exists is used, and the rest are ignored:
@@ -10,14 +13,20 @@ The first of these that exists is used, and the rest are ignored:
 1. `$GETV_CONFIG`
 2. `--config=PATH`
 3. `goldeneye.cfg` in the same directory as the binary
-4. `~/Library/Application Support/GoldenEye/goldeneye.cfg`
+4. `goldeneye.cfg` in the platform user-data directory
 
 If none exists and none was asked for, the game writes the commented template to location 4 and
 reads it back. That first-run write is how the port's tuned defaults actually reach you; a value
 that only appears in a template nobody has generated does nothing.
 
-Save data is not stored here. It goes to `~/Library/Application Support/Goldeneye-Native/eeprom.bin`,
-or to `save_dir` if you set one.
+On macOS the user-data config is
+`~/Library/Application Support/Goldeneye-Native/goldeneye.cfg`. Windows and Linux use the path
+returned by SDL for the platform. The selected path is printed at startup, which is the
+authoritative location for the current machine. Older macOS installs with a config under the
+pre-rename `GoldenEye` directory are detected and kept in place.
+
+Save data is a separate `eeprom.bin` in the platform user-data directory, or in `save_dir` if you
+set one.
 
 ## File format
 
@@ -50,7 +59,7 @@ environment variable always beats the file.
 | `--help`, `-h` | Print the built-in usage summary and exit. |
 | `--list-cheats` | Print every named cheat with its id and whether it is live. Exits. |
 | `--config=PATH` | Read this file instead of searching. `--config PATH` also works. |
-| `--write-config[=PATH]` | Write the commented default config and exit. With no path, writes to `~/Library/Application Support/GoldenEye/goldeneye.cfg`, creating the directory. |
+| `--write-config[=PATH]` | Write the commented default config and exit. With no path, writes to the platform user-data directory, creating it. |
 
 Any other setting is passed as `--key=value`, for example `--resolution=1920x1440`. A bare
 `--key value` pair is also accepted when the next argument does not begin with `-`.
@@ -83,8 +92,8 @@ would aspect-correct twice.
 
 ### `fullscreen`
 
-`0` or `1`; `on`/`off`, `true`/`false` and `yes`/`no` are accepted. Default `0`. macOS is the one
-platform in this port that has a window, and starting windowed is the point of the target.
+`0` or `1`; `on`/`off`, `true`/`false` and `yes`/`no` are accepted. Default `0`. Desktop builds
+start windowed.
 
 ### `supersample`
 
@@ -263,6 +272,9 @@ finding where the visibility root is actually read.
 
 ## Controls
 
+See [`CONTROLS.md`](CONTROLS.md) for the complete physical input map and practical rebinding
+examples. The sections below document the underlying settings and edge cases.
+
 ### `controls`
 
 Selects one of Rare's eight control styles, by number or by name:
@@ -350,8 +362,7 @@ stays one line:
 Stick deadzone as a percentage of the raw SDL axis, `0` to `40`. Out-of-range values are clamped
 rather than rejected, matching what the input layer does.
 
-The built-in default is roughly 9.8% (3200 of 32767 counts). The written template sets `20`, so on
-a fresh install the effective value is 20 unless you change it.
+The built-in default and written template are both 20% (6553 of 32767 counts).
 
 This is the port's deadzone on the raw axis. It is not the game's own aim and walk thresholds,
 which are applied downstream in N64 counts and are left alone.

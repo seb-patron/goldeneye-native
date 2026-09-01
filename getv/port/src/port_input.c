@@ -861,10 +861,12 @@ static void geSynthState(int port, struct GePadState *out)
  * move W A S D            -> left stick
  * look arrow keys         -> right stick (port_os.c turns it into C-buttons)
  * fire SPACE or LEFT-CTRL -> Z trigger
- * A / use E or RETURN        -> A
- * B / aim Q                  -> B
- * crouch/L R Z / X              -> L and R shoulders
- * Start return(kp) or tab  -> start
+ * use E or F              -> B
+ * inventory R or RETURN   -> A
+ * aim Q                   -> left trigger
+ * Z / X                   -> L and R shoulders
+ * C or LSHIFT / V         -> crouch / stand (through the dedicated helpers below)
+ * Start keypad-return or tab -> start
  * d-pad I J K L
  *
  * GETV_KEYBOARD=0 disables it entirely.
@@ -1537,4 +1539,3 @@ void gePortInputPollPort(int port, struct GePadState *out)
     gePortInputPollPortInner(port, out);
     geMoveSelftestApply(port, out);
 }
-
