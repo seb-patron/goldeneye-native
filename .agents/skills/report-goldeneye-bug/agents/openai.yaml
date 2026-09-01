@@ -1,0 +1,4 @@
+interface:
+  display_name: "Report a GoldenEye Bug"
+  short_description: "Collect and draft safe GoldenEye bug reports"
+  default_prompt: "Use $report-goldeneye-bug to reproduce and draft a safe GoldenEye-Native bug report."

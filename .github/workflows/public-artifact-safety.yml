@@ -1,0 +1,16 @@
+name: Public artifact safety
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  no-game-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject ROMs, saves and non-public artifacts
+        run: python3 tools/check_no_game_data.py --tracked
+      - name: Test agent contribution tools
+        run: python3 -m unittest discover -s tools/tests -p 'test_agent_tools.py'

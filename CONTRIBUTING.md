@@ -27,9 +27,23 @@ updated in the same pull request, keep it in a separate commit from the code and
 Read [`docs/MAINTAINING.md`](docs/MAINTAINING.md) for the full branch, integration and future
 upstream-replay process.
 
+## Agent-assisted contributions
+
+Agent-assisted bug reports and patches are welcome. Read
+[`docs/AGENTIC_CONTRIBUTING.md`](docs/AGENTIC_CONTRIBUTING.md); compatible coding agents also load
+the repository policy in [`AGENTS.md`](AGENTS.md) and can use the checked-in workflows under
+`.agents/skills/`.
+
+The contributor remains responsible for provenance, reviewing the complete diff and artifacts,
+and verifying every reported test result. Disclose material agent assistance briefly in the pull
+request; do not publish private reasoning or a full chat transcript.
+
+Agent use does not relax the game-data rule below. **Never include a ROM. Ever.** An agent must not
+copy, stage, commit, upload, attach, paste, encode, archive, transmit or link to one.
+
 ## 1. Never commit game data
 
-This is the one rule with no exceptions.
+This is the one rule with no exceptions: **never include a ROM, ever.**
 
 No ROM, no `base.zip`, and nothing derived from either: no extracted `.bin` blobs, no generated
 asset `.c` files, no texture dumps, no audio banks. `.gitignore` blocks the known shapes of all

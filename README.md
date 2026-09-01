@@ -460,7 +460,11 @@ the self-test, and run `tools/check_patches.sh` if you touched anything in `getv
 one problem per [issue](https://github.com/seb-patron/goldeneye-native/issues/new/choose) and keep
 each pull request to one logical fix so it remains reviewable and independently replayable.
 
-Never attach a ROM, a save file or extracted game data to an issue or a pull request.
+Agent-assisted contributions are welcome. [`docs/AGENTIC_CONTRIBUTING.md`](docs/AGENTIC_CONTRIBUTING.md)
+documents the repository instructions, bug-report skill, pull-request skill and human review gates.
+
+Never include or attach a ROM, ever. Never attach a save file or extracted game data to an issue
+or a pull request.
 
 ## Licensing and credits
 

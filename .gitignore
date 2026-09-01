@@ -55,7 +55,15 @@ roms/
 *.z64
 *.n64
 *.v64
+*.rom
 *.elf
+
+# Save data is private reproduction state, never a public issue/PR artifact.
+*.sav
+*.save
+*.srm
+*.eep
+eeprom.bin
 
 # SM64 tvOS app (generated / build output)
 sm64tv/SM64TV.xcodeproj/

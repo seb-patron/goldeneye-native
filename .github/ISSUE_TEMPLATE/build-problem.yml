@@ -10,8 +10,9 @@ body:
         [docs/SETUP.md](https://github.com/seb-patron/goldeneye-native/blob/main/docs/SETUP.md)
         before filing. A successful current build reports `0 failed` in every build phase.
 
-        **Do not attach a ROM, `base.zip`, save file or anything extracted from one.** Do not
-        paste their contents or upload generated asset source. Error text and build logs are fine.
+        **Never include a ROM, ever.** Do not attach, paste, encode, archive or link to one. Do not
+        attach `base.zip`, a save file or anything extracted from game data. Do not paste their
+        contents or upload generated asset source. Sanitized error text and build logs are fine.
 
         Search existing issues first and use one report for one problem.
   - type: input
@@ -80,10 +81,15 @@ body:
       description: Say whether current `main`, a clean build or the setup guide changed the result.
     validations:
       required: true
+  - type: textarea
+    id: assistance
+    attributes:
+      label: Report preparation
+      description: Optionally name any agent or automated harness that helped prepare the report. Do not paste private reasoning or transcripts.
   - type: checkboxes
     id: data_rules
     attributes:
       label: Game-data check
       options:
-        - label: I have not attached a ROM, save, `base.zip` or extracted game data.
+        - label: I have not included, attached, pasted, encoded, archived or linked to a ROM, save, `base.zip` or extracted game data.
           required: true
