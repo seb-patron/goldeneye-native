@@ -34,71 +34,32 @@ can only work around, this one just fixes.
 
 You supply your own legally dumped cartridge. No game data ships here, and none ever will.
 
-## Install it
+## Try it on Windows
 
-### On a Mac
+The first no-code installation path is a Windows 10/11 x86-64 setup app. It is currently a test
+candidate rather than a published release.
 
-**1.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**. Do not rename it.
+1. Download the `GoldenEye-Native-Windows-Setup-...` artifact from a successful
+   **Package Windows setup** workflow run and extract all four files.
+2. Double-click `GoldenEye-Native-Setup.exe`, choose an empty installation folder, and select your
+   own supported US GoldenEye 007 cartridge dump when asked.
+3. Leave the window open while it builds, then click **Launch GoldenEye**.
 
-**2.** On [the project page](https://github.com/seb-patron/goldeneye-native), click the green
-**Code** button, then **Download ZIP**. Double-click the downloaded file to unzip it.
+You do not need Git, Python, a compiler, source-code knowledge, administrator access, or a
+terminal. The setup app accepts `.z64`, `.v64`, and `.n64` byte orders, verifies the selected file,
+and performs the build locally. It never uploads the ROM.
 
-**3.** Open the folder that appears and **double-click `Install on Mac`**.
+Read [Installing and playing on Windows](docs/WINDOWS_INSTALL.md) for the exact download steps,
+requirements, SmartScreen note, and safe bug-report instructions.
 
-A window opens and does the rest. It takes 10 to 40 minutes the first time, almost all of it
-reading your cartridge, and you can leave it running. If macOS says the file is from an
-unidentified developer, right-click it and choose **Open** instead, then **Open** again.
+## Developers: build from source
 
-**4.** When it finishes, **double-click `Play GoldenEye`** in the same folder.
+Windows, macOS, and Linux source builds remain available for contributors and advanced users.
+They require a source checkout and development tools; they are intentionally documented apart
+from the Windows player installer.
 
-That is it. Drag `Play GoldenEye` to your Dock if you want it there permanently.
-
-### On Windows
-
-**1.** Have your own supported GoldenEye 007 ROM dump ready. `.z64`, `.v64`, and `.n64` byte
-orders are accepted; the setup app verifies and normalizes the selected file locally. The project
-does not supply ROMs or instructions for acquiring one.
-
-**2.** Download `GoldenEye-Native-Setup.exe` from this project's release when a reviewed build is
-published. The replacement, ROM-free setup candidate is produced by the
-**Package Windows setup** workflow. It opens a normal ROM file picker, builds everything on your
-computer, and never uploads your dump. The first release candidate is still being tested; see
-[`docs/WINDOWS_PACKAGING.md`](docs/WINDOWS_PACKAGING.md) for the package and Windows test process.
-
-**3.** Double-click it, choose an installation folder, and select your ROM. You do not install
-Git, Python, or a compiler and do not need to handle source code: the setup app downloads private,
-checksum-verified portable tools and performs the local build. It takes 10 to 40 minutes the first
-time and produces the playable executable only on your computer.
-
-### On Linux
-
-Install `git` and `python3` from your package manager, then:
-
-```bash
-bash tools/install.sh
-```
-
-It prints the exact package command for your distribution if anything is missing.
-
-### If something goes wrong
-
-Nothing here can break your computer or your ROM, and nothing is ever uploaded anywhere.
-
-- **It stopped partway.** Run it again. It picks up where it left off rather than starting over.
-- **It cannot find your ROM.** Put the file on your Desktop with a `.z64`, `.n64` or `.v64`
-  ending. Any of the three common formats works and it converts what it needs to.
-- **It says Git or Python is missing.** Go back to step 1 or 2. On Windows this is almost always
-  the "Add python.exe to PATH" box.
-- **Anything else.** Open an issue with the last twenty lines it printed. Never attach your ROM
-  or a save file.
-
-### What you need, in full
-
-| | |
-|---|---|
-| Your own GoldenEye 007 cartridge dump | Nothing playable ships here, ever |
-| About 4 GB of free disk | The source, the extracted assets and the build |
-| 10 to 40 minutes, once | After that, starting the game is instant |
+Start with [Building from source](docs/BUILDING.md). Contributors should then read
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Screenshots
 
@@ -116,8 +77,8 @@ otherwise.
 
 | Platform | Renderer | State |
 |---|---|---|
-| **macOS** (Apple silicon and Intel) | OpenGL or native Metal | Builds and plays. Primary target. |
-| **Linux** (x86-64 and arm64) | OpenGL | Builds Verified on Debian 12 aarch64. |
+| **macOS** (Apple silicon) | OpenGL or native Metal | Builds and plays. Primary target. |
+| **Linux** (x86-64 and arm64) | OpenGL | Builds. Verified on Debian 12 aarch64. |
 | **Windows** (x86-64) | OpenGL | Builds native mingw-w64. Self-test 16 of 16. |
 | **tvOS** (Apple TV) | GL ES or Metal | Builds, signs and deploys to real hardware. |
 | **iOS** | Metal | Bring-up. Builds; deploying needs a paired device. |
@@ -246,17 +207,17 @@ environment and re-executes, so the game begins in a process where nothing has b
 getv\build-windows\goldeneye.exe      # Windows
 ```
 
-Add `--launcher` for the settings window. On Linux the installer can also register a desktop
-entry, so the game shows up in your applications menu; it asks first, and removing that one file
-uninstalls it.
+Add `--launcher` for the settings window. On Linux the developer source-build script can also
+register a desktop entry, so the game shows up in your applications menu; it asks first, and
+removing that one file unregisters it.
 
 Settings live in a plain text file that the game writes on first run, and it prints the path it used.
 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) lists every key.
 
 ## If it does not work
 
-**The installer stopped.** It names the step and the reason. Re-running is safe and resumes.
-The commonest causes are a missing prerequisite from step 1 and a ROM it could not find.
+**Setup or a source build stopped.** It names the step and the reason. Re-running is safe and
+resumes. The commonest causes are a missing prerequisite or a ROM it could not verify.
 
 **It says it cannot find your ROM.** Put it on the Desktop with a `.z64`, `.n64` or `.v64`
 extension, or pass the path directly: `bash tools/install.sh --rom /path/to/rom.z64`.
@@ -396,14 +357,16 @@ project uses on itself are all in `tools/`.
 
 | Path | What is in it |
 |---|---|
-| [`tools/install.sh`](tools/install.sh) | The one-command installer for macOS and Linux. |
-| [`tools/install.ps1`](tools/install.ps1) | The Windows installer. |
+| [`tools/install.sh`](tools/install.sh) | The developer source-build bootstrap for macOS and Linux. |
+| [`tools/install.ps1`](tools/install.ps1) | The developer source-build bootstrap for Windows. |
 | [`tools/package_windows_wizard.ps1`](tools/package_windows_wizard.ps1) | Builds and safety-checks the ROM-free Windows setup package. |
 | [`getv/port/`](getv/port/) | The port layer: renderer, input, audio, saves, netplay. |
 | [`getv/port/fast3d/`](getv/port/fast3d/) | The display-list renderer, OpenGL and Metal backends. |
 | [`getv/patches/`](getv/patches/) | Every change made to the decompilation, as numbered patches. |
 | [`getv/port/tests/`](getv/port/tests/) | The self-test suite. |
-| [`docs/SETUP.md`](docs/SETUP.md) | Doing the install by hand, and what each step is for. |
+| [`docs/WINDOWS_INSTALL.md`](docs/WINDOWS_INSTALL.md) | No-code Windows installation and first run. |
+| [`docs/BUILDING.md`](docs/BUILDING.md) | Developer source-build entry points for Windows, macOS, and Linux. |
+| [`docs/SETUP.md`](docs/SETUP.md) | Exhaustive macOS arm64 build reference and troubleshooting. |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Every setting, with what it does. |
 | [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md) | The frame-rate fix, in full. |
 | [`docs/MODDING.md`](docs/MODDING.md) | Lua mods and HD texture packs. |
@@ -418,37 +381,10 @@ project uses on itself are all in `tools/`.
 
 ## Building from source
 
-The installer does this for you. If you would rather drive it yourself,
-[`docs/SETUP.md`](docs/SETUP.md) explains every step and why it exists.
-
-```bash
-./getv/build_mac.sh all       # macOS
-./getv/build_linux.sh all     # Linux
-```
-
-```powershell
-.\getv\build_windows.ps1 all  # Windows
-```
-
-A good build prints four counts and every one reads `0 failed`:
-
-```
-mac game: 167 built, 0 failed
-mac assets: 746 built, 0 failed
-mac audio: 40 built, 0 failed
-mac port layer: 67 built, 0 failed
-```
-
-**The asset and audio counts are identical on every platform**; measured on a fresh Windows
-install, 746 and 40, the same as above. What differs is the game and port-layer counts: Windows
-builds 165 game objects, because three N64 hardware files are excluded there by name rather than
-stubbed, and fewer port-layer objects than macOS, which has the Metal backend and its Objective-C
-sources. Linux sits between the two for the same reason. Every one of these
-differences is explained in [`docs/SETUP.md`](docs/SETUP.md) and none is a fault.
-
-The number to watch is the one with `failed` beside it. A dropped source shows up as a changed
-built count and nothing else, which is how a Windows build shipped 237 assets instead of 746 and
-still linked.
+Source builds are for developers and advanced users with a checkout and platform toolchain. The
+supported entry commands, prerequisites, output locations, and safety boundary are in
+[`docs/BUILDING.md`](docs/BUILDING.md). The exhaustive manual Mac pipeline and its troubleshooting
+notes remain in [`docs/SETUP.md`](docs/SETUP.md).
 
 ## Contributing
 

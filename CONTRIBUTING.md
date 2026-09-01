@@ -3,9 +3,9 @@
 Patches are welcome. This file covers the handful of things that are specific to this project and
 easy to get wrong; everything else is ordinary.
 
-Read [`docs/SETUP.md`](docs/SETUP.md) first - a working build is a prerequisite for almost any
-useful change, and its troubleshooting section covers the failures that look alarming but are
-expected.
+Read [`docs/BUILDING.md`](docs/BUILDING.md) first - a working build is a prerequisite for almost any
+useful change. Its platform links lead to the detailed setup and troubleshooting references for
+failures that look alarming but are expected.
 
 ## Community continuation workflow
 

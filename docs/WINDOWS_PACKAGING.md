@@ -6,6 +6,10 @@ it. `GoldenEye-Native-Setup.exe` is deliberately different: it contains the setu
 verifier/importer, then builds the playable executable on the user's own Windows computer from a
 ROM they supply.
 
+The end-user download and first-run instructions are in
+[`WINDOWS_INSTALL.md`](WINDOWS_INSTALL.md). This document is for maintainers producing and testing
+that setup package.
+
 That is an engineering boundary, not a legal conclusion. This repository has unresolved licensing
 questions recorded in [`LICENSING.md`](LICENSING.md), including source with no declared licence.
 Maintainer and, where appropriate, legal review are still required before publicly releasing any
@@ -18,7 +22,7 @@ The package contains four files:
 
 - `GoldenEye-Native-Setup.exe` — a self-contained Windows x86-64 setup application;
 - `SHA256SUMS.txt` — the executable's checksum;
-- `README.txt` — the five-step first-run instructions and data-safety boundary; and
+- `README.txt` — the first-run instructions and data-safety boundary; and
 - `THIRD_PARTY_NOTICES.txt` — the SDL2, Dear ImGui, and GLEW notices required alongside the
   statically linked executable.
 

@@ -1,12 +1,17 @@
 # Documentation
 
-Start with [`SETUP.md`](SETUP.md). Everything else is here because someone needed it once.
+Want to try the game without development tools? Start with
+[`WINDOWS_INSTALL.md`](WINDOWS_INSTALL.md). Want to work on the project? Start with
+[`BUILDING.md`](BUILDING.md).
 
 ## Getting it running
 
 | | |
 |---|---|
-| [SETUP.md](SETUP.md) | The build guide, start to finish. Read this first. |
+| [WINDOWS_INSTALL.md](WINDOWS_INSTALL.md) | The no-code Windows setup: download, install, play, and report failures safely. |
+| [BUILDING.md](BUILDING.md) | Developer source builds on Windows, macOS, and Linux. |
+| [SETUP.md](SETUP.md) | The exhaustive macOS arm64 build reference and troubleshooting guide. |
+| [WINDOWS_PACKAGING.md](WINDOWS_PACKAGING.md) | Maintainer guide for producing and testing the ROM-free Windows setup package. |
 | [CONFIGURATION.md](CONFIGURATION.md) | Every config key, which are implemented, which are reserved. |
 | [CHEATS.md](CHEATS.md) | The game's own cheat system, exposed by name. |
 

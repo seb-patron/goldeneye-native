@@ -1,14 +1,18 @@
-# Setup
+# Developer source-build reference
 
-This is the long-form build guide for Goldeneye-Native. It assumes you are comfortable with a
-terminal and have never seen this project or any other decompilation port. Every command below
-is meant to be pasted as written. Where a step exists for a non-obvious reason, the reason is
-given, because the two most surprising parts of this build - you supply the ROM, and you supply
-the renderer sources - are both things you would otherwise assume were a mistake.
+This is the long-form manual reference for Goldeneye-Native's macOS arm64 build. It assumes you
+are comfortable with a terminal and have never seen this project or any other decompilation port.
+Every command below is meant to be pasted as written. Where a step exists for a non-obvious
+reason, the reason is given, because the two most surprising parts of this build - you supply the
+ROM, and you supply the renderer sources - are both things you would otherwise assume were a
+mistake.
 
-`README.md` is the short version. This document is the exhaustive one.
+Developers on Windows, macOS, or Linux should begin with [`BUILDING.md`](BUILDING.md). People who
+only want to try the game on Windows should use [`WINDOWS_INSTALL.md`](WINDOWS_INSTALL.md); that
+path does not require a source checkout or development tools. This document is the exhaustive
+reference for the Mac pipeline and the reasons behind it.
 
-## If you just want it built
+## Automated developer builds
 
 ```bash
 bash tools/install.sh
@@ -20,13 +24,13 @@ On Windows, in PowerShell:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
 ```
 
-Either one runs everything in this document, in the order it has to happen in, and skips any
-step already done so re-running is how you resume. It never downloads a ROM and never
-runs `sudo`; where a system package is missing it prints the command for your package manager
-and stops.
+These commands run the equivalent platform pipeline in the required order and skip completed
+steps, so re-running is how you resume. Neither downloads a ROM. The macOS/Linux command never
+runs `sudo`; where a system package is missing it prints the command for your package manager and
+stops. See [`BUILDING.md`](BUILDING.md) for prerequisites and explicit ROM-path examples.
 
-Read the rest of this document when the installer stops on something, or when you want to know
-why a step is where it is. Every ordering constraint the installer encodes is explained below,
+Read the rest of this document when a source-build script stops on something, or when you want to
+know why a step is where it is. Every ordering constraint the scripts encode is explained below,
 and several of them are the kind that fail silently rather than loudly: the namespacing pass in
 3.6 corrupts the tree if it runs twice, `enable_bg_extraction.py` must run before extraction
 rather than after, and `0002-assets.patch` goes on after the namespacing pass and not before.
@@ -58,9 +62,11 @@ the resulting errors look like.
 | macOS 13 or later | The build hard-codes the target triple `arm64-apple-macos13.0`. |
 | Apple silicon (arm64) | The same triple. There is no Intel build and no universal build. |
 
-Intel Macs are not supported. The target triple in `getv/build_mac.sh` is a literal `arm64-...`,
-not something derived from the host, so an Intel Mac will produce arm64 objects it cannot link
-into anything it can run. Windows, Linux and tvOS are likewise not buildable today.
+This manual path does not support Intel Macs. The target triple in `getv/build_mac.sh` is a literal
+`arm64-...`, not something derived from the host, so an Intel Mac will produce arm64 objects it
+cannot link into anything it can run. Windows and Linux use their own build scripts and automated
+developer setup paths described in [`BUILDING.md`](BUILDING.md); their commands are not a
+line-for-line substitute for the Mac-only steps below.
 
 Check what you have:
 
@@ -1567,7 +1573,9 @@ log show how far the boot got. Compare against section 5.1 and work back through
 - [`THIRD_PARTY.md`](THIRD_PARTY.md) - the fifteen fetched files, in full.
 - [`CHEATS.md`](CHEATS.md) - the named cheat system.
 - [`MODDING.md`](MODDING.md) - changing the game rather than playing it.
-- [`PORTING.md`](PORTING.md) - what a Windows, Linux or tvOS target would take.
+- [`BUILDING.md`](BUILDING.md) - supported developer entry points for Windows, macOS and Linux.
+- [`WINDOWS_INSTALL.md`](WINDOWS_INSTALL.md) - the no-code Windows player path.
+- [`PORTING.md`](PORTING.md) - the platform-layer architecture and remaining port work.
 - [`ROADMAP.md`](ROADMAP.md) - the detailed open-problem list.
 - [`LICENSING.md`](LICENSING.md) - provenance for the repository as a whole.
 - [`../getv/port/PROVENANCE.md`](../getv/port/PROVENANCE.md) - file-level origin record for the
