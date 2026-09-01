@@ -1,84 +1,215 @@
 # Development workflow
 
-The port is built on two machines at once: a Mac (arm64, SDL2, the reference build) and a Surface
-Pro 3 running Windows (the second target, and where the launcher and netplay work happens). Most
-of the friction in this project has come from keeping those two trees honest with each other, so
-the rules below are worth reading before touching anything shared.
+This guide covers the local edit/build/test loop. Read [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+before preparing a contribution and [`CODEBASE.md`](CODEBASE.md) for the architecture and path
+ownership model.
 
-## Integration is one-directional
+## Prepare a development checkout
 
-Work flows Windows to Mac to `main`. The Mac tree is pre-`main`: it decides what is taken,
-integrates it, and owns the result building and being correct. The Windows tree publishes onto its
-own branch and does not merge Mac work back in and treat that as the truth.
+Start from current community `main` and create one branch for one logical change:
 
-Only the Mac branch is a candidate for `main`, and pushing there is a deliberate, manual step
-taken after review, not part of any script.
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c fix/short-description
+```
 
-## Take by path, never by whole-tree merge
+For documentation or maintenance work, use an equally descriptive prefix such as `docs/` or
+`chore/`.
 
-`git checkout <branch> -- <paths>`, file by file, with a note of what was not taken and why.
+Complete the one-time setup before changing code:
 
-Whole-tree merges have twice reverted work on files the merging machine never edited:
-`ge_player_api.c` lost twelve state fields once, and `gen_level_routes.py` reverted to assumed
-spawns once. Selective integration by a single owner is what prevents that.
+```bash
+bash tools/install.sh
+```
 
-### A large negative line count is not, by itself, evidence of a revert
+On Windows:
 
-The two branches have **no common ancestor** -- `git merge-base` returns nothing between them -- so
-`git diff --stat` reads like a mass deletion of whatever one side has and the other has never
-seen. `gen_prop_extents.py` once showed as `209 --` and looked exactly like a revert. Nobody had
-touched it.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
+```
 
-The question is not "did the line count drop" but "does this file exist on the other branch at
-all". `git cat-file -e <branch>:<path>` answers that directly. Compare contents only once both
-sides genuinely have the file.
+The installer is resumable. It fetches ignored dependencies, applies patches, generates local
+assets from your own ROM, and builds. Never add any of those ignored outputs to Git.
 
-## `vendor/` is gitignored, so decomp changes do not travel
+## Establish a baseline
 
-Nothing in a bundle carries them. This cost a full day of a Windows build that compiled and would
-not link, over seven symbols that existed on one machine only.
+Before a behavioral change, reproduce the problem on unchanged `main` and record:
 
-A symbol the port layer calls belongs in `getv/patches/` the same day it is written, and the patch
-is verified against the other machine's tree before it is announced. For a file under active edit
-on both sides, copy the file itself and compare hashes rather than trusting a patch that claims to
-apply cleanly.
+- the exact commit (`git rev-parse --short HEAD`);
+- OS, architecture, renderer, and relevant hardware;
+- the full launch command and any `GETV_*` settings;
+- expected and actual behavior; and
+- the relevant test/build result.
 
-Patches must also be a valid series. Two patches generated against the same base cannot both
-apply in order; regenerate the later one against the tree that results from the earlier.
+Run the ROM-free unit suite before editing:
 
-## Ownership and locking
+```bash
+bash getv/port/tests/run_tests.sh
+```
 
-| Area | Owner |
+Use the PowerShell runner on Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File getv\port\tests\run_tests.ps1
+```
+
+A pre-existing failure belongs in the record; do not weaken a threshold or attribute it to your
+change.
+
+## Choose the correct edit surface
+
+There are three source categories, and confusing them is the most expensive project-specific
+mistake:
+
+1. **Tracked port code** under `getv/port/` is edited and committed normally.
+2. **Ignored fetched port files** are reconstructed from sm64ex plus
+   `getv/patches/thirdparty/0001-getv-port-layer.patch`. After editing one, run
+   `tools/fetch-thirdparty.sh regen` so the tracked patch records the change.
+3. **Ignored game code** under `vendor/ge-decomp/` must be represented in a numbered patch under
+   `getv/patches/`. An edit left only in `vendor/` disappears on a fresh setup.
+
+Use this before editing a suspicious path:
+
+```bash
+git ls-files --error-unmatch path/to/file
+```
+
+A zero exit status means the file is tracked. Read
+[`getv/patches/README.md`](../getv/patches/README.md) before modifying game code or generated asset
+sources. Never regenerate a broad patch over the entire decompilation; that can capture hundreds of
+megabytes of ROM-derived data.
+
+## Build the smallest relevant target
+
+### macOS
+
+```bash
+./getv/build_mac.sh port       # compile the port layer
+./getv/build_mac.sh app        # archive and link
+./getv/build_mac.sh lib        # compile game, assets, audio, and port objects
+./getv/build_mac.sh all        # lib + app
+```
+
+Build Metal into its separate output directory with:
+
+```bash
+GETV_RENDERER=metal ./getv/build_mac.sh all
+```
+
+### Linux
+
+```bash
+./getv/build_linux.sh port
+./getv/build_linux.sh app
+./getv/build_linux.sh all
+```
+
+### Windows
+
+```powershell
+.\getv\build_windows.ps1 -Target port
+.\getv\build_windows.ps1 -Target app
+.\getv\build_windows.ps1 -Target all
+```
+
+Every build phase must report `0 failed`. A changed built-object count can also indicate that a
+source stopped participating, so compare counts with the baseline instead of checking only the
+link result.
+
+## Add focused coverage
+
+Prefer a test in `getv/port/tests/test_<subject>.c` when the root cause can be isolated from the
+game. These tests run without a ROM, window, or generated assets and can include the implementation
+file directly to exercise private helpers.
+
+Run one group while iterating:
+
+```bash
+bash getv/port/tests/run_tests.sh config
+bash getv/port/tests/run_tests.sh mouse
+```
+
+Then run the complete suite before handoff.
+
+When the behavior requires the running game, use a bounded deterministic scenario. The common
+shape is:
+
+```bash
+GETV_STAGE=34 GETV_INTROCAM=0 GETV_EXIT_FRAME=301 \
+  ./getv/build-mac/goldeneye
+```
+
+Add `GETV_SCRIPT`, `GETV_STATE`, or a subsystem-specific self-test gate when useful. A level loaded
+without input may still be showing its intro camera, so do not mistake intro measurements for
+gameplay.
+
+## Renderer changes
+
+Establish the OpenGL/reference result before deciding a backend is wrong. Keep the stage, scripted
+input, window, supersampling, antialiasing, and capture frame identical between comparisons.
+
+Run the render-reference workflow before and after:
+
+```bash
+python3 tools/render_refs.py check
+```
+
+For a deterministic local screenshot, use `GETV_SHOTFRAME` with `GETV_SHOTPATH` outside the
+repository. Never commit captures. If Metal is involved, build and run both renderer directories;
+do not reuse stale objects across them.
+
+## Validation matrix
+
+Choose checks based on the paths changed, then run all applicable rows:
+
+| Change | Required validation |
 |---|---|
-| `vendor/ge-decomp/**`, `port_input.c`, `port_os.c`, build scripts, docs | Mac |
-| Windows build, launcher, ImGui layer, netplay, test suites, extractor tools | Windows |
+| Documentation only | Inspect rendered Markdown, verify commands/anchors, `git diff --check` |
+| Port code | Focused test, full port test suite, relevant platform build |
+| Game/decomp patch | Relevant runtime test, full port suite, platform build, `bash tools/check_patches.sh` |
+| Fetched Fast3D file | Focused renderer test, `tools/fetch-thirdparty.sh regen`/`verify`, platform build |
+| Renderer behavior | OpenGL/Metal or reference comparison plus `python3 tools/render_refs.py check` |
+| Cross-platform build code | Run the affected platform or clearly state which platform was not available |
 
-Shared files -- `tools/gen_level_*.py`, `getv/port/src/ge_*_api.c` -- are fetched before being
-touched. Paths are claimed before editing, not after; that is the entire discipline.
+Useful final checks:
 
-Editing a file you do not own does not stick, and should not: report the bug against the owner
-rather than fixing it in place. If a shared file ends up with two competing implementations of
-the same thing after a sync, **whoever owns the consumer keeps the code** -- that tiebreak needs
-no round trip, and it exists because both were once dropped in favour of the other, leaving
-neither.
+```bash
+bash getv/port/tests/run_tests.sh
+bash tools/fetch-thirdparty.sh verify
+git diff --check
+git status --short --branch
+git diff --stat
+git diff
+```
 
-## Transport
+Do not claim a platform, renderer, or runtime scenario that you did not run.
 
-Git over SSH directly into Windows does not work here: the default shell is `cmd`, and the quoting
-around `git-upload-pack` defeats it. Git bundles over SSH sidestep the problem entirely -- push one
-side to a bundle, copy it across, pull it in on the other.
+## Before committing
 
-A bundle exchange should always report the diffstat **without merging automatically**, list the
-other machine's uncommitted work (which never travels in a bundle, and is a frequent source of "I
-fixed that already"), and verify both trees agree on commit and decomp hashes before anything is
-taken. Skipping any of those three checks is how work has been silently reverted before.
+Review every changed and untracked path. In particular, reject:
 
-## Verifying that a change is really in the build
+- ROMs and renamed or archived ROMs;
+- `base.zip`, extracted assets, generated asset source, texture/audio dumps, and saves;
+- screenshots or runtime captures;
+- generated binaries and build directories;
+- local absolute paths, credentials, and private logs; and
+- unrelated cleanup.
 
-`vendor/` being gitignored, combined with stale object files, means a source change can be absent
-for hours while everything still builds and runs. Two cheap checks:
+Keep the source change and focused test replayable. If a community change also updates
+`PATCH_QUEUE.md`, keep that bookkeeping separate from the source-and-test commit. See
+[`MAINTAINING.md`](MAINTAINING.md) for the community branch and future-upstream replay model.
 
-- `nm` the linked binary for the symbol you just wrote.
-- Count callers. Zero callers on a function you added is the tell.
+## Handoff and review
 
-Both were learned the hard way, in both directions.
+A useful change report contains:
+
+- problem and root cause;
+- smallest implemented change;
+- exact commands and results;
+- before/after evidence when behavior or rendering changed;
+- pre-existing failures and untested platforms; and
+- the complete diff scope.
+
+The pull request template mirrors this structure. One issue and one logical fix per pull request
+keeps reviews small and preserves the ability to replay community fixes independently.

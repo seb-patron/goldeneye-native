@@ -34,6 +34,16 @@ can only work around, this one just fixes.
 
 You supply your own legally dumped cartridge. No game data ships here, and none ever will.
 
+## Documentation
+
+- **New player:** [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)
+- **Controls and rebinding:** [`docs/CONTROLS.md`](docs/CONTROLS.md)
+- **All settings:** [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+- **Contributor setup and workflow:** [`CONTRIBUTING.md`](CONTRIBUTING.md) and
+  [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
+- **How the codebase works:** [`docs/CODEBASE.md`](docs/CODEBASE.md)
+- **Complete documentation index:** [`docs/README.md`](docs/README.md)
+
 ## Install it
 
 ### On a Mac
@@ -280,30 +290,25 @@ closed without being read.
 
 ## Controls
 
-| Control | Keyboard | Mouse |
-|---|---|---|
-| Move | `W` `A` `S` `D` | |
-| Look | Arrow keys | Mouse |
-| Fire | `Space` or `Left Ctrl` | Left button |
-| Aim | `Q` | Right button |
-| Use, open, plant | `E` or `F` | |
-| Next weapon | `R` | |
-| Start and menu confirm | `Tab`, `Return` | |
-| Back | `Backspace` | |
-| Lean left and right | `Z` `X` | |
+Keyboard and mouse work alongside any SDL2-compatible controller. The core keyboard map is `WASD`
+to move, arrows or mouse to look, `Space`/left mouse to fire, `Q`/right mouse to aim, `E` or `F`
+to use, `R` to cycle weapons, `Tab` to pause, `C`/left Shift to crouch, and `V` to stand.
 
-The game prints this list at startup, so it is never a guess. `GETV_KEYBOARD=0` turns the
-keyboard binding off if you would rather use only a pad.
+Gamepad actions can be rebound globally or per player in the launcher, config file, or command
+line. The physical keyboard layout is currently fixed; it has no arbitrary key-binding UI. All
+eight retail control styles are supported, and the port defaults to the dual-analog `2.2 galore`
+layout for a modern two-stick pad.
 
-`F8` hands the camera to you. It flies on the same `W` `A` `S` `D`, looks with the arrows, rises
-and drops on `R` and `F`, and changes pace while shift or ctrl is held. Those keys keep their
-normal jobs at the same time -- `R` still cycles weapons underneath you -- because the game does
-not pause while you fly. `F8` again gives the camera back to Bond.
+The full map, gamepad button names, per-player examples, mouse settings, and live `F5`-`F11`
+shortcuts are in [`docs/CONTROLS.md`](docs/CONTROLS.md).
 
-All eight retail control styles are implemented, including the two-controller layouts, and a
-gamepad is picked up automatically when one is plugged in. Mouse sensitivity and inversion are
-adjustable; the arithmetic behind mouse look is written up and unit-tested in
-[`docs/MOUSE.md`](docs/MOUSE.md).
+With `GETV_FREECAM=1`, `F8` hands the camera to you. It flies on the same `W` `A` `S` `D`, looks
+with the arrows, rises and drops on `R` and `F`, and changes pace while shift or ctrl is held.
+Those keys keep their normal jobs at the same time -- `R` still cycles weapons underneath you --
+because the game does not pause while you fly. `F8` again gives the camera back to Bond.
+
+Mouse sensitivity and inversion are adjustable; the arithmetic behind mouse look is written up
+and unit-tested in [`docs/MOUSE.md`](docs/MOUSE.md).
 
 ## Resolution, performance and how it looks
 
@@ -407,7 +412,11 @@ project uses on itself are all in `tools/`.
 | [`getv/port/fast3d/`](getv/port/fast3d/) | The display-list renderer, OpenGL and Metal backends. |
 | [`getv/patches/`](getv/patches/) | Every change made to the decompilation, as numbered patches. |
 | [`getv/port/tests/`](getv/port/tests/) | The self-test suite. |
-| [`docs/SETUP.md`](docs/SETUP.md) | Doing the install by hand, and what each step is for. |
+| [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | Install, launch, configure, update, and first checks. |
+| [`docs/CONTROLS.md`](docs/CONTROLS.md) | Keyboard, mouse, gamepad, rebinding, and shortcuts. |
+| [`docs/CODEBASE.md`](docs/CODEBASE.md) | Architecture, runtime flow, and where changes belong. |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | The local edit, build, test, and validation loop. |
+| [`docs/SETUP.md`](docs/SETUP.md) | Manual macOS build internals and deep troubleshooting. |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Every setting, with what it does. |
 | [`docs/FRAME_TIMING.md`](docs/FRAME_TIMING.md) | The frame-rate fix, in full. |
 | [`docs/MODDING.md`](docs/MODDING.md) | Lua mods and HD texture packs. |

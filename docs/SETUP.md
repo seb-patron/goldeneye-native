@@ -1,12 +1,13 @@
-# Setup
+# Manual macOS setup and troubleshooting
 
-This is the long-form build guide for Goldeneye-Native. It assumes you are comfortable with a
-terminal and have never seen this project or any other decompilation port. Every command below
+This is the long-form macOS build guide for GoldenEye-Native. It assumes you are comfortable with
+a terminal and have never seen this project or any other decompilation port. Every command below
 is meant to be pasted as written. Where a step exists for a non-obvious reason, the reason is
 given, because the two most surprising parts of this build - you supply the ROM, and you supply
 the renderer sources - are both things you would otherwise assume were a mistake.
 
-`README.md` is the short version. This document is the exhaustive one.
+Use [`GETTING_STARTED.md`](GETTING_STARTED.md) for the concise macOS, Linux, and Windows paths.
+This document is the exhaustive explanation of the manual macOS pipeline and its failure modes.
 
 ## If you just want it built
 
@@ -20,10 +21,10 @@ On Windows, in PowerShell:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
 ```
 
-Either one runs everything in this document, in the order it has to happen in, and skips any
-step already done so re-running is how you resume. It never downloads a ROM and never
-runs `sudo`; where a system package is missing it prints the command for your package manager
-and stops.
+Each installer runs the equivalent platform pipeline in the order it has to happen and skips any
+step already done, so re-running is how you resume. It never downloads a ROM. The macOS/Linux
+script never runs `sudo`; when a system package is missing it prints the command for your package
+manager and stops.
 
 Read the rest of this document when the installer stops on something, or when you want to know
 why a step is where it is. Every ordering constraint the installer encodes is explained below,
@@ -42,10 +43,10 @@ Read in order:
 7. [Troubleshooting](#7-troubleshooting)
 8. [Verifying it works](#8-verifying-it-works)
 
-A fresh clone of this repository does not build. Three things are deliberately absent from it and
-you have to put them there: the decompiled game source, fifteen third-party port-layer files, and
-the SDL2 source tree. Sections 2 and 3 cover all three. If you skip them, section 7 tells you what
-the resulting errors look like.
+A fresh clone of this repository does not build. Three things are deliberately absent from the
+macOS build tree and must be supplied locally: the decompiled game source, fifteen third-party
+port-layer files, and the SDL2 source tree. Sections 2 and 3 cover all three. If you skip them,
+section 7 tells you what the resulting errors look like.
 
 ---
 
@@ -55,18 +56,20 @@ the resulting errors look like.
 
 | Requirement | Detail |
 |---|---|
-| macOS 13 or later | The build hard-codes the target triple `arm64-apple-macos13.0`. |
-| Apple silicon (arm64) | The same triple. There is no Intel build and no universal build. |
+| macOS 13 or later | The build targets `macos13.0` for both supported architectures. |
+| Apple silicon (arm64) or Intel (x86-64) | The script detects the host and builds one native architecture at a time; it does not create a universal binary. |
 
-Intel Macs are not supported. The target triple in `getv/build_mac.sh` is a literal `arm64-...`,
-not something derived from the host, so an Intel Mac will produce arm64 objects it cannot link
-into anything it can run. Windows, Linux and tvOS are likewise not buildable today.
+`getv/build_mac.sh` prefers the hardware architecture reported by macOS, which avoids accidentally
+building an Intel slice when a shell is running under Rosetta on Apple silicon. Set `MACARCH` to
+`arm64` or `x86_64` only when you deliberately need to override that choice. Linux and Windows have
+their own build scripts; use [`GETTING_STARTED.md`](GETTING_STARTED.md) instead of applying these
+macOS requirements to them.
 
 Check what you have:
 
 ```bash
 sw_vers -productVersion
-uname -m          # must print: arm64
+uname -m          # arm64 or x86_64; Rosetta may report x86_64 on Apple silicon
 ```
 
 ### Shell
@@ -151,12 +154,12 @@ git --version
 ### SDL2 - source, not Homebrew
 
 **Do not `brew install sdl2`.** The build does not look for it and will not use it. SDL2 is built
-from source, for arm64, and installed to `~/.n64tvos/sdl2-mac`, which is outside the repository.
-There are two reasons, both recorded in the header comment of `getv/build_mac.sh`:
+from source for the selected `MACARCH` and installed to `~/.n64tvos/sdl2-mac`, which is outside
+the repository. There are two reasons, both recorded in the header comment of `getv/build_mac.sh`:
 
-- A Homebrew running under Rosetta produces an **x86_64** SDL2, which cannot be linked into an
-  arm64 binary. This is a silent trap: `brew install sdl2` succeeds, and the failure only appears
-  at link time as undefined symbols.
+- Homebrew and the selected build can target different architectures, especially when Homebrew is
+  running under Rosetta. Building SDL2 with the same `MACARCH` prevents an architecture mismatch
+  from surfacing only at link time.
 - The install prefix is deliberately outside the repository because the repository path contains a
   space (`.../Code Projects/...`), and a space in a header search path has broken this build before.
 
@@ -586,7 +589,7 @@ usage and exits:
 
 ```
 usage: ./build_mac.sh {sdl|lib|port|app|all|run|env}
-  sdl  = build SDL2 2.30.9 arm64 from deps/ into /Users/you/.n64tvos/sdl2-mac (once)
+  sdl  = build SDL2 2.30.9 arm64 from deps/ into /Users/you/.n64tvos/sdl2-mac (once, shared by both renderers)
   lib  = compile game + assets + audio + port layer for arm64 macOS
   port = recompile getv/port/** and the harness only (seconds)
   app  = link /path/to/goldeneye-native/getv/build-mac/goldeneye
@@ -610,6 +613,9 @@ BUILD=/path/to/goldeneye-native/getv/build-mac
 BIN=/path/to/goldeneye-native/getv/build-mac/goldeneye
 ```
 
+This example is from Apple silicon. On an Intel Mac the `sdl`/`lib` help and `TARGET` line say
+`x86_64` instead.
+
 If `SDK=` is empty, stop and fix the Command Line Tools (section 7.3).
 
 **When to use:** first, and any time a path-related failure needs diagnosing.
@@ -620,7 +626,7 @@ If `SDK=` is empty, stop and fix the Command Line Tools (section 7.3).
 ./build_mac.sh sdl
 ```
 
-Configures and builds `deps/SDL2-2.30.9` with CMake for `arm64`, `Release`, static only
+Configures and builds `deps/SDL2-2.30.9` with CMake for the selected architecture, `Release`, static only
 (`-DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF`), in `~/.n64tvos/build-sdl2-mac`, and installs
 to `~/.n64tvos/sdl2-mac`. CMake's own chatter is discarded; you get two lines:
 
@@ -629,8 +635,8 @@ SDL2 -> /Users/you/.n64tvos/sdl2-mac
 Non-fat file: /Users/you/.n64tvos/sdl2-mac/lib/libSDL2.a is architecture: arm64
 ```
 
-**That second line is the check that matters.** It must say `arm64`. If it says `x86_64`, the link
-in section 4.5 will fail and everything after it is wasted time.
+**That second line is the check that matters.** It must match the architecture at the start of the
+`TARGET` line from `./build_mac.sh env`. A mismatch makes the link in section 4.5 fail.
 
 **When to use:** once per machine, and again only if you change SDL versions or delete
 `~/.n64tvos/`.
@@ -741,10 +747,12 @@ ld: warning: reducing alignment of section __DATA,__common from 0x8000 to 0x4000
 mac binary: /path/to/goldeneye-native/getv/build-mac/goldeneye ( 18M, arm64)
 ```
 
+The captured output in this section is from Apple silicon; an Intel build reports `x86_64`.
+
 The `ld: warning` about `__DATA,__common` alignment is expected and benign; it appears on every
 successful link. Warnings reading `was built for newer` are filtered out by the script - they come
-from SDL2 having been compiled with the SDK's default deployment target rather than this build's,
-and the code is arm64 either way.
+from SDL2 having been compiled with the SDK's default deployment target rather than this build's;
+both libraries still use the selected architecture.
 
 974 archive members is 976 objects minus the two harness objects, which stay outside the archive
 because they carry `main()` and `SDL_main()` and are the roots the link is discovered from.
@@ -854,7 +862,7 @@ Lines worth recognising:
 
 ```
 [getv][config] first run -- wrote a default config; edit it to taste
-[getv][config] file /Users/you/Library/Application Support/GoldenEye/goldeneye.cfg | window=1280x960 fps=60 ss=1 controls=5 filtering=2
+[getv][config] file /Users/you/Library/Application Support/Goldeneye-Native/goldeneye.cfg | window=1280x960 fps=60 ss=1 controls=5 filtering=2
 [getv] GoldenEye tvOS harness starting
 [getv] window: 1280x960 windowed, resizable; fullscreen toggle = F11 / Cmd-F / Alt-Enter
 [getv] GL_VENDOR=Apple | GL_RENDERER=Apple M1 | GL_VERSION=2.1 Metal - 90.5
@@ -875,13 +883,12 @@ On first run, with no configuration file present anywhere, the game writes a ful
 template and immediately reads it back:
 
 ```
-~/Library/Application Support/GoldenEye/goldeneye.cfg
+~/Library/Application Support/Goldeneye-Native/goldeneye.cfg
 ```
 
-**Note the directory is `GoldenEye`, not `Goldeneye-Native`.** This is verified against
-`getv/port/src/ge_config.c`, which calls
-`gePortUserDataDir("Goldeneye-Native", "GoldenEye", ...)` - on macOS the second argument is the one
-that becomes the directory name. Save data uses a different directory; see 5.3.
+Current builds keep configuration and saves under the same `Goldeneye-Native` user-data directory.
+An earlier build used a `GoldenEye` config directory; if the old config exists and the new one does
+not, the game detects and continues using the old file without copying or deleting it.
 
 The first-run write is not a convenience. Several of the port's tuned defaults exist only in that
 template - `invert_look = 1` being the case in point - and a default that lives in a file nobody has
@@ -895,7 +902,7 @@ The search order, first match wins:
 1. `$GETV_CONFIG`
 2. `--config=PATH`
 3. `goldeneye.cfg` in the same directory as the binary
-4. `~/Library/Application Support/GoldenEye/goldeneye.cfg`
+4. `~/Library/Application Support/Goldeneye-Native/goldeneye.cfg`
 
 Precedence for values: command line > environment > config file > built-in default.
 
@@ -903,7 +910,7 @@ To regenerate the template at any time, overwriting what is there:
 
 ```bash
 ./build-mac/goldeneye --write-config
-# [getv][config] wrote /Users/you/Library/Application Support/GoldenEye/goldeneye.cfg
+# [getv][config] wrote /Users/you/Library/Application Support/Goldeneye-Native/goldeneye.cfg
 ```
 
 `--write-config=PATH` writes somewhere else instead. Both exit without starting the game.
@@ -972,12 +979,14 @@ The keyboard is bound to controller port 0 by default:
 | `W` `A` `S` `D` | Move |
 | Arrow keys | Look |
 | `Space` or `Left Ctrl` | Fire |
-| `E` or `Return` | Use / A |
-| `Q` | Aim / B |
+| `Q` | Aim |
+| `E` or `F` | Use / B |
+| `R` or `Return` | Inventory / next weapon / A |
 | `Z` / `X` | Left / right shoulder |
 | `Tab` or keypad `Enter` | Pause / Start |
 | `Backspace` | Back |
 | `I` `J` `K` `L` | D-pad up / left / down / right |
+| `C` or `Left Shift` / `V` | Crouch / stand |
 | `F11`, `Cmd-F`, `Alt-Enter` | Toggle fullscreen |
 
 A connected gamepad works alongside the keyboard. Whichever input is held wins, so plugging in a pad
@@ -995,12 +1004,19 @@ The pad stays *present* rather than being removed, because dropping the controll
 sends the front end to a terminal `MENU_NO_CONTROLLERS` state with no way out. A plain
 `./build_mac.sh run` is unaffected. `GETV_KEYBOARD_IDLE=0` forces live input; `=1` forces idle.
 
+The complete physical map, mouse controls, live shortcuts, and supported rebinding behavior are in
+[`CONTROLS.md`](CONTROLS.md). In particular, gamepad actions are configurable but arbitrary
+physical keyboard keys are not currently rebindable.
+
 ---
 
 ## 6. Controllers
 
 Any SDL2-recognised gamepad works, through SDL's game controller database. Nothing needs to be
 installed or paired beyond whatever macOS itself requires.
+
+For practical launcher/config examples, per-player overrides, and every accepted button name, see
+[`CONTROLS.md`](CONTROLS.md).
 
 On startup the input layer reports what it found:
 
@@ -1044,7 +1060,7 @@ The `gamepad` setting (`auto`, `xbox`, `playstation`, `switch`, `generic`) chang
 are printed for on-screen prompts and nothing else.** It cannot make `a` refer to a different
 physical button. Set it only when SDL misidentifies a third-party pad.
 
-Full detail, including `deadzone` (default 20 in the template, roughly 9.8% built in) and every
+Full detail, including `deadzone` (20% by default) and every
 other key: [`CONFIGURATION.md`](CONFIGURATION.md).
 
 ---
@@ -1178,27 +1194,30 @@ sanctioned opt-back-in, so this should not happen. If it does, you are not runni
 CMake invocation. **Fix:** use `./build_mac.sh sdl` rather than invoking CMake by hand.
 
 **Symptom C - SDL2 built, wrong architecture.** `./build_mac.sh sdl` finishes but the second line
-reads:
+does not match the architecture in `./build_mac.sh env`. For example, an Apple silicon target can
+show:
 
 ```
 Non-fat file: /Users/you/.n64tvos/sdl2-mac/lib/libSDL2.a is architecture: x86_64
 ```
 
-**Cause** - the whole toolchain is running under Rosetta. This is the specific trap the build's SDL
-arrangement exists to avoid, and it is why `brew install sdl2` is not used: brew under Rosetta
-produces an Intel SDL2 that cannot link into an arm64 binary, and it does so without complaining.
+**Cause** - the SDL prefix was built for a different architecture, often by an older checkout, an
+explicit `MACARCH` override, or a toolchain running under Rosetta. The current script asks macOS
+for the hardware architecture before falling back to `uname`, but it does not replace an existing
+SDL install automatically.
 
 **Fix** - check what you are actually running:
 
 ```bash
-uname -m                    # must be arm64, not x86_64
-arch                        # same
+./build_mac.sh env          # compare TARGET with the SDL architecture above
+uname -m                    # may report x86_64 when the shell itself runs under Rosetta
+arch
 which cmake && file $(which cmake)
 ```
 
-If your terminal is launched under Rosetta, turn that off (Finder, Get Info on the terminal app,
-uncheck "Open using Rosetta"), open a fresh terminal, delete `~/.n64tvos/build-sdl2-mac` and
-`~/.n64tvos/sdl2-mac`, and run `./build_mac.sh sdl` again.
+After confirming the intended `TARGET`, remove the stale SDL build/install directories and run
+`./build_mac.sh sdl` again. If you did not intend to use Rosetta, turn it off for the terminal app
+before rebuilding.
 
 **Symptom D - SDL2 headers not found.** Compiles of the port layer fail on `SDL.h`. The port
 flags include `-I "$SDL/include" -I "$SDL/include/SDL2"`, so this means the install never happened.
@@ -1228,9 +1247,8 @@ xcrun -sdk macosx --show-sdk-path     # must print a real path
 **Symptom** - the link fails with `building for macOS-arm64 but attempting to link with file
 built for macOS-x86_64`, naming `libSDL2.a`. That is 7.3 symptom C.
 
-**Symptom** - you are on an Intel Mac. The build produces arm64 objects that will not run. There is
-no supported configuration here; the target triple is a literal in `build_mac.sh` and changing it is
-a porting task, not a setting. See `docs/PORTING.md`.
+The inverse message can appear on Intel if the cached SDL library is arm64. Both cases have the
+same fix: make the SDL architecture match the resolved `TARGET`.
 
 ### 7.5 Stale or partial build directory
 
@@ -1440,8 +1458,8 @@ symptom of a wrong `$HOME` and must stay visible rather than being papered over 
 **Symptom B - configuration.**
 
 ```
-[getv][config] mkdir failed: /Users/you/Library/Application Support/GoldenEye
-[getv][config] cannot write /Users/you/Library/Application Support/GoldenEye/goldeneye.cfg
+[getv][config] mkdir failed: /Users/you/Library/Application Support/Goldeneye-Native
+[getv][config] cannot write /Users/you/Library/Application Support/Goldeneye-Native/goldeneye.cfg
 ```
 
 The config directory *is* created recursively, because `--write-config` is explicitly a "set this
@@ -1563,6 +1581,9 @@ log show how far the boot got. Compare against section 5.1 and work back through
 
 ## Related documents
 
+- [`GETTING_STARTED.md`](GETTING_STARTED.md) - concise install and run instructions for every desktop platform.
+- [`CONTROLS.md`](CONTROLS.md) - keyboard, mouse, gamepad and rebinding reference.
+- [`CODEBASE.md`](CODEBASE.md) - how the repository, build, and runtime fit together.
 - [`CONFIGURATION.md`](CONFIGURATION.md) - every setting, on the command line and in the file.
 - [`THIRD_PARTY.md`](THIRD_PARTY.md) - the fifteen fetched files, in full.
 - [`CHEATS.md`](CHEATS.md) - the named cheat system.

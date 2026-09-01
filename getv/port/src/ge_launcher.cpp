@@ -2089,10 +2089,12 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                         { "Space / L-Ctrl", "fire"            },
                         { "Q",              "aim"             },
                         { "E or F",         "use"             },
-                        { "R or Return",    "inventory"       },
-                        { "Z / X",          "crouch (L / R)"  },
+                        { "R or Return",    "inventory / next" },
+                        { "Z / X",          "L / R shoulder"  },
                         { "I J K L",        "d-pad"           },
-                        { "Tab",            "start"           },
+                        { "C or L-Shift",   "crouch"          },
+                        { "V",              "stand"           },
+                        { "Tab / KP Enter", "start"           },
                     };
                     float col = cw * 0.5f;
                     ImVec2 kp = ImGui::GetCursorScreenPos();

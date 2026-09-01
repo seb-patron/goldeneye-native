@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and run GoldenEye natively on macOS (arm64), on the EXISTING Fast3D + GL path.
+# Build and run GoldenEye natively on macOS (arm64 or x86_64), on the existing Fast3D + GL path.
 #
 # Why this target exists
 # ----------------------
@@ -33,11 +33,10 @@
 # its declared default of 1 and Fast3D renders straight to framebuffer 0. Any number
 # measured here is therefore an ss=1 number; do not diff it against a tvOS ss=2 run.
 #
-# SDL2: this Mac's Homebrew is x86_64 under Rosetta, so brew's SDL2 is Intel-only and
-# cannot be linked into an arm64 binary. `./build_mac.sh sdl` builds SDL2 2.30.9 from the
-# source already in deps/ for arm64-apple-macos and installs it outside the repo, into a
-# space-free path. The repo lives under ".../Code Projects/...", and a space in a header
-# search path breaks the build in ways that are hard to trace.
+# SDL2: Homebrew can belong to a different architecture from the hardware, especially under
+# Rosetta. `./build_mac.sh sdl` builds SDL2 2.30.9 from the source already in deps/ for the
+# selected MACARCH and installs it outside the repo, into a space-free path. The repo may live
+# under a path containing spaces, and a space in a header search path has broken this build before.
 #
 # GETV_RENDERER=gl|metal (default gl, i.e. today's behaviour, byte-for-byte unchanged).
 # metal selects port/fast3d/gfx_metal.mm -- a native Metal backend behind the same
@@ -502,8 +501,8 @@ case "${1:-}" in
   env)  echo "SDK=$SDK"; echo "SDL=$SDL"; echo "TARGET=$TARGET"; echo "BUILD=$BUILD"
         echo "BIN=$BIN"; echo "RENDERER=$RENDERER" ;;
   *)    echo "usage: GETV_RENDERER=gl|metal $0 {sdl|lib|port|app|all|run|env}  (default gl)"
-        echo "  sdl  = build SDL2 2.30.9 arm64 from deps/ into $SDL (once, shared by both renderers)"
-        echo "  lib  = compile game + assets + audio + port layer for arm64 macOS"
+        echo "  sdl  = build SDL2 2.30.9 $MACARCH from deps/ into $SDL (once, shared by both renderers)"
+        echo "  lib  = compile game + assets + audio + port layer for $MACARCH macOS"
         echo "  port = recompile getv/port/** and the harness only (seconds)"
         echo "  app  = link $BIN"
         echo "  run  = launch it" ;;
