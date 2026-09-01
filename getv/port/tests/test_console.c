@@ -9,8 +9,10 @@
 
 static unsigned long fake_player_tick;
 static unsigned long fake_render_frame;
+static int fake_sim_should_tick;
 unsigned long gePlayerTick(void) { return fake_player_tick; }
 unsigned long gePortRenderedFrame(void) { return fake_render_frame; }
+int gePortSimShouldTick(void) { return fake_sim_should_tick; }
 
 #include "ge_console.c"
 
@@ -640,6 +642,19 @@ static void test_native_hook_wrapper(void)
     check_i("native result execution frame", result.execution_frame, 45);
     gePortConsoleGameTick();
     check_i("second native hook cannot repeat drained request", handler_calls, 1);
+
+    check_i("stalled netplay iteration preserves refusal", gePortConsoleAdmitGameTick(0), 0);
+    check_i("stalled netplay iteration does not drain", handler_calls, 1);
+    check_i("second request queued", geConsoleSubmit("status", 900, 45, &sequence),
+            GE_CONSOLE_STATUS_OK);
+    fake_sim_should_tick = 0;
+    check_i("render-only iteration remains admitted", gePortConsoleAdmitGameTick(1), 1);
+    check_i("render-only iteration does not drain", handler_calls, 1);
+    fake_sim_should_tick = 1;
+    check_i("simulation iteration remains admitted", gePortConsoleAdmitGameTick(1), 1);
+    check_i("admitted simulation iteration drains once", handler_calls, 2);
+    check_i("next admitted iteration cannot repeat request", gePortConsoleAdmitGameTick(1), 1);
+    check_i("admitted hook remains exactly once", handler_calls, 2);
 }
 
 static void test_registry_bound(void)

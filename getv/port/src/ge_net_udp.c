@@ -40,6 +40,7 @@
 #include <PR/ultratypes.h>
 #include <string.h>
 
+#include "ge_console.h"
 #include "ge_net.h"
 #include "ge_player_api.h"
 
@@ -599,11 +600,11 @@ int gePortNetTick(void)
     GePlayerInput local;
     unsigned short pad;
 
-    if (!ge_net_active) { return 1; }
+    if (!ge_net_active) { return gePortConsoleAdmitGameTick(1); }
 
     gePortNetPoll();
 
-    if (!geNetIsOpen()) { return 1; }
+    if (!geNetIsOpen()) { return gePortConsoleAdmitGameTick(1); }
 
     pad = joyGetButtons(0, (unsigned short) GE_NET_ANY_BUTTON);
     memset(&local, 0, sizeof local);
@@ -611,5 +612,5 @@ int gePortNetTick(void)
     local.stick_x = joyGetStickX(0);
     local.stick_y = joyGetStickY(0);
 
-    return geNetTickBegin(&local);
+    return gePortConsoleAdmitGameTick(geNetTickBegin(&local));
 }

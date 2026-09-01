@@ -861,6 +861,15 @@ void gePortConsoleGameTick(void)
     geConsolePump(&context);
 }
 
+int gePortConsoleAdmitGameTick(int admitted)
+{
+    extern int gePortSimShouldTick(void);
+    if (admitted && gePortSimShouldTick()) {
+        gePortConsoleGameTick();
+    }
+    return admitted;
+}
+
 unsigned int geConsoleResultCount(void)
 {
     return ge_console.result_count;

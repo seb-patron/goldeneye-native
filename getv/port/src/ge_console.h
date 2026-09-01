@@ -255,10 +255,14 @@ unsigned int geConsoleQueueCount(void);
 
 void geConsoleSetContextProvider(GeConsoleContextProvider provider, void *user);
 
-/* The native boss-loop hook.  It obtains the authoritative input/simulation tick and the frame
- * about to be rendered, then calls geConsolePump.  The game-side patch calls this only after
- * netplay admits the tick and only when gePortSimShouldTick() is true. */
+/* The native game-thread hook.  It obtains the authoritative input/simulation tick and the frame
+ * about to be rendered, then calls geConsolePump. */
 void gePortConsoleGameTick(void);
+
+/* Preserve the existing gePortNetTick() return contract while draining only an admitted
+ * simulation iteration.  This is the established boss-loop boundary after netplay approval and
+ * before game simulation; render-only GETV_SIMDIV iterations do not drain the queue. */
+int gePortConsoleAdmitGameTick(int admitted);
 
 unsigned int geConsoleResultCount(void);
 int geConsoleResultAt(unsigned int index, GeConsoleResult *out);
