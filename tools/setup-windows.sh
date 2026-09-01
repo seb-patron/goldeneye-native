@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# One-shot setup for a fresh Windows checkout, run from git-bash: fetch-thirdparty, fetch
-# the mingw toolchain + libraries, clone the decomp, apply patches, generate assets from
-# your ROM, namespace them, apply 0002, then build.
+# One-shot setup for a fresh Windows checkout: fetch-thirdparty, fetch the mingw toolchain +
+# libraries, clone the decomp, apply patches, generate assets from your ROM, namespace them,
+# apply 0002, then build. The packaged setup app runs this with private portable Git/Python;
+# developers can still run it from their own git-bash installation.
 #
 # This automates docs/SETUP.md sections 2-4 for Windows, mirroring tools/setup-mac.sh. Read
 # that document if any step here fails, since it explains why each one exists.
@@ -9,7 +10,7 @@
 # Two things differ from the Mac script, both because tools/fetch_deps_windows.ps1 covers a
 # different slice of section 2 than build_mac.sh's SDL2-from-source step does:
 #   - no SDL2-source step -- fetch_deps_windows.ps1 installs the official prebuilt mingw
-#     package instead, into the same C:\mingw64 that -Mingw below points builds at.
+#     package instead, into the same private -Mingw directory the build below uses.
 #   - the ROM is copied into the decomp checkout, not symlinked -- creating a symlink on
 #     Windows needs Developer Mode or an elevated prompt, and most machines this script
 #     runs on will have neither.
@@ -23,15 +24,33 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DECOMP="$HERE/vendor/ge-decomp"
 ROM="$HERE/roms/ge007.u.z64"
-MINGW='C:\mingw64'
+MINGW="${GETV_MINGW:-C:\mingw64}"
 
 die() { echo "setup-windows: $*" >&2; exit 1; }
 step() { echo; echo "== $* =="; }
 
 # ---------------------------------------------------------------------- 0. tools on PATH
 step "checking for python3"
-command -v python3 >/dev/null 2>&1 \
-  || die "python3 not found on PATH -- install it from python.org (check \"Add to PATH\" in the installer) and re-run"
+# python.org's Windows installer commonly exposes `python.exe` (and the `py.exe` launcher),
+# while Unix-oriented setup instructions call `python3`. Treat all three as the same Python 3
+# prerequisite and export a function under the spelling the decomp's child bash script uses.
+# Requiring the literal `python3.exe` made a correct default Windows install look missing.
+if [ -n "${GETV_PORTABLE_PYTHON:-}" ]; then
+  python3() { command "${GETV_PORTABLE_PYTHON}" "$@"; }
+  export -f python3
+elif command -v python3 >/dev/null 2>&1; then
+  :
+elif command -v python >/dev/null 2>&1; then
+  python3() { command python "$@"; }
+  export -f python3
+elif command -v py.exe >/dev/null 2>&1; then
+  python3() { command py.exe -3 "$@"; }
+  export -f python3
+else
+  die "Python 3 not found -- rerun the setup app so it can repair its private Python download"
+fi
+python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 8) else 1)' \
+  || die "Python 3.8 or newer is required -- rerun the setup app so it can repair its private Python download"
 
 # Python on Windows encodes stdout as cp1252 once it is redirected rather than attached to a
 # console, and several of the decomp's generators print non-ASCII status glyphs. generate_chr_c.py
@@ -65,7 +84,7 @@ step "mingw toolchain, SDL2, GLEW, Lua, Dear ImGui, Tracy"
 if [ -f "$MINGW/bin/gcc.exe" ] && [ -f "$MINGW/include/SDL2/SDL.h" ] && [ -f "$MINGW/lib/libglew32.a" ]; then
   echo "already present at $MINGW"
 else
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HERE/tools/fetch_deps_windows.ps1" \
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HERE/tools/fetch_deps_windows.ps1" -Mingw "$MINGW" \
     || die "fetch_deps_windows.ps1 failed"
 fi
 # $MINGW is a Windows path, and a Windows path in PATH is silently unusable from git-bash:

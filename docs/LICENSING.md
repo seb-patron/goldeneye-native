@@ -375,27 +375,30 @@ it yourself*, rather than *download our binary and supply a ROM at runtime*. Cha
 mean re-architecting asset delivery to load from disk at runtime, which is a significant piece of
 work and is not currently planned.
 
-### The one binary that is distributed
+### Technical boundary of the Windows setup candidate
 
-`setup_wizard.exe`, attached to the GitHub release, is the single exception, and it is an
-exception because of what it does not contain rather than by any softening of the above. It is
-the first-run installer for Windows: it clones the public source, asks for a ROM, verifies the
-SHA-1, and drives `tools/setup-windows.sh`. All of that happens on the user's machine.
+`GoldenEye-Native-Setup.exe` is a proposed first-run setup application for Windows, not a playable
+binary. It downloads private portable build tools and the public source, asks for a user-supplied
+ROM, normalizes z64/v64/n64 byte order, verifies the normalized SHA-1, and drives
+`tools/setup-windows.sh`. All ROM processing and the playable build happen on the user's machine.
 
-Three separate restrictions apply to a binary of this project, and the wizard is outside all
-three. It carries no ROM-derived or `assets/` data, so section 5 above does not reach it. It
-carries no decompilation code, so the upstream position in section 3 does not reach it. And it
-carries no Fast3D, so the binary-redistribution restriction discussed in section 4.4(a) does not
-reach it either: the renderer is linked into `goldeneye.exe`, never into this.
+The wizard is deliberately designed to carry no ROM-derived or `assets/` data, decompilation code,
+or Fast3D renderer code. The renderer and ROM-derived assets are linked into the locally built
+`goldeneye.exe`, never into the setup candidate. This is a narrower technical artifact than the
+playable binary; it is **not** a conclusion that distributing it is permitted. In particular, this
+repository has no root licence for its own code and the upstream decompilation has no licence file.
+Those questions require maintainer and, where appropriate, legal review before public release.
 
 That is checked rather than asserted. `getv/build_wizard.ps1` links exactly three of this
 project's own sources -- `setup_wizard.cpp`, `sha1.c` and `ge_icon_apply.c` -- against Dear ImGui
-(MIT), SDL2 (zlib) and GLEW. Scanning the published 3.4 MB binary finds no namespaced asset
-symbol, no game function name, no z64 header magic, and no Fast3D symbol or source name. A ROM
-alone is 12 MB.
+(MIT), SDL2 (zlib) and GLEW. `tools/package_windows_wizard.ps1` then runs the import self-test,
+checks the DLL imports and binary size, and scans representative generated-asset, decompilation,
+and Fast3D markers before it stages the package. The package includes their complete notices from
+`getv/wizard/THIRD_PARTY_NOTICES.txt`. A ROM alone is 12 MB.
 
-**`goldeneye.exe` remains undistributable and that has not changed.** If the wizard ever grows a
-dependency on the port layer proper, this section stops being true and the release has to stop.
+**This project must not publish `goldeneye.exe` under the current packaging model.** That has not
+changed. If the wizard ever grows a dependency on the port layer proper, the technical boundary
+documented here stops being true and the candidate release process must stop for another review.
 
 `.gitignore` enforces the first point mechanically. It blocks `roms/`, every `*.z64` / `*.n64` /
 `*.v64` / `*.elf`, `**/base.zip`, `vendor/`, `deps/`, all `getv/build-*` and `build-mac-*` and

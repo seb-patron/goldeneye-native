@@ -2,9 +2,10 @@
  *
  * What this is. A small, standalone window that runs before anything else exists: it has no
  * dependency on the decomp, the ROM, or the built game, because its whole job is to get from
- * "freshly cloned repository" to "goldeneye.exe exists" for someone who does not want to open
- * a terminal. It picks the user's ROM, verifies it, then runs tools/setup-windows.sh (the same
- * pipeline a git-bash user would type by hand) and shows its output live.
+ * "download one setup file" to "goldeneye.exe exists" for someone who does not want to install
+ * developer tools or open a terminal. It downloads private, portable Git and Python copies,
+ * picks the user's ROM, recognizes z64/v64/n64 byte order, verifies and imports a normalized
+ * local copy, then runs tools/setup-windows.sh and shows its output live.
  *
  * ---------------------------------------------------------------- why this is a second binary
  *
@@ -14,11 +15,11 @@
  * loaded at runtime). Something has to exist before that first build to drive it. This is that
  * something, and once it succeeds it hands off to the real launcher and gets out of the way.
  *
- * Contains zero ROM-derived or decomp-derived code, on purpose: it is legally distributable on
- * its own by the same reasoning docs/LICENSING.md section 5 applies to the game binary in the
- * other direction. It statically links its own SDL2 + Dear ImGui, built once by a developer
- * from this repo's own already-fetched toolchain, the same way ge_launcher.cpp does -- see that
- * file for the init sequence this one mirrors.
+ * Contains zero ROM-derived or decomp-derived code, on purpose. That is the package's technical
+ * boundary; docs/LICENSING.md records the separate licensing questions that still need review
+ * before a public release. It statically links its own SDL2 + Dear ImGui, built once by a
+ * developer from this repo's own already-fetched toolchain, the same way ge_launcher.cpp does --
+ * see that file for the init sequence this one mirrors.
  *
  * ---------------------------------------------------------------- why raw Win32 for the process
  *
@@ -41,6 +42,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>
+#include <shellapi.h>
 #include <shlobj.h>
 
 #define GLEW_STATIC
@@ -61,10 +63,77 @@
 
 extern "C" void gePortSetWindowIcon(SDL_Window *w);
 
+#ifndef GETV_WIZARD_REPO_URL
+# define GETV_WIZARD_REPO_URL "https://github.com/seb-patron/goldeneye-native.git"
+#endif
+#ifndef GETV_WIZARD_REPO_REF
+# define GETV_WIZARD_REPO_REF "main"
+#endif
+
 namespace {
 
 const char *kWantSha1 = "abe01e4aeb033b6c0836819f549c791b26cfde83";
 const long  kWantSize = 12582912;
+
+/* These versions and digests are deliberately pinned. The setup executable may download tools,
+ * but it never executes a mutable "latest" URL without first matching a digest published by the
+ * upstream release. Updating either package is a reviewed source change, not a server-side event
+ * that silently changes what an old setup executable runs. */
+const char *kPortableGitDir = "git-2.55.0.3";
+const char *kPortablePythonDir = "python-3.14.7";
+char gBootstrapRoot[MAX_PATH] = "";
+
+enum RomByteOrder {
+    ROM_ORDER_UNKNOWN,
+    ROM_ORDER_Z64,
+    ROM_ORDER_V64,
+    ROM_ORDER_N64,
+};
+
+const char *rom_order_name(RomByteOrder order)
+{
+    switch (order) {
+    case ROM_ORDER_Z64: return "z64 (big-endian)";
+    case ROM_ORDER_V64: return "v64 (byte-swapped)";
+    case ROM_ORDER_N64: return "n64 (word-swapped)";
+    default:            return "unknown";
+    }
+}
+
+RomByteOrder detect_rom_order(const unsigned char header[4])
+{
+    if (header[0] == 0x80 && header[1] == 0x37 &&
+        header[2] == 0x12 && header[3] == 0x40) return ROM_ORDER_Z64;
+    if (header[0] == 0x37 && header[1] == 0x80 &&
+        header[2] == 0x40 && header[3] == 0x12) return ROM_ORDER_V64;
+    if (header[0] == 0x40 && header[1] == 0x12 &&
+        header[2] == 0x37 && header[3] == 0x80) return ROM_ORDER_N64;
+    return ROM_ORDER_UNKNOWN;
+}
+
+/* The extractor consumes big-endian z64 bytes. v64 swaps every adjacent pair and n64 reverses
+ * each four-byte word; both operations are their own inverse. Buffers passed here are always a
+ * multiple of four bytes except possibly the final buffer of a malformed file, which verify_rom
+ * rejects on size before importing it. */
+void normalize_rom_bytes(unsigned char *bytes, size_t n, RomByteOrder order)
+{
+    if (order == ROM_ORDER_V64) {
+        for (size_t i = 0; i + 1 < n; i += 2) {
+            unsigned char t = bytes[i];
+            bytes[i] = bytes[i + 1];
+            bytes[i + 1] = t;
+        }
+    } else if (order == ROM_ORDER_N64) {
+        for (size_t i = 0; i + 3 < n; i += 4) {
+            unsigned char t = bytes[i];
+            bytes[i] = bytes[i + 3];
+            bytes[i + 3] = t;
+            t = bytes[i + 1];
+            bytes[i + 1] = bytes[i + 2];
+            bytes[i + 2] = t;
+        }
+    }
+}
 
 /* ---------------------------------------------------------------- paths
  *
@@ -86,6 +155,68 @@ bool env_true(const char *name)
 {
     const char *v = getenv(name);
     return v != NULL && *v != '\0' && *v != '0';
+}
+
+bool get_bootstrap_root(char *out, size_t n)
+{
+    char localAppData[MAX_PATH];
+    if (SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA | CSIDL_FLAG_CREATE, NULL,
+                         SHGFP_TYPE_CURRENT, localAppData) != S_OK) {
+        const char *fallback = getenv("TEMP");
+        if (fallback == NULL || *fallback == '\0') return false;
+        snprintf(localAppData, sizeof localAppData, "%s", fallback);
+    }
+    int len = snprintf(out, n, "%s\\GoldenEyeNative\\bootstrap", localAppData);
+    return len >= 0 && (size_t) len < n;
+}
+
+bool portable_tool_paths(char *git, size_t gitN, char *bash, size_t bashN,
+                         char *python, size_t pythonN)
+{
+    if (gBootstrapRoot[0] == '\0') return false;
+    int a = snprintf(git, gitN, "%s\\%s\\cmd\\git.exe", gBootstrapRoot, kPortableGitDir);
+    int b = snprintf(bash, bashN, "%s\\%s\\bin\\bash.exe", gBootstrapRoot, kPortableGitDir);
+    int c = snprintf(python, pythonN, "%s\\%s\\python.exe",
+                     gBootstrapRoot, kPortablePythonDir);
+    return a >= 0 && (size_t) a < gitN && b >= 0 && (size_t) b < bashN &&
+           c >= 0 && (size_t) c < pythonN;
+}
+
+bool portable_tools_ready()
+{
+    char git[MAX_PATH], bash[MAX_PATH], python[MAX_PATH];
+    return portable_tool_paths(git, sizeof git, bash, sizeof bash, python, sizeof python) &&
+           file_exists(git) && file_exists(bash) && file_exists(python);
+}
+
+bool activate_portable_tools(std::string *err)
+{
+    char git[MAX_PATH], bash[MAX_PATH], python[MAX_PATH];
+    if (!portable_tool_paths(git, sizeof git, bash, sizeof bash, python, sizeof python) ||
+        !file_exists(git) || !file_exists(bash) || !file_exists(python)) {
+        *err = "The private Git/Python download finished, but the expected programs are missing.";
+        return false;
+    }
+
+    char gitCmd[MAX_PATH], gitBin[MAX_PATH], pythonDir[MAX_PATH], mingw[MAX_PATH];
+    snprintf(gitCmd, sizeof gitCmd, "%s\\%s\\cmd", gBootstrapRoot, kPortableGitDir);
+    snprintf(gitBin, sizeof gitBin, "%s\\%s\\bin", gBootstrapRoot, kPortableGitDir);
+    snprintf(pythonDir, sizeof pythonDir, "%s\\%s", gBootstrapRoot, kPortablePythonDir);
+    snprintf(mingw, sizeof mingw, "%s\\build-tools\\mingw64", gBootstrapRoot);
+
+    DWORD oldN = GetEnvironmentVariableA("PATH", NULL, 0);
+    std::vector<char> oldPath(oldN > 0 ? oldN : 1, '\0');
+    if (oldN > 0) GetEnvironmentVariableA("PATH", oldPath.data(), oldN);
+    std::string path = std::string(pythonDir) + ";" + gitCmd + ";" + gitBin;
+    if (oldN > 1) path += std::string(";") + oldPath.data();
+
+    if (!SetEnvironmentVariableA("PATH", path.c_str()) ||
+        !SetEnvironmentVariableA("GETV_PORTABLE_PYTHON", python) ||
+        !SetEnvironmentVariableA("GETV_MINGW", mingw)) {
+        *err = "Windows would not activate the private build tools for this setup run.";
+        return false;
+    }
+    return true;
 }
 
 /* Walks up from this exe looking for tools/setup-windows.sh -- the exact file this wizard is
@@ -118,6 +249,12 @@ bool find_repo_root(char *out, size_t n)
  * git's sibling) and the repo-clone step (runs git.exe directly, no shell needed at all). */
 bool find_git_exe(char *out, size_t n)
 {
+    char portableGit[MAX_PATH], portableBash[MAX_PATH], portablePython[MAX_PATH];
+    if (portable_tool_paths(portableGit, sizeof portableGit, portableBash, sizeof portableBash,
+                            portablePython, sizeof portablePython) && file_exists(portableGit)) {
+        snprintf(out, n, "%s", portableGit);
+        return true;
+    }
     static const char *candidates[] = {
         "C:\\Program Files\\Git\\cmd\\git.exe",
         "C:\\Program Files (x86)\\Git\\cmd\\git.exe",
@@ -141,6 +278,12 @@ bool find_git_exe(char *out, size_t n)
  * find_git_exe, which is safe to search for by name -- and bash.exe derived as its sibling. */
 bool find_bash_exe(char *out, size_t n)
 {
+    char portableGit[MAX_PATH], portableBash[MAX_PATH], portablePython[MAX_PATH];
+    if (portable_tool_paths(portableGit, sizeof portableGit, portableBash, sizeof portableBash,
+                            portablePython, sizeof portablePython) && file_exists(portableBash)) {
+        snprintf(out, n, "%s", portableBash);
+        return true;
+    }
     static const char *candidates[] = {
         "C:\\Program Files\\Git\\bin\\bash.exe",
         "C:\\Program Files (x86)\\Git\\bin\\bash.exe",
@@ -167,13 +310,14 @@ bool find_bash_exe(char *out, size_t n)
     return false;
 }
 
-/* ---------------------------------------------------------------- ROM verification
+/* ---------------------------------------------------------------- ROM verification + import
  *
- * Mirrors docs/SETUP.md 3.3/3.4 exactly, including which specific wrong-file case gets which
- * message -- "byte-swapped" and "wrong region" call for different fixes, and collapsing them
- * into one generic "invalid ROM" would send a correct .v64 dump down the wrong repair path. */
+ * Mirrors docs/SETUP.md 3.3/3.4 while accepting all three common cartridge-dump byte orders.
+ * The expected digest is always computed over normalized big-endian z64 bytes, so a correct v64
+ * or n64 dump gets the same verdict without asking the user to find a separate conversion tool. */
 struct RomCheck {
     bool ok;
+    RomByteOrder order;
     char message[512];
 };
 
@@ -181,6 +325,7 @@ RomCheck verify_rom(const char *path)
 {
     RomCheck r;
     r.ok = false;
+    r.order = ROM_ORDER_UNKNOWN;
     r.message[0] = '\0';
 
     FILE *f = fopen(path, "rb");
@@ -195,13 +340,14 @@ RomCheck verify_rom(const char *path)
 
     unsigned char header[4] = { 0, 0, 0, 0 };
     fread(header, 1, 4, f);
-    bool byteswapped = (header[0] == 0x37 && header[1] == 0x80);
+    r.order = detect_rom_order(header);
 
     if (size != kWantSize) {
-        if (byteswapped) {
+        if (r.order != ROM_ORDER_UNKNOWN) {
             snprintf(r.message, sizeof r.message,
-                "This looks like a byte-swapped dump (.v64/.n64), not a plain .z64. It needs "
-                "converting to native big-endian z64 before this will work.");
+                "Recognized %s byte order, but the file is %ld bytes; expected %ld. It may be "
+                "trimmed, padded, or carry a dumper header.", rom_order_name(r.order), size,
+                kWantSize);
         } else {
             snprintf(r.message, sizeof r.message,
                 "Wrong size: %ld bytes, expected %ld. This may be trimmed, padded, or carry a "
@@ -211,16 +357,9 @@ RomCheck verify_rom(const char *path)
         return r;
     }
 
-    if (byteswapped) {
+    if (r.order == ROM_ORDER_UNKNOWN) {
         snprintf(r.message, sizeof r.message,
-            "This is byte-swapped (a .v64/.n64 dump) even though the size matches. It needs "
-            "converting to native big-endian z64 before this will work.");
-        fclose(f);
-        return r;
-    }
-    if (!(header[0] == 0x80 && header[1] == 0x37 && header[2] == 0x12 && header[3] == 0x40)) {
-        snprintf(r.message, sizeof r.message,
-            "Right size, but the header doesn't match a GoldenEye 007 ROM.");
+            "Right size, but the header is not a recognized z64, v64, or n64 cartridge dump.");
         fclose(f);
         return r;
     }
@@ -230,7 +369,15 @@ RomCheck verify_rom(const char *path)
     fseek(f, 0, SEEK_SET);
     unsigned char buf[65536];
     size_t n;
-    while ((n = fread(buf, 1, sizeof buf, f)) > 0) sha1_update(&ctx, buf, n);
+    while ((n = fread(buf, 1, sizeof buf, f)) > 0) {
+        normalize_rom_bytes(buf, n, r.order);
+        sha1_update(&ctx, buf, n);
+    }
+    if (ferror(f)) {
+        fclose(f);
+        snprintf(r.message, sizeof r.message, "The ROM could not be read completely.");
+        return r;
+    }
     fclose(f);
 
     unsigned char digest[20];
@@ -240,14 +387,115 @@ RomCheck verify_rom(const char *path)
 
     if (strcmp(hex, kWantSha1) != 0) {
         snprintf(r.message, sizeof r.message,
-            "Right size, but the checksum doesn't match (got %s). This may be a different "
-            "region or a modified ROM -- only the US release is supported.", hex);
+            "Recognized %s byte order, but the normalized checksum doesn't match (got %s). "
+            "This may be a different region or a modified ROM -- only the US release is "
+            "supported.", rom_order_name(r.order), hex);
         return r;
     }
 
     r.ok = true;
-    snprintf(r.message, sizeof r.message, "Verified: matches the official US GoldenEye 007 ROM.");
+    if (r.order == ROM_ORDER_Z64) {
+        snprintf(r.message, sizeof r.message,
+                 "Verified: US GoldenEye 007 ROM in z64 byte order. It will be copied locally.");
+    } else {
+        snprintf(r.message, sizeof r.message,
+                 "Verified: US GoldenEye 007 ROM in %s byte order. It will be converted to z64 "
+                 "locally while it is imported.", rom_order_name(r.order));
+    }
     return r;
+}
+
+/* Write through a sibling temporary file and replace the destination only after all bytes have
+ * been normalized successfully. A failed or interrupted import therefore never leaves a partial
+ * file at the exact path setup-windows.sh trusts. */
+bool import_rom(const char *src, const char *dst, RomByteOrder order, std::string *err)
+{
+    if (order == ROM_ORDER_UNKNOWN) {
+        *err = "The selected ROM's byte order was not verified; select and verify it again.";
+        return false;
+    }
+    char tmp[MAX_PATH];
+    int tmpLen = snprintf(tmp, sizeof tmp, "%s.importing", dst);
+    if (tmpLen < 0 || (size_t) tmpLen >= sizeof tmp) {
+        *err = "The installation path is too long for a safe ROM import. Choose a shorter folder.";
+        return false;
+    }
+    DeleteFileA(tmp);
+
+    FILE *in = fopen(src, "rb");
+    if (in == NULL) {
+        *err = "Could not reopen the selected ROM for importing.";
+        return false;
+    }
+    FILE *out = fopen(tmp, "wb");
+    if (out == NULL) {
+        fclose(in);
+        *err = "Could not create the local ROM file in the installation folder.";
+        return false;
+    }
+
+    bool ok = true;
+    unsigned char buf[65536];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof buf, in)) > 0) {
+        normalize_rom_bytes(buf, n, order);
+        if (fwrite(buf, 1, n, out) != n) {
+            ok = false;
+            break;
+        }
+    }
+    if (ferror(in)) ok = false;
+    if (fflush(out) != 0) ok = false;
+    if (fclose(out) != 0) ok = false;
+    fclose(in);
+
+    if (!ok) {
+        DeleteFileA(tmp);
+        *err = "The ROM could not be imported completely. Check free disk space and try again.";
+        return false;
+    }
+
+    RomCheck written = verify_rom(tmp);
+    if (!written.ok || written.order != ROM_ORDER_Z64) {
+        DeleteFileA(tmp);
+        *err = "The locally imported copy did not pass verification; the original was not changed.";
+        return false;
+    }
+    if (!MoveFileExA(tmp, dst, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileA(tmp);
+        *err = "The verified ROM could not be moved into the installation folder.";
+        return false;
+    }
+    return true;
+}
+
+int rom_import_self_test()
+{
+    const unsigned char z64[] = {
+        0x80, 0x37, 0x12, 0x40, 0xde, 0xad, 0xbe, 0xef,
+        0x01, 0x23, 0x45, 0x67,
+    };
+    unsigned char v64[sizeof z64];
+    unsigned char n64[sizeof z64];
+    memcpy(v64, z64, sizeof z64);
+    memcpy(n64, z64, sizeof z64);
+    normalize_rom_bytes(v64, sizeof v64, ROM_ORDER_V64);
+    normalize_rom_bytes(n64, sizeof n64, ROM_ORDER_N64);
+
+    if (detect_rom_order(z64) != ROM_ORDER_Z64 ||
+        detect_rom_order(v64) != ROM_ORDER_V64 ||
+        detect_rom_order(n64) != ROM_ORDER_N64) {
+        fprintf(stderr, "ROM import self-test failed: byte-order detection\n");
+        return 1;
+    }
+    normalize_rom_bytes(v64, sizeof v64, ROM_ORDER_V64);
+    normalize_rom_bytes(n64, sizeof n64, ROM_ORDER_N64);
+    if (memcmp(v64, z64, sizeof z64) != 0 || memcmp(n64, z64, sizeof z64) != 0) {
+        fprintf(stderr, "ROM import self-test failed: normalization\n");
+        return 1;
+    }
+    printf("ROM import self-test passed: z64, v64, and n64\n");
+    return 0;
 }
 
 bool open_rom_dialog(char *out, size_t n)
@@ -256,7 +504,7 @@ bool open_rom_dialog(char *out, size_t n)
     OPENFILENAMEA ofn;
     memset(&ofn, 0, sizeof ofn);
     ofn.lStructSize = sizeof ofn;
-    ofn.lpstrFilter = "N64 ROM (*.z64)\0*.z64\0All files\0*.*\0\0";
+    ofn.lpstrFilter = "N64 ROM (*.z64;*.v64;*.n64)\0*.z64;*.v64;*.n64\0All files\0*.*\0\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile = sizeof buf;
     /* OFN_NOCHANGEDIR: GetOpenFileName's legacy side effect of changing the process's current
@@ -431,12 +679,169 @@ bool start_process(Pipeline *p, const char *cmd, const char *cwd, std::string *e
     return true;
 }
 
+void reset_pipeline(Pipeline *p)
+{
+    if (p->hProcess != NULL) CloseHandle(p->hProcess);
+    if (p->hReadPipe != NULL) CloseHandle(p->hReadPipe);
+    p->hProcess = NULL;
+    p->hReadPipe = NULL;
+    p->lines.clear();
+    p->partial.clear();
+    p->currentStep.clear();
+    p->started = false;
+    p->finished = false;
+    p->exitCode = 1;
+}
+
+/* Windows 10/11 includes Windows PowerShell, so the bootstrapper can remain one executable
+ * without shipping another script beside it. The script written here downloads only versioned
+ * upstream archives, verifies their published SHA-256 values before execution/extraction, and
+ * installs them beneath the current user's LocalAppData. It never changes the registry, PATH,
+ * or an all-users installation; activate_portable_tools changes PATH only for this process and
+ * the children it creates. */
+bool write_portable_tools_script(const char *path, std::string *err)
+{
+    static const char script[] = R"PS(param(
+  [Parameter(Mandatory=$true)][string]$Root
+)
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.3/PortableGit-2.55.0.3-64-bit.7z.exe'
+$gitSha256 = 'ab00566336b5472120f9a52d34f2e79c5406535792acb0548001ffd0bd090e5d'
+$pythonUrl = 'https://www.python.org/ftp/python/3.14.7/python-3.14.7-embed-amd64.zip'
+$pythonSha256 = 'd297e5ff019966817ad8502465176139f2d3d840fa4ed84b13bed399a6ab1f15'
+$gitDir = Join-Path $Root 'git-2.55.0.3'
+$pythonDir = Join-Path $Root 'python-3.14.7'
+$downloads = Join-Path $Root 'downloads'
+
+New-Item -ItemType Directory -Force -Path $Root, $downloads | Out-Null
+
+function Get-VerifiedFile([string]$Url, [string]$Sha256, [string]$Path) {
+  if (Test-Path -LiteralPath $Path) {
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -eq $Sha256) {
+      Write-Output "verified cached $([IO.Path]::GetFileName($Path))"
+      return
+    }
+    Remove-Item -LiteralPath $Path -Force
+  }
+  $partial = "$Path.downloading"
+  Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+  Write-Output "downloading $Url"
+  Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $partial
+  $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne $Sha256) {
+    Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+    throw "SHA-256 mismatch for $Url (got $actual)"
+  }
+  Move-Item -LiteralPath $partial -Destination $Path
+  Write-Output "verified SHA-256: $actual"
+}
+
+if (-not (Test-Path -LiteralPath (Join-Path $gitDir 'cmd\git.exe')) -or
+    -not (Test-Path -LiteralPath (Join-Path $gitDir 'bin\bash.exe'))) {
+  Write-Output '== private portable Git for Windows =='
+  $archive = Join-Path $downloads 'PortableGit-2.55.0.3-64-bit.7z.exe'
+  Get-VerifiedFile $gitUrl $gitSha256 $archive
+  $staging = "$gitDir.installing"
+  Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $staging | Out-Null
+  # Invoke the official self-extracting archive itself (not 7-Zip against its contents), so its
+  # configured post-install step runs exactly once after extraction.
+  & $archive -y "-o$staging"
+  if ($LASTEXITCODE -ne 0) { throw "PortableGit extraction failed (exit $LASTEXITCODE)" }
+  if (-not (Test-Path -LiteralPath (Join-Path $staging 'cmd\git.exe')) -or
+      -not (Test-Path -LiteralPath (Join-Path $staging 'bin\bash.exe'))) {
+    throw 'PortableGit archive did not contain git.exe and bash.exe'
+  }
+  Remove-Item -LiteralPath $gitDir -Recurse -Force -ErrorAction SilentlyContinue
+  Move-Item -LiteralPath $staging -Destination $gitDir
+} else {
+  Write-Output 'private portable Git for Windows: already ready'
+}
+
+if (-not (Test-Path -LiteralPath (Join-Path $pythonDir 'python.exe'))) {
+  Write-Output '== private embeddable Python =='
+  $archive = Join-Path $downloads 'python-3.14.7-embed-amd64.zip'
+  Get-VerifiedFile $pythonUrl $pythonSha256 $archive
+  $staging = "$pythonDir.installing"
+  Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $staging | Out-Null
+  Expand-Archive -LiteralPath $archive -DestinationPath $staging -Force
+  if (-not (Test-Path -LiteralPath (Join-Path $staging 'python.exe'))) {
+    throw 'Python archive did not contain python.exe'
+  }
+  Remove-Item -LiteralPath $pythonDir -Recurse -Force -ErrorAction SilentlyContinue
+  Move-Item -LiteralPath $staging -Destination $pythonDir
+} else {
+  Write-Output 'private embeddable Python: already ready'
+}
+
+Write-Output 'portable build prerequisites are ready'
+)PS";
+
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) {
+        *err = "Could not create the private tool download script.";
+        return false;
+    }
+    const size_t want = sizeof script - 1;
+    bool ok = fwrite(script, 1, want, f) == want;
+    if (fflush(f) != 0) ok = false;
+    if (fclose(f) != 0) ok = false;
+    if (!ok) {
+        *err = "Could not write the private tool download script completely.";
+        return false;
+    }
+    return true;
+}
+
+bool start_tool_bootstrap(Pipeline *p, std::string *err)
+{
+    int mkdirResult = SHCreateDirectoryExA(NULL, gBootstrapRoot, NULL);
+    if (mkdirResult != ERROR_SUCCESS && mkdirResult != ERROR_ALREADY_EXISTS &&
+        mkdirResult != ERROR_FILE_EXISTS) {
+        *err = "Could not create the private build-tools folder in LocalAppData.";
+        return false;
+    }
+
+    char scriptPath[MAX_PATH];
+    int scriptLen = snprintf(scriptPath, sizeof scriptPath, "%s\\install-portable-tools.ps1",
+                             gBootstrapRoot);
+    if (scriptLen < 0 || (size_t) scriptLen >= sizeof scriptPath ||
+        !write_portable_tools_script(scriptPath, err)) return false;
+
+    char windowsDir[MAX_PATH], powershell[MAX_PATH];
+    UINT windowsLen = GetWindowsDirectoryA(windowsDir, (UINT) sizeof windowsDir);
+    int powershellLen = (windowsLen > 0 && windowsLen < sizeof windowsDir)
+        ? snprintf(powershell, sizeof powershell,
+                   "%s\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", windowsDir)
+        : -1;
+    if (powershellLen < 0 || (size_t) powershellLen >= sizeof powershell ||
+        !file_exists(powershell)) {
+        *err = "Could not locate the Windows PowerShell included with Windows 10/11.";
+        return false;
+    }
+
+    char cmd[MAX_PATH * 4];
+    int cmdLen = snprintf(cmd, sizeof cmd,
+        "\"%s\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%s\" -Root \"%s\"",
+        powershell, scriptPath, gBootstrapRoot);
+    if (cmdLen < 0 || (size_t) cmdLen >= sizeof cmd) {
+        *err = "The private build-tools path is too long.";
+        return false;
+    }
+    return start_process(p, cmd, NULL, err);
+}
+
 bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
 {
     char bash[MAX_PATH];
     if (!find_bash_exe(bash, sizeof bash)) {
-        *err = "Could not find bash.exe. This step needs Git for Windows -- install it from "
-               "git-scm.com (the default install options are fine) and try again.";
+        *err = "The setup app's private bash.exe is missing. Run the setup app again so it can "
+               "repair its tool download.";
         return false;
     }
 
@@ -454,22 +859,31 @@ bool start_pipeline(Pipeline *p, const char *repoRoot, std::string *err)
     return start_process(p, cmd, repoRoot, err);
 }
 
-/* GETV_WIZARD_REPO_URL overrides the clone source -- this project's real, public home is the
- * compiled-in default, but the override exists because this wizard was built and tested on the
- * shared dev machine before that URL existed, against a local bare repo instead. dest is
- * created if it does not already exist; git itself refuses to clone into a non-empty one. */
+/* The package build embeds the source repository + branch/tag it belongs to. That matters for a
+ * test artifact: cloning main from an exe built on a feature branch silently tests a different
+ * setup pipeline. Environment overrides remain for local harnesses. dest is created if it does
+ * not already exist; git itself refuses to clone into a non-empty one. */
 bool start_clone(Pipeline *p, const char *dest, std::string *err)
 {
     char git[MAX_PATH];
     if (!find_git_exe(git, sizeof git)) {
-        *err = "Could not find git.exe. Install Git for Windows from git-scm.com and try again.";
+        *err = "The setup app's private git.exe is missing. Run the setup app again so it can "
+               "repair its tool download.";
         return false;
     }
     const char *url = getenv("GETV_WIZARD_REPO_URL");
-    if (url == NULL || *url == '\0') url = "https://github.com/seb-patron/goldeneye-native";
+    if (url == NULL || *url == '\0') url = GETV_WIZARD_REPO_URL;
+    const char *ref = getenv("GETV_WIZARD_REPO_REF");
+    if (ref == NULL || *ref == '\0') ref = GETV_WIZARD_REPO_REF;
 
-    char cmd[MAX_PATH * 2 + 64];
-    snprintf(cmd, sizeof cmd, "\"%s\" clone \"%s\" \"%s\"", git, url, dest);
+    char cmd[MAX_PATH * 3 + 128];
+    int cmdLen = snprintf(cmd, sizeof cmd,
+                          "\"%s\" clone --branch \"%s\" --single-branch \"%s\" \"%s\"",
+                          git, ref, url, dest);
+    if (cmdLen < 0 || (size_t) cmdLen >= sizeof cmd) {
+        *err = "The download command is too long. Choose a shorter installation folder.";
+        return false;
+    }
     return start_process(p, cmd, NULL, err);
 }
 
@@ -551,11 +965,30 @@ void ui_ok(const char *text)
 
 } // namespace
 
-enum WizState { WELCOME, PICK_DEST, CLONING, PICK_ROM, CONFIRM, RUNNING, DONE, FAILED };
+enum WizState {
+    WELCOME,
+    BOOTSTRAPPING,
+    PICK_DEST,
+    CLONING,
+    PICK_ROM,
+    CONFIRM,
+    RUNNING,
+    DONE,
+    FAILED
+};
 
 int main(int argc, char **argv)
 {
-    (void) argc; (void) argv;
+    if (argc == 2 && strcmp(argv[1], "--self-test") == 0) return rom_import_self_test();
+    if (argc == 3 && strcmp(argv[1], "--write-bootstrap-script") == 0) {
+        std::string err;
+        if (!write_portable_tools_script(argv[2], &err)) {
+            fprintf(stderr, "%s\n", err.c_str());
+            return 1;
+        }
+        printf("wrote portable-tool bootstrap script: %s\n", argv[2]);
+        return 0;
+    }
 
     /* GETV_WIZARD_VERIFY_PATH=<file>: run verify_rom() against a real file and print the
      * result, no window. Exists to test the ROM-verification branches (wrong size, byte-
@@ -575,6 +1008,11 @@ int main(int argc, char **argv)
      * that point uses repoRoot the same way whether it was found here or just cloned. */
     char repoRoot[MAX_PATH] = "";
     bool haveRepo = find_repo_root(repoRoot, sizeof repoRoot);
+    if (!get_bootstrap_root(gBootstrapRoot, sizeof gBootstrapRoot)) {
+        MessageBoxA(NULL, "Could not locate a private LocalAppData folder for build tools.",
+                    "GoldenEye Setup", MB_OK | MB_ICONERROR);
+        return 1;
+    }
 
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -623,6 +1061,7 @@ int main(int argc, char **argv)
     char romPath[MAX_PATH] = "";
     RomCheck romCheck;
     romCheck.ok = false;
+    romCheck.order = ROM_ORDER_UNKNOWN;
     romCheck.message[0] = '\0';
     Pipeline pipeline;
     /* Initialized unconditionally, here, rather than inside start_pipeline(): every state past
@@ -634,6 +1073,7 @@ int main(int argc, char **argv)
     std::string startErr;
     std::string copyErr;
     std::string cloneErr;
+    std::string failureLabel = "Setup";
 
     /* Computed unconditionally, not just when !haveRepo: GETV_WIZARD_STATE can force PICK_DEST
      * or CLONING for testing regardless of what find_repo_root actually found, and those pages
@@ -652,7 +1092,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* GETV_WIZARD_STATE=<0..7>: jump straight to a page, matching ge_launcher.cpp's
+    /* GETV_WIZARD_STATE=<0..8>: jump straight to a page, matching ge_launcher.cpp's
      * GETV_LAUNCHER_PAGE. Each page the probe cannot reach on its own -- CLONING/CONFIRM/
      * RUNNING/DONE/FAILED all sit behind a real download, a real ROM, or a real multi-minute
      * pipeline run -- gets a placeholder so it renders something meaningful instead of blank
@@ -670,11 +1110,24 @@ int main(int argc, char **argv)
             }
             if (state == CONFIRM) {
                 romCheck.ok = true;
+                romCheck.order = ROM_ORDER_Z64;
                 snprintf(romCheck.message, sizeof romCheck.message,
-                          "Verified: matches the official US GoldenEye 007 ROM.");
+                          "Verified: US GoldenEye 007 ROM in z64 byte order.");
+            }
+            if (state == BOOTSTRAPPING && env_true("GETV_WIZARD_AUTOSTART")) {
+                failureLabel = "Build-tool download";
+                if (!start_tool_bootstrap(&pipeline, &startErr)) {
+                    pipeline.lines.push_back(startErr);
+                    pipeline.finished = true;
+                    pipeline.exitCode = 1;
+                }
+            } else if (state == BOOTSTRAPPING) {
+                pipeline.lines.push_back("downloading private portable Git for Windows...");
+                pipeline.lines.push_back("verifying the published SHA-256 before extraction...");
             }
             if (state == CLONING && env_true("GETV_WIZARD_AUTOSTART")) {
                 haveRepo = false;
+                failureLabel = "Source download";
                 start_clone(&pipeline, destPath, &cloneErr);
             } else if (state == CLONING) {
                 haveRepo = false;
@@ -702,6 +1155,7 @@ int main(int argc, char **argv)
             }
             if (state == DONE) pipeline.exitCode = 0;
             if (state == FAILED) {
+                failureLabel = "Setup";
                 pipeline.exitCode = 1;
                 pipeline.lines.push_back("setup-windows: 0002-assets.patch failed to apply");
             }
@@ -733,15 +1187,79 @@ int main(int argc, char **argv)
         case WELCOME: {
             ImGui::PushTextWrapPos(0.0f);
             ImGui::TextUnformatted(
-                "This sets up GoldenEye 007 on this computer: it downloads the build tools, "
-                "compiles the game from the public decompiled source, and links in your own "
-                "ROM's assets. Nothing here is redistributed -- everything stays on this machine.");
+                "This setup app is not the game. It downloads private portable build tools and "
+                "public source, then builds the playable program locally from your ROM. You do "
+                "not need to install Git, Python, or work with source code yourself.");
             ImGui::Spacing();
             ImGui::TextUnformatted(
-                "You will need your own GoldenEye 007 (U) cartridge, dumped as a .z64 file.");
+                "You must provide your own lawfully obtained GoldenEye 007 (U) cartridge dump. "
+                "No ROM, game assets, or playable binary is included. .z64, .v64, and .n64 "
+                "files are supported; your selected file never leaves this computer.");
+            ImGui::Spacing();
+            ImGui::TextUnformatted(
+                "The first run downloads about 60-80 MB of private bootstrap tools, followed by "
+                "the source and build dependencies. The tools stay under your Windows user "
+                "profile and do not need administrator access.");
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
-            if (ImGui::Button("Continue", ImVec2(120, 32))) state = haveRepo ? PICK_ROM : PICK_DEST;
+            if (!startErr.empty()) {
+                ui_error(startErr.c_str());
+                ImGui::Spacing();
+            }
+            if (ImGui::Button("Continue", ImVec2(120, 32))) {
+                startErr.clear();
+                if (portable_tools_ready()) {
+                    if (activate_portable_tools(&startErr)) state = haveRepo ? PICK_ROM : PICK_DEST;
+                } else {
+                    failureLabel = "Build-tool download";
+                    if (start_tool_bootstrap(&pipeline, &startErr)) state = BOOTSTRAPPING;
+                }
+            }
+            break;
+        }
+        case BOOTSTRAPPING: {
+            EnterCriticalSection(&pipeline.lock);
+            bool finished = pipeline.finished;
+            DWORD code = pipeline.exitCode;
+            ui_step_label("Preparing private build tools...");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextUnformatted(
+                "The setup app is downloading portable Git and embeddable Python, then checking "
+                "their published SHA-256 values. They are used only by this setup process.");
+            ImGui::PopTextWrapPos();
+            ImGui::Spacing();
+            ImGui::BeginChild("bootstraplog", ImVec2(0, -8.0f), true);
+            ImGuiListClipper bootstrapClipper;
+            bootstrapClipper.Begin((int) pipeline.lines.size());
+            while (bootstrapClipper.Step()) {
+                for (int i = bootstrapClipper.DisplayStart; i < bootstrapClipper.DisplayEnd; i++) {
+                    ImGui::TextUnformatted(pipeline.lines[(size_t) i].c_str());
+                }
+            }
+            bootstrapClipper.End();
+            if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 4.0f) ImGui::SetScrollHereY(1.0f);
+            ImGui::EndChild();
+            LeaveCriticalSection(&pipeline.lock);
+
+            if (finished) {
+                if (code == 0) {
+                    std::string activateErr;
+                    if (activate_portable_tools(&activateErr)) {
+                        reset_pipeline(&pipeline);
+                        state = haveRepo ? PICK_ROM : PICK_DEST;
+                    } else {
+                        EnterCriticalSection(&pipeline.lock);
+                        pipeline.lines.push_back(activateErr);
+                        pipeline.exitCode = 1;
+                        LeaveCriticalSection(&pipeline.lock);
+                        failureLabel = "Build-tool activation";
+                        state = FAILED;
+                    }
+                } else {
+                    failureLabel = "Build-tool download";
+                    state = FAILED;
+                }
+            }
             break;
         }
         case PICK_DEST: {
@@ -770,6 +1288,7 @@ int main(int argc, char **argv)
             if (!canClone) ImGui::BeginDisabled();
             if (ImGui::Button("Download and install here", ImVec2(220, 32))) {
                 cloneErr.clear();
+                failureLabel = "Source download";
                 if (start_clone(&pipeline, destPath, &cloneErr)) state = CLONING;
             }
             if (!canClone) ImGui::EndDisabled();
@@ -801,21 +1320,21 @@ int main(int argc, char **argv)
                     /* Reused for the real setup run next -- reset everything the reader thread
                      * touched, but not the lock, which stays initialized for the process
                      * lifetime (see the comment where it's created). */
-                    pipeline.lines.clear();
-                    pipeline.partial.clear();
-                    pipeline.currentStep.clear();
-                    pipeline.started = false;
-                    pipeline.finished = false;
-                    pipeline.exitCode = 1;
+                    reset_pipeline(&pipeline);
                     state = PICK_ROM;
                 } else {
+                    failureLabel = "Source download";
                     state = FAILED;
                 }
             }
             break;
         }
         case PICK_ROM: {
-            ImGui::TextUnformatted("Select your GoldenEye 007 (U) ROM file.");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextUnformatted(
+                "Select your own legally obtained GoldenEye 007 (U) ROM file. The wizard accepts "
+                ".z64, .v64, or .n64 byte order, verifies it locally, and never uploads it.");
+            ImGui::PopTextWrapPos();
             ImGui::Spacing();
             ImGui::PushItemWidth(-90.0f);
             ImGui::InputText("##rompath", romPath, sizeof romPath);
@@ -862,12 +1381,16 @@ int main(int argc, char **argv)
             if (ImGui::Button("Start setup", ImVec2(140, 32))) {
                 char romsDir[MAX_PATH], dest[MAX_PATH];
                 snprintf(romsDir, sizeof romsDir, "%s\\roms", repoRoot);
-                CreateDirectoryA(romsDir, NULL);
+                if (!CreateDirectoryA(romsDir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+                    copyErr = "Could not create the local roms/ folder in the installation.";
+                    break;
+                }
                 snprintf(dest, sizeof dest, "%s\\roms\\ge007.u.z64", repoRoot);
                 copyErr.clear();
-                if (!CopyFileA(romPath, dest, FALSE)) {
-                    copyErr = "Could not copy the ROM into the repository's roms/ folder.";
+                if (!import_rom(romPath, dest, romCheck.order, &copyErr)) {
+                    /* import_rom supplied a user-facing error and left the original untouched. */
                 } else if (start_pipeline(&pipeline, repoRoot, &startErr)) {
+                    failureLabel = "Setup";
                     state = RUNNING;
                 } /* else startErr is set; stay on this page and show it */
             }
@@ -936,7 +1459,7 @@ int main(int argc, char **argv)
         }
         case FAILED: {
             char hdr[128];
-            snprintf(hdr, sizeof hdr, "%s failed (exit code %lu).", haveRepo ? "Setup" : "Download",
+            snprintf(hdr, sizeof hdr, "%s failed (exit code %lu).", failureLabel.c_str(),
                      (unsigned long) pipeline.exitCode);
             ui_error(hdr);
             ImGui::PushTextWrapPos(0.0f);
@@ -956,11 +1479,11 @@ int main(int argc, char **argv)
              * DOWNLOAD does not, because git refuses to clone into a folder that is not empty --
              * telling someone to just try again there sends them back to the same error. */
             ImGui::TextUnformatted(
-                haveRepo
-                    ? "Running this again is safe: it picks up where it stopped rather than "
-                      "starting over."
-                    : "Before trying again, delete the folder it was downloading into, or choose "
-                      "an empty one. A part-finished download cannot be resumed in place.");
+                failureLabel == "Source download"
+                    ? "Before trying again, delete the folder it was downloading into, or choose "
+                      "an empty one. A part-finished source download cannot be resumed in place."
+                    : "Running this setup app again is safe: verified tool downloads are reused, "
+                      "and the build picks up completed steps rather than starting over.");
             ImGui::PopTextWrapPos();
             ImGui::Spacing();
             EnterCriticalSection(&pipeline.lock);

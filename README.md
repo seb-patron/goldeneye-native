@@ -55,25 +55,20 @@ That is it. Drag `Play GoldenEye` to your Dock if you want it there permanently.
 
 ### On Windows
 
-**1.** Install **Git for Windows** from [git-scm.com](https://git-scm.com/download/win). Click
-Next through the installer; every default is correct.
+**1.** Have your own supported GoldenEye 007 ROM dump ready. `.z64`, `.v64`, and `.n64` byte
+orders are accepted; the setup app verifies and normalizes the selected file locally. The project
+does not supply ROMs or instructions for acquiring one.
 
-**2.** Install **Python** from [python.org](https://www.python.org/downloads/windows/). On the
-first screen of the installer, **tick "Add python.exe to PATH"** before clicking Install. This
-one box matters; nothing works without it.
+**2.** Download `GoldenEye-Native-Setup.exe` from this project's release when a reviewed build is
+published. The replacement, ROM-free setup candidate is produced by the
+**Package Windows setup** workflow. It opens a normal ROM file picker, builds everything on your
+computer, and never uploads your dump. The first release candidate is still being tested; see
+[`docs/WINDOWS_PACKAGING.md`](docs/WINDOWS_PACKAGING.md) for the package and Windows test process.
 
-**3.** Get your own GoldenEye 007 ROM and leave it on your **Desktop**.
-
-**4.** The original repository's `setup_wizard.exe` release was not preserved when that repository
-was deleted. Until a replacement release has been reviewed and published, download this repository
-and run its source installer from PowerShell:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1
-```
-
-The installer asks where to install and which file is your ROM, then does everything else itself
-and shows you what it is doing. It takes 10 to 40 minutes the first time.
+**3.** Double-click it, choose an installation folder, and select your ROM. You do not install
+Git, Python, or a compiler and do not need to handle source code: the setup app downloads private,
+checksum-verified portable tools and performs the local build. It takes 10 to 40 minutes the first
+time and produces the playable executable only on your computer.
 
 ### On Linux
 
@@ -403,6 +398,7 @@ project uses on itself are all in `tools/`.
 |---|---|
 | [`tools/install.sh`](tools/install.sh) | The one-command installer for macOS and Linux. |
 | [`tools/install.ps1`](tools/install.ps1) | The Windows installer. |
+| [`tools/package_windows_wizard.ps1`](tools/package_windows_wizard.ps1) | Builds and safety-checks the ROM-free Windows setup package. |
 | [`getv/port/`](getv/port/) | The port layer: renderer, input, audio, saves, netplay. |
 | [`getv/port/fast3d/`](getv/port/fast3d/) | The display-list renderer, OpenGL and Metal backends. |
 | [`getv/patches/`](getv/patches/) | Every change made to the decompilation, as numbered patches. |
@@ -416,6 +412,7 @@ project uses on itself are all in `tools/`.
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | Measurements. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | State, known issues, planned work. |
 | [`docs/MAINTAINING.md`](docs/MAINTAINING.md) | Community workflow and future upstream replay. |
+| [`docs/WINDOWS_PACKAGING.md`](docs/WINDOWS_PACKAGING.md) | Windows package boundary, build, CI artifact and test checklist. |
 | [`PATCH_QUEUE.md`](PATCH_QUEUE.md) | One-by-one index of community fixes. |
 | [`docs/LICENSING.md`](docs/LICENSING.md) | Every third-party component and its licence. |
 

@@ -8,18 +8,22 @@
 
   This is a developer-facing script, not something an end user runs. A developer with the same
   toolchain build_windows.ps1 already needs (mingw, SDL2, GLEW, Dear ImGui -- all from
-  tools/fetch_deps_windows.ps1) runs this once; the resulting setup_wizard.exe is what actually
-  gets distributed. It contains no ROM-derived or decomp-derived code, which is what makes
-  shipping the binary itself fine where shipping goldeneye.exe is not (docs/LICENSING.md
-  section 5).
+  tools/fetch_deps_windows.ps1) runs this once; the resulting setup_wizard.exe is the candidate
+  artifact. It contains no ROM-derived or decomp-derived code, which is the package's technical
+  boundary. That check does not resolve or supersede the licensing review recorded in
+  docs/LICENSING.md.
 
   USAGE
       powershell -NoProfile -File getv\build_wizard.ps1
-      -Mingw : toolchain root (default C:\msys64\mingw64, matching build_windows.ps1)
+      -Mingw : toolchain root (default C:\mingw64, matching fetch_deps_windows.ps1 and the
+               first-run setup pipeline)
+      -RepoUrl / -RepoRef : source repository and branch/tag the packaged wizard will install
 #>
 [CmdletBinding()]
 param(
-  [string]$Mingw = 'C:\msys64\mingw64'
+  [string]$Mingw = 'C:\mingw64',
+  [string]$RepoUrl = 'https://github.com/seb-patron/goldeneye-native.git',
+  [string]$RepoRef = 'main'
 )
 
 $ErrorActionPreference = 'Continue'
@@ -38,6 +42,22 @@ if (-not (Test-Path (Join-Path $imgui 'lib\libimgui.a'))) {
 
 New-Item -ItemType Directory -Force -Path $build | Out-Null
 
+# A branch package must clone the branch containing its matching setup pipeline, not whatever main
+# happens to contain when a tester double-clicks it. Generate a tiny ignored header rather than
+# fighting three layers of PowerShell/GCC quote removal on -D strings. Restrict the values before
+# placing them in C source so neither a quote nor an option can escape the define.
+if ($RepoUrl -notmatch '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?$') {
+  throw "unsupported wizard repository URL: $RepoUrl"
+}
+if ($RepoRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -or $RepoRef -match '\.\.' -or $RepoRef.EndsWith('/')) {
+  throw "unsupported wizard repository ref: $RepoRef"
+}
+$packageConfig = Join-Path $build 'package_config.h'
+Set-Content -LiteralPath $packageConfig -Encoding ASCII -Value @(
+  "#define GETV_WIZARD_REPO_URL `"$RepoUrl`"",
+  "#define GETV_WIZARD_REPO_REF `"$RepoRef`""
+)
+
 # Same reason as the ImGui block in tools/fetch_deps_windows.ps1: assert and __FILE__ strings
 # otherwise carry the absolute path this was built from, and the resulting binary is published
 # for other people to download. $root is wherever the developer happened to clone, so it is
@@ -49,7 +69,8 @@ $cflags = @(
   "-I$wiz",
   "-I$root\getv\port\src",
   "-I$imgui\include",
-  "-I$Mingw\include\SDL2"
+  "-I$Mingw\include\SDL2",
+  '-include', $packageConfig
 )
 
 Write-Output "== compiling =="
@@ -76,8 +97,8 @@ $bin = Join-Path $build 'setup_wizard.exe'
 Remove-Item $bin -Force -ErrorAction SilentlyContinue
 # -s strips the symbol table. Nothing here is debugged from a shipped binary, and a symbol
 # table is another place build paths survive.
-# -static, not just -static-libgcc/-static-libstdc++. README.md step 4 tells a Windows user to
-# download setup_wizard.exe and double-click it -- one file, nothing else. The first build of
+# -static, not just -static-libgcc/-static-libstdc++. The README's Windows instructions tell a user
+# to download the setup executable and double-click it -- one file, nothing else. The first build of
 # this did not honour that: it imported SDL2.dll, libstdc++-6.dll and libwinpthread-1.dll, and a
 # Windows program that cannot find a DLL does not say so. It exits with 0xC0000135, prints
 # nothing, and leaves someone staring at a file that appears to do nothing when double-clicked.
@@ -120,7 +141,7 @@ if (Test-Path $objdump) {
   }
   if ($bad.Count -gt 0) {
     Write-Output ("NOT STANDALONE -- still imports: " + ($bad -join ', '))
-    throw "setup_wizard.exe is not self-contained; README step 4 promises a single file"
+    throw "setup_wizard.exe is not self-contained; the Windows setup flow promises a single file"
   }
   Write-Output "imports: Windows system DLLs only, so the .exe ships on its own"
 }

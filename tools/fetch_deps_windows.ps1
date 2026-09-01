@@ -3,8 +3,9 @@
 
   One script for everything the Windows build needs, because the alternative is a README
   section that says "download six things and put them in the right places" and is wrong
-  within a month. Everything lands in C:\mingw64 (the toolchain) or %USERPROFILE%\.n64tvos
-  (the optional libraries), matching where build_windows.ps1 looks.
+  within a month. The toolchain lands at -Mingw (C:\mingw64 for a manual developer run; a
+  user-writable LocalAppData path when launched by the setup app) and optional libraries land
+  under %USERPROFILE%\.n64tvos.
 
   Deliberately does NOT use MSYS2. Its fork emulation is unreliable -- see the header of
   getv/build_windows.ps1 for the measured failure -- and none of this needs a POSIX layer:
@@ -19,7 +20,11 @@
 param(
   [string]$Mingw   = 'C:\mingw64',
   [string]$Prefix  = (Join-Path $env:USERPROFILE '.n64tvos'),
-  [switch]$SkipToolchain
+  [switch]$SkipToolchain,
+  # setup_wizard.exe needs SDL2, GLEW and Dear ImGui, but not the two libraries linked only
+  # into goldeneye.exe. CI packaging uses this to avoid downloading and compiling Lua + Tracy
+  # before it can produce the small, ROM-free bootstrapper.
+  [switch]$WizardOnly
 )
 
 $ErrorActionPreference = 'Continue'
@@ -37,8 +42,16 @@ $gccUrl = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/16.2
 if (-not $SkipToolchain -and -not (Test-Path "$Mingw\bin\gcc.exe")) {
   Step "mingw-w64 (gcc 16.2, ~260 MB)"
   Invoke-WebRequest -Uri $gccUrl -OutFile "$tmp\winlibs.zip" -UseBasicParsing
-  Expand-Archive -Path "$tmp\winlibs.zip" -DestinationPath 'C:\' -Force
-  Remove-Item "$tmp\winlibs.zip" -ErrorAction SilentlyContinue
+  $toolchainStage = Join-Path $tmp 'goldeneye-native-winlibs'
+  Remove-Item $toolchainStage -Recurse -Force -ErrorAction SilentlyContinue
+  Expand-Archive -Path "$tmp\winlibs.zip" -DestinationPath $toolchainStage -Force
+  $toolchainSource = Join-Path $toolchainStage 'mingw64'
+  if (-not (Test-Path (Join-Path $toolchainSource 'bin\gcc.exe'))) {
+    throw "WinLibs archive did not contain mingw64\bin\gcc.exe"
+  }
+  New-Item -ItemType Directory -Force -Path $Mingw | Out-Null
+  Copy-Item (Join-Path $toolchainSource '*') $Mingw -Recurse -Force
+  Remove-Item "$tmp\winlibs.zip",$toolchainStage -Recurse -Force -ErrorAction SilentlyContinue
 }
 if (-not (Test-Path "$Mingw\bin\gcc.exe")) { throw "no gcc at $Mingw\bin -- toolchain step failed" }
 $gcc = "$Mingw\bin\gcc.exe"; $gxx = "$Mingw\bin\g++.exe"; $ar = "$Mingw\bin\ar.exe"
@@ -100,7 +113,9 @@ if (-not (Test-Path "$Mingw\lib\libglew32.a")) {
 # hooks compile to empty functions. The checksum is checked because this is compiled into
 # the game binary.
 $luaPrefix = Join-Path $Prefix 'lua-win'
-if (-not (Test-Path "$luaPrefix\lib\liblua.a")) {
+if ($WizardOnly) {
+  Step "Lua 5.4.7 skipped (not linked into the setup wizard)"
+} elseif (-not (Test-Path "$luaPrefix\lib\liblua.a")) {
   Step "Lua 5.4.7 (mod scripting)"
   $sha = '9fbf5e28ef86c69858f6d3d34eccc32e911c1a28b4120ff3e84aaa70cfbf1e30'
   Invoke-WebRequest -Uri 'https://www.lua.org/ftp/lua-5.4.7.tar.gz' -OutFile "$tmp\lua.tgz" -UseBasicParsing
@@ -146,8 +161,8 @@ if (-not (Test-Path "$imguiPrefix\lib\libimgui.a")) {
   # ImGui's IM_ASSERT expands __FILE__, so without this every assert string in libimgui.a
   # carries the absolute path it was compiled from -- and $tmp is $env:TEMP, which on a normal
   # Windows account is C:\Users\<name>\AppData\Local\Temp. That put the builder's account name
-  # into setup_wizard.exe, a file this project publishes as a release asset for other people to
-  # download. Measured: 12 such strings in the first wizard build. Mapping the prefix rewrites
+  # into setup_wizard.exe, a candidate release artifact other people may download. Measured: 12
+  # such strings in the first wizard build. Mapping the prefix rewrites
   # __FILE__ at compile time, so the strings read "imgui/imgui.cpp" and identify nobody.
   $imguiMap = "$tmp\imguisrc"
   $objs = @()
@@ -180,7 +195,9 @@ if (-not (Test-Path "$imguiPrefix\lib\libimgui.a")) {
 # includes it -- not just for TracyClient.cpp -- which is why build_windows.ps1 must add
 # -DTRACY_ENABLE to the game/port flags themselves, not only to this compile.
 $tracyPrefix = Join-Path $Prefix 'tracy-win'
-if (-not (Test-Path "$tracyPrefix\lib\libtracy.a")) {
+if ($WizardOnly) {
+  Step "Tracy 0.14.1 skipped (not linked into the setup wizard)"
+} elseif (-not (Test-Path "$tracyPrefix\lib\libtracy.a")) {
   Step "Tracy 0.14.1 (profiler client)"
   $sha = '908f3a2917fa86a247abfcf85dcf04bad1db6986a4d40f94b70512f3e9e98d5b'
   Invoke-WebRequest -Uri 'https://github.com/wolfpld/tracy/archive/refs/tags/v0.14.1.zip' -OutFile "$tmp\tracy.zip" -UseBasicParsing
@@ -208,8 +225,8 @@ Write-Output ""
 Write-Output "gcc        : $(if (Test-Path "$Mingw\bin\gcc.exe") { (& $gcc -dumpversion) } else { 'MISSING' })"
 Write-Output "SDL2       : $(if (Test-Path "$Mingw\include\SDL2\SDL.h") { 'ok' } else { 'MISSING' })"
 Write-Output "GLEW       : $(if (Test-Path "$Mingw\lib\libglew32.a") { 'ok' } else { 'MISSING' })"
-Write-Output "Lua        : $(if (Test-Path "$luaPrefix\lib\liblua.a") { 'ok (mods enabled)' } else { 'absent (mods disabled)' })"
+Write-Output "Lua        : $(if ($WizardOnly) { 'skipped (wizard-only setup)' } elseif (Test-Path "$luaPrefix\lib\liblua.a") { 'ok (mods enabled)' } else { 'absent (mods disabled)' })"
 Write-Output "Dear ImGui : $(if (Test-Path "$imguiPrefix\lib\libimgui.a") { 'ok (overlay + launcher enabled)' } else { 'absent (overlay + launcher disabled)' })"
-Write-Output "Tracy      : $(if (Test-Path "$tracyPrefix\lib\libtracy.a") { 'ok (profiling enabled)' } else { 'absent (profiling disabled)' })"
+Write-Output "Tracy      : $(if ($WizardOnly) { 'skipped (wizard-only setup)' } elseif (Test-Path "$tracyPrefix\lib\libtracy.a") { 'ok (profiling enabled)' } else { 'absent (profiling disabled)' })"
 Write-Output ""
 Write-Output "next: powershell -NoProfile -ExecutionPolicy Bypass -File getv\build_windows.ps1 -Target all"
