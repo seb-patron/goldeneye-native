@@ -1436,7 +1436,7 @@ static const char *DEFAULT_CFG =
 "#                         # GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app\n"
 "#                         # Its level select does NOT work (gutted no-ops).\n"
 "#                         # Use GETV_STAGE = <n> to pick a level.\n"
-"# developer_tools = 1     # optional ImGui overlay + in-game command console\n"
+"# developer_tools = 1     # optional performance/debug overlay; console is always available\n"
 "# console_key    = grave # SDL scancode name; default backquote/grave\n"
 "\n"
 "# --- GoldenEye+ ------------------------------------------------------------\n"

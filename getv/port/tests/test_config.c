@@ -108,7 +108,7 @@ int main(void)
 
     reset();
     check("developer_tools accepted", set("developer_tools", "1"), 1);
-    check_env("developer_tools enables ImGui", "GETV_IMGUI", "1");
+    check_env("developer_tools enables the debug overlay", "GETV_IMGUI", "1");
     check("console_key accepted", set("console_key", "F10"), 1);
     check_env("console_key reaches SDL UI", "GETV_CONSOLE_KEY", "F10");
 

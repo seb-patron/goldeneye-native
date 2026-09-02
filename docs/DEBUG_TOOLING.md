@@ -25,10 +25,10 @@ The new console should therefore own its parser, registry, result log, input beh
 A console handler may call a verified original function through a narrow game-side adapter, but
 the console must not expose arbitrary memory writes or depend on the original debug-menu UI.
 
-Developer tools should be included whenever the optional ImGui dependency is available and
-enabled by an explicit runtime setting. They should not require a one-off compiler define that
-ordinary testers will never have. Builds without ImGui must continue to work; the command core,
-schema validation and tests should not depend on ImGui.
+The console UI should be available whenever the optional ImGui dependency is present. The
+explicit developer-tools runtime setting controls the observational overlay, not whether the
+console hotkey works. Builds without ImGui must continue to work; the command core, schema
+validation and tests should not depend on ImGui.
 
 ## Why these three features belong together
 
@@ -135,10 +135,10 @@ to run on one thread in a current build.
 
 ### User experience
 
-When developer tools are enabled, a configurable desktop hotkey opens a searchable console. The
-default should be backquote only after checking it against every platform binding and keyboard
-layout supported by SDL. The launcher/configuration surface should expose the enable switch and
-binding; an environment setting remains useful for automation.
+A configurable desktop hotkey opens a searchable console whenever the binary includes Dear ImGui;
+it does not depend on the optional developer overlay. The default is backquote/grave, with the
+launcher/configuration surface exposing the binding and an environment setting remaining useful
+for automation.
 
 Opening the console in a solo mission requests a developer-owned pause reason and restores the
 previous state when it closes. It must not clear a watch/menu pause that it did not create.
@@ -206,8 +206,8 @@ game adapters and diagnostic export merely because all are eventually visible in
 - OpenGL and Metal display and operate the same console, and a no-ImGui build still compiles.
 - Initial read-only and mutation commands report resolved targets and refusals accurately.
 - Mutating commands are refused in netplay and unsupported stages instead of partially applying.
-- Existing automated measurement runs remain idle and deterministic unless developer tools were
-  explicitly enabled.
+- With the console closed and developer overlay disabled, no ImGui frame is built and existing
+  automated measurement runs remain idle and deterministic.
 
 ## Workstream 2: player and entity inspector
 

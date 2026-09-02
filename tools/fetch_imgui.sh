@@ -4,11 +4,11 @@
 # Same arrangement as tools/fetch_lua.sh, and for the same reason: deps/ is gitignored (see
 # .gitignore), so third-party source is fetched on demand and built into a prefix outside
 # the tree. This repository never carries code it did not write. Run this once; the build
-# scripts detect the result and enable the overlay.
+# scripts detect the result and enable the console UI plus optional developer overlay.
 #
 # Without it, everything still builds. ge_imgui.cpp compiles its entry points to empty
-# bodies, the build omits -DGE_WITH_IMGUI, and GETV_IMGUI=1 prints a line saying the binary
-# was built without ImGui. The overlay is an addition, never a prerequisite.
+# bodies, the build omits -DGE_WITH_IMGUI, and startup reports that the console UI is
+# unavailable. The game itself remains buildable and playable without this dependency.
 #
 # Why a static library rather than compiling ImGui inside build_mac.sh
 # -------------------------------------------------------------------

@@ -14,6 +14,7 @@
  */
 
 #include "ge_imgui.h"
+#include "ge_imgui_policy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,6 +62,7 @@ constexpr int GE_CONSOLE_UI_HISTORY = 32;
 constexpr int GE_CONSOLE_UI_COMPLETIONS = 16;
 
 bool g_active;
+GeImguiPolicy g_policy;
 bool g_frame_open;
 bool g_focus_console_input;
 bool g_skip_toggle_text;
@@ -72,12 +74,6 @@ char g_help_filter[64];
 char g_input_history[GE_CONSOLE_UI_HISTORY][GE_CONSOLE_MAX_LINE];
 int g_input_history_count;
 int g_input_history_pos = -1;
-
-bool ge_imgui_env_on()
-{
-    const char *e = getenv("GETV_IMGUI");
-    return e != NULL && *e != '\0' && strcmp(e, "0") != 0;
-}
 
 bool ge_env_on(const char *name)
 {
@@ -326,9 +322,11 @@ void ge_imgui_probe_rect(int *x, int *y, int *w, int *h)
 
 extern "C" void gePortImguiInit(void *window, void *glctx)
 {
-    if (g_active || !ge_imgui_env_on()) return;
+    if (g_active) return;
+    g_policy = geImguiPolicyResolve(1, getenv("GETV_IMGUI"));
+    if (!g_policy.console_ui_enabled) return;
     if (window == NULL) {
-        printf("[getv][imgui] GETV_IMGUI set but there is no window -- overlay OFF\n");
+        printf("[getv][imgui] no window -- console and developer overlay unavailable\n");
         fflush(stdout);
         return;
     }
@@ -368,8 +366,9 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
     geConsolePauseReset();
     g_active = true;
     (void)ge_console_toggle_scancode();
-    printf("[getv][imgui] overlay ON (GETV_IMGUI) -- Dear ImGui %s, backends: %s + %s\n",
-           IMGUI_VERSION,
+    printf("[getv][imgui] console UI ON; developer overlay %s -- Dear ImGui %s, "
+           "backends: %s + %s\n",
+           g_policy.developer_overlay_enabled ? "ON" : "off", IMGUI_VERSION,
            ImGui::GetIO().BackendPlatformName ? ImGui::GetIO().BackendPlatformName : "?",
            ImGui::GetIO().BackendRendererName ? ImGui::GetIO().BackendRendererName : "?");
 #if defined(RAPI_METAL)
@@ -385,7 +384,8 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
 
 extern "C" void gePortImguiNewFrame(void)
 {
-    if (!g_active || g_frame_open) return;
+    if (!g_active || g_frame_open ||
+        (!g_policy.developer_overlay_enabled && !geConsoleInputOpen())) return;
 #if !defined(RAPI_METAL)
     ImGui_ImplOpenGL2_NewFrame();
 #endif
@@ -393,7 +393,7 @@ extern "C" void gePortImguiNewFrame(void)
     ImGui::NewFrame();
     g_frame_open = true;
     g_frames++;
-    ge_draw_dev_overlay();
+    if (g_policy.developer_overlay_enabled) ge_draw_dev_overlay();
     ge_draw_console();
 }
 
@@ -526,7 +526,7 @@ extern "C" int gePortImguiEvent(void *sdl_event)
         return 1;
     }
 
-    ImGui_ImplSDL2_ProcessEvent(event);
+    if (g_policy.developer_overlay_enabled) ImGui_ImplSDL2_ProcessEvent(event);
     return 0;
 }
 
@@ -539,6 +539,8 @@ extern "C" void gePortImguiShutdown(void)
     }
     geConsoleInputReset();
     g_active = false;
+    g_policy.console_ui_enabled = 0;
+    g_policy.developer_overlay_enabled = 0;
     g_frame_open = false;
 #if defined(RAPI_METAL)
     gePortMetalImguiShutdown();
@@ -547,7 +549,7 @@ extern "C" void gePortImguiShutdown(void)
 #endif
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    printf("[getv][imgui] overlay shut down after %lu frames\n", g_frames);
+    printf("[getv][imgui] console UI shut down after %lu rendered UI frames\n", g_frames);
     fflush(stdout);
 }
 
@@ -558,19 +560,25 @@ extern "C" int gePortImguiConsoleOpen(void) { return geConsoleInputOpen(); }
 
 extern "C" void gePortImguiInit(void *window, void *glctx)
 {
+    GeImguiPolicy policy = geImguiPolicyResolve(0, getenv("GETV_IMGUI"));
     (void)window; (void)glctx;
-    const char *e = getenv("GETV_IMGUI");
-    if (e != NULL && *e != '\0' && strcmp(e, "0") != 0) {
-        printf("[getv][imgui] GETV_IMGUI is set but this binary was built without ImGui.\n");
+    if (!policy.console_ui_enabled)
+        printf("[getv][imgui] this binary was built without ImGui; console UI unavailable.\n");
+    {
+        const char *e = getenv("GETV_IMGUI");
+        if (e != NULL && *e != '\0' && strcmp(e, "0") != 0) {
+            printf("[getv][imgui] GETV_IMGUI was requested, so the developer overlay is also "
+                   "unavailable.\n");
 #if defined(__APPLE__)
-        printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_mac.sh all\n");
+            printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_mac.sh all\n");
 #elif defined(_WIN32)
-        printf("[getv][imgui] run tools/fetch_imgui.sh, then .\\getv\\build_windows.ps1 all\n");
+            printf("[getv][imgui] run tools/fetch_imgui.sh, then .\\getv\\build_windows.ps1 all\n");
 #else
-        printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_linux.sh all\n");
+            printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_linux.sh all\n");
 #endif
-        fflush(stdout);
+        }
     }
+    fflush(stdout);
 }
 
 extern "C" void gePortImguiNewFrame(void) {}
