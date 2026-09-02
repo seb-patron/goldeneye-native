@@ -853,6 +853,11 @@ void gePortConsoleGameTick(void)
     /* Reconcile renderer intent at the admitted game-thread boundary before either command
      * handlers or the simulation can observe this tick. */
     gePortConsolePauseGameTick();
+    /* A registered provider may walk the four explicit player slots and sample mission state.
+     * Do not pay that cost on every admitted tick merely because the console exists: with no
+     * pending request, there is no context for a handler to consume.  Pause ownership remains
+     * above this gate because an open/close request must still reconcile while the queue is idle. */
+    if (geConsoleQueueCount() == 0) { return; }
     memset(&context, 0, sizeof context);
     if (ge_console.context_provider != NULL) {
         ge_console.context_provider(&context, ge_console.context_user);
