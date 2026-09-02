@@ -1,8 +1,9 @@
 # Developer tooling plan
 
 Status: accepted architecture and active delivery plan. The console core, cross-renderer UI/input
-ownership, solo pause policy, always-available toggle, and initial read-only command handlers are
-implemented. Mutation handlers, the inspector, and native diagnostic capture remain follow-ons.
+ownership, solo pause policy, always-available toggle, initial read-only handlers, and the runtime
+`gibs` mutation are implemented. Player/session mutations, the inspector, and native diagnostic
+capture remain follow-ons.
 
 Initial priority:
 
@@ -192,7 +193,16 @@ player list
 player show 0
 where 0
 objective list
+gibs <off|explosions|high_damage|always>
 ```
+
+`gibs` is registered through a copied mutation-provider table and changes the cached port policy
+through `gePortGibsSetMode()`; it never rewrites `GETV_GIBS`. Its enum argument and typed
+previous/current-mode payload are diagnostic-safe and recordable. The command may set policy
+before a mission or during local multiplayer, but the shared command pump refuses it during
+netplay before the setter can run. Changing policy preserves existing character/hit bookkeeping
+and consumes no gameplay RNG; the existing effect derives its private visual seed from tick and
+character identity.
 
 `build` currently reports platform, architecture, renderer, console schema, and command schema.
 The authoritative source commit/build-compatibility identifier belongs to the versioned native

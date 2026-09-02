@@ -67,6 +67,23 @@ int gePortGibsMode(void)
     return ge_gibs_mode;
 }
 
+int gePortGibsSetMode(int mode)
+{
+    const char *name;
+
+    switch (mode) {
+    case GE_GIBS_OFF:         name = "off"; break;
+    case GE_GIBS_EXPLOSIONS:  name = "explosions"; break;
+    case GE_GIBS_HIGH_DAMAGE: name = "high_damage"; break;
+    case GE_GIBS_ALWAYS:      name = "always"; break;
+    default:                  return 0;
+    }
+
+    ge_gibs_mode = mode;
+    printf("[getv][gibs] runtime policy=%s\n", name);
+    return 1;
+}
+
 int gePortGibsShouldSpawn(int cause, int newly_dead, float hit_damage)
 {
     int mode;

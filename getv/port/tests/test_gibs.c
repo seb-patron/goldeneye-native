@@ -75,6 +75,19 @@ int main(void)
     check("always still requires a new death",
           gePortGibsShouldSpawn(GE_GIB_CAUSE_NONE, 0, 100.0f), 0);
 
+    set_mode("explosions");
+    check("runtime setter accepts always", gePortGibsSetMode(GE_GIBS_ALWAYS), 1);
+    check("runtime setter replaces cached environment policy",
+          gePortGibsMode(), GE_GIBS_ALWAYS);
+    setenv("GETV_GIBS", "off", 1);
+    check("environment cannot overwrite a runtime policy", gePortGibsMode(), GE_GIBS_ALWAYS);
+    check("runtime setter rejects values below the enum", gePortGibsSetMode(-1), 0);
+    check("rejected lower value leaves policy unchanged", gePortGibsMode(), GE_GIBS_ALWAYS);
+    check("runtime setter rejects values above the enum", gePortGibsSetMode(4), 0);
+    check("rejected upper value leaves policy unchanged", gePortGibsMode(), GE_GIBS_ALWAYS);
+    check("runtime setter can restore retail policy", gePortGibsSetMode(GE_GIBS_OFF), 1);
+    check("retail policy is active immediately", gePortGibsMode(), GE_GIBS_OFF);
+
     reset_characters();
     check("null character is refused", gePortGibsMarkCharacter(NULL), 0);
     check("new gibbed character is tracked", gePortGibsMarkCharacter((void *)1), 1);
@@ -87,6 +100,8 @@ int main(void)
     check("forgotten character can be tracked again", gePortGibsMarkCharacter((void *)1), 1);
 
     gePortGibsRecordHit((void *)1, GE_GIB_CAUSE_HIT, 6.0f, 1.0f, 2.0f, 3.0f);
+    check("policy changes preserve character markers", gePortGibsSetMode(GE_GIBS_EXPLOSIONS), 1);
+    check("character marker survives a policy change", gePortGibsIsCharacter((void *)1), 1);
     {
         int cause = 0;
         float damage = 0.0f;

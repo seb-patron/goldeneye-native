@@ -17,6 +17,10 @@ enum GeGibMode {
 #define GE_GIB_HIGH_DAMAGE_THRESHOLD 4.0f
 
 int gePortGibsMode(void);
+/* Validate and replace the cached policy without rewriting GETV_GIBS. Returns 1 when `mode` is
+ * accepted and 0 without changing state for an unknown value. Safe to call on the game thread
+ * after startup; existing character/hit records are preserved. */
+int gePortGibsSetMode(int mode);
 int gePortGibsShouldSpawn(int cause, int newly_dead, float hit_damage);
 void gePortGibsRecordHit(const void *character, int cause, float damage,
                          float impulse_x, float impulse_y, float impulse_z);
