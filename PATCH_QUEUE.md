@@ -17,12 +17,13 @@ Historical original-upstream anchor:
 | Restore depth-tested Metal blob shadows | [#3](https://github.com/seb-patron/goldeneye-native/pull/3), merged | `6d39a867c249345aa51cb59c6fd847c1fc110e49` | three-point filtering (#1) | pending after #1 |
 | Honor `GETV_FILTERING` environment precedence | [#4](https://github.com/seb-patron/goldeneye-native/pull/4), merged | `6e60fac1293f6585c37d265f1e1f7d637f743b62` | none | pending |
 | Apply the config-file widescreen setting | [#5](https://github.com/seb-patron/goldeneye-native/pull/5), merged | `8b11f0b35b33668f4206438f0bc1a910903e9047` | filtering precedence (#4) | pending after #4 |
-| Add opt-in fatal-explosion gibs | [#7](https://github.com/seb-patron/goldeneye-native/pull/7), open | `ce9031bf4f7a7189c85193c5dad5b0a876d0af78` | filtering precedence (#4), widescreen config (#5) | pending after #4 and #5 |
+| Add opt-in fatal-explosion gibs | [#7](https://github.com/seb-patron/goldeneye-native/pull/7), merged | `ce9031bf4f7a7189c85193c5dad5b0a876d0af78`, then `2eeb43e806a3985999986d9bf2b89384310418d0`, then `4270a8aeebd0233721a2fffd68396c17fe196d2d`, then `2e2a8adb544eb08bec0d4f0c0f608d234dbc03dd` | filtering precedence (#4), widescreen config (#5) | pending after #4 and #5 |
 | Add typed developer-console command core | [#16](https://github.com/seb-patron/goldeneye-native/pull/16), merged | `405a705296125c66e8523f047008beeb7687d6f9`, then `df0272401efe1a1d5ffe83c3eb03f5ef04182e3a`, then `c6d913295cc0ee74d97441ec5b2f8860c1c095ab` | none | pending |
 | Add cross-renderer developer console UI and input capture | [#17](https://github.com/seb-patron/goldeneye-native/pull/17), merged | `d4c884311372be06edb8616a9cd7594586eb43e9` | typed console core (#16) | pending after #16 |
 | Add game-thread-owned developer console solo pause policy | [#19](https://github.com/seb-patron/goldeneye-native/pull/19), merged | `c3559440568001b9087de1889ffa91b5bbd887c6` | typed console core (#16), console UI/input (#17) | pending after #16 and #17 |
 | Keep the developer console toggle available without the optional overlay | [#20](https://github.com/seb-patron/goldeneye-native/pull/20), merged | `be55bc20819ef5bb24b4896ada1df9cd390ef9ac` | console core/UI/pause (#16, #17, #19) | pending after #16, #17 and #19 |
-| Add read-only developer-console session handlers | [#21](https://github.com/seb-patron/goldeneye-native/pull/21), open | `55c5c7d43441af7738401f7aede299a80c19d5d5` | console core/UI/pause/toggle (#16, #17, #19, #20) | pending after #16, #17, #19 and #20 |
+| Add read-only developer-console session handlers | [#21](https://github.com/seb-patron/goldeneye-native/pull/21), merged | `55c5c7d43441af7738401f7aede299a80c19d5d5` | console core/UI/pause/toggle (#16, #17, #19, #20) | pending after #16, #17, #19 and #20 |
+| Add runtime `gibs` developer-console command | [#22](https://github.com/seb-patron/goldeneye-native/pull/22), open | `f7c7adc7755c86a3583f12358ac63c9859f2164c` | enemy gibs (#7), console core/UI/pause/toggle/read handlers (#16, #17, #19, #20, #21) | pending after #7, #16, #17, #19, #20 and #21 |
 
 ## Replay audit
 
