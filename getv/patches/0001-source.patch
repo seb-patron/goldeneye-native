@@ -27417,7 +27417,7 @@ index 53583db..62da495 100644
      g_playerPointers[player_num]->cur_player_control_type_1 = CONTROLLER_CONFIG_HONEY;
      g_playerPointers[player_num]->cur_player_control_type_2 = 0.0f; //CONTROLLER_CONFIG_HONEY
 diff --git a/src/game/prop.c b/src/game/prop.c
-index 8c877b2..bce9903 100644
+index 8c877b2..585427e 100644
 --- a/src/game/prop.c
 +++ b/src/game/prop.c
 @@ -1,3 +1,5 @@
@@ -27944,7 +27944,15 @@ index 8c877b2..bce9903 100644
  
                  for (i5 = 0; g_CurrentSetup.patrolpaths[i3].waypoints[i5] >= 0; i5++)
                  {
-@@ -1354,7 +1689,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1352,2 +1687,7 @@ void proplvreset2(enum LEVELID stageId)
+             roompos_1 = get_room_data_float2();
++#ifdef GE_PORT_NATIVE
++            /* Generated setup arrays are linked static storage, not fresh stage-pool copies.
++             * Scale their positions only on the first load; stan links still refresh below. */
++            if (!gePortSetupSectionNeedsScale(g_CurrentSetup.pads)) { roompos_1 = 1.0f; }
++#endif
+             pad = g_CurrentSetup.pads;
+@@ -1354,7 +1694,7 @@ void proplvreset2(enum LEVELID stageId)
  
              for (; pad->plink != NULL; pad++)
              {
@@ -27953,7 +27961,7 @@ index 8c877b2..bce9903 100644
                  pad->pos.f[0] *= roompos_1;
                  pad->pos.f[1] *= roompos_1;
                  pad->pos.f[2] *= roompos_1;
-@@ -1377,6 +1712,36 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1377,6 +1717,36 @@ void proplvreset2(enum LEVELID stageId)
  
                  if (1);
              }
@@ -27990,7 +27998,13 @@ index 8c877b2..bce9903 100644
          }
  
          if (g_CurrentSetup.boundpads)
-@@ -1393,7 +1758,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1386,2 +1756,5 @@ void proplvreset2(enum LEVELID stageId)
+             roompos_2 = get_room_data_float2();
++#ifdef GE_PORT_NATIVE
++            if (!gePortSetupSectionNeedsScale(g_CurrentSetup.boundpads)) { roompos_2 = 1.0f; }
++#endif
+             vol = g_CurrentSetup.boundpads;
+@@ -1393,7 +1766,7 @@ void proplvreset2(enum LEVELID stageId)
                  */
                  if ((((u32) local_stage) ^ 0) + ((u32)vol->plink));
  
@@ -27999,7 +28013,7 @@ index 8c877b2..bce9903 100644
                  vol->pos.f[0] *= roompos_2;
                  vol->pos.f[1] *= roompos_2;
                  vol->pos.f[2] *= roompos_2;
-@@ -1422,13 +1787,38 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1422,13 +1795,38 @@ void proplvreset2(enum LEVELID stageId)
  
                  if (1);
              }
@@ -28039,7 +28053,7 @@ index 8c877b2..bce9903 100644
              }
          }
  
-@@ -1439,7 +1829,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1439,7 +1837,7 @@ void proplvreset2(enum LEVELID stageId)
  
              for (i1 = 0; g_CurrentSetup.boundpadnames[i1].p; i1++)
              {
@@ -28048,7 +28062,7 @@ index 8c877b2..bce9903 100644
              }
          }
  
-@@ -1482,6 +1872,14 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1482,6 +1880,14 @@ void proplvreset2(enum LEVELID stageId)
              numAnimatedObjects += load_proptype(PROPDEF_AIRCRAFT);
          }
  
@@ -28063,7 +28077,7 @@ index 8c877b2..bce9903 100644
          modelmgrAllocateModelSlots(numObjects);
          modelmgrAllocateAnimModelSlots(numAnimatedObjects);
  
-@@ -1491,7 +1889,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1491,7 +1897,7 @@ void proplvreset2(enum LEVELID stageId)
              alloc_additional_item_slots(load_proptype(PROPDEF_LINK));
          }
  
@@ -28072,7 +28086,7 @@ index 8c877b2..bce9903 100644
          {
              PropDefHeaderRecord *phead;
              s32 flags;
-@@ -1739,7 +2137,10 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1739,7 +2145,10 @@ void proplvreset2(enum LEVELID stageId)
                              pdef_veh->turnrot60    = 0.0f;
                              pdef_veh->roty         = 0.0f;
                              pdef_veh->speedtime60  = -1.0f;
@@ -28084,7 +28098,7 @@ index 8c877b2..bce9903 100644
                              pdef_veh->aioffset     = 0;
                              pdef_veh->aireturnlist = -1;
                              pdef_veh->path         = 0;
-@@ -1761,7 +2162,7 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1761,7 +2170,7 @@ void proplvreset2(enum LEVELID stageId)
                              pdef_air->yrot            = 0.0f;
                              pdef_air->speedtime60     = -1.0f;
                              pdef_air->rotaryspeedtime = -1.0f;
@@ -28093,7 +28107,7 @@ index 8c877b2..bce9903 100644
                              pdef_air->aioffset        = 0;
                              pdef_air->aireturnlist    = -1;
                              pdef_air->nextstep        = 0;
-@@ -1887,6 +2288,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1887,6 +2296,11 @@ void proplvreset2(enum LEVELID stageId)
                          struct WeaponObjRecord *guna = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index1 + pdefIndex);
                          struct WeaponObjRecord *gunb = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index2 + pdefIndex);
  
@@ -28105,7 +28119,7 @@ index 8c877b2..bce9903 100644
                          if (guna && gunb)
                          {
                              if ((guna->type == PROPDEF_COLLECTABLE) && (gunb->type == PROPDEF_COLLECTABLE))
-@@ -1922,6 +2328,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1922,6 +2336,11 @@ void proplvreset2(enum LEVELID stageId)
                          doorA = (struct ObjectRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
                          doorB = (struct ObjectRecord *) setupGetPtrToCommandByIndex(pdefIndex + index2);
  
@@ -28117,7 +28131,7 @@ index 8c877b2..bce9903 100644
                          if ((((doorA && doorA->prop) && doorB) && (doorB->type == PROPDEF_DOOR)) && doorB->prop)
                          {
                              pdef_switch->first = doorA->prop;
-@@ -1957,6 +2368,12 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1957,6 +2376,12 @@ void proplvreset2(enum LEVELID stageId)
                          safe = (struct SafeRecord *) setupCommandGetObject(stageId, pdefIndex + index2);
                          door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index3);
  
@@ -28130,7 +28144,7 @@ index 8c877b2..bce9903 100644
                          if (((((((safe_item && safe_item->prop) && safe) && safe->prop) && (safe->type == PROPDEF_SAFE)) && door) && door->prop) && (door->type == PROPDEF_DOOR))
                          {
                              pdef_safe->item = safe_item;
-@@ -1990,6 +2407,11 @@ void proplvreset2(enum LEVELID stageId)
+@@ -1990,6 +2415,11 @@ void proplvreset2(enum LEVELID stageId)
                          door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
                          lock = setupCommandGetObject(stageId, pdefIndex + index2);
  
@@ -28142,7 +28156,7 @@ index 8c877b2..bce9903 100644
                          if ((((door && door->prop) && lock) && lock->prop) && (door->type == PROPDEF_DOOR))
                          {
                              pdef_lock_door->door = door;
-@@ -2010,6 +2432,8 @@ void proplvreset2(enum LEVELID stageId)
+@@ -2010,6 +2440,8 @@ void proplvreset2(enum LEVELID stageId)
                  phead = (PropDefHeaderRecord *) (((u32 *) phead) + sizepropdef(phead));
                  pdefIndex += 1;
              }
@@ -32083,10 +32097,10 @@ index 0000000..abe48ef
 +#endif
 diff --git a/src/ge_port_decls.h b/src/ge_port_decls.h
 new file mode 100644
-index 0000000..d744225
+index 0000000..bdfacc1
 --- /dev/null
 +++ b/src/ge_port_decls.h
-@@ -0,0 +1,523 @@
+@@ -0,0 +1,524 @@
 +extern void gePortBootMark(const char *what);   /* port boot tracing; see port_support.c */
 +extern void gePortCheckItemEntries(const char *where); /* c_item_entries corruption canary */
 +/* GENERATED by tools/gen_port_decls.py - do not edit by hand.
@@ -32223,6 +32237,7 @@ index 0000000..d744225
 +struct tex;
 +struct texpool;
 +
++extern int gePortSetupSectionNeedsScale(const void *section); /* reload-safe static setup fixup */
 +extern DIFFICULTY lvlGetSelectedDifficulty(void);
 +extern Gfx * display_red_blue_on_radar(Gfx *DL);
 +extern Gfx * gunDrawWatchAmmoDisplay(Gfx *gdl);

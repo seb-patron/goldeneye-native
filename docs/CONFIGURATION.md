@@ -660,7 +660,9 @@ multiplayer before the game transition callback runs. `level` accepts the numeri
 solo mission; title, cut, unknown, and multiplayer-only stages are refused. The transition uses the
 game's normal drain/unload/reload request, so it does not rewrite raw stage globals. A successful
 `restart` reloads the current mission, while `level 33` schedules Dam and preserves the current
-difficulty.
+difficulty. Requesting the stage already in play is also a controlled reload: `level 33` while on
+Dam follows the same engine path as `restart`, but its result remains a `level` result with the
+normal previous/requested-stage metadata.
 
 `GETV_CONSOLE_OPEN=1` opens the window at startup for bounded UI smoke tests. It is not a persisted
 setting.

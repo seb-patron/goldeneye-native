@@ -227,7 +227,11 @@ a current stage outside the supported solo-mission set. After all validation suc
 commands call a single provider backed by `bossSetLoadedStage()`, which schedules the engine's
 normal graphics drain, stage unload, and reload. They never assign `g_StageNum` or
 `g_MainStageNum`. Structured results target the requested stage and retain typed previous/requested
-stage payloads, including provider failure results.
+stage payloads, including provider failure results. A `level` request for the current stage is a
+deliberate same-stage reload, but retains the `level` command ID and message. Native generated
+pad and bound-pad sections use process-lifetime pointer identity to apply destructive coordinate
+scaling only on their first load; every reload still refreshes stan/room links against the newly
+loaded collision data.
 
 `build` currently reports platform, architecture, renderer, console schema, and command schema.
 The authoritative source commit/build-compatibility identifier belongs to the versioned native

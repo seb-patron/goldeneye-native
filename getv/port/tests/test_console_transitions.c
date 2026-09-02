@@ -14,6 +14,7 @@ void gePortConsolePauseGameTick(void) { pause_calls++; }
 
 #include "ge_console.c"
 #include "ge_console_transitions.c"
+#include "ge_setup_fixups.c"
 
 static int failures;
 static int context_calls;
@@ -292,6 +293,23 @@ static void test_failure(void)
     check_i("failed request creates one result", geConsoleResultCount(), 1);
 }
 
+static void test_reload_safe_setup_fixups(void)
+{
+    static int pad_section;
+    static int bound_pad_section;
+
+    check_i("null setup section never needs scaling",
+            gePortSetupSectionNeedsScale(NULL), 0);
+    check_i("pad section needs scaling on first load",
+            gePortSetupSectionNeedsScale(&pad_section), 1);
+    check_i("pad section skips scaling on same-stage reload",
+            gePortSetupSectionNeedsScale(&pad_section), 0);
+    check_i("bound-pad section has independent first load",
+            gePortSetupSectionNeedsScale(&bound_pad_section), 1);
+    check_i("bound-pad section skips scaling on later reload",
+            gePortSetupSectionNeedsScale(&bound_pad_section), 0);
+}
+
 int main(void)
 {
     printf("test_console_transitions\n");
@@ -313,5 +331,7 @@ int main(void)
     transition_calls = 0;
     transition_applied = 0;
     test_failure();
+
+    test_reload_safe_setup_fixups();
     return failures ? 1 : 0;
 }
