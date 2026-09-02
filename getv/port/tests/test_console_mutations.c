@@ -313,6 +313,20 @@ static void test_player_mutations(void)
     check_i("internal weapon alias succeeds", result.status, GE_CONSOLE_STATUS_OK);
     check_i("internal alias resolves item id", last_weapon_id, 4);
 
+    result = run("give 0 moonraker");
+    check_i("Moonraker player-facing alias succeeds", result.status, GE_CONSOLE_STATUS_OK);
+    check_i("Moonraker alias resolves laser item id", last_weapon_id, 22);
+    check_has("Moonraker reports canonical weapon", result.message,
+              "weapon=moonraker_laser");
+
+    result = run("give 0 moonraker-laser");
+    check_i("Moonraker canonical name accepts hyphen", result.status, GE_CONSOLE_STATUS_OK);
+    check_i("Moonraker canonical name resolves laser item id", last_weapon_id, 22);
+
+    result = run("give 0 laser");
+    check_i("short laser alias remains accepted", result.status, GE_CONSOLE_STATUS_OK);
+    check_i("short laser alias resolves item id", last_weapon_id, 22);
+
     result = run("give 0 19");
     check_i("numeric weapon id succeeds", result.status, GE_CONSOLE_STATUS_OK);
     check_i("numeric id resolves golden gun", last_weapon_id, 19);
@@ -405,7 +419,7 @@ static void test_player_refusals(void)
     check_i("invalid slot does not call provider", god_calls, before);
 
     before = give_calls;
-    result = run("give 0 moonraker");
+    result = run("give 0 definitely_not_a_weapon");
     check_i("unknown weapon name is refused", result.status,
             GE_CONSOLE_STATUS_ARGUMENT_CHOICE);
     check_i("unknown weapon does not call provider", give_calls, before);

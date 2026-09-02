@@ -31,7 +31,7 @@ static const GeConsoleWeaponName ge_mutation_weapons[] = {
     { 15, "shotgun" },          { 16, "automatic_shotgun" },
     { 17, "sniper_rifle" },     { 18, "cougar_magnum" },
     { 19, "golden_gun" },       { 20, "silver_pp7" },
-    { 21, "gold_pp7" },         { 22, "laser" },
+    { 21, "gold_pp7" },         { 22, "moonraker_laser" },
     { 23, "watch_laser" },      { 24, "grenade_launcher" },
     { 25, "rocket_launcher" },  { 26, "grenade" },
     { 27, "timed_mine" },       { 28, "proximity_mine" },
@@ -44,7 +44,8 @@ static const GeConsoleWeaponName ge_mutation_weapon_aliases[] = {
     { 7, "skorpion" }, { 8, "ak47" }, { 9, "uzi" }, { 10, "mp5k" },
     { 11, "mp5ksil" }, { 12, "spectre" }, { 13, "m16" }, { 14, "fnp90" },
     { 16, "autoshot" }, { 18, "ruger" }, { 19, "goldengun" },
-    { 20, "silverwppk" }, { 21, "goldwppk" }, { 23, "watchlaser" },
+    { 20, "silverwppk" }, { 21, "goldwppk" }, { 22, "laser" },
+    { 22, "moonraker" }, { 22, "moonrakerlaser" }, { 23, "watchlaser" },
     { 24, "grenadelaunch" }, { 25, "rocketlaunch" }, { 27, "timedmine" },
     { 28, "proximitymine" }, { 29, "remotemine" }, { 30, "trigger" },
     { 32, "tankshells" }
