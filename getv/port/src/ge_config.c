@@ -992,6 +992,14 @@ static int apply(const char *key_in, const char *val, int over)
 
     /* Secondary but genuinely useful. Each is an existing gate. */
  if (strcmp(key, "fullscreen") == 0) { key_bool_gate("GETV_FULLSCREEN", key, val, over); return 1; }
+ if (strcmp(key, "developer_tools") == 0 || strcmp(key, "developer_overlay") == 0) {
+ key_bool_gate("GETV_IMGUI", key, val, over); return 1;
+    }
+ if (strcmp(key, "console_key") == 0) {
+        /* SDL resolves the name at window initialisation, where the platform key table exists.
+         * Keep the config layer transport-only so every SDL-supported scancode name works. */
+ put("GETV_CONSOLE_KEY", val, over); return 1;
+    }
 
     /* --- reserved enhancement seam; see the block above. Parsed, gated, unconsumed. --- */
  if (strcmp(key, "depth_bits") == 0) {
@@ -1428,6 +1436,8 @@ static const char *DEFAULT_CFG =
 "#                         # GETV_DEBUGMENU=1 ./build_mac.sh lib && ./build_mac.sh app\n"
 "#                         # Its level select does NOT work (gutted no-ops).\n"
 "#                         # Use GETV_STAGE = <n> to pick a level.\n"
+"# developer_tools = 1     # optional ImGui overlay + in-game command console\n"
+"# console_key    = grave # SDL scancode name; default backquote/grave\n"
 "\n"
 "# --- GoldenEye+ ------------------------------------------------------------\n"
 "# One switch for everything this port added and verified. Uncomment it and the\n"

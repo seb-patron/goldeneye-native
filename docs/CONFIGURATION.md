@@ -629,6 +629,25 @@ canonical names in `GETV_GIBS`. Unknown values fail closed to `off`. `PROP_TYPE_
 some friendly and civilian mission actors, so `always` truly means all NPC actors rather than
 hostiles only. See [GIBS.md](GIBS.md) for implementation boundaries, tests and expansion guidance.
 
+## Developer overlay and console
+
+The optional developer UI is off by default. Enable it with `developer_tools = 1`, the launcher's
+developer checkbox, or `GETV_IMGUI=1`. When the ImGui dependency is present, the overlay works on
+both OpenGL and Metal. Press backquote/grave to open the command console.
+
+`console_key = <SDL scancode name>` changes that desktop toggle. The launcher exposes the same
+field, and `GETV_CONSOLE_KEY` is the automation/raw-gate form. Examples include `F10`, `F12` and
+`grave`; an unknown name is reported and falls back to grave.
+
+While the console is open it owns keyboard and mouse events as well as the separately polled SDL
+device state. Closing keeps a short release quarantine until every key and mouse button is up, so
+typing Enter, Space or Tab cannot also fire, skip a cutscene or open the watch. Gamepads remain
+available. Raw command history is bounded to the current process and is not written to config or
+diagnostic output.
+
+`GETV_CONSOLE_OPEN=1` opens the window at startup for bounded UI smoke tests. It is not a persisted
+setting.
+
 ## Raw gates
 
 Any of the port's development gates can be set by its real name, in the file or on the command

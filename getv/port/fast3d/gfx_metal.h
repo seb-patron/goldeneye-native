@@ -92,7 +92,7 @@ void gePortMetalFinishFrame(void);
  * themselves. draw_data is an ImDrawData*, opaque here for the same reason. */
 int  gePortMetalImguiInit(void);
 void gePortMetalImguiBeginPass(void);
-void gePortMetalImguiRenderDrawData(void *draw_data);
+int  gePortMetalImguiRenderDrawData(void *draw_data);
 void gePortMetalImguiEndPass(void);
 void gePortMetalImguiShutdown(void);
 #endif

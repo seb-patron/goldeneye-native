@@ -53,6 +53,7 @@
 #include <SDL.h>
 
 #include "port_input.h"
+#include "ge_console_input.h"
 #include "ge_mouse_accum.h"/* Ports 0..3. gePads[i] != NULL implies gePads[j] != NULL for all j < i (contiguity). */
 #include "ge_android_touch.h"
 static SDL_GameController *gePads[GE_PORT_MAX_PADS];
@@ -895,6 +896,37 @@ static void geSynthState(int port, struct GePadState *out)
  * to be -- but its separation of orientation is the model for the proper fix.
  */
 static int geKeyboardIdle(void);   /* defined below; the mouse must idle for the same runs */
+static int ge_mouse_capture_wanted;
+
+/* Event swallowing alone cannot protect gameplay: this file polls SDL's process-wide key and
+ * button state independently of gfx_sdl2.c. Test the physical devices together so the console's
+ * post-close quarantine cannot end while either one still has a control held. */
+static int geConsoleInputPollAllowed(const Uint8 *keys)
+{
+ int i;
+ int anykey = 0;
+ Uint32 buttons = SDL_GetMouseState(NULL, NULL);
+
+ if (keys != NULL) {
+ for (i = 0; i < SDL_NUM_SCANCODES; i++) {
+ if (keys[i]) { anykey = 1; break; }
+        }
+    }
+ return geConsoleInputGameplayAllowed(anykey, buttons != 0);
+}
+
+void gePortInputConsoleCapture(int capture)
+{
+ int dx, dy;
+ if (capture) {
+ SDL_SetRelativeMouseMode(SDL_FALSE);
+    } else if (ge_mouse_capture_wanted) {
+ SDL_SetRelativeMouseMode(SDL_TRUE);
+    }
+    /* Discard motion accumulated while changing modes. It belongs to cursor handoff, not to
+     * Bond's next look sample. The pending stick carry is cleared in geMousePoll while blocked. */
+ (void)SDL_GetRelativeMouseState(&dx, &dy);
+}
 
 static int geMouseEnabled(void)
 {
@@ -907,7 +939,8 @@ static int geMouseEnabled(void)
          * -- the two are ORed, not exclusive. */
  on = (s != NULL && *s != '\0') ? (atoi(s) != 0) : 1;
  if (on) {
- SDL_SetRelativeMouseMode(SDL_TRUE);
+ ge_mouse_capture_wanted = 1;
+ if (!geConsoleInputOpen()) SDL_SetRelativeMouseMode(SDL_TRUE);
  printf("[getv] input: mouse look ON (left button fires, right aims, ESC releases "
                    "the cursor; GETV_MOUSE_SENS to tune, GETV_MOUSE_INVERT=1 to invert Y, "
                    "GETV_MOUSE=0 to disable)\n");
@@ -986,7 +1019,20 @@ static void geMousePoll(int port, struct GePadState *out)
         }
     }
 
- if (selftest == 0 && (port != 0 || geKeyboardIdle() || !geMouseEnabled())) {
+ if (selftest == 0 && port != 0) {
+ return;
+    }
+
+ if (!selftest && !geConsoleInputPollAllowed(SDL_GetKeyboardState(NULL))) {
+        /* Consume relative deltas and carry while the UI owns the devices. Otherwise motion
+         * accumulated during typing becomes a camera jump on the first gameplay frame. */
+ (void)SDL_GetRelativeMouseState(&dx, &dy);
+ ge_mouse_pend_x = 0;
+ ge_mouse_pend_y = 0;
+ return;
+    }
+
+ if (selftest == 0 && (geKeyboardIdle() || !geMouseEnabled())) {
  return;
     }
 
@@ -1006,6 +1052,7 @@ static void geMousePoll(int port, struct GePadState *out)
  int esc = (ks != NULL && ks[SDL_SCANCODE_ESCAPE]) ? 1 : 0;
  if (esc && !prev_esc) {
  SDL_bool now = SDL_GetRelativeMouseMode();
+ ge_mouse_capture_wanted = now ? 0 : 1;
  SDL_SetRelativeMouseMode(now ? SDL_FALSE : SDL_TRUE);
  printf("[getv] input: mouse %s\n", now ? "released (ESC to recapture)" : "captured");
  fflush(stdout);
@@ -1228,6 +1275,11 @@ static void geKeyboardApply(int port, struct GePadState *out)
          * would leave out->present == 0, joyGetControllerCount() would read 0, and
          * front.c:1493 would drop the front-end into MENU_NO_CONTROLLERS, a terminal
          * state with no exit. Present-but-idle is the whole design. */
+ if (!geConsoleInputPollAllowed(k)) {
+ out->present = 1;
+ out->real_gamepad = 1;
+ return;
+        }
  if (geKeyboardIdle()) {
  ge_kbd_idle_frames++;
  if (anykey && dbg > 0) {
@@ -1362,6 +1414,7 @@ int gePortCrouchHeld(void)
  if (!geCrouchKeysEnabled() || geKeyboardIdle() || !geKeyboardEnabled()) return 0;
  k = SDL_GetKeyboardState(NULL);
  if (k == NULL) return 0;
+ if (!geConsoleInputPollAllowed(k)) return 0;
  return (k[SDL_SCANCODE_C] || k[SDL_SCANCODE_LSHIFT]) ? 1 : 0;
 #else
  return 0;
@@ -1375,6 +1428,7 @@ int gePortStandHeld(void)
  if (!geCrouchKeysEnabled() || geKeyboardIdle() || !geKeyboardEnabled()) return 0;
  k = SDL_GetKeyboardState(NULL);
  if (k == NULL) return 0;
+ if (!geConsoleInputPollAllowed(k)) return 0;
  return k[SDL_SCANCODE_V] ? 1 : 0;
 #else
  return 0;

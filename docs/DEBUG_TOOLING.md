@@ -187,9 +187,10 @@ typed payload. Diagnostic export uses this structure, not the raw line typed by 
 ### Delivery slices
 
 1. ROM-free parser/registry/result-ring library, bounded queue and unit tests.
-2. Cross-renderer ImGui console, SDL capture, focus handling and owned solo pause behavior.
-3. Read-only session/player/objective commands and narrowly scoped mutation adapters.
-4. Runtime gibs setter and the initial mutation commands, each with focused tests or harnesses.
+2. Cross-renderer ImGui console, SDL capture and focus handling.
+3. Owned solo pause behavior with explicit multiplayer and netplay policy.
+4. Read-only session/player/objective commands and narrowly scoped mutation adapters.
+5. Runtime gibs setter and the initial mutation commands, each with focused tests or harnesses.
 
 These may be separate PRs under one issue. A PR must not mix a renderer fix, several unrelated
 game adapters and diagnostic export merely because all are eventually visible in the console.

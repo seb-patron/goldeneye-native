@@ -361,6 +361,7 @@ struct Model {
     /* misc */
     bool cheat_on[kCheatCount];
     bool dev_overlay;
+    char console_key[32];
     char moddir[512];
 };
 
@@ -633,6 +634,7 @@ void model_load(Model &m)
     m.net_delay   = env_int("GETV_NET_DELAY", 0);
 
     m.dev_overlay = env_bool("GETV_IMGUI", false);
+    env_str("GETV_CONSOLE_KEY", m.console_key, sizeof m.console_key, "grave");
     env_str("GETV_MODDIR", m.moddir, sizeof m.moddir, "");
     /* After moddir is known: the scan needs it to decide where to look. */
     mod_scan(m);
@@ -787,6 +789,10 @@ void model_store(const Model &m)
     else                                     unsetenv("GETV_NET_DELAY");
 
     setenv("GETV_IMGUI", m.dev_overlay ? "1" : "0", 1);
+    if (strcmp(m.console_key, "grave") == 0 || m.console_key[0] == '\0')
+        unsetenv("GETV_CONSOLE_KEY");
+    else
+        put_str("GETV_CONSOLE_KEY", m.console_key);
     put_str("GETV_MODDIR", m.moddir);
 
     /* Only the mods that were switched OFF are recorded; see the denylist note in ge_lua.c.
@@ -2333,6 +2339,10 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
                 Section("DEVELOPER");
                 ImGui::Checkbox("Show the developer overlay in game", &m.dev_overlay);
+                ImGui::SetNextItemWidth(220.0f);
+                ImGui::InputText("Console hotkey", m.console_key, sizeof m.console_key);
+                Hint("SDL scancode name; grave/backquote is the default. The console owns "
+                     "keyboard and mouse input while open.");
             }
 
             else if (page == 6) {

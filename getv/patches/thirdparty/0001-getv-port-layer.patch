@@ -1,6 +1,6 @@
 diff -ruN -u0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
---- a/getv/port/audio/ge_mixer.c	2026-08-29 22:00:50
-+++ b/getv/port/audio/ge_mixer.c	2026-08-29 22:00:50
+--- a/getv/port/audio/ge_mixer.c	2026-09-01 18:21:07
++++ b/getv/port/audio/ge_mixer.c	2026-09-01 18:21:07
 @@ -0,0 +1,22 @@
 +/* GoldenEye native port -- the RSP audio microcode (aspMain), in software.
 + *
@@ -443,8 +443,8 @@ diff -ruN -u0 a/getv/port/audio/ge_mixer.c b/getv/port/audio/ge_mixer.c
 +    }
 +    return 0;
 diff -ruN -u0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
---- a/getv/port/audio/ge_mixer.h	2026-08-29 22:00:50
-+++ b/getv/port/audio/ge_mixer.h	2026-08-29 22:00:50
+--- a/getv/port/audio/ge_mixer.h	2026-09-01 18:21:07
++++ b/getv/port/audio/ge_mixer.h	2026-09-01 18:21:07
 @@ -1,2 +1,21 @@
 -#ifndef MIXER_H
 -#define MIXER_H
@@ -541,14 +541,14 @@ diff -ruN -u0 a/getv/port/audio/ge_mixer.h b/getv/port/audio/ge_mixer.h
 +
 +#endif /* GE_MIXER_H */
 diff -ruN -u0 a/getv/port/configfile.h b/getv/port/configfile.h
---- a/getv/port/configfile.h	2026-08-29 22:00:50
-+++ b/getv/port/configfile.h	2026-08-29 22:00:50
+--- a/getv/port/configfile.h	2026-09-01 18:21:07
++++ b/getv/port/configfile.h	2026-09-01 18:21:07
 @@ -21,0 +22,2 @@
 +extern unsigned int configWidescreen;   /* 0 = retail 4:3 pillarbox, 1 = fill the real window */
 +unsigned int gePortHdTexturesEnabled(void);   /* 0 = N64 textures (default), 1 = check GETV_TEXPACK overrides -- lazy-resolved, not a bare global (see port_support.c) */
 diff -ruN -u0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
---- a/getv/port/fast3d/gfx_cc.c	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_cc.c	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_cc.c	2026-09-01 18:21:06
++++ b/getv/port/fast3d/gfx_cc.c	2026-09-01 18:21:07
 @@ -3 +3 @@
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features) {
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features) {
@@ -560,8 +560,8 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_cc.c b/getv/port/fast3d/gfx_cc.c
 +    }
 +    cc_features->two_cycle = (shader_id & SHADER_OPT_2CYC) != 0;
 diff -ruN -u0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
---- a/getv/port/fast3d/gfx_cc.h	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_cc.h	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_cc.h	2026-09-01 18:21:06
++++ b/getv/port/fast3d/gfx_cc.h	2026-09-01 18:21:07
 @@ -6,0 +7,14 @@
 +/* Two-cycle combiners. GoldenEye is two-cycle nearly everywhere.
 + *
@@ -622,8 +622,8 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_cc.h b/getv/port/fast3d/gfx_cc.h
 -void gfx_cc_get_features(uint32_t shader_id, struct CCFeatures *cc_features);
 +void gfx_cc_get_features(uint64_t shader_id, struct CCFeatures *cc_features);
 diff -ruN -u0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
---- a/getv/port/fast3d/gfx_opengl.c	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_opengl.c	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_opengl.c	2026-09-01 18:21:06
++++ b/getv/port/fast3d/gfx_opengl.c	2026-09-01 18:21:07
 @@ -4,0 +5,3 @@
 +#include <stdio.h>
 +#include <string.h>
@@ -1924,8 +1924,8 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_opengl.c b/getv/port/fast3d/gfx_opengl.c
 @@ -679,0 +1815 @@
 +    gfx_opengl_set_zmode_cloud,
 diff -ruN -u0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
---- a/getv/port/fast3d/gfx_pc.c	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_pc.c	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_pc.c	2026-09-01 18:21:06
++++ b/getv/port/fast3d/gfx_pc.c	2026-09-01 18:21:07
 @@ -9 +9,5 @@
 -#ifdef EXTERNAL_DATA
 +/* Unconditional, not just under EXTERNAL_DATA: ge_upload_texture()'s HD-pack override
@@ -6909,8 +6909,8 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +        ge_tri_count = 0;
 +    }
 diff -ruN -u0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
---- a/getv/port/fast3d/gfx_pc.h	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_pc.h	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_pc.h	2026-09-01 18:21:06
++++ b/getv/port/fast3d/gfx_pc.h	2026-09-01 18:21:07
 @@ -12,0 +13,15 @@
 +// gfx_current_dimensions is the INTERNAL render size. With supersampling it is
 +// larger than the window; gfx_output_dimensions is the real drawable that the
@@ -6928,8 +6928,8 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_pc.h b/getv/port/fast3d/gfx_pc.h
 +extern float gfx_native_width;
 +extern float gfx_native_height;
 diff -ruN -u0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rendering_api.h
---- a/getv/port/fast3d/gfx_rendering_api.h	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_rendering_api.h	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_rendering_api.h	2026-09-01 18:21:06
++++ b/getv/port/fast3d/gfx_rendering_api.h	2026-09-01 18:21:07
 @@ -14,2 +14,2 @@
 -    struct ShaderProgram *(*create_and_load_new_shader)(uint32_t shader_id);
 -    struct ShaderProgram *(*lookup_shader)(uint32_t shader_id);
@@ -6949,8 +6949,8 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_rendering_api.h b/getv/port/fast3d/gfx_rend
 @@ -23,0 +34 @@
 +    void (*set_zmode_cloud)(bool zmode_cloud);
 diff -ruN -u0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
---- a/getv/port/fast3d/gfx_sdl2.c	2026-08-29 22:00:50
-+++ b/getv/port/fast3d/gfx_sdl2.c	2026-08-29 22:00:50
+--- a/getv/port/fast3d/gfx_sdl2.c	2026-09-01 18:21:07
++++ b/getv/port/fast3d/gfx_sdl2.c	2026-09-01 18:21:07
 @@ -19 +19,8 @@
 -#ifdef OSX_BUILD
 +/* Desktop GL when we are NOT on a GLES target. USE_GLES is defined only by the tvOS
@@ -7282,24 +7282,32 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +        float step = (scancode == SDL_SCANCODE_F6) ? 0.1f : -0.1f;
 +        gePortSetFovScale(gePortFovScale() + step);
 +    }
-@@ -239,0 +523,6 @@
-+        /* Observational only: the game's own handling below runs for every event either
-+         * way, so turning the overlay on cannot swallow a keypress or a window resize.
-+         * When the overlay grows controls that need to capture input, that decision
-+         * belongs here (io.WantCaptureKeyboard / io.WantCaptureMouse) and it should be a
-+         * deliberate, separately gated change. */
-+        gePortImguiEvent(&event);
-@@ -285,0 +575,4 @@
+@@ -239,0 +523,8 @@
++        int console_was_open = gePortImguiConsoleOpen();
++        int console_captured = gePortImguiEvent(&event);
++        if (!console_was_open && gePortImguiConsoleOpen() && kb_all_keys_up) {
++            /* A gameplay key held before the toggle may never deliver its KEYUP to the game,
++             * because the console correctly owns it. Clear the legacy callback state at the
++             * ownership boundary; the polled SDL path has its own release quarantine. */
++            kb_all_keys_up();
++        }
+@@ -244 +535 @@
+-                gfx_sdl_onkeydown(event.key.keysym.scancode);
++                if (!console_captured) gfx_sdl_onkeydown(event.key.keysym.scancode);
+@@ -247 +538 @@
+-                gfx_sdl_onkeyup(event.key.keysym.scancode);
++                if (!console_captured) gfx_sdl_onkeyup(event.key.keysym.scancode);
+@@ -285,0 +577,4 @@
 +    /* gfx_pc.c calls handle_events() (above) and then start_frame(), so by here the SDL
 +     * event queue for this frame has already been fed to ImGui. Widgets are built now;
 +     * nothing is drawn until swap_buffers_begin(). */
 +    gePortImguiNewFrame();
-@@ -289,0 +583,4 @@
+@@ -289,0 +585,4 @@
 +    // GETV_FPS=0 removes the cap entirely: run as fast as the GPU and vsync allow.
 +    // `use_timer` was declared by sm64ex and never read; it is the honest home for this.
 +    if (!use_timer) { return; }
 +
-@@ -306,0 +604,17 @@
+@@ -306,0 +606,17 @@
 +#ifdef RAPI_METAL
 +    /* Same slot as GL's SDL_GL_SwapWindow() below: gfx_rapi->end_frame() (gfx_metal.mm)
 +     * only ended the game's own render encoder, not presented anything yet -- see the long
@@ -7317,13 +7325,16 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_sdl2.c b/getv/port/fast3d/gfx_sdl2.c
 +     * which is supposed to photograph the game and not the debug UI. */
 +    gePortImguiRender();
 +
-@@ -309,0 +624 @@
+@@ -309,0 +626 @@
 +#endif
-@@ -326,0 +642,5 @@
+@@ -326,0 +644,8 @@
 +#ifdef RAPI_METAL
++        /* The Metal backend owns device objects that must be released while its device/layer
++         * are still alive, just as GL shuts down before deleting its context below. */
++        gePortImguiShutdown();
 +        if (metal_view) { SDL_Metal_DestroyView(metal_view); metal_view = NULL; }
 +#else
 +        /* Before the context goes away: the GL2 backend deletes its font texture here. */
 +        gePortImguiShutdown();
-@@ -327,0 +648 @@
+@@ -327,0 +653 @@
 +#endif

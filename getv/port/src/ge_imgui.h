@@ -36,15 +36,14 @@ void gePortImguiInit(void *window, void *glctx);
  * widgets; it does not touch GL. */
 void gePortImguiNewFrame(void);
 
-/* Called from gfx_sdl_swap_buffers_begin() immediately before SDL_GL_SwapWindow(), which
- * is the only point in the frame where the scene is complete and the buffer has not yet
- * been presented. Issues the GL draw. */
+/* Called from gfx_sdl_swap_buffers_begin() after the scene is complete and before present.
+ * Issues either the OpenGL draw or Metal overlay pass. */
 void gePortImguiRender(void);
 
-/* Called for every SDL event from gfx_sdl_handle_events(), with a `SDL_Event *`.
- * Purely observational today: the game's own handling of that event is unchanged, so
- * enabling the overlay cannot swallow input. */
-void gePortImguiEvent(void *sdl_event);
+/* Called for every SDL event from gfx_sdl_handle_events(). Returns 1 when the console owns
+ * this keyboard/mouse event and gameplay must not see it.
+ * Window and quit events are never swallowed. */
+int gePortImguiEvent(void *sdl_event);
 
 /* Called from gfx_sdl_shutdown() before the GL context is destroyed. */
 void gePortImguiShutdown(void);
@@ -52,6 +51,9 @@ void gePortImguiShutdown(void);
 /* 1 when the overlay is built in AND enabled AND initialised. Not used by the port itself;
  * it exists so a later launcher can ask rather than re-reading the environment. */
 int  gePortImguiActive(void);
+
+/* Used by the SDL bridge to clear legacy callback state on the closed-to-open edge. */
+int gePortImguiConsoleOpen(void);
 
 #ifdef __cplusplus
 }

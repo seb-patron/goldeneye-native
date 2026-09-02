@@ -1,60 +1,16 @@
-/* Dear ImGui overlay for the native build.
+/* Dear ImGui developer overlay and console for the native build.
  *
- * Why this exists
- * ---------------
- * Everything this port can be told to do is an env gate or a goldeneye.cfg key, and the
- * only way to see what it did is stdout or a BMP written at a fixed frame. That is fine
- * for scripted measurement and useless for anything interactive: there is no way to watch
- * a counter move, flip a renderer flag and see the result, or pick a level without an
- * environment variable and a relaunch. This is the groundwork for that: a launcher and a
- * dev overlay are the intended users. It draws one small window today on purpose; the
- * value here is the wiring, not the widgets.
+ * ImGui is C++ and the rest of the port is C, so ge_imgui.h is the only renderer-facing
+ * boundary. The command parser, queue and results stay in ge_console.c; this file is only a
+ * bounded UI producer. Submitted work still executes at gePortConsoleGameTick(), never here.
  *
- * Why the file is C++ and the header is not
- * -----------------------------------------
- * ImGui is C++ and the port layer is C. Rather than spread that through the tree, the
- * boundary is exactly this file: ge_imgui.h is plain C with void* parameters, gfx_sdl2.c
- * includes it and contains no #ifdef, and build_mac.sh's port loop stays a C loop with one
- * added C++ step. -lc++ was already on the link line (Fast3D needs it), so the link is
- * unchanged in kind.
+ * OpenGL uses ImGui's fixed-function GL2 backend because Fast3D deliberately creates a legacy
+ * 2.1 context. Fast3D leaves a shader, VBO and generic vertex attributes bound, so those states
+ * are saved, cleared and restored around the overlay draw. Metal uses the helpers in
+ * gfx_metal.mm to append a load-preserving pass to the same drawable before it is presented.
  *
- * GL state, which is the only genuinely delicate part
- * ---------------------------------------------------
- * This uses imgui_impl_opengl2 -- the fixed-function backend -- because build_mac.sh
- * deliberately takes macOS's legacy 2.1 context (gfx_opengl.c emits `#version 120`
- * shaders, which a 3.2 core profile rejects), and imgui_impl_opengl3 unconditionally calls
- * glGenVertexArrays, a GL 3.0 entry point that context does not have. tools/fetch_imgui.sh
- * documents that choice at length.
- *
- * The GL2 backend saves and restores a lot of state but explicitly cannot save what the
- * legacy API has no getter for -- its own source says so and names the two:
- *
- *   1. the bound shader program. Fast3D leaves one bound (gfx_opengl.c:132). Fixed-function
- *      drawing with a program bound runs ImGui's vertices through GoldenEye's combiner
- *      shader, which expects attribute arrays this backend never sets.
- *   2. the bound array buffer. Fast3D keeps its VBO bound for the life of the process
- *      (gfx_opengl.c:849-851). glVertexPointer with a VBO bound treats its pointer as a
- *      byte OFFSET into that VBO, so ImGui's client-memory vertex pointers would be read
- *      as offsets in the tens of gigabytes.
- *
- * Both are saved, cleared and restored below. A third is added on top of the backend's
- * own list: Fast3D enables generic vertex attribute arrays and never disables them, and in
- * a compatibility profile generic attribute 0 aliases glVertex on some drivers, so any
- * still-enabled attribute array would fight the client arrays ImGui sets. They are
- * disabled and restored too.
- *
- * If the overlay ever renders but the game goes black afterwards, this restore block is
- * the first place to look.
- *
- * Proving it draws
- * ----------------
- * "The init printf appeared" proves initialisation, not rendering, and the existing
- * GETV_SHOTFRAME capture cannot help: it runs in gfx_opengl_end_frame(), which is before
- * swap_buffers_begin() and therefore before this draws. GETV_IMGUI_PROBE=<frame> reads the
- * colour buffer immediately before and immediately after the ImGui draw on exactly that
- * frame and reports how many pixels changed. A non-zero count is direct evidence that
- * these draw calls put pixels on the screen; zero means they did not, whatever the log
- * says. It costs two glReadPixels on one frame and is off unless asked for.
+ * GETV_IMGUI_PROBE=<frame> is the smoke-test hook. OpenGL counts pixels changed by the overlay;
+ * Metal reports whether draw data was encoded, plus the common draw-list/vertex counts.
  */
 
 #include "ge_imgui.h"
@@ -63,64 +19,293 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* RAPI_METAL: this file only has the fixed-function OpenGL2 ImGui backend (see the header
- * comment above build_mac.sh's own choice of it) -- no imgui_impl_metal integration exists here,
- * so on a Metal target the feature falls through to the plain stub block below, same as when
- * GE_WITH_IMGUI is off entirely. */
-#if defined(GE_WITH_IMGUI) && !defined(RAPI_METAL)
+#if defined(GE_WITH_IMGUI)
 
 #include <SDL2/SDL.h>
 
-/* Same order and the same one-line preamble gfx_opengl.c uses. Without
- * GL_GLEXT_PROTOTYPES, SDL_opengl.h pulls in macOS's GL 1.1 header and declares everything
- * past it as function-pointer typedefs only, and the state save/restore below fails to
- * compile on glUseProgram -- which is a confusing way to be told "you forgot the define". */
-#define GL_GLEXT_PROTOTYPES 1
+#include "ge_console.h"
+#include "ge_console_input.h"
+#include "port_input.h"
 
-/* Desktop GL. USE_GLES is defined only by the tvOS targets, which do not build this file
- * today (their Xcode projects compile getv/port/**.c); the branch is here so that adding
- * it there later is a build-script change and not a source change. */
-/* Windows needs an extension loader before any GL header. opengl32.dll exports GL 1.1 and
- * nothing later, so glGetVertexAttribiv and everything else past 1997 resolves only through
- * GLEW -- without this the link fails on __imp_glGetVertexAttribiv, which reads like a
- * missing DLL import and is really a missing loader. gfx_opengl.c does exactly the same on
- * __MINGW32__; macOS and Linux need no equivalent. */
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+
+extern "C" unsigned long gePlayerTick(void);
+extern "C" unsigned long gePortRenderedFrame(void);
+
+#if defined(RAPI_METAL)
+extern "C" int  gePortMetalImguiInit(void);
+extern "C" void gePortMetalImguiBeginPass(void);
+extern "C" int  gePortMetalImguiRenderDrawData(void *draw_data);
+extern "C" void gePortMetalImguiEndPass(void);
+extern "C" void gePortMetalImguiShutdown(void);
+#else
+#define GL_GLEXT_PROTOTYPES 1
 #if defined(_WIN32)
 #define GLEW_STATIC
 #include <GL/glew.h>
 #endif
-
 #if defined(USE_GLES)
 #include <SDL2/SDL_opengles2.h>
 #else
 #include <SDL2/SDL_opengl.h>
 #endif
-
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl2.h"
+#endif
 
 namespace {
 
-bool g_active;              /* built in, enabled, and init succeeded */
-bool g_frame_open;          /* ImGui::NewFrame() called and not yet Render()ed */
+constexpr int GE_IMGUI_ATTRIBS = 8;
+constexpr int GE_CONSOLE_UI_HISTORY = 32;
+constexpr int GE_CONSOLE_UI_COMPLETIONS = 16;
+
+bool g_active;
+bool g_frame_open;
+bool g_focus_console_input;
+bool g_skip_toggle_text;
 unsigned long g_frames;
-int  g_probe_frame = -2;    /* -2 = env not read yet, -1 = off */
+int g_probe_frame = -2;
+SDL_Scancode g_toggle_scancode = SDL_SCANCODE_UNKNOWN;
+char g_console_line[GE_CONSOLE_MAX_LINE];
+char g_help_filter[64];
+char g_input_history[GE_CONSOLE_UI_HISTORY][GE_CONSOLE_MAX_LINE];
+int g_input_history_count;
+int g_input_history_pos = -1;
 
-/* Number of generic vertex attribute arrays saved across the draw. Fast3D's shader
- * generator uses at most a handful (position, colour, up to two texture coordinate sets);
- * 8 is the minimum GL_MAX_VERTEX_ATTRIBS any implementation may report, so this is a
- * bound that cannot under-cover on a conforming driver without also breaking Fast3D. */
-const int GE_IMGUI_ATTRIBS = 8;
-
-bool ge_imgui_env_on(void)
+bool ge_imgui_env_on()
 {
     const char *e = getenv("GETV_IMGUI");
     return e != NULL && *e != '\0' && strcmp(e, "0") != 0;
 }
 
-/* The probe rectangle: the top-left corner of the framebuffer, which is where the overlay
- * window is pinned below. GL's origin is bottom-left, hence the height subtraction. */
+bool ge_env_on(const char *name)
+{
+    const char *e = getenv(name);
+    return e != NULL && *e != '\0' && strcmp(e, "0") != 0;
+}
+
+SDL_Scancode ge_console_toggle_scancode()
+{
+    if (g_toggle_scancode != SDL_SCANCODE_UNKNOWN) return g_toggle_scancode;
+
+    const char *name = getenv("GETV_CONSOLE_KEY");
+    if (name == NULL || *name == '\0' || SDL_strcasecmp(name, "grave") == 0 ||
+        SDL_strcasecmp(name, "backquote") == 0) {
+        g_toggle_scancode = SDL_SCANCODE_GRAVE;
+    } else {
+        g_toggle_scancode = SDL_GetScancodeFromName(name);
+        if (g_toggle_scancode == SDL_SCANCODE_UNKNOWN) {
+            printf("[getv][console] unknown GETV_CONSOLE_KEY \"%s\"; using backquote\n", name);
+            g_toggle_scancode = SDL_SCANCODE_GRAVE;
+        }
+    }
+    return g_toggle_scancode;
+}
+
+const char *ge_console_toggle_name()
+{
+    const char *name = SDL_GetScancodeName(ge_console_toggle_scancode());
+    return (name != NULL && *name != '\0') ? name : "backquote";
+}
+
+void ge_console_set_open(bool open)
+{
+    if (open == (geConsoleInputOpen() != 0)) return;
+    geConsoleInputSetOpen(open ? 1 : 0);
+    gePortInputConsoleCapture(open ? 1 : 0);
+    g_focus_console_input = open;
+    g_input_history_pos = -1;
+    printf("[getv][console] %s (toggle: %s)\n", open ? "open" : "closed",
+           ge_console_toggle_name());
+    fflush(stdout);
+}
+
+bool ge_console_input_event(Uint32 type)
+{
+    switch (type) {
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+        case SDL_TEXTEDITING:
+        case SDL_TEXTINPUT:
+        case SDL_MOUSEMOTION:
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+        case SDL_MOUSEWHEEL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+void ge_console_history_add(const char *line)
+{
+    if (line == NULL || *line == '\0') return;
+    if (g_input_history_count > 0 &&
+        strcmp(g_input_history[g_input_history_count - 1], line) == 0) return;
+
+    if (g_input_history_count == GE_CONSOLE_UI_HISTORY) {
+        memmove(g_input_history[0], g_input_history[1],
+                sizeof(g_input_history[0]) * (GE_CONSOLE_UI_HISTORY - 1));
+        g_input_history_count--;
+    }
+    snprintf(g_input_history[g_input_history_count], sizeof(g_input_history[0]), "%s", line);
+    g_input_history_count++;
+}
+
+int ge_console_input_callback(ImGuiInputTextCallbackData *data)
+{
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
+        if (data->EventKey == ImGuiKey_UpArrow) {
+            if (g_input_history_pos < 0) g_input_history_pos = g_input_history_count - 1;
+            else if (g_input_history_pos > 0) g_input_history_pos--;
+        } else if (data->EventKey == ImGuiKey_DownArrow) {
+            if (g_input_history_pos >= 0 && ++g_input_history_pos >= g_input_history_count)
+                g_input_history_pos = -1;
+        }
+        const char *replacement =
+            g_input_history_pos >= 0 ? g_input_history[g_input_history_pos] : "";
+        data->DeleteChars(0, data->BufTextLen);
+        data->InsertChars(0, replacement);
+    } else if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion) {
+        GeConsoleCompletion matches[GE_CONSOLE_UI_COMPLETIONS];
+        int truncated = 0;
+        unsigned int total = geConsoleComplete(data->Buf, matches,
+                                               GE_CONSOLE_UI_COMPLETIONS, &truncated);
+        if (total == 1) {
+            data->DeleteChars(0, data->BufTextLen);
+            data->InsertChars(0, matches[0].name);
+            data->InsertChars(data->BufTextLen, " ");
+        }
+        (void)truncated;
+    }
+    return 0;
+}
+
+bool ge_contains_case_insensitive(const char *text, const char *needle)
+{
+    if (needle == NULL || *needle == '\0') return true;
+    if (text == NULL) return false;
+    const size_t n = strlen(needle);
+    for (const char *p = text; *p != '\0'; p++) {
+        if (SDL_strncasecmp(p, needle, n) == 0) return true;
+    }
+    return false;
+}
+
+void ge_draw_dev_overlay()
+{
+    ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(340.0f, 132.0f), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("GoldenEye -- dev overlay")) {
+        const ImGuiIO &io = ImGui::GetIO();
+        ImGui::Text("frame   %lu", g_frames);
+        ImGui::Text("fps     %.1f  (%.2f ms/frame)",
+                    (double)io.Framerate,
+                    1000.0 / (double)(io.Framerate > 0.0f ? io.Framerate : 1.0f));
+        ImGui::Text("display %.0f x %.0f", (double)io.DisplaySize.x, (double)io.DisplaySize.y);
+        ImGui::Text("console %s  [%s]", geConsoleInputOpen() ? "OPEN" : "closed",
+                    ge_console_toggle_name());
+    }
+    ImGui::End();
+}
+
+void ge_draw_result(const GeConsoleResult &result)
+{
+    ImVec4 colour(0.75f, 0.80f, 0.85f, 1.0f);
+    if (result.severity == GE_CONSOLE_SEVERITY_WARNING)
+        colour = ImVec4(1.0f, 0.78f, 0.25f, 1.0f);
+    else if (result.severity == GE_CONSOLE_SEVERITY_ERROR)
+        colour = ImVec4(1.0f, 0.38f, 0.32f, 1.0f);
+
+    const char *message = result.message[0] != '\0'
+        ? result.message : geConsoleStatusName(result.status);
+    ImGui::PushStyleColor(ImGuiCol_Text, colour);
+    ImGui::TextWrapped("[tick %llu / frame %llu] %s: %s",
+                       (unsigned long long)(result.execution_tick
+                           ? result.execution_tick : result.submission_tick),
+                       (unsigned long long)(result.execution_frame
+                           ? result.execution_frame : result.submission_frame),
+                       geConsoleStatusName(result.status), message);
+    ImGui::PopStyleColor();
+
+    GeConsoleCommandSpec spec;
+    if (result.command_id != 0 && geConsoleCommandById(result.command_id, &spec) &&
+        (spec.flags & GE_CONSOLE_CMD_DIAGNOSTIC_SAFE) != 0) {
+        ImGui::SameLine();
+        ImGui::PushID((int)result.sequence);
+        if (ImGui::SmallButton("copy")) ImGui::SetClipboardText(message);
+        ImGui::PopID();
+    }
+}
+
+void ge_draw_console()
+{
+    if (!geConsoleInputOpen()) return;
+
+    ImGui::SetNextWindowPos(ImVec2(45.0f, 45.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(780.0f, 520.0f), ImGuiCond_FirstUseEver);
+    bool open = true;
+    if (ImGui::Begin("GoldenEye developer console", &open, ImGuiWindowFlags_NoCollapse)) {
+        GeConsoleHistoryInfo info;
+        geConsoleHistoryInfo(&info);
+        ImGui::TextDisabled("structured results %u/%u, dropped %llu; raw input stays in memory only",
+                            info.count, info.capacity, (unsigned long long)info.dropped);
+
+        if (ImGui::BeginChild("console_scrollback", ImVec2(0.0f, 235.0f), true,
+                              ImGuiWindowFlags_HorizontalScrollbar)) {
+            if (info.count == 0) ImGui::TextDisabled("No results yet.");
+            for (unsigned int i = 0; i < info.count; i++) {
+                GeConsoleResult result;
+                if (geConsoleResultAt(i, &result)) ge_draw_result(result);
+            }
+        }
+        ImGui::EndChild();
+
+        ImGui::SeparatorText("Searchable command help");
+        ImGui::SetNextItemWidth(260.0f);
+        ImGui::InputTextWithHint("##console_help", "filter command names or summaries",
+                                 g_help_filter, sizeof(g_help_filter));
+        if (ImGui::BeginChild("console_help", ImVec2(0.0f, 105.0f), true)) {
+            unsigned int count = geConsoleCommandCount();
+            if (count == 0) ImGui::TextDisabled("No command handlers registered in this build yet.");
+            for (unsigned int i = 0; i < count; i++) {
+                GeConsoleCommandSpec spec;
+                if (!geConsoleCommandAt(i, &spec)) continue;
+                if (!ge_contains_case_insensitive(spec.name, g_help_filter) &&
+                    !ge_contains_case_insensitive(spec.summary, g_help_filter)) continue;
+                ImGui::Text("%s", spec.name);
+                ImGui::SameLine();
+                ImGui::TextDisabled("-- %s", spec.summary);
+            }
+        }
+        ImGui::EndChild();
+
+        ImGui::Separator();
+        if (g_focus_console_input) {
+            ImGui::SetKeyboardFocusHere();
+            g_focus_console_input = false;
+        }
+        ImGui::SetNextItemWidth(-1.0f);
+        const ImGuiInputTextFlags flags =
+            ImGuiInputTextFlags_EnterReturnsTrue |
+            ImGuiInputTextFlags_CallbackCompletion |
+            ImGuiInputTextFlags_CallbackHistory;
+        if (ImGui::InputTextWithHint("##console_command", "command (Tab completes, Up/Down history)",
+                                     g_console_line, sizeof(g_console_line), flags,
+                                     ge_console_input_callback)) {
+            ge_console_history_add(g_console_line);
+            (void)geConsoleSubmit(g_console_line, (uint64_t)gePlayerTick(),
+                                  (uint64_t)gePortRenderedFrame(), NULL);
+            g_console_line[0] = '\0';
+            g_input_history_pos = -1;
+            g_focus_console_input = true;
+        }
+    }
+    ImGui::End();
+    if (!open) ge_console_set_open(false);
+}
+
+#if !defined(RAPI_METAL)
 void ge_imgui_probe_rect(int *x, int *y, int *w, int *h)
 {
     int fw = 0, fh = 0;
@@ -128,16 +313,16 @@ void ge_imgui_probe_rect(int *x, int *y, int *w, int *h)
     if (win) SDL_GL_GetDrawableSize(win, &fw, &fh);
     if (fw <= 0 || fh <= 0) { *x = *y = *w = *h = 0; return; }
     int rw = fw < 900 ? fw : 900;
-    int rh = fh < 400 ? fh : 400;
+    int rh = fh < 600 ? fh : 600;
     *x = 0; *y = fh - rh; *w = rw; *h = rh;
 }
+#endif
 
 } /* namespace */
 
 extern "C" void gePortImguiInit(void *window, void *glctx)
 {
-    if (g_active) return;
-    if (!ge_imgui_env_on()) return;
+    if (g_active || !ge_imgui_env_on()) return;
     if (window == NULL) {
         printf("[getv][imgui] GETV_IMGUI set but there is no window -- overlay OFF\n");
         fflush(stdout);
@@ -147,66 +332,70 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-
-    /* No imgui.ini. The overlay has no persistent layout worth keeping yet, and writing a
-     * dotfile into whatever directory the game happened to be launched from is a surprise
-     * nobody asked for. A launcher that grows real layout state should set this to a path
-     * under the port's own config directory (port_paths.c), not to the default. */
     ImGui::GetIO().IniFilename = NULL;
 
+#if defined(RAPI_METAL)
+    if (!ImGui_ImplSDL2_InitForMetal((SDL_Window *)window)) {
+        printf("[getv][imgui] SDL2 Metal backend init FAILED -- overlay OFF\n");
+        ImGui::DestroyContext();
+        return;
+    }
+    if (!gePortMetalImguiInit()) {
+        printf("[getv][imgui] Metal backend init FAILED -- overlay OFF\n");
+        ImGui_ImplSDL2_Shutdown();
+        ImGui::DestroyContext();
+        return;
+    }
+#else
     if (!ImGui_ImplSDL2_InitForOpenGL((SDL_Window *)window, glctx)) {
         printf("[getv][imgui] SDL2 backend init FAILED -- overlay OFF\n");
-        fflush(stdout);
         ImGui::DestroyContext();
         return;
     }
     if (!ImGui_ImplOpenGL2_Init()) {
         printf("[getv][imgui] GL2 backend init FAILED -- overlay OFF\n");
-        fflush(stdout);
         ImGui_ImplSDL2_Shutdown();
         ImGui::DestroyContext();
         return;
     }
+#endif
 
+    geConsoleInputReset();
     g_active = true;
+    (void)ge_console_toggle_scancode();
     printf("[getv][imgui] overlay ON (GETV_IMGUI) -- Dear ImGui %s, backends: %s + %s\n",
            IMGUI_VERSION,
            ImGui::GetIO().BackendPlatformName ? ImGui::GetIO().BackendPlatformName : "?",
            ImGui::GetIO().BackendRendererName ? ImGui::GetIO().BackendRendererName : "?");
-    printf("[getv][imgui] GL_VERSION=%s\n", (const char *)glGetString(GL_VERSION));
+#if defined(RAPI_METAL)
+    printf("[getv][imgui] renderer=Metal; console toggle=%s\n", ge_console_toggle_name());
+#else
+    printf("[getv][imgui] GL_VERSION=%s; console toggle=%s\n",
+           (const char *)glGetString(GL_VERSION), ge_console_toggle_name());
+#endif
     fflush(stdout);
+
+    if (ge_env_on("GETV_CONSOLE_OPEN")) ge_console_set_open(true);
 }
 
 extern "C" void gePortImguiNewFrame(void)
 {
     if (!g_active || g_frame_open) return;
-
+#if !defined(RAPI_METAL)
     ImGui_ImplOpenGL2_NewFrame();
+#endif
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
     g_frame_open = true;
     g_frames++;
-
-    /* The window itself. Pinned rather than free-floating so the probe below knows where
-     * to look, and because a dev overlay that reopens in a different place every launch is
-     * annoying. FirstUseEver, so it can still be dragged. */
-    ImGui::SetNextWindowPos(ImVec2(20.0f, 20.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(320.0f, 110.0f), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("GoldenEye -- dev overlay")) {
-        const ImGuiIO &io = ImGui::GetIO();
-        ImGui::Text("frame   %lu", g_frames);
-        ImGui::Text("fps     %.1f  (%.2f ms/frame)",
-                    (double)io.Framerate, 1000.0 / (double)(io.Framerate > 0.0f ? io.Framerate : 1.0f));
-        ImGui::Text("display %.0f x %.0f", (double)io.DisplaySize.x, (double)io.DisplaySize.y);
-    }
-    ImGui::End();
+    ge_draw_dev_overlay();
+    ge_draw_console();
 }
 
 extern "C" void gePortImguiRender(void)
 {
     if (!g_active || !g_frame_open) return;
     g_frame_open = false;
-
     ImGui::Render();
     ImDrawData *dd = ImGui::GetDrawData();
     if (dd == NULL) return;
@@ -215,8 +404,20 @@ extern "C" void gePortImguiRender(void)
         const char *e = getenv("GETV_IMGUI_PROBE");
         g_probe_frame = (e && *e) ? atoi(e) : -1;
     }
-    const bool probing = (g_probe_frame > 0 && (long)g_frames == (long)g_probe_frame);
+    const bool probing = g_probe_frame > 0 && (long)g_frames == (long)g_probe_frame;
 
+#if defined(RAPI_METAL)
+    gePortMetalImguiBeginPass();
+    int submitted = gePortMetalImguiRenderDrawData(dd);
+    gePortMetalImguiEndPass();
+    if (probing) {
+        printf("[getv][imgui] probe frame %lu: Metal draw %s, %d draw list(s), %d vertices%s\n",
+               g_frames, submitted ? "submitted" : "NOT submitted",
+               dd->CmdListsCount, dd->TotalVtxCount,
+               geConsoleInputOpen() ? ", console open" : "");
+        fflush(stdout);
+    }
+#else
     int px = 0, py = 0, pw = 0, ph = 0;
     unsigned char *before = NULL;
     if (probing) {
@@ -230,11 +431,9 @@ extern "C" void gePortImguiRender(void)
         }
     }
 
-    /* ---- state the GL2 backend cannot save for itself (see the header comment) ------- */
-    GLint  last_program = 0, last_array_buffer = 0, last_element_buffer = 0;
-    GLint  last_active_texture = GL_TEXTURE0;
-    GLint  attrib_enabled[GE_IMGUI_ATTRIBS];
-
+    GLint last_program = 0, last_array_buffer = 0, last_element_buffer = 0;
+    GLint last_active_texture = GL_TEXTURE0;
+    GLint attrib_enabled[GE_IMGUI_ATTRIBS];
     glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
     glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &last_array_buffer);
     glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &last_element_buffer);
@@ -243,25 +442,21 @@ extern "C" void gePortImguiRender(void)
         attrib_enabled[i] = 0;
         glGetVertexAttribiv((GLuint)i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attrib_enabled[i]);
     }
-
     glUseProgram(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glActiveTexture(GL_TEXTURE0);
-    for (int i = 0; i < GE_IMGUI_ATTRIBS; i++) {
+    for (int i = 0; i < GE_IMGUI_ATTRIBS; i++)
         if (attrib_enabled[i]) glDisableVertexAttribArray((GLuint)i);
-    }
 
     ImGui_ImplOpenGL2_RenderDrawData(dd);
 
-    for (int i = 0; i < GE_IMGUI_ATTRIBS; i++) {
+    for (int i = 0; i < GE_IMGUI_ATTRIBS; i++)
         if (attrib_enabled[i]) glEnableVertexAttribArray((GLuint)i);
-    }
     glActiveTexture((GLenum)last_active_texture);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (GLuint)last_element_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, (GLuint)last_array_buffer);
     glUseProgram((GLuint)last_program);
-    /* --------------------------------------------------------------------------------- */
 
     if (probing) {
         unsigned long changed = 0;
@@ -280,25 +475,68 @@ extern "C" void gePortImguiRender(void)
             free(before);
         }
         printf("[getv][imgui] probe frame %lu: rect %dx%d at (%d,%d), "
-               "%lu pixels changed by the overlay draw, %d draw list(s), %d vertices\n",
-               g_frames, pw, ph, px, py, changed,
-               dd->CmdListsCount, dd->TotalVtxCount);
+               "%lu pixels changed, %d draw list(s), %d vertices%s\n",
+               g_frames, pw, ph, px, py, changed, dd->CmdListsCount, dd->TotalVtxCount,
+               geConsoleInputOpen() ? ", console open" : "");
         fflush(stdout);
     }
+#endif
 }
 
-extern "C" void gePortImguiEvent(void *sdl_event)
+extern "C" int gePortImguiEvent(void *sdl_event)
 {
-    if (!g_active || sdl_event == NULL) return;
-    ImGui_ImplSDL2_ProcessEvent((const SDL_Event *)sdl_event);
+    if (!g_active || sdl_event == NULL) return 0;
+    SDL_Event *event = (SDL_Event *)sdl_event;
+
+    if (event->type == SDL_KEYDOWN && event->key.repeat == 0 &&
+        event->key.keysym.scancode == ge_console_toggle_scancode()) {
+        ge_console_set_open(!geConsoleInputOpen());
+        g_skip_toggle_text = true;
+        return 1;
+    }
+    if (event->type == SDL_TEXTINPUT && g_skip_toggle_text) {
+        g_skip_toggle_text = false;
+        return 1;
+    }
+    if (event->type == SDL_KEYUP &&
+        event->key.keysym.scancode == ge_console_toggle_scancode()) {
+        /* Function keys and some layouts emit no text event for the toggle. Do not let a stale
+         * skip flag eat the first real character typed after that key is released. */
+        g_skip_toggle_text = false;
+    }
+    if (event->type == SDL_KEYDOWN &&
+        event->key.keysym.scancode != ge_console_toggle_scancode()) {
+        g_skip_toggle_text = false;
+    }
+
+    if (geConsoleInputOpen()) {
+        ImGui_ImplSDL2_ProcessEvent(event);
+        return ge_console_input_event(event->type) ? 1 : 0;
+    }
+    if (geConsoleInputCaptureActive() && ge_console_input_event(event->type)) {
+        /* A key may be released after the window closes but before gameplay's release
+         * quarantine ends. Feed that KEYUP to ImGui too so its backend cannot retain a
+         * phantom held key the next time the console opens. */
+        ImGui_ImplSDL2_ProcessEvent(event);
+        return 1;
+    }
+
+    ImGui_ImplSDL2_ProcessEvent(event);
+    return 0;
 }
 
 extern "C" void gePortImguiShutdown(void)
 {
     if (!g_active) return;
+    if (geConsoleInputOpen()) gePortInputConsoleCapture(0);
+    geConsoleInputReset();
     g_active = false;
     g_frame_open = false;
+#if defined(RAPI_METAL)
+    gePortMetalImguiShutdown();
+#else
     ImGui_ImplOpenGL2_Shutdown();
+#endif
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
     printf("[getv][imgui] overlay shut down after %lu frames\n", g_frames);
@@ -306,15 +544,9 @@ extern "C" void gePortImguiShutdown(void)
 }
 
 extern "C" int gePortImguiActive(void) { return g_active ? 1 : 0; }
+extern "C" int gePortImguiConsoleOpen(void) { return geConsoleInputOpen(); }
 
-#else /* !GE_WITH_IMGUI ------------------------------------------------------------------
- *
- * The absent case, and the one that must stay the default. Nothing here is #ifdef'd at the
- * call site, so a tree without tools/fetch_imgui.sh having been run builds and runs exactly
- * as it did before this file existed. The single printf is not noise: GETV_IMGUI=1 doing
- * nothing at all would look like a bug in the overlay rather than a binary built without
- * it, and that is a confusing hour nobody needs to spend.
- */
+#else /* !GE_WITH_IMGUI */
 
 extern "C" void gePortImguiInit(void *window, void *glctx)
 {
@@ -322,8 +554,6 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
     const char *e = getenv("GETV_IMGUI");
     if (e != NULL && *e != '\0' && strcmp(e, "0") != 0) {
         printf("[getv][imgui] GETV_IMGUI is set but this binary was built without ImGui.\n");
-        /* Name the script for the platform actually running, not the one this was written on.
-         * Telling a Linux user to run build_mac.sh reads as the port not knowing what it is. */
 #if defined(__APPLE__)
         printf("[getv][imgui] run tools/fetch_imgui.sh, then ./getv/build_mac.sh all\n");
 #elif defined(_WIN32)
@@ -337,8 +567,9 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
 
 extern "C" void gePortImguiNewFrame(void) {}
 extern "C" void gePortImguiRender(void) {}
-extern "C" void gePortImguiEvent(void *sdl_event) { (void)sdl_event; }
+extern "C" int  gePortImguiEvent(void *sdl_event) { (void)sdl_event; return 0; }
 extern "C" void gePortImguiShutdown(void) {}
 extern "C" int  gePortImguiActive(void) { return 0; }
+extern "C" int  gePortImguiConsoleOpen(void) { return 0; }
 
 #endif /* GE_WITH_IMGUI */

@@ -19,11 +19,8 @@
 // template, because it must match our exact SHADER_*/CC_C2_* bit layout (gfx_cc.h) --
 // see the note below about why gfx_cc_get_features() is NOT used here.
 //
-// KNOWN v1 GAPS, deliberate, staged: no ImGui/launcher rendering on this backend yet (the
-// ge_imgui.h hooks are safe no-ops when never initialised -- see gfx_sdl2.c), no
-// supersample/CRT/FXAA post-processing (the GE_POSTFX/TVOS_SUPERSAMPLE machinery in
-// gfx_opengl.c is GL-specific and has no Metal equivalent yet). None of these block a first
-// real frame; all are fast follows once one renders. GETV_SHOTFRAME capture
+// KNOWN v1 GAPS, deliberate, staged: no CRT post-processing yet. ImGui rendering and the
+// supersample/FXAA path now share the same drawable lifecycle below. GETV_SHOTFRAME capture
 // (ge_shot_maybe_metal(), below) is done
 // -- same env vars and BMP layout as gfx_opengl.c's ge_shot_maybe(), for headless
 // verification without a screenshot-capable window (this port's whole reason to exist on
@@ -1539,9 +1536,10 @@ void gePortMetalImguiBeginPass(void) {
     }
 }
 
-void gePortMetalImguiRenderDrawData(void *draw_data) {
-    if (!mtl_overlay_encoder) return;
+int gePortMetalImguiRenderDrawData(void *draw_data) {
+    if (!mtl_overlay_encoder) return 0;
     ImGui_ImplMetal_RenderDrawData((ImDrawData *)draw_data, mtl_cmdbuf, mtl_overlay_encoder);
+    return 1;
 }
 
 void gePortMetalImguiEndPass(void) {
