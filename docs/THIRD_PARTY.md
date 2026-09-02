@@ -212,8 +212,8 @@ before anything is compiled into the game.
 overlay in `getv/port/src/ge_imgui.cpp`, which is what a launcher or debug UI gets built on.
  MIT imposes nothing on the rest of the tree, and the build works without it --
 absent `libimgui.a`, the entry points compile to empty functions and `gfx_sdl2.c` needs no
-`#ifdef`. It is additionally off at runtime unless `GETV_IMGUI=1`, so having it installed does
-not change how the game behaves. Upstream is
+`#ifdef`. When installed, its console hotkey is always available; `GETV_IMGUI=1` controls only
+the optional performance/debug overlay. Upstream is
 `https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz`, sha256
 `8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb`, checked by the fetch script
 before anything is compiled into the game.

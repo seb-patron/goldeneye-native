@@ -631,9 +631,11 @@ hostiles only. See [GIBS.md](GIBS.md) for implementation boundaries, tests and e
 
 ## Developer overlay and console
 
-The optional developer UI is off by default. Enable it with `developer_tools = 1`, the launcher's
-developer checkbox, or `GETV_IMGUI=1`. When the ImGui dependency is present, the overlay works on
-both OpenGL and Metal. Press backquote/grave to open the command console.
+When the ImGui dependency is present, press backquote/grave to open the command console on either
+OpenGL or Metal. The console hotkey is always available; it does not depend on developer mode.
+
+The separate performance/debug overlay is off by default. Enable it with `developer_tools = 1`,
+the launcher's developer-overlay checkbox, or `GETV_IMGUI=1`.
 
 `console_key = <SDL scancode name>` changes that desktop toggle. The launcher exposes the same
 field, and `GETV_CONSOLE_KEY` is the automation/raw-gate form. Examples include `F10`, `F12` and

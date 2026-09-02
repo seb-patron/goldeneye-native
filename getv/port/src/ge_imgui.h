@@ -13,7 +13,6 @@
  *
  * Every function is safe to call unconditionally:
  *   - built without ImGui (no -DGE_WITH_IMGUI), they are empty;
- *   - built with it but not enabled (GETV_IMGUI unset), they return immediately;
  *   - called out of order or after a failed init, they return immediately.
  * That is the point. gfx_sdl2.c has no #ifdef in it.
  */
@@ -27,8 +26,8 @@ extern "C" {
 /* Called once from gfx_sdl_init() after the GL context exists.
  *   window -- SDL_Window*
  *   glctx  -- SDL_GLContext (itself a void*)
- * Reads GETV_IMGUI. Anything other than a set, non-empty, non-"0" value leaves the
- * overlay off and this call is then the only cost the feature has at runtime. */
+ * The console UI is initialised whenever ImGui is compiled in. GETV_IMGUI controls only
+ * whether the developer statistics overlay is drawn; the console hotkey remains available. */
 void gePortImguiInit(void *window, void *glctx);
 
 /* Called once per rendered frame from gfx_sdl_start_frame(), i.e. after the event pump
@@ -48,8 +47,8 @@ int gePortImguiEvent(void *sdl_event);
 /* Called from gfx_sdl_shutdown() before the GL context is destroyed. */
 void gePortImguiShutdown(void);
 
-/* 1 when the overlay is built in AND enabled AND initialised. Not used by the port itself;
- * it exists so a later launcher can ask rather than re-reading the environment. */
+/* 1 when the shared ImGui console/overlay runtime is built in and initialised. Not used by
+ * the port itself; it exists so a later launcher can query capability. */
 int  gePortImguiActive(void);
 
 /* Used by the SDL bridge to clear legacy callback state on the closed-to-open edge. */

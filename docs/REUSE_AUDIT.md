@@ -41,7 +41,7 @@ Rare N64 games and still happens to be wrong.
 
 | Problem | Source | Licence | Verdict |
 |---|---|---|---|
-| Developer/debug UI | **Dear ImGui** | MIT | **In progress.** Gated behind `GETV_IMGUI`, off by default. The value is a live panel over player, camera, AI, renderer and memory, which this project currently reads through printf and log grepping. |
+| Developer/debug UI | **Dear ImGui** | MIT | **In progress.** The console UI is available whenever ImGui is built in; the live performance/debug overlay remains gated behind `GETV_IMGUI` and off by default. The value is a live panel over player, camera, AI, renderer and memory, which this project currently reads through printf and log grepping. |
 | Profiling | **Tracy** | BSD-3-Clause | **Done, 2026-08-26** - fetched, linked, and instrumented at the GL frame boundary (see `docs/THIRD_PARTY.md` §8b). Verified against a real build: graceful degradation without it, real client listening on port 8086 with it. Only the render phase is zoned so far; game tick/audio/AI attribution -- the actual motivating gap -- still needs zones placed in `boss.c`'s frame loop, which was out of scope for this pass (see the netplay writeup in `docs/NETPLAY.md` for why editing that loop is not a small change). |
 | GPU capture | **RenderDoc** | external tool | **Done, 2026-08-26** - see below. |
 | Metal backend | **libultraship** `gfx_metal.cpp` | **MIT (verified 2026-08-24)** | **Yes.** Removes the deprecated-GL risk on Apple platforms. our own audit scopes the adapter at about 8 signature differences; libultraship refactored the same Emill lineage from a C function-pointer struct into a C++ virtual class. |
