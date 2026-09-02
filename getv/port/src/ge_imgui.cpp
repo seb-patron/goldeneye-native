@@ -25,6 +25,7 @@
 
 #include "ge_console.h"
 #include "ge_console_input.h"
+#include "ge_console_pause.h"
 #include "port_input.h"
 
 #include "imgui.h"
@@ -112,6 +113,7 @@ void ge_console_set_open(bool open)
 {
     if (open == (geConsoleInputOpen() != 0)) return;
     geConsoleInputSetOpen(open ? 1 : 0);
+    geConsolePauseRequest(open ? 1 : 0);
     gePortInputConsoleCapture(open ? 1 : 0);
     g_focus_console_input = open;
     g_input_history_pos = -1;
@@ -205,6 +207,7 @@ void ge_draw_dev_overlay()
         ImGui::Text("display %.0f x %.0f", (double)io.DisplaySize.x, (double)io.DisplaySize.y);
         ImGui::Text("console %s  [%s]", geConsoleInputOpen() ? "OPEN" : "closed",
                     ge_console_toggle_name());
+        ImGui::Text("policy  %s", geConsolePauseStateName(geConsolePauseState()));
     }
     ImGui::End();
 }
@@ -248,6 +251,7 @@ void ge_draw_console()
     if (ImGui::Begin("GoldenEye developer console", &open, ImGuiWindowFlags_NoCollapse)) {
         GeConsoleHistoryInfo info;
         geConsoleHistoryInfo(&info);
+        ImGui::Text("Pause policy: %s", geConsolePauseStateName(geConsolePauseState()));
         ImGui::TextDisabled("structured results %u/%u, dropped %llu; raw input stays in memory only",
                             info.count, info.capacity, (unsigned long long)info.dropped);
 
@@ -361,6 +365,7 @@ extern "C" void gePortImguiInit(void *window, void *glctx)
 #endif
 
     geConsoleInputReset();
+    geConsolePauseReset();
     g_active = true;
     (void)ge_console_toggle_scancode();
     printf("[getv][imgui] overlay ON (GETV_IMGUI) -- Dear ImGui %s, backends: %s + %s\n",
@@ -528,7 +533,10 @@ extern "C" int gePortImguiEvent(void *sdl_event)
 extern "C" void gePortImguiShutdown(void)
 {
     if (!g_active) return;
-    if (geConsoleInputOpen()) gePortInputConsoleCapture(0);
+    if (geConsoleInputOpen()) {
+        geConsolePauseRequest(0);
+        gePortInputConsoleCapture(0);
+    }
     geConsoleInputReset();
     g_active = false;
     g_frame_open = false;

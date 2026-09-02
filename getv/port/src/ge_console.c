@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "ge_console.h"
+#include "ge_console_pause.h"
 
 typedef struct GeConsoleRegisteredCommand {
     GeConsoleCommandSpec spec;
@@ -849,6 +850,9 @@ void gePortConsoleGameTick(void)
     extern unsigned long gePlayerTick(void);
     extern unsigned long gePortRenderedFrame(void);
     GeConsoleExecutionContext context;
+    /* Reconcile renderer intent at the admitted game-thread boundary before either command
+     * handlers or the simulation can observe this tick. */
+    gePortConsolePauseGameTick();
     memset(&context, 0, sizeof context);
     if (ge_console.context_provider != NULL) {
         ge_console.context_provider(&context, ge_console.context_user);
