@@ -55,6 +55,8 @@
 #include "gfx_rendering_api.h"
 #include "gfx_window_manager_api.h"
 #include "ge_console_commands.h"
+#include "ge_console_mutations.h"
+#include "ge_gibs.h"
 
 // From libge.a. A plain getter over a global: safe with no N64 hardware, allocator
 // or scheduler running. Referencing it forces the archive to link and proves the
@@ -433,6 +435,19 @@ int SDL_main(int argc, char *argv[])
         };
         GeConsoleStatus status = geConsoleReadInstall(&provider);
         printf("[getv][console] read-only command registry: %s (%u commands)\n",
+               geConsoleStatusName(status), geConsoleCommandCount());
+    }
+
+    /* Mutation providers are installed separately so the read-only contract stays auditable.
+     * gePortGibsSetMode validates and updates the cached runtime policy directly; the command
+     * never rewrites GETV_GIBS and the core refuses it in netplay before this callback runs. */
+    {
+        GeConsoleMutationProvider provider = {
+            gePortGibsMode,
+            gePortGibsSetMode
+        };
+        GeConsoleStatus status = geConsoleMutationInstall(&provider);
+        printf("[getv][console] mutation command registry: %s (%u commands total)\n",
                geConsoleStatusName(status), geConsoleCommandCount());
     }
 
