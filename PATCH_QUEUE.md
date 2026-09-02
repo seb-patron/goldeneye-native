@@ -19,7 +19,8 @@ Historical original-upstream anchor:
 | Apply the config-file widescreen setting | [#5](https://github.com/seb-patron/goldeneye-native/pull/5), merged | `8b11f0b35b33668f4206438f0bc1a910903e9047` | filtering precedence (#4) | pending after #4 |
 | Add opt-in fatal-explosion gibs | [#7](https://github.com/seb-patron/goldeneye-native/pull/7), open | `ce9031bf4f7a7189c85193c5dad5b0a876d0af78` | filtering precedence (#4), widescreen config (#5) | pending after #4 and #5 |
 | Add typed developer-console command core | [#16](https://github.com/seb-patron/goldeneye-native/pull/16), merged | `405a705296125c66e8523f047008beeb7687d6f9`, then `df0272401efe1a1d5ffe83c3eb03f5ef04182e3a`, then `c6d913295cc0ee74d97441ec5b2f8860c1c095ab` | none | pending |
-| Add cross-renderer developer console UI and input capture | [#17](https://github.com/seb-patron/goldeneye-native/pull/17), open | `d4c884311372be06edb8616a9cd7594586eb43e9` | typed console core (#16) | pending after #16 |
+| Add cross-renderer developer console UI and input capture | [#17](https://github.com/seb-patron/goldeneye-native/pull/17), merged | `d4c884311372be06edb8616a9cd7594586eb43e9` | typed console core (#16) | pending after #16 |
+| Add game-thread-owned developer console solo pause policy | [#19](https://github.com/seb-patron/goldeneye-native/pull/19), open | `c3559440568001b9087de1889ffa91b5bbd887c6` | typed console core (#16), console UI/input (#17) | pending after #16 and #17 |
 
 ## Replay audit
 

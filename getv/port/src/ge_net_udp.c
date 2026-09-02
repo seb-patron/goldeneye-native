@@ -595,6 +595,13 @@ int gePortNetLockstepOn(void)
     return (ge_net_active && geNetIsOpen()) ? 1 : 0;
 }
 
+/* Console pause policy must also recognize a requested session while it is handshaking.  The
+ * simulation remains live then so transport polling and peer admission cannot be frozen by UI. */
+int gePortNetActive(void)
+{
+    return ge_net_active ? 1 : 0;
+}
+
 int gePortNetTick(void)
 {
     GePlayerInput local;

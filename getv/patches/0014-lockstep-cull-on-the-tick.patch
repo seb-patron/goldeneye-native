@@ -41,3 +41,26 @@
                      propsTick();
                      {
                          /* Record where everything ended up, so the frames between ticks can be
+@@ -1131,4 +1152,7 @@
+  */
+ void lvlManageMpGame(void)
+ {
++#ifdef GE_PORT_NATIVE
++    extern int gePortConsolePauseActive(void);
++#endif
+     tlbmanageResetCurrentEntriesCount();
+@@ -1141,6 +1165,14 @@
+     {
+         g_ClockTimer = 0;
+     }
++#ifdef GE_PORT_NATIVE
++    else if (gePortConsolePauseActive() != 0)
++    {
++        /* A port-owned reason, intentionally separate from the watch/menu pause and controls
++         * lock. Closing the console releases only this reason and cannot unpause either owner. */
++        g_ClockTimer = 0;
++    }
++#endif
+     else
+     {
+         g_ClockTimer = speedgraphframes;

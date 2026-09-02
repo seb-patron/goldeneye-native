@@ -13,6 +13,7 @@ static int fake_sim_should_tick;
 unsigned long gePlayerTick(void) { return fake_player_tick; }
 unsigned long gePortRenderedFrame(void) { return fake_render_frame; }
 int gePortSimShouldTick(void) { return fake_sim_should_tick; }
+void gePortConsolePauseGameTick(void) {}
 
 #include "ge_console.c"
 
