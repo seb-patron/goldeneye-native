@@ -57,6 +57,7 @@
 #include "ge_console_commands.h"
 #include "ge_console_mutations.h"
 #include "ge_console_player_adapter.h"
+#include "ge_console_transitions.h"
 #include "ge_gibs.h"
 
 // From libge.a. A plain getter over a global: safe with no N64 hardware, allocator
@@ -86,6 +87,7 @@ extern int getCurrentPlayerWeaponId(int hand);
 extern int get_ammo_type_for_weapon(int weapon_id);
 extern int get_max_ammo_for_type(int ammo_type);
 extern void give_cur_player_ammo(int ammo_type, int amount);
+extern void bossSetLoadedStage(int stage);
 
 static int ge_console_game_god_enabled(void)
 {
@@ -111,6 +113,14 @@ static int ge_console_game_current_weapon(void)
 {
     enum { GE_GAME_GUN_RIGHT = 0 };
     return getCurrentPlayerWeaponId(GE_GAME_GUN_RIGHT);
+}
+
+static int ge_console_game_request_stage(int stage)
+{
+    /* This is the engine's controlled drain/unload/reload request.  Do not replace it with a
+     * write to g_StageNum or g_MainStageNum: the outer boss loop owns those transitions. */
+    bossSetLoadedStage(stage);
+    return 1;
 }
 
 // Perfect Dark's own crash handler is #elif defined(PLATFORM_LINUX), so it is never
@@ -508,6 +518,17 @@ int SDL_main(int argc, char *argv[])
         }
         status = geConsoleMutationInstall(&provider);
         printf("[getv][console] mutation command registry: %s (%u commands total)\n",
+               geConsoleStatusName(status), geConsoleCommandCount());
+    }
+
+    /* Session transitions have their own narrow provider so a validated console request can use
+     * the game's controlled stage drain/unload/reload path without exposing either stage global. */
+    {
+        GeConsoleTransitionProvider provider = {
+            .request_stage = ge_console_game_request_stage
+        };
+        GeConsoleStatus status = geConsoleTransitionInstall(&provider);
+        printf("[getv][console] transition command registry: %s (%u commands total)\n",
                geConsoleStatusName(status), geConsoleCommandCount());
     }
 
