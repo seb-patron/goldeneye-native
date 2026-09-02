@@ -647,6 +647,23 @@ typing Enter, Space or Tab cannot also fire, skip a cutscene or open the watch. 
 available. Raw command history is bounded to the current process and is not written to config or
 diagnostic output.
 
+The initial command set includes read-only session/player/objective queries, `gibs`, explicit-slot
+`god`/`give`/`ammo` mutations, and two controlled mission transitions:
+
+```text
+restart
+level <stage-id>
+```
+
+Both transition commands require an active solo mission and are refused during netplay or local
+multiplayer before the game transition callback runs. `level` accepts the numeric ID of a loadable
+solo mission; title, cut, unknown, and multiplayer-only stages are refused. The transition uses the
+game's normal drain/unload/reload request, so it does not rewrite raw stage globals. A successful
+`restart` reloads the current mission, while `level 33` schedules Dam and preserves the current
+difficulty. Requesting the stage already in play is also a controlled reload: `level 33` while on
+Dam follows the same engine path as `restart`, but its result remains a `level` result with the
+normal previous/requested-stage metadata.
+
 `GETV_CONSOLE_OPEN=1` opens the window at startup for bounded UI smoke tests. It is not a persisted
 setting.
 

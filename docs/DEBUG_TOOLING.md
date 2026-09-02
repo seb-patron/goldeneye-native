@@ -1,9 +1,9 @@
 # Developer tooling plan
 
 Status: accepted architecture and active delivery plan. The console core, cross-renderer UI/input
-ownership, solo pause policy, always-available toggle, initial read-only handlers, and the runtime
-`gibs` plus explicit-slot player mutations are implemented. Session transitions, the inspector,
-and native diagnostic capture remain follow-ons.
+ownership, solo pause policy, always-available toggle, initial read-only handlers, runtime `gibs`,
+explicit-slot player mutations, and controlled solo-mission transitions are implemented. The
+inspector and native diagnostic capture remain follow-ons.
 
 Initial priority:
 
@@ -197,6 +197,8 @@ gibs <off|explosions|high_damage|always>
 god <slot> <on|off>
 give <slot> <weapon-name|item-id>
 ammo <slot> <0-1000|full>
+restart
+level <stage-id>
 ```
 
 `gibs` is registered through a copied mutation-provider table and changes the cached port policy
@@ -216,6 +218,20 @@ cursor and restores the prior slot after success, unsupported context, or provid
 ammunition through the game's existing clip/reserve policy with a bounded 0-1000 amount, or
 resolves `full` through that weapon's game-defined maximum. A weapon without ammunition is an
 explicit context refusal.
+
+`restart` and `level <stage-id>` require an active solo mission. Like every mutation, the command
+pump refuses them in netplay before their provider runs. `level` accepts only a numeric stage ID
+from the tracked loadable-stage catalog; cut, title, and unknown IDs are argument refusals, while
+the six multiplayer-only stages are explicit unsupported-context refusals. `restart` also refuses
+a current stage outside the supported solo-mission set. After all validation succeeds, both
+commands call a single provider backed by `bossSetLoadedStage()`, which schedules the engine's
+normal graphics drain, stage unload, and reload. They never assign `g_StageNum` or
+`g_MainStageNum`. Structured results target the requested stage and retain typed previous/requested
+stage payloads, including provider failure results. A `level` request for the current stage is a
+deliberate same-stage reload, but retains the `level` command ID and message. Native generated
+pad and bound-pad sections use process-lifetime pointer identity to apply destructive coordinate
+scaling only on their first load; every reload still refreshes stan/room links against the newly
+loaded collision data.
 
 `build` currently reports platform, architecture, renderer, console schema, and command schema.
 The authoritative source commit/build-compatibility identifier belongs to the versioned native
@@ -242,7 +258,8 @@ typed payload. Diagnostic export uses this structure, not the raw line typed by 
 2. Cross-renderer ImGui console, SDL capture and focus handling.
 3. Owned solo pause behavior with explicit multiplayer and netplay policy.
 4. Read-only session/player/objective commands through a bounded provider contract.
-5. Runtime gibs setter and the initial mutation commands, each with focused tests or harnesses.
+5. Runtime gibs setter and explicit-slot player mutations, each with focused tests or harnesses.
+6. Controlled `restart` and `level` transitions with catalog validation and atomic provider tests.
 
 These may be separate PRs under one issue. A PR must not mix a renderer fix, several unrelated
 game adapters and diagnostic export merely because all are eventually visible in the console.

@@ -24,7 +24,8 @@ Historical original-upstream anchor:
 | Keep the developer console toggle available without the optional overlay | [#20](https://github.com/seb-patron/goldeneye-native/pull/20), merged | `be55bc20819ef5bb24b4896ada1df9cd390ef9ac` | console core/UI/pause (#16, #17, #19) | pending after #16, #17 and #19 |
 | Add read-only developer-console session handlers | [#21](https://github.com/seb-patron/goldeneye-native/pull/21), merged | `55c5c7d43441af7738401f7aede299a80c19d5d5` | console core/UI/pause/toggle (#16, #17, #19, #20) | pending after #16, #17, #19 and #20 |
 | Add runtime `gibs` developer-console command | [#22](https://github.com/seb-patron/goldeneye-native/pull/22), merged | `f7c7adc7755c86a3583f12358ac63c9859f2164c` | enemy gibs (#7), console core/UI/pause/toggle/read handlers (#16, #17, #19, #20, #21) | pending after #7, #16, #17, #19, #20 and #21 |
-| Add explicit-slot developer-console player mutations | [#23](https://github.com/seb-patron/goldeneye-native/pull/23), open | `cd080f47c9a7cf03dea48a2ebef9b9cc396bbdd0` | console mutation provider (#22) and its dependencies | pending after #7, #16, #17, #19, #20, #21 and #22 |
+| Add explicit-slot developer-console player mutations | [#23](https://github.com/seb-patron/goldeneye-native/pull/23), merged | `cd080f47c9a7cf03dea48a2ebef9b9cc396bbdd0`, then `6da8526681d21625e2bba81a98c73ef63132e44e` | console mutation provider (#22) and its dependencies | pending after #7, #16, #17, #19, #20, #21 and #22 |
+| Add controlled developer-console mission transitions | [#24](https://github.com/seb-patron/goldeneye-native/pull/24), open | `3596c8bd4bec476eb520091cc3715d17ece799eb`, then `692c846980ff2ba77438705a594133f4eab1f891` | developer-console player mutations (#23) and its dependencies | pending after #7, #16, #17, #19, #20, #21, #22 and #23 |
 
 ## Replay audit
 
