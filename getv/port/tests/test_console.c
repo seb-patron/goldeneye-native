@@ -375,8 +375,11 @@ static void test_parser(void)
     check_i("status code 101 stays unknown-command", GE_CONSOLE_STATUS_UNKNOWN_COMMAND, 101);
     check_i("status code 200 stays queue-full", GE_CONSOLE_STATUS_QUEUE_FULL, 200);
     check_i("status code 303 stays netplay refusal", GE_CONSOLE_STATUS_REFUSED_NETPLAY, 303);
+    check_i("status code 305 stays context refusal", GE_CONSOLE_STATUS_REFUSED_CONTEXT, 305);
     check_s("stable status name", geConsoleStatusName(GE_CONSOLE_STATUS_ARGUMENT_CHOICE),
             "argument_choice");
+    check_s("context refusal has stable name",
+            geConsoleStatusName(GE_CONSOLE_STATUS_REFUSED_CONTEXT), "refused_context");
 }
 
 static void clear_handler_capture(void)

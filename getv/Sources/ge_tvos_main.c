@@ -56,6 +56,7 @@
 #include "gfx_window_manager_api.h"
 #include "ge_console_commands.h"
 #include "ge_console_mutations.h"
+#include "ge_console_player_adapter.h"
 #include "ge_gibs.h"
 
 // From libge.a. A plain getter over a global: safe with no N64 hardware, allocator
@@ -70,6 +71,47 @@ extern void bossInitMainthreadData(void);
 extern void rspAllocateBuffers(void);
 extern void musicSeqPlayerInit(void);
 extern void bossMainloop(void);
+
+/* Original game-side mutation primitives. They all operate on g_CurrentPlayer, so console
+ * handlers reach them only through ge_console_player_adapter.c's save/select/restore guard. */
+extern int get_cur_playernum(void);
+extern void set_cur_player(int playernum);
+extern unsigned char get_bondata_invincible_flag(void);
+extern void set_bondata_invincible_flag(unsigned int enabled);
+extern unsigned int weaponLoadProjectileModels(int weapon_id);
+extern int bondinvAddInvItem(int weapon_id);
+extern int bondinvItemAvailable(int weapon_id);
+extern int currentPlayerEquipWeaponWrapper(int hand, int weapon_id);
+extern int getCurrentPlayerWeaponId(int hand);
+extern int get_ammo_type_for_weapon(int weapon_id);
+extern int get_max_ammo_for_type(int ammo_type);
+extern void give_cur_player_ammo(int ammo_type, int amount);
+
+static int ge_console_game_god_enabled(void)
+{
+    return get_bondata_invincible_flag() != 0;
+}
+
+static void ge_console_game_set_god(int enabled)
+{
+    set_bondata_invincible_flag((unsigned int)(enabled != 0));
+}
+
+static int ge_console_game_give_weapon(int weapon_id)
+{
+    enum { GE_GAME_GUN_RIGHT = 0 };
+    weaponLoadProjectileModels(weapon_id);
+    bondinvAddInvItem(weapon_id);
+    if (!bondinvItemAvailable(weapon_id)) { return 0; }
+    currentPlayerEquipWeaponWrapper(GE_GAME_GUN_RIGHT, weapon_id);
+    return 1;
+}
+
+static int ge_console_game_current_weapon(void)
+{
+    enum { GE_GAME_GUN_RIGHT = 0 };
+    return getCurrentPlayerWeaponId(GE_GAME_GUN_RIGHT);
+}
 
 // Perfect Dark's own crash handler is #elif defined(PLATFORM_LINUX), so it is never
 // installed on Apple platforms and a crash gives no backtrace at all. The same would
@@ -439,14 +481,32 @@ int SDL_main(int argc, char *argv[])
     }
 
     /* Mutation providers are installed separately so the read-only contract stays auditable.
-     * gePortGibsSetMode validates and updates the cached runtime policy directly; the command
-     * never rewrites GETV_GIBS and the core refuses it in netplay before this callback runs. */
+     * Player operations use a guard that restores the game's implicit current-player cursor;
+     * the console itself sees only explicit slots. The core refuses all callbacks in netplay. */
     {
-        GeConsoleMutationProvider provider = {
-            gePortGibsMode,
-            gePortGibsSetMode
+        GeConsolePlayerGameApi player_api = {
+            .current_player = get_cur_playernum,
+            .select_player = set_cur_player,
+            .god_enabled = ge_console_game_god_enabled,
+            .set_god_enabled = ge_console_game_set_god,
+            .give_weapon = ge_console_game_give_weapon,
+            .current_weapon = ge_console_game_current_weapon,
+            .ammo_type_for_weapon = get_ammo_type_for_weapon,
+            .max_ammo_for_type = get_max_ammo_for_type,
+            .set_ammo = give_cur_player_ammo
         };
-        GeConsoleStatus status = geConsoleMutationInstall(&provider);
+        GeConsoleMutationProvider provider = {
+            .gibs_mode = gePortGibsMode,
+            .set_gibs_mode = gePortGibsSetMode,
+            .set_player_god = geConsolePlayerAdapterGod,
+            .give_player_weapon = geConsolePlayerAdapterGive,
+            .set_player_ammo = geConsolePlayerAdapterAmmo
+        };
+        GeConsoleStatus status;
+        if (!geConsolePlayerAdapterInstall(&player_api)) {
+            printf("[getv][console] player mutation adapter: invalid provider\n");
+        }
+        status = geConsoleMutationInstall(&provider);
         printf("[getv][console] mutation command registry: %s (%u commands total)\n",
                geConsoleStatusName(status), geConsoleCommandCount());
     }

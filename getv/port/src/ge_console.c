@@ -547,6 +547,7 @@ const char *geConsoleStatusName(GeConsoleStatus status)
     case GE_CONSOLE_STATUS_REFUSED_SOLO:        return "refused_solo";
     case GE_CONSOLE_STATUS_REFUSED_NETPLAY:     return "refused_netplay";
     case GE_CONSOLE_STATUS_REFUSED_DETERMINISM: return "refused_determinism";
+    case GE_CONSOLE_STATUS_REFUSED_CONTEXT:     return "refused_context";
     case GE_CONSOLE_STATUS_HANDLER_ERROR:       return "handler_error";
     case GE_CONSOLE_STATUS_RESULT_OVERFLOW:     return "result_overflow";
     default:                                    return "unknown_status";
@@ -558,7 +559,7 @@ static GeConsoleSeverity ge_console_severity(GeConsoleStatus status)
     if (status == GE_CONSOLE_STATUS_OK) { return GE_CONSOLE_SEVERITY_INFO; }
     if (status == GE_CONSOLE_STATUS_QUEUE_FULL || status == GE_CONSOLE_STATUS_RESULT_OVERFLOW ||
         (status >= GE_CONSOLE_STATUS_REFUSED_MISSION &&
-         status <= GE_CONSOLE_STATUS_REFUSED_DETERMINISM)) {
+         status <= GE_CONSOLE_STATUS_REFUSED_CONTEXT)) {
         return GE_CONSOLE_SEVERITY_WARNING;
     }
     return GE_CONSOLE_SEVERITY_ERROR;
@@ -647,6 +648,7 @@ static int ge_console_result_status_valid(GeConsoleStatus status)
     case GE_CONSOLE_STATUS_REFUSED_SOLO:
     case GE_CONSOLE_STATUS_REFUSED_NETPLAY:
     case GE_CONSOLE_STATUS_REFUSED_DETERMINISM:
+    case GE_CONSOLE_STATUS_REFUSED_CONTEXT:
     case GE_CONSOLE_STATUS_HANDLER_ERROR:
         return 1;
     default:

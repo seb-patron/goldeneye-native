@@ -2,8 +2,8 @@
 
 Status: accepted architecture and active delivery plan. The console core, cross-renderer UI/input
 ownership, solo pause policy, always-available toggle, initial read-only handlers, and the runtime
-`gibs` mutation are implemented. Player/session mutations, the inspector, and native diagnostic
-capture remain follow-ons.
+`gibs` plus explicit-slot player mutations are implemented. Session transitions, the inspector,
+and native diagnostic capture remain follow-ons.
 
 Initial priority:
 
@@ -69,7 +69,7 @@ a focused PR.
 | `getv/port/src/ge_enemy_api.h` | Live enemies with stable `chrnum` and field-presence masks | Use it as the first live-entity provider and preserve absent-versus-zero semantics. |
 | `getv/port/src/ge_world_api.h` | Static objectives, routes, guards, props and doors | Label static world knowledge separately from live entity state. |
 | `getv/port/src/ge_event.{h,c}` | A small event bus with derived level/player/room/guard events | Add a bounded event history without replacing authoritative game-side events that may be added later. |
-| `getv/port/src/ge_gibs.{h,c}` | A tested policy model initialized from `GETV_GIBS` | Add an explicit runtime setter before exposing `gibs`; changing the environment after its cached first read is not sufficient. |
+| `getv/port/src/ge_gibs.{h,c}` | A tested policy model initialized from `GETV_GIBS` | The console uses its explicit runtime setter; changing the environment after the cached first read is not sufficient. |
 | `tools/collect_bug_report.py` | Sanitized logs, normalized screenshots, manifest/report generation and local-only output | Import a versioned game-session manifest rather than duplicating the reporting workflow. |
 | `tools/check_no_game_data.py` | Publication guard against ROMs, saves, archives and unexpected binary data | Keep exports semantic and reviewable; never put a save, quickstate, raw memory dump or opaque archive in a bundle. |
 
@@ -194,6 +194,9 @@ player show 0
 where 0
 objective list
 gibs <off|explosions|high_damage|always>
+god <slot> <on|off>
+give <slot> <weapon-name|item-id>
+ammo <slot> <0-1000|full>
 ```
 
 `gibs` is registered through a copied mutation-provider table and changes the cached port policy
@@ -203,6 +206,16 @@ before a mission or during local multiplayer, but the shared command pump refuse
 netplay before the setter can run. Changing policy preserves existing character/hit bookkeeping
 and consumes no gameplay RNG; the existing effect derives its private visual seed from tick and
 character identity.
+
+`god`, `give`, and `ammo` require an active mission and an occupied explicit slot. They are valid
+in local multiplayer but, like every mutation, are refused before their provider runs in netplay.
+The adapter is the only console code allowed to move the original game's implicit current-player
+cursor and restores the prior slot after success, unsupported context, or provider refusal.
+`give` accepts canonical player-facing weapon names, selected internal aliases, or validated
+`ITEM_IDS` values 1-32, then adds and equips the weapon. `ammo` sets the equipped weapon's
+ammunition through the game's existing clip/reserve policy with a bounded 0-1000 amount, or
+resolves `full` through that weapon's game-defined maximum. A weapon without ammunition is an
+explicit context refusal.
 
 `build` currently reports platform, architecture, renderer, console schema, and command schema.
 The authoritative source commit/build-compatibility identifier belongs to the versioned native
