@@ -21,7 +21,8 @@ Historical original-upstream anchor:
 | Add typed developer-console command core | [#16](https://github.com/seb-patron/goldeneye-native/pull/16), merged | `405a705296125c66e8523f047008beeb7687d6f9`, then `df0272401efe1a1d5ffe83c3eb03f5ef04182e3a`, then `c6d913295cc0ee74d97441ec5b2f8860c1c095ab` | none | pending |
 | Add cross-renderer developer console UI and input capture | [#17](https://github.com/seb-patron/goldeneye-native/pull/17), merged | `d4c884311372be06edb8616a9cd7594586eb43e9` | typed console core (#16) | pending after #16 |
 | Add game-thread-owned developer console solo pause policy | [#19](https://github.com/seb-patron/goldeneye-native/pull/19), merged | `c3559440568001b9087de1889ffa91b5bbd887c6` | typed console core (#16), console UI/input (#17) | pending after #16 and #17 |
-| Keep the developer console toggle available without the optional overlay | [#20](https://github.com/seb-patron/goldeneye-native/pull/20), open | `be55bc20819ef5bb24b4896ada1df9cd390ef9ac` | console core/UI/pause (#16, #17, #19) | pending after #16, #17 and #19 |
+| Keep the developer console toggle available without the optional overlay | [#20](https://github.com/seb-patron/goldeneye-native/pull/20), merged | `be55bc20819ef5bb24b4896ada1df9cd390ef9ac` | console core/UI/pause (#16, #17, #19) | pending after #16, #17 and #19 |
+| Add read-only developer-console session handlers | [#21](https://github.com/seb-patron/goldeneye-native/pull/21), open | `55c5c7d43441af7738401f7aede299a80c19d5d5` | console core/UI/pause/toggle (#16, #17, #19, #20) | pending after #16, #17, #19 and #20 |
 
 ## Replay audit
 

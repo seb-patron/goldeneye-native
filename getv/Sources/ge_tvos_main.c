@@ -54,6 +54,7 @@
 #include "gfx_sdl.h"
 #include "gfx_rendering_api.h"
 #include "gfx_window_manager_api.h"
+#include "ge_console_commands.h"
 
 // From libge.a. A plain getter over a global: safe with no N64 hardware, allocator
 // or scheduler running. Referencing it forces the archive to link and proves the
@@ -412,6 +413,27 @@ int SDL_main(int argc, char *argv[])
         extern void geEnemySourceInstall(int (*count)(void),
                                          int (*at)(int, float *, int));
         geEnemySourceInstall(gePortEnemyCount, gePortEnemyAt);
+    }
+
+    /* Install the read-only console through verified accessors, not game globals or renderer
+     * callbacks.  geConsoleReadInstall copies this table; every later handler still runs at the
+     * admitted game-thread boundary established by gePortConsoleGameTick(). */
+    {
+        extern int lvlGetSelectedDifficulty(void);
+        extern int gePortNetActive(void);
+        extern int gePortObjectiveCount(void);
+        extern int gePortObjectiveStatus(int index, int *out_status);
+        GeConsoleReadProvider provider = {
+            bossGetStageNum,
+            lvlGetSelectedDifficulty,
+            gePortNetActive,
+            gePlayerStateGet,
+            gePortObjectiveCount,
+            gePortObjectiveStatus
+        };
+        GeConsoleStatus status = geConsoleReadInstall(&provider);
+        printf("[getv][console] read-only command registry: %s (%u commands)\n",
+               geConsoleStatusName(status), geConsoleCommandCount());
     }
 
     printf("[getv] libge.a linked; bossGetStageNum() -> %d\n", bossGetStageNum());

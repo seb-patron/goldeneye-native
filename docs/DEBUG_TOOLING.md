@@ -1,6 +1,8 @@
 # Developer tooling plan
 
-Status: proposed architecture and delivery plan. No runtime implementation is included here.
+Status: accepted architecture and active delivery plan. The console core, cross-renderer UI/input
+ownership, solo pause policy, always-available toggle, and initial read-only command handlers are
+implemented. Mutation handlers, the inspector, and native diagnostic capture remain follow-ons.
 
 Initial priority:
 
@@ -158,7 +160,7 @@ The first useful command set is intentionally small:
 
 | Command family | Initial behavior |
 | --- | --- |
-| `help`, `commands`, `build`, `status` | Registry help, tested-binary identity and current session facts. |
+| `help`, `commands`, `build`, `status` | Registry help, current build compatibility facts and current session facts. |
 | `player list`, `player show <slot>`, `where <slot>` | Read through explicit-slot player APIs. |
 | `objective list` | Read objective status through a verified accessor; mark unavailable fields honestly. |
 | `god <slot> <on|off>` | Apply through a narrow game-side adapter. |
@@ -169,6 +171,33 @@ The first useful command set is intentionally small:
 Free camera and cheat adapters may follow once their existing behavior is verified. A shell,
 arbitrary scripting evaluator, memory poke, raw cvar setter and save/quickstate commands are not
 part of console v1.
+
+The initial read-only handlers are registered during native boot through a copied provider table.
+The provider names all four player slots explicitly and reaches live objectives only through
+`gePortObjectiveCount()` / `gePortObjectiveStatus()`; no handler reads `g_CurrentPlayer` or an
+objective pointer. `objective list` captures at most ten entries, reports total versus captured,
+marks failed provider reads unavailable, and encodes presence/status in bounded typed payloads.
+Provider state is sampled only when a command is queued, so an idle closed console does not add a
+per-tick player walk.
+
+Useful forms are:
+
+```text
+help
+help player show
+commands
+build
+status
+player list
+player show 0
+where 0
+objective list
+```
+
+`build` currently reports platform, architecture, renderer, console schema, and command schema.
+The authoritative source commit/build-compatibility identifier belongs to the versioned native
+`session.json` contract in issue #14; until that exists, this command does not invent one from the
+collector checkout or process environment.
 
 ### Command contract
 
@@ -189,7 +218,7 @@ typed payload. Diagnostic export uses this structure, not the raw line typed by 
 1. ROM-free parser/registry/result-ring library, bounded queue and unit tests.
 2. Cross-renderer ImGui console, SDL capture and focus handling.
 3. Owned solo pause behavior with explicit multiplayer and netplay policy.
-4. Read-only session/player/objective commands and narrowly scoped mutation adapters.
+4. Read-only session/player/objective commands through a bounded provider contract.
 5. Runtime gibs setter and the initial mutation commands, each with focused tests or harnesses.
 
 These may be separate PRs under one issue. A PR must not mix a renderer fix, several unrelated
