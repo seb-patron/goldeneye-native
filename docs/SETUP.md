@@ -30,7 +30,8 @@ Read the rest of this document when the installer stops on something, or when yo
 why a step is where it is. Every ordering constraint the installer encodes is explained below,
 and several of them are the kind that fail silently rather than loudly: the namespacing pass in
 3.6 corrupts the tree if it runs twice, `enable_bg_extraction.py` must run before extraction
-rather than after, and `0002-assets.patch` goes on after the namespacing pass and not before.
+rather than after, the logo byte-order transform runs only after local extraction, and
+`0002-assets.patch` goes on after the namespacing pass and not before.
 
 Read in order:
 
@@ -328,7 +329,7 @@ be applied *after* the assets exist:
   `src/`, eight under `include/`, and one new generator under `tools/`. It touches no asset paths
   at all, and it does not touch `scripts/`. It also creates five files that do not exist upstream,
   including `tools/gen_propdef_layout.py`, which section 3.5 calls.
-- **`0002-assets.patch`** - 212 KB across eight generated asset files. It cannot be applied yet,
+- **`0002-assets.patch`** - 45 KB across seven generated asset files. It cannot be applied yet,
   because the files it patches do not exist until you generate them from your ROM. Section 3.5
   applies it at the correct point.
 
@@ -507,11 +508,17 @@ python3 ../../tools/uniquify_asset_symbols.py assets/obseg/setup/u
 python3 ../../tools/uniquify_asset_symbols.py assets/obseg/stan
 ```
 
-Then, and only then, apply the second patch:
+Then convert the locally generated logo arrays and apply the second patch:
 
 ```bash
+python3 ../../tools/transform_rarewarelogo.py
 git apply ../../getv/patches/0002-assets.patch
 ```
+
+`transform_rarewarelogo.py` accepts no asset path from the command line. It is confined to the
+expected ignored `vendor/ge-decomp/assets/rarewarelogo.c`, validates all six declarations and
+their initializer grammar before writing, expands each `u32` most-significant byte first, and is
+idempotent. It never contains or reports the generated values.
 
 Why it is six invocations rather than one:
 
@@ -536,6 +543,9 @@ Why it is six invocations rather than one:
 - **`0002-assets.patch` goes on afterwards.** Run over `assets/font` the tool double-prefixes an
   already-prefixed symbol (`font_fontBankGothic_fontBankGothic_kerning`) while leaving the uses
   alone, which breaks both font translation units. The patch carries the corrected files.
+- **The logo conversion is local tooling, not a patch hunk.** A unified diff would retain both
+  representations of the extracted data. The transformer instead parses the user's generated
+  arrays in place after extraction and before compilation.
 
 `--dry-run` works as a regression gate - it exits non-zero if anything is still left to rename:
 

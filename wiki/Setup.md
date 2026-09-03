@@ -63,7 +63,7 @@ build omits the feature and the entry points compile away.
 tools/fetch-thirdparty.sh fetch                              # the fifteen files
 git clone https://github.com/n64decomp/007 vendor/ge-decomp  # the game's C source
 # apply getv/patches/0001-source.patch, place your ROM, generate the asset
-# sources from it, then apply getv/patches/0002-assets.patch
+# sources from it, run tools/transform_rarewarelogo.py locally, then apply 0002
 cd getv && ./build_mac.sh sdl && ./build_mac.sh all && ./build_mac.sh run
 ```
 

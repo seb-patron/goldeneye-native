@@ -48,7 +48,10 @@ apply source and third-party patches
 validate and convert the user's local ROM
         |
         v
-generate local assets and apply the asset-stage patch
+generate local assets and namespace generated symbols
+        |
+        v
+transform the local logo declarations, then apply the asset-stage patch
         |
         v
 compile game + assets + port layer

@@ -351,13 +351,15 @@ pack image at 4x and rendered.
 
 [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) has the measurements.
 
-## Reproducible, and free of game data
+## Reproducible local asset boundary
 
-No ROM, no extracted asset and no decompiled game source is stored in this repository. What is
-stored is the port layer, the build scripts, and patches that are applied to a decompilation you
-clone yourself. `tools/check_patches.sh` proves every patch still applies to a clean checkout,
-and the installer verifies each step actually produced what it claimed rather than trusting an
-exit code.
+The current tracked tree is designed not to store a ROM, extracted asset, or decompiled game
+source. What is stored is the port layer, build scripts, and patches applied to a decompilation
+you clone yourself. One generated logo declaration needs a native byte-order conversion; the
+installer performs it only on the ignored asset extracted from the user's ROM, rather than
+carrying either representation in a patch. `tools/check_patches.sh` verifies the remaining
+patches, and `tools/check_no_game_data.py` rejects suspicious dense hexadecimal arrays as well as
+known game-artifact shapes. These checks are safeguards, not a blanket legal conclusion.
 
 ## Known limitations
 
@@ -391,11 +393,10 @@ is why the frame-rate problem is fixable here and not there.
 **Do I need a ROM?** Yes, your own. Nothing playable ships here. The installer reads your copy,
 extracts the assets it needs on your machine, and never uploads anything.
 
-**Is it legal?** The decompilation is clean-room work by the
-[`n64decomp/007`](https://github.com/n64decomp/007) project and contains no Nintendo or Rare
-copyrighted data. This repository adds a port layer on top of it. You supply your own cartridge
-dump. GoldenEye 007 and its trademarks belong to their owners; this project is unaffiliated with
-Nintendo, Rare, MGM or EON.
+**Is it legal?** This project does not make a blanket legal claim. The provenance record in
+[`docs/LICENSING.md`](docs/LICENSING.md) identifies unresolved upstream and renderer questions,
+and the build requires a cartridge dump supplied locally by the user. GoldenEye 007 and its
+trademarks belong to their owners; this project is unaffiliated with Nintendo, Rare, MGM or EON.
 
 **Will it run on my machine?** If it has a GPU from the last decade and runs macOS, Linux or
 Windows, almost certainly. It is not demanding; the original targeted 1996 hardware.

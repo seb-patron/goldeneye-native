@@ -8,55 +8,30 @@ One question in particular - the licence covering the Fast3D renderer and the au
 project inherited - is **unresolved**, and section 4 sets out the evidence and the available
 options without choosing among them.
 
-Last verified 2026-08-22 against the working tree and the repository's git history. Every claim
+Last verified 2026-09-01 against the working tree and the repository's advertised Git refs. Every claim
 below states how it was checked.
 
 ---
 
 ## 1. What this repository contains, and what it does not
 
-### It does not contain game data
+### Current-tree and history status
 
-There is **no ROM, no extracted assets, no game data, no textures, no audio and no level data**
-in this repository, in either the working tree or the git history.
+The current tracked tree is intended not to contain a ROM or locally extracted game asset. That
+statement is deliberately narrower than the former claim about the repository's entire history.
+A generated-asset patch was found to retain both native-word and byte-stream representations of
+the Rareware logo in reachable commits. The current-tree remediation removes that whole hunk and
+performs the conversion only after the user extracts the source locally.
 
-How that was checked:
+The publication guard now rejects suspicious high-density hexadecimal arrays in text and patch
+files, in addition to the existing filename, header, archive, binary, and encoded-payload checks.
+Synthetic fixtures exercise the guard and the local transformer without using game data.
 
-- **`git ls-files`** - the repository tracks **95 files**. Every one was enumerated. They are:
-  the port layer under `getv/port/` (C sources and headers), three build wrappers
-  (`getv/build.sh`, `tvos/build.sh`, `sm64tv/build.sh`), four `xcodegen` project manifests,
-  four patch files under `*/patches/`, eight Python tools under `tools/`, two documents under
-  `docs/`, `.gitignore`, and fifteen PNGs plus their `Contents.json` manifests under
-  `getv/Sources/Assets.xcassets/` (see section 2.1 - those PNGs are not game data,
-  but they are also not this project's own work).
-- **Git history, not just the current tree.** A file deleted in a later commit is still
-  distributed with the repository, so the tip being clean proves nothing on its own. Two checks
-  were run over all 19 commits on `main`:
-  - Every blob ever committed was resolved with `git rev-list --objects --all` piped through
-    `git cat-file --batch-check` and sorted by size. **42 blobs exceed 500 KB**; the largest is
-    3.59 MB. Every one of them is SDL2 upstream source or an Xcode build cache (section 2.2).
-    `.git` totals 28 MB.
-  - Every distinct path ever committed was enumerated - **2,519 paths**, of which 2,405 are
-    under `deps/` (the vendored SDL2 tree). That list was matched against every game-data shape:
-    `*.z64`, `*.n64`, `*.v64`, `*.otr`, `*.o2r`, `base.zip`, `libge*`, `getv_shot*`, `/assets/`,
-    `obseg`, `*.inc.c`, `build-mac*`, `build-sim*`, `scratchpad`. **The only hit was
-    `tools/gen_obseg_blobs.py`** - a generator script whose filename contains "obseg", not data.
-
-  **No ROM, extracted asset, asset object file, frame capture or `base.zip` has ever been
-  committed to this repository.** Nothing needs to be rewritten out of history on game-data
-  grounds, and no history rewrite has been attempted.
-- **Ignore rules verified against real paths, not read as text.** `git check-ignore -v` was run
-  against each game-derived path that exists on disk today. All are matched:
-  `roms/` (the ROM dumps), `getv/build/libge.a` and its 1,842 asset object files,
-  105 `getv/build-*` per-slot build directories, `getv/getv_shot.bmp`,
-  `sm64tv/Resources/res/base.zip`, `tvos/Resources/data/pd.ntsc-final.z64`, and `vendor/`.
-- **A whole-tree sweep for game-data-shaped files** outside the ignored directories found
-  nothing untracked and unignored: every hit was already covered by a rule.
-- **`git status --untracked-files=all`** lists **71** untracked, unignored files - everything a
-  `git add -A` would stage. All are shell scripts, Python tools, Markdown documents or small C
-  sources. None is binary and none exceeds 200 KB. For comparison, before the ignore rules were
-  hardened this figure was in the region of 41,800 files, including 31 MB `libge.a` archives and
-  per-slot object files compiled from extracted ROM data.
+A complete advertised-ref rewrite must still be reviewed and explicitly approved before it is
+pushed. Until that happens, remote branch or tag history can continue to expose the old objects;
+pull-request refs, release archives, Pages deployments, Actions artifacts, caches, forks, and
+third-party clones require separate review or cannot be recalled. This is a factual remediation
+record, not a conclusion that the project or its dependencies are legally clean.
 
 ### It does contain
 
@@ -68,7 +43,7 @@ How that was checked:
 | `getv/port/configfile.h`, `getv/port/fs/fs.h` | Verbatim copies of sm64ex headers. **See section 4.4.** |
 | `getv/port/fast3d/ge_sky_rdp.{c,h}` | Written for this project. Decodes GoldenEye's hand-assembled RDP triangle commands. |
 | `getv/port/include/stb/stb_image.h` | stb_image v2.19 by Sean Barrett. Dual-licensed MIT / public domain (Unlicense); the notice is retained verbatim in the file. |
-| `tools/`, `getv/patches/` | Build tooling and patches. This project's own work. |
+| `tools/`, `getv/patches/` | Build tooling and source/asset-stage patches; review provenance per file. |
 | `getv/Sources/Assets.xcassets/` | Apple TV app icon and top-shelf artwork. **See section 2.** |
 
 Two tracked entries are **symlinks, not files** (git mode `120000`):

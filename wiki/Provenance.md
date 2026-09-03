@@ -28,7 +28,8 @@ build came out of somebody's own cartridge dump.
 
 ## The rules that follow from that
 
-- No ROM, no extracted assets and no game data are in this repository, and none ever will be.
+- The current tracked tree must not contain a ROM, extracted asset, or game data. Historical
+  claims require a complete reachable-history audit; a clean checkout alone is not proof.
 - `.gitignore` blocks `roms/`, every `*.z64` / `*.n64` / `*.v64` / `*.elf`, all `getv/build-*`
   directories because they contain object files compiled from extracted ROM data, frame
   captures, and `vendor/` and `deps/` themselves. Do not defeat those rules.

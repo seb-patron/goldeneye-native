@@ -617,6 +617,11 @@ if (($asked -and -not $bare) -or ((-not $asked) -and (Test-Path $marker))) {
   Info "done"
 }
 
+# Convert the generated logo words into an explicit byte stream locally. The script is
+# path-confined, validates every expected declaration before writing, and is safe to rerun.
+& python "$root\tools\transform_rarewarelogo.py"
+if ($LASTEXITCODE -ne 0) { Die "local Rareware logo transform failed" }
+
 # And only now 0002, which carries the corrected font files. Over assets/font the tool
 # double-prefixes an already-prefixed symbol while leaving the uses alone, so the patch supplies
 # those two translation units instead of the tool producing them.
