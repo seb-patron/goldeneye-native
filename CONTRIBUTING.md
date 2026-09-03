@@ -94,7 +94,11 @@ There are two patches, split by *when* they can be applied rather than by subjec
 | Patch | Covers | Applied |
 |---|---|---|
 | `0001-source.patch` | `src/`, `include/`, `tools/` | right after cloning the decomp |
-| `0002-assets.patch` | eight generated asset files | at the end of the asset pipeline |
+| `0002-assets.patch` | seven generated asset files | at the end of the asset pipeline |
+
+The generated Rareware logo source is not part of that patch. After local extraction,
+`tools/transform_rarewarelogo.py` validates its six expected arrays and converts their native
+words to an explicit big-endian byte stream in the ignored asset tree.
 
 Regenerate each over its own paths. A bare `git diff` sweeps the whole extracted asset tree into
 `0001`; see [`getv/patches/README.md`](getv/patches/README.md) for the exact commands.

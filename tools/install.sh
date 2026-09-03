@@ -608,6 +608,11 @@ $unexpected"
     info "done"
 fi
 
+# Convert the generated logo words into an explicit byte stream locally. The script is
+# path-confined, validates all expected declarations before writing, and is safe to rerun.
+# This replaces the old generated-data hunk that must never be stored in this repository.
+python3 "$ROOT/tools/transform_rarewarelogo.py" || die "local Rareware logo transform failed"
+
 # And only now 0002, which carries the corrected font files. Over assets/font the tool
 # double-prefixes an already-prefixed symbol while leaving the uses alone, so the patch
 # supplies those two translation units instead of the tool producing them.

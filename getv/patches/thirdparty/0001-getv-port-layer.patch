@@ -2719,10 +2719,10 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 + * Rareware-logo frame of stage 90.
 + *
 + * The decode below is correct for a byte stream. The hazard is upstream: assets that
-+ * declare their pixels as `u32 img[] = { 0xED0FCC4F, ... }` (assets/rarewarelogo.c:14, and
-+ * D_02004FE8 / D_02005FF0) are native integer stores. On the big-endian N64 that lays down
-+ * ED 0F CC 4F; on little-endian arm64 it lays down 4F CC 0F ED, so texel 0 decodes as
-+ * 0x4FCC instead of 0xED0F. Same family and same mechanism as §1.22.
++ * declare their pixels as native `u32` arrays. Those stores have target-dependent
++ * memory byte order, while the decoder consumes an explicit big-endian byte stream. The
++ * locally extracted logo source is converted to that byte representation before build.
++ * Other native-word producers still require this compatibility mode.
 + *
 + *   unset / 1        reverse each 4-byte group (undo a native u32 store)  <- the default
 + *   GETV_RGBA16BE=2  swap only the two bytes of each texel (u16 store)    <- control

@@ -34,7 +34,8 @@ and screenshots of the running game attached to an issue or pull request. Screen
 artifacts: keep them outside the checkout and never commit them to Git.
 
 The automated checker catches forbidden names, N64 ROM headers, archives, encoded binary-looking
-payloads and unexpected binaries, including some renamed files:
+payloads, suspicious high-density hexadecimal arrays, and unexpected binaries, including some
+renamed files:
 
 ```bash
 python3 tools/check_no_game_data.py --changed origin/main
