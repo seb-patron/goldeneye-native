@@ -31,18 +31,22 @@ tools/                     Python generators (prototypes, link stubs, asset blob
 re-applied.
 
 They are split by *when* they can be applied, not by subject. `0001-source.patch` covers `src/`,
-`include/` and `tools/`, and goes on immediately after cloning. `0002-assets.patch` covers eight
+`include/` and `tools/`, and goes on immediately after cloning. `0002-assets.patch` covers seven
 generated asset files, which do not exist until the ROM has been extracted, so it goes on at the
 end of the asset pipeline. Keeping the split means regenerating each one over its own paths:
 
 ```bash
 cd vendor/ge-decomp
 git diff -- src include tools > ../../getv/patches/0001-source.patch
-git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c \
+git diff -- assets/animationtable_data.h assets/font_dl.c \
             assets/font/fontBankGothic.c assets/font/fontZurichBold.c \
             assets/obseg/setup/e/UsetuplenZ.c assets/obseg/setup/j/UsetuplenZ.c \
             assets/obseg/setup/u/UsetuplenZ.c > ../../getv/patches/0002-assets.patch
 ```
+
+The logo source is deliberately absent from the patch. Once it has been generated from the
+user's ROM, `tools/transform_rarewarelogo.py` converts its six expected native-word arrays to an
+explicit big-endian byte stream inside the ignored local asset tree.
 
 Regenerating `0001` with a bare `git diff` instead will sweep the entire extracted asset tree into
 it - several hundred megabytes of ROM-derived data, which must never be committed.

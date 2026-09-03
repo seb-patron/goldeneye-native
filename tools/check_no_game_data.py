@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SCAN_BYTES = 1024 * 1024
+SCAN_BYTES = 8 * 1024 * 1024
 
 ROM_MAGICS = {
     b"\x80\x37\x12\x40": "big-endian N64 ROM header",
@@ -37,6 +37,15 @@ ALLOWED_BINARY_SUFFIXES = {
     ".woff", ".woff2", ".pdf", ".ogg", ".wav",
 }
 BASE64_PAYLOAD = re.compile(rb"(?:[A-Za-z0-9+/]{4096,}={0,2})")
+HEX_LITERAL = re.compile(r"\b0[xX][0-9A-Fa-f]{2,16}(?:[uUlL]*)\b")
+BRACED_TEXT = re.compile(r"\{([^{}]*)\}", re.DOTALL)
+HEX_ARRAY_MIN_LITERALS = 128
+HEX_ARRAY_MIN_DENSITY = 0.65
+# This port-owned launcher icon is already reviewed and intentionally stored as a C header.
+# The exception is exact-path only; renamed or copied dense arrays are still rejected.
+ALLOWED_DENSE_HEX_ARRAY_PATHS = {
+    ROOT / "getv" / "port" / "src" / "ge_icon.h",
+}
 
 
 def _display(path: Path) -> str:
@@ -44,6 +53,26 @@ def _display(path: Path) -> str:
         return str(path.resolve().relative_to(ROOT))
     except (OSError, ValueError):
         return path.name
+
+
+def _has_dense_hex_array(data: bytes) -> bool:
+    """Identify large literal arrays without retaining or reporting their values."""
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    for match in BRACED_TEXT.finditer(text):
+        body = match.group(1)
+        literals = list(HEX_LITERAL.finditer(body))
+        if len(literals) < HEX_ARRAY_MIN_LITERALS:
+            continue
+        non_whitespace = sum(not char.isspace() for char in body)
+        if non_whitespace == 0:
+            continue
+        literal_characters = sum(len(item.group(0)) for item in literals)
+        if literal_characters / non_whitespace >= HEX_ARRAY_MIN_DENSITY:
+            return True
+    return False
 
 
 def inspect_path(path: Path, *, allow_native_bmp: bool = False) -> list[str]:
@@ -92,6 +121,14 @@ def inspect_path(path: Path, *, allow_native_bmp: bool = False) -> list[str]:
         failures.append(f"{display}: unexpected binary content")
     if BASE64_PAYLOAD.search(data):
         failures.append(f"{display}: contains a suspicious encoded binary payload")
+    try:
+        allowed_dense_array = path.resolve() in {
+            allowed.resolve() for allowed in ALLOWED_DENSE_HEX_ARRAY_PATHS
+        }
+    except OSError:
+        allowed_dense_array = False
+    if not allowed_dense_array and _has_dense_hex_array(data):
+        failures.append(f"{display}: contains a suspicious high-density hexadecimal array")
     return failures
 
 

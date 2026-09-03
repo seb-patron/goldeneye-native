@@ -11,7 +11,7 @@ Split by *when* they can be applied rather than by subject.
 | Patch | Size | Covers | Applied |
 |---|---|---|---|
 | `0001-source.patch` | 1.4 MB, 140 files | `src/` (131), `include/` (8), `tools/` (1) | immediately after cloning the decomp |
-| `0002-assets.patch` | 212 KB, 8 files | generated asset sources | at the end of the asset pipeline |
+| `0002-assets.patch` | 45 KB, 7 files | generated asset sources | at the end of the asset pipeline |
 | `0006-fov-live-setter.patch` | 1 file | `src/fr.c` | after `0001` |
 | `0007-load-trace.patch` | 1 file | asset load tracing | after `0001` |
 | `0008-crosshair-color.patch` | 1 file | `src/game/gunfire.c`, colour and scale | after `0001` |
@@ -120,6 +120,7 @@ git apply ../../getv/patches/0021-stan-pointer-return-decls.patch
 git apply ../../getv/patches/0022-lockstep-stop-shuffling-every-frame.patch
 git apply ../../getv/patches/0023-enemy-gibs.patch
 # ... run the asset pipeline (docs/SETUP.md 3.5) and the namespacing pass (3.6) ...
+python3 ../../tools/transform_rarewarelogo.py
 git apply ../../getv/patches/0002-assets.patch
 ```
 
@@ -163,11 +164,15 @@ extracted asset tree into `0001` - hundreds of megabytes of ROM-derived data.
 ```bash
 cd vendor/ge-decomp
 git diff -- src include tools > ../../getv/patches/0001-source.patch
-git diff -- assets/animationtable_data.h assets/font_dl.c assets/rarewarelogo.c \
+git diff -- assets/animationtable_data.h assets/font_dl.c \
             assets/font/fontBankGothic.c assets/font/fontZurichBold.c \
             assets/obseg/setup/e/UsetuplenZ.c assets/obseg/setup/j/UsetuplenZ.c \
             assets/obseg/setup/u/UsetuplenZ.c > ../../getv/patches/0002-assets.patch
 ```
+
+Never add `assets/rarewarelogo.c` to this command. Its required declaration and byte-order change
+is performed only on the contributor's ignored, locally extracted file by
+`tools/transform_rarewarelogo.py`.
 
 **Run `bash tools/check_patches.sh` after regenerating anything.** It clones a pristine decomp
 and applies every patch to that, which is the one thing a working tree cannot tell you: a tree
@@ -181,7 +186,7 @@ regenerated patch onto a pristine copy before committing it.
 
 ## Why 0002 is separate
 
-The eight files in `0002` do not exist in a fresh decomp. They are produced from the ROM by the
+The seven files in `0002` do not exist in a fresh decomp. They are produced from the ROM by the
 pipeline in `docs/SETUP.md` section 3.5. Applying it early fails, and applying it before
 `uniquify_asset_symbols.py` runs gets the font symbols double-prefixed.
 

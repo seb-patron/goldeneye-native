@@ -49,6 +49,42 @@ class PublicArtifactSafetyTests(unittest.TestCase):
             path.write_bytes(b"A" * 5000)
             self.assertTrue(any("encoded binary payload" in item for item in safety.inspect_path(path)))
 
+    def test_detects_dense_hex_arrays_in_source_and_patches(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            values = [f"0x{index % 251:02X}" for index in range(160)]
+            source = root / "generated.c"
+            source.write_text(
+                "unsigned char invented[] = {\n    " + ", ".join(values) + "\n};\n",
+                encoding="utf-8",
+            )
+            patch = root / "generated.patch"
+            patch.write_text(
+                "diff --git a/invented.c b/invented.c\n"
+                "--- a/invented.c\n"
+                "+++ b/invented.c\n"
+                "@@ -1,3 +1,3 @@\n"
+                "+unsigned char invented[] = {\n"
+                "+    " + ", ".join(values) + "\n"
+                "+};\n",
+                encoding="utf-8",
+            )
+            for path in (source, patch):
+                self.assertTrue(
+                    any("high-density hexadecimal array" in item for item in safety.inspect_path(path))
+                )
+
+    def test_allows_ordinary_small_hex_constants(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "constants.c"
+            path.write_text(
+                "static const unsigned invented[] = {0x10, 0x20, 0x30, 0x40};\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(
+                any("high-density hexadecimal array" in item for item in safety.inspect_path(path))
+            )
+
 
 class BugReportCollectorTests(unittest.TestCase):
     def test_sanitizes_logs_and_normalizes_native_screenshot(self) -> None:
