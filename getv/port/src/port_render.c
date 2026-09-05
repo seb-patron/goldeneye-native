@@ -27,6 +27,7 @@
 #include "ge_sky_rdp.h"
 #include "ge_gpu_timer.h"   /* GETV_GPUTIME=1: GPU busy time vs CPU time in the present */
 #include "ge_gl_debug.h"    /* GETV_GLDEBUG=1: who raises the GL_INVALID_OPERATION, and when */
+#include "ge_semantic_row.h"
 
 /* ---- GETV_SKYDUMP: prove the sky RDP triangles are recoverable -----------------
  *
@@ -134,6 +135,7 @@ void gePortRenderDisplayList(void *firstGdl)
     int rendered = (int)ge_rendered_frames;
 
     if (!ge_render_ready || firstGdl == NULL) {
+        geSemanticRowEnd();
         return;
     }
 
@@ -221,6 +223,7 @@ void gePortRenderDisplayList(void *firstGdl)
         geGpuTimerFrameEnd();
     }
     ge_rendered_frames++;
+    geSemanticRowEnd();
     rendered = (int)ge_rendered_frames;
 
     /* ---- GETV_PACETRACE=1: the two frame deltas, side by side, per frame -----------

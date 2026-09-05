@@ -43,6 +43,7 @@
 #include "ge_console.h"
 #include "ge_net.h"
 #include "ge_player_api.h"
+#include "ge_semantic_row.h"
 
 #if defined(_WIN32)
   #include <winsock2.h>
@@ -607,11 +608,15 @@ int gePortNetTick(void)
     GePlayerInput local;
     unsigned short pad;
 
-    if (!ge_net_active) { return gePortConsoleAdmitGameTick(1); }
+    if (!ge_net_active) {
+        return geSemanticRowAdmit(gePortConsoleAdmitGameTick(1));
+    }
 
     gePortNetPoll();
 
-    if (!geNetIsOpen()) { return gePortConsoleAdmitGameTick(1); }
+    if (!geNetIsOpen()) {
+        return geSemanticRowAdmit(gePortConsoleAdmitGameTick(1));
+    }
 
     pad = joyGetButtons(0, (unsigned short) GE_NET_ANY_BUTTON);
     memset(&local, 0, sizeof local);
@@ -619,5 +624,5 @@ int gePortNetTick(void)
     local.stick_x = joyGetStickX(0);
     local.stick_y = joyGetStickY(0);
 
-    return gePortConsoleAdmitGameTick(geNetTickBegin(&local));
+    return geSemanticRowAdmit(gePortConsoleAdmitGameTick(geNetTickBegin(&local)));
 }
