@@ -1,0 +1,1 @@
+Disposable issue 46 protection acceptance fixture. Never merge into main.
