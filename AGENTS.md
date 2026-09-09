@@ -58,6 +58,8 @@ and attachment manually.
 
 Repository skills are available at `.agents/skills/`:
 
+- Use `$investigate-goldeneye-bug` to reproduce and narrow a failure with bounded local evidence
+  before changing code or preparing a public report.
 - Use `$report-goldeneye-bug` to collect a safe, reproducible bug report.
 - Use `$prepare-goldeneye-pr` to prepare a focused pull request with measured evidence.
 

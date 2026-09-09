@@ -61,10 +61,11 @@ frame rather than require one fixed comparison matrix in every case.
 Real Facility reproduction remains a private acceptance test. Its sanitized outcome may inform a
 future synthetic fixture, but no local game data or executable belongs in these records.
 
-Claude Sonnet and Opus were not run because this host has no Claude CLI. The shared Claude
-entrypoint is included and fingerprinted, but behavioral claims for Claude remain pending until a
-runner adapter and authenticated CLI are available. Reasoning-effort comparison also remains
-pending; this initial matrix holds effort constant at medium.
+Claude Sonnet and Opus were not run because the Claude CLI was not discoverable on this task's
+`PATH` or common Windows/WSL install locations. The shared Claude entrypoint is included and
+fingerprinted, but behavioral claims for Claude remain pending until the installed command is
+located and a runner adapter is added. Reasoning-effort comparison also remains pending; this
+initial matrix holds effort constant at medium.
 
 ## Records
 

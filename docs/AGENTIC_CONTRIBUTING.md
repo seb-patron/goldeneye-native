@@ -53,8 +53,10 @@ An agent editing anything under `.github/workflows/`, `tools/`, or `getv/patches
 [`docs/CI_TRUST.md`](CI_TRUST.md), which inventories what CI actually fetches, compiles and
 executes, and records the current (unactivated) merge-protection proposal.
 
-The two optional repository skills are:
+The three optional repository skills are:
 
+- `$investigate-goldeneye-bug`: reproduce and narrow a gameplay, crash, rendering,
+  configuration or build failure on Windows, macOS or Linux, leaving a bounded local handoff;
 - `$report-goldeneye-bug`: reproduce one problem, collect sanitized evidence and prepare a GitHub
   issue draft;
 - `$prepare-goldeneye-pr`: implement one fix, capture regression evidence, validate it and prepare

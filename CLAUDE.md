@@ -6,7 +6,8 @@
 
 - The standard `SKILL.md` entrypoints under `.claude/skills/` link to the complete workflows
   under `.agents/skills/`. Read the linked instructions before acting. There is no generation step.
-- Invoke `/prepare-goldeneye-pr` or `/report-goldeneye-bug`. Use the `gh` CLI for GitHub operations.
+- Invoke `/investigate-goldeneye-bug`, `/report-goldeneye-bug` or `/prepare-goldeneye-pr` as the
+  task requires. Use the `gh` CLI for GitHub operations.
 - Review the complete diff and proposed publication with the human, following `AGENTS.md`.
   `.claude/settings.json` uses native permission prompts for GitHub operations and pushes;
   there are no approval tokens to create. Some read-only GitHub commands also prompt because the
