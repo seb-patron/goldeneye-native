@@ -255,6 +255,14 @@ class SkillEvalTests(unittest.TestCase):
             path.write_bytes(b"first\r\nsecond\r\n")
             self.assertEqual(evaluation.source_digest(path), expected)
 
+    def test_run_case_filter_accepts_multiple_scenarios(self):
+        args = SimpleNamespace(repeats=1, jobs=1, timeout=1,
+                               output=Path("unused-new-record.json"), codex="missing",
+                               base="base", head="head", case=["one", "two"])
+        with patch.object(evaluation.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(ValueError, "Codex CLI"):
+                evaluation.run(args)
+
     def test_regrade_rejects_unrelated_evaluator(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "record.json"

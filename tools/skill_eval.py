@@ -455,9 +455,11 @@ def run(args):
     snapshots = {label: policy_snapshot(ref) for label, ref in [("before", args.base), ("after", args.head)]}
     cases = load_cases()
     if args.case:
-        cases = [c for c in cases if c["id"] == args.case]
-        if not cases:
-            raise ValueError("unknown case")
+        selected = set(args.case)
+        cases = [c for c in cases if c["id"] in selected]
+        missing = selected - {c["id"] for c in cases}
+        if missing:
+            raise ValueError("unknown case: " + ", ".join(sorted(missing)))
     record = {"version": VERSION, "rubric_version": RUBRIC_VERSION,
               "started_utc": datetime.now(timezone.utc).isoformat(),
               "model": args.model, "reasoning_effort": args.effort, "repeats": args.repeats,
@@ -625,7 +627,8 @@ def main():
     runner.add_argument("--jobs", type=int, default=2)
     runner.add_argument("--timeout", type=int, default=240)
     runner.add_argument("--codex", default="codex")
-    runner.add_argument("--case")
+    runner.add_argument("--case", action="append",
+                        help="scenario ID; repeat to select multiple cases")
     runner.add_argument("--output", type=Path, required=True)
     checker = commands.add_parser("replay")
     checker.add_argument("record", type=Path)
