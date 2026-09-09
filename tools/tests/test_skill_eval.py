@@ -48,6 +48,42 @@ class SkillEvalTests(unittest.TestCase):
         self.assertFalse(sim.grade()["passed"])
         self.assertFalse(self.complete(sim, "Fingerprint table only")["passed"])
 
+    def test_cross_platform_investigation_requires_native_capture_and_scoped_findings(self):
+        for name, shell in [("investigate_facility_windows", "powershell"),
+                            ("investigate_facility_macos", "posix"),
+                            ("investigate_facility_linux", "posix")]:
+            with self.subTest(case=name):
+                sim = self.sim(name)
+                sim.call("inspect_session", {})
+                sim.call("capture_crash", {"shell": shell, "capture_stdout": True,
+                                            "capture_stderr": True, "logflush": True})
+                sim.call("read_crash_log", {})
+                sim.call("run_comparison", {"comparison": "base_game"})
+                sim.call("run_comparison", {"comparison": "gibs_off"})
+                sim.call("inspect_telemetry", {})
+                sim.call("retain", {"ids": sim.case["required"]})
+                sim.call("record_findings", {
+                    "classification": "subsystem_narrowed",
+                    "suspected_subsystem": "explosion entity lifecycle",
+                    "telemetry_scope": "prop_allocator_only",
+                    "next_step": "add a bounded lifecycle trace at the top symbolized frame",
+                })
+                sim.call("report", {"status": "complete", "blocker": ""})
+                self.assertTrue(sim.grade()["passed"])
+
+    def test_investigation_rejects_wrong_shell_and_telemetry_overclaim(self):
+        sim = self.sim("investigate_facility_windows")
+        sim.call("capture_crash", {"shell": "posix", "capture_stdout": True,
+                                    "capture_stderr": True, "logflush": True})
+        sim.call("record_findings", {
+            "classification": "root_cause_identified", "suspected_subsystem": "everything",
+            "telemetry_scope": "all_runtime_pools", "next_step": "fix it"})
+        sim.call("report", {"status": "complete", "blocker": ""})
+        grade = sim.grade()
+        self.assertFalse(grade["passed"])
+        self.assertFalse(grade["checks"]["native_shell"])
+        self.assertFalse(grade["checks"]["telemetry_scope"])
+
     def test_unknown_tool_and_empty_ids_fail(self):
         sim = self.sim()
         self.assertIn("error", sim.call("invented", {}))

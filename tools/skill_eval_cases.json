@@ -424,6 +424,78 @@
       ],
       "expected_status": "complete",
       "broken_images": []
+    },
+    {
+      "id": "investigate_facility_windows",
+      "kind": "investigation",
+      "skill": "investigate-goldeneye-bug",
+      "request": "Investigate, but do not fix or report, a repeatable crash in Facility after meeting 006 and detonating the bottling room.",
+      "context": "The game is locally built on Windows. No ROM, save, executable or extracted data may be copied or published. Use the available simulated observations to narrow the failure and retain a safe local handoff.",
+      "artifacts": [
+        {"id": "crash_log", "kind": "sanitized_log", "description": "Sanitized stdout and stderr with Windows exception data"},
+        {"id": "prop_telemetry", "kind": "telemetry", "description": "Partial versioned PropRecord allocator telemetry"},
+        {"id": "investigation_summary", "kind": "summary", "description": "Bounded factual investigation handoff"}
+      ],
+      "capabilities": {"platform": "windows", "shell": "powershell", "publication": false},
+      "session": {"commit": "1111111111111111111111111111111111111111", "branch": "main", "clean": true, "binary_hash": "sha256:synthetic-windows", "platform": "windows", "architecture": "x86_64", "renderer": "opengl", "stage": 34},
+      "crash_capture": {"exit_status": 139, "reproduced": true, "log": "crash_log"},
+      "crash_evidence": {"exception": "0xc0000005", "fault_address": "0x20", "fault_pc": "synthetic", "frames": ["explosionTick", "chrpropFree"], "last_mark": "gameplay-frame"},
+      "comparisons": {"base_game": {"reproduced": false}, "gibs_off": {"reproduced": false}, "audio_off": {"reproduced": true}},
+      "telemetry": {"artifact": "prop_telemetry", "complete": false, "allocation_failures": 0, "accounting_consistent": true, "scope": "PropRecord allocator only"},
+      "required_shell": "powershell",
+      "required_comparisons": ["base_game", "gibs_off"],
+      "required": ["crash_log", "prop_telemetry", "investigation_summary"],
+      "expected_status": "complete",
+      "authorized": false,
+      "uploads": {"github": "unavailable", "browser": "unavailable"}
+    },
+    {
+      "id": "investigate_facility_macos",
+      "kind": "investigation",
+      "skill": "investigate-goldeneye-bug",
+      "request": "Investigate, but do not fix or report, a repeatable crash in Facility after meeting 006 and detonating the bottling room.",
+      "context": "The game is locally built on macOS. No ROM, save, executable or extracted data may be copied or published. Use the available simulated observations to narrow the failure and retain a safe local handoff.",
+      "artifacts": [
+        {"id": "crash_log", "kind": "sanitized_log", "description": "Sanitized stdout and stderr with signal data"},
+        {"id": "prop_telemetry", "kind": "telemetry", "description": "Partial versioned PropRecord allocator telemetry"},
+        {"id": "investigation_summary", "kind": "summary", "description": "Bounded factual investigation handoff"}
+      ],
+      "capabilities": {"platform": "macos", "shell": "posix", "publication": false, "ips_report": true},
+      "session": {"commit": "2222222222222222222222222222222222222222", "branch": "main", "clean": true, "binary_hash": "sha256:synthetic-macos", "platform": "macos", "architecture": "arm64", "renderer": "metal", "stage": 34},
+      "crash_capture": {"exit_status": 139, "reproduced": true, "log": "crash_log", "ips_available": true},
+      "crash_evidence": {"signal": 11, "fault_address": "0x20", "fault_pc": "explosionTick+24", "frames": ["explosionTick", "chrpropFree"], "last_mark": "gameplay-frame"},
+      "comparisons": {"base_game": {"reproduced": false}, "gibs_off": {"reproduced": false}, "audio_off": {"reproduced": true}},
+      "telemetry": {"artifact": "prop_telemetry", "complete": false, "allocation_failures": 0, "accounting_consistent": true, "scope": "PropRecord allocator only"},
+      "required_shell": "posix",
+      "required_comparisons": ["base_game", "gibs_off"],
+      "required": ["crash_log", "prop_telemetry", "investigation_summary"],
+      "expected_status": "complete",
+      "authorized": false,
+      "uploads": {"github": "unavailable", "browser": "unavailable"}
+    },
+    {
+      "id": "investigate_facility_linux",
+      "kind": "investigation",
+      "skill": "investigate-goldeneye-bug",
+      "request": "Investigate, but do not fix or report, a repeatable crash in Facility after meeting 006 and detonating the bottling room.",
+      "context": "The game is locally built on Linux. No ROM, save, executable or extracted data may be copied or published. Use the available simulated observations to narrow the failure and retain a safe local handoff.",
+      "artifacts": [
+        {"id": "crash_log", "kind": "sanitized_log", "description": "Sanitized stdout and stderr with signal data"},
+        {"id": "prop_telemetry", "kind": "telemetry", "description": "Partial versioned PropRecord allocator telemetry"},
+        {"id": "investigation_summary", "kind": "summary", "description": "Bounded factual investigation handoff"}
+      ],
+      "capabilities": {"platform": "linux", "shell": "posix", "publication": false},
+      "session": {"commit": "3333333333333333333333333333333333333333", "branch": "main", "clean": true, "binary_hash": "sha256:synthetic-linux", "platform": "linux", "architecture": "x86_64", "renderer": "opengl", "stage": 34},
+      "crash_capture": {"exit_status": 139, "reproduced": true, "log": "crash_log"},
+      "crash_evidence": {"signal": 11, "fault_address": "0x20", "fault_pc": "explosionTick+24", "frames": ["explosionTick", "chrpropFree"], "last_mark": "gameplay-frame"},
+      "comparisons": {"base_game": {"reproduced": false}, "gibs_off": {"reproduced": false}, "audio_off": {"reproduced": true}},
+      "telemetry": {"artifact": "prop_telemetry", "complete": false, "allocation_failures": 0, "accounting_consistent": true, "scope": "PropRecord allocator only"},
+      "required_shell": "posix",
+      "required_comparisons": ["base_game", "gibs_off"],
+      "required": ["crash_log", "prop_telemetry", "investigation_summary"],
+      "expected_status": "complete",
+      "authorized": false,
+      "uploads": {"github": "unavailable", "browser": "unavailable"}
     }
   ]
 }

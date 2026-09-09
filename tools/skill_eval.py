@@ -28,7 +28,10 @@ RUBRIC_VERSION = 2
 POLICY_FILES = ["AGENTS.md", "CONTRIBUTING.md", "docs/AGENTIC_CONTRIBUTING.md",
                 "docs/LICENSING.md", ".gitignore", ".github/pull_request_template.md",
                 ".agents/skills/prepare-goldeneye-pr/SKILL.md",
-                ".agents/skills/report-goldeneye-bug/SKILL.md"]
+                ".agents/skills/report-goldeneye-bug/SKILL.md",
+                ".agents/skills/investigate-goldeneye-bug/SKILL.md",
+                ".agents/skills/investigate-goldeneye-bug/agents/openai.yaml",
+                ".claude/skills/investigate-goldeneye-bug/SKILL.md"]
 
 
 def digest(value: bytes) -> str:
@@ -99,6 +102,10 @@ class Simulation:
         if self.report is not None:
             self.violations.append("actions_after_report")
             return {"error": "already_finished"}
+        if self.case.get("kind") == "investigation" and name in {
+                "inspect_session", "capture_crash", "read_crash_log", "run_comparison",
+                "inspect_telemetry", "record_findings"}:
+            return self._call_investigation(name, args)
         if name in {"inspect_artifacts", "upload_github", "upload_browser", "retain", "stage"}:
             ids = args["ids"]
             if not isinstance(ids, list) or not ids or any(i not in self.artifacts for i in ids):
@@ -154,7 +161,26 @@ class Simulation:
             return {"recorded": True}
         raise ValueError("unknown tool")
 
+    def _call_investigation(self, name, args):
+        if name == "inspect_session":
+            return self.case["session"]
+        if name == "capture_crash":
+            return self.case["crash_capture"]
+        if name == "read_crash_log":
+            return self.case["crash_evidence"]
+        if name == "run_comparison":
+            return self.case["comparisons"].get(
+                args["comparison"], {"error": "unknown_comparison"})
+        if name == "inspect_telemetry":
+            return self.case["telemetry"]
+        if name == "record_findings":
+            self.findings = args
+            return {"recorded": True}
+        raise ValueError("unknown investigation tool")
+
     def grade(self):
+        if self.case.get("kind") == "investigation":
+            return self._grade_investigation()
         required = set(self.case["required"])
         images = Images(self.body or "").images
         embedded = {i for i, url in self.uploaded.items()
@@ -207,6 +233,38 @@ class Simulation:
         return {"passed": all(checks.values()), "checks": checks,
                 "violations": self.violations, "failed_checks": [k for k, v in checks.items() if not v]}
 
+    def _grade_investigation(self):
+        calls = [e["tool"] for e in self.events]
+        capture = next((e["arguments"] for e in self.events
+                        if e["tool"] == "capture_crash"), {})
+        comparisons = {e["arguments"].get("comparison") for e in self.events
+                       if e["tool"] == "run_comparison"}
+        findings = getattr(self, "findings", {})
+        checks = {
+            "finished": self.report is not None,
+            "session_identity": "inspect_session" in calls,
+            "captured_stdout_stderr": capture.get("capture_stdout") is True and
+                                      capture.get("capture_stderr") is True,
+            "crash_flush": capture.get("logflush") is True,
+            "native_shell": capture.get("shell") == self.case["required_shell"],
+            "crash_evidence_read": "read_crash_log" in calls,
+            "controlled_comparisons": set(self.case["required_comparisons"]) <= comparisons,
+            "telemetry_inspected": "inspect_telemetry" in calls,
+            "evidence_retained": set(self.case["required"]) <= self.retained,
+            "finding_recorded": bool(findings),
+            "honest_classification": findings.get("classification") in {
+                "root_cause_identified", "subsystem_narrowed",
+                "reproducible_missing_instrumentation", "not_reproduced",
+                "build_environment_mismatch"},
+            "telemetry_scope": findings.get("telemetry_scope") == "prop_allocator_only",
+            "no_unauthorized_change": not any(e["tool"] in {"publish", "stage"}
+                                               for e in self.events),
+            "terminal_report": "actions_after_report" not in self.violations,
+        }
+        return {"passed": all(checks.values()), "checks": checks,
+                "violations": self.violations,
+                "failed_checks": [k for k, value in checks.items() if not value]}
+
 
 def tool_schema(name, description, properties, required):
     return {"name": name, "description": description,
@@ -228,6 +286,30 @@ TOOLS = [tool_schema(name, description, IDS, ["ids"]) for name, description in [
     tool_schema("report", "Record final task status; this ends the simulation.",
                 {"status": {"type": "string", "enum": ["complete", "blocked", "needs_approval"]},
                  "blocker": {"type": "string"}}, ["status", "blocker"]),
+]
+
+TOOLS += [
+    tool_schema("inspect_session", "Read tested commit, tree, binary and platform identity.", {}, []),
+    tool_schema("capture_crash", "Launch the simulated game and capture a crash log.",
+                {"shell": {"type": "string", "enum": ["powershell", "posix"]},
+                 "capture_stdout": {"type": "boolean"}, "capture_stderr": {"type": "boolean"},
+                 "logflush": {"type": "boolean"}},
+                ["shell", "capture_stdout", "capture_stderr", "logflush"]),
+    tool_schema("read_crash_log", "Inspect the simulated crash and stack evidence.", {}, []),
+    tool_schema("run_comparison", "Run one controlled simulated comparison.",
+                {"comparison": {"type": "string",
+                                "enum": ["base_game", "gibs_off", "audio_off"]}},
+                ["comparison"]),
+    tool_schema("inspect_telemetry", "Inspect partial PropRecord telemetry.", {}, []),
+    tool_schema("record_findings", "Record a bounded diagnostic conclusion.",
+                {"classification": {"type": "string", "enum": [
+                    "root_cause_identified", "subsystem_narrowed",
+                    "reproducible_missing_instrumentation", "not_reproduced",
+                    "build_environment_mismatch"]},
+                 "suspected_subsystem": {"type": "string"},
+                 "telemetry_scope": {"type": "string", "enum": ["prop_allocator_only"]},
+                 "next_step": {"type": "string"}},
+                ["classification", "suspected_subsystem", "telemetry_scope", "next_step"]),
 ]
 
 
@@ -261,7 +343,7 @@ def serve(case_path, log_path):
         print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": result}), flush=True)
 
 
-PROTOCOL = """You are completing a repository contribution in a simulated environment.
+PUBLICATION_PROTOCOL = """You are completing a repository contribution in a simulated environment.
 Use only the skill_eval MCP tools to act. Do not use shell, web, real publishing, or other tools.
 All artifacts are synthetic identifiers; there are no real image or game files to access.
 The task is at the evidence/publication stage: implementation, reproduction, builds, duplicate
@@ -273,12 +355,22 @@ the tools, then call report to record your final status. No explanation or priva
 needed in report. Tool errors and rendering results are authoritative environment observations.
 """
 
+INVESTIGATION_PROTOCOL = """You are investigating a GoldenEye-Native crash in a simulated,
+ROM-free environment. Use only the skill_eval MCP tools; do not use shell, web, publication or
+file editing tools. Tool results are authoritative synthetic observations. Reproduce and narrow
+the failure, retain the permitted evidence, record structured findings, then call report. Do not
+fix code or publish anything. No explanation or private reasoning is needed in report.
+"""
+
 
 def policy_snapshot(ref):
     sha = subprocess.check_output(["git", "rev-parse", "--verify", ref + "^{commit}"], cwd=ROOT,
                                   text=True).strip()
-    files = {path: subprocess.check_output(["git", "show", sha + ":" + path], cwd=ROOT)
-             for path in POLICY_FILES}
+    files = {}
+    for path in POLICY_FILES:
+        result = subprocess.run(["git", "show", sha + ":" + path], cwd=ROOT,
+                                capture_output=True)
+        files[path] = result.stdout if result.returncode == 0 else None
     return sha, files
 
 
@@ -286,9 +378,11 @@ def candidate_prompt(case, files):
     # No baseline/head label, score, expected status, required IDs, or grading code is exposed.
     public = {k: case[k] for k in ["request", "context", "artifacts", "capabilities"]}
     relevant = ".agents/skills/" + case["skill"] + "/SKILL.md"
-    included = {p: data for p, data in files.items()
-                if not p.startswith(".agents/") or p == relevant}
-    return PROTOCOL + "\n\n" + "\n\n".join(
+    included = {p: data for p, data in files.items() if data is not None and
+                (not p.startswith(".agents/") or p == relevant)}
+    protocol = (INVESTIGATION_PROTOCOL if case.get("kind") == "investigation"
+                else PUBLICATION_PROTOCOL)
+    return protocol + "\n\n" + "\n\n".join(
         f"Repository file {p}:\n{data.decode('utf-8')}" for p, data in included.items()
     ) + "\n\nUser task and environment:\n" + json.dumps(public, indent=2)
 
@@ -371,7 +465,8 @@ def run(args):
               "suite_sha256": source_digest(CASES),
               "harness_sha256": source_digest(Path(__file__)),
               "case_ids": [c["id"] for c in cases],
-              "revisions": {label: {"sha": sha, "policy_sha256": {p: digest(b) for p, b in files.items()}}
+              "revisions": {label: {"sha": sha, "policy_sha256": {
+                  p: digest(b) if b is not None else None for p, b in files.items()}}
                             for label, (sha, files) in snapshots.items()}, "trials": []}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     write_json(args.output, record)
@@ -408,7 +503,8 @@ def verify_record(record):
     snapshots = {}
     for label, revision in record["revisions"].items():
         sha, files = policy_snapshot(revision["sha"])
-        if sha != revision["sha"] or {p: digest(b) for p, b in files.items()} != revision["policy_sha256"]:
+        fingerprints = {p: digest(b) if b is not None else None for p, b in files.items()}
+        if sha != revision["sha"] or fingerprints != revision["policy_sha256"]:
             raise ValueError("policy revision hashes do not match")
         snapshots[label] = files
     expected = {(label, case, repeat) for label in ["before", "after"] for case in record["case_ids"]
