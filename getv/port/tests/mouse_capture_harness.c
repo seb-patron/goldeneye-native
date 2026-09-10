@@ -70,6 +70,8 @@ int SDL_PollEvent(SDL_Event *event)
 
 static int geKeyboardIdle(void) { return idle; }
 int gePortInputDebugLevel(void) { return 0; }
+/* front.c's menu state, which geMouseInMenu() reads. -1 is "in game". */
+int current_menu = -1;
 #include "mouse.inc"
 
 /* Dependencies of gfx_sdl_handle_events unrelated to mouse handoff. Console ownership itself
@@ -324,6 +326,29 @@ int main(int argc, char **argv)
     }
     check(relative, "initial mouse capture");
 
+    if (strcmp(scenario, "menu") == 0) {
+        /* Menus through the production mouse path. Modern mouse look is forced on,
+         * because that is the mode in which menu motion used to be discarded (#64): it
+         * was sent to camera angles, which only exist in a level. */
+        setenv("GETV_MOUSE_MODE", "modern", 1);
+        current_menu = 5;   /* file select */
+
+        buttons = SDL_BUTTON_LMASK; out = poll();
+        check(out.menu_confirm && !out.menu_back, "left click selects in a menu");
+        release_buttons();
+        buttons = SDL_BUTTON_RMASK; out = poll();
+        check(out.menu_back && !out.menu_confirm, "right click goes back in a menu");
+        release_buttons();
+
+        motion_x = 12; out = poll();
+        check(out.rx != 0, "modern mouse motion moves the menu cursor");
+
+        current_menu = 11;  /* MENU_RUN_STAGE: in a level */
+        motion_x = 12; out = poll();
+        check(out.rx == (controller_mode ? controller_axes[SDL_CONTROLLER_AXIS_RIGHTX] : 0),
+              "in a level modern mouse motion is look, not stick");
+        return failures != 0;
+    }
     if (strcmp(scenario, "wheel") == 0) {
         /* The wheel end to end, through the real geMousePoll and the real binding
          * table -- not the state machine in isolation, which test_wheel.c already

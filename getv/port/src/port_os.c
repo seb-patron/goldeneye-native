@@ -746,9 +746,58 @@ static void gePortInputTrace(int port, const struct GePadState *st, u16 button, 
  * port. Shared hysteresis across four players would let player 1's right stick latch
  * player 3's C-buttons -- invisible in solo and unplayable in multiplayer.
  */
+/* ---- front-end menus ------------------------------------------------------------
+ *
+ * Menus do not use the gameplay bindings at all; see geMenuButtons() in ge_bindings.c.
+ * The short version: the modern preset put pad confirm on the N64 B button, made the
+ * mouse wheel press A, and a launcher rebind could delete the keyboard's only confirm
+ * key. None of that is a preference anyone chose for a menu.
+ */
+static u16 geN64ToCont(unsigned n)
+{
+    u16 b = 0;
+    if (n & GE_N64_A)     { b |= CONT_A; }
+    if (n & GE_N64_B)     { b |= CONT_B; }
+    if (n & GE_N64_Z)     { b |= CONT_G; }
+    if (n & GE_N64_START) { b |= CONT_START; }
+    if (n & GE_N64_L)     { b |= CONT_L; }
+    if (n & GE_N64_R)     { b |= CONT_R; }
+    return b;
+}
+
+/* Either stick moves the menu cursor, and the right stick produces no C-buttons here.
+ *
+ * That is what the dual-analog decoder below already does in menus, and doing the same
+ * in the single-pad styles is what lets the mouse point: mouse motion arrives as right
+ * stick deflection, and front.c moves its cursor from joyGetStickX/Y (front.c:1156-1218).
+ * Keeping right-stick C-buttons as well would move character select twice for one
+ * gesture -- it reads both L_CBUTTONS and the stick (front.c:5998). The pad's X/Y still
+ * give C-down/C-up, and the d-pad still gives every direction. */
+static void geDecodeMenuPad(const struct GePadState *st, OSContPad *pad)
+{
+    u16 b = geN64ToCont(geMenuButtons(st));
+
+    if (st->dup)    { b |= CONT_UP; }
+    if (st->ddown)  { b |= CONT_DOWN; }
+    if (st->dleft)  { b |= CONT_LEFT; }
+    if (st->dright) { b |= CONT_RIGHT; }
+    if (st->y)      { b |= CONT_E; }
+    if (st->x)      { b |= CONT_D; }
+
+    pad->button  = b;
+    pad->stick_x = geStickOr(st->lx, st->rx);
+    pad->stick_y = (s8)(-(int)geStickOr(st->ly, st->ry));
+    pad->errno   = 0;
+}
+
 static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pad)
 {
     u16 b = 0;
+
+    if (geInFrontEnd()) {
+        geDecodeMenuPad(st, pad);
+        return;
+    }
 
     if (geHeld(st, port, GE_ACT_WEAPON_NEXT)) { b |= CONT_A; }   /* GE's "inventory" button */
     if (geHeld(st, port, GE_ACT_USE))   { b |= CONT_B; }
@@ -786,7 +835,7 @@ static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pa
 
     /* Start is the pause menu and, in solo, Bond's watch. Aliasing the pad's Back /
      * Menu button onto it costs nothing -- the N64 has no fifth face bit for Back to
-     * map to, and every front.c menu branch accepts START_BUTTON. */
+     * map to. (Menus do not come through here at all -- see geDecodeMenuPad.) */
     if (geHeld(st, port, GE_ACT_PAUSE)) { b |= CONT_START; }
 
     /* Z is the N64 trigger and, in the default control style, GoldenEye's FIRE button:
@@ -828,6 +877,9 @@ static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pa
         if (geCEdge( st->rx, &cr[port]))          { b |= CONT_F; }   /* C-right */
     }
 
+    /* Scripted N64 buttons, which bypass the bindings on purpose. */
+    b |= geN64ToCont(st->n64);
+
     pad->button  = b;
     pad->stick_x = geStick(st->lx);
     pad->stick_y = (s8)(-(int)geStick(st->ly));   /* SDL +Y is down, the N64's is up */
@@ -846,6 +898,28 @@ static void geDecodeDualAnalog(const struct GePadState *st, OSContPad *p0, OSCon
      * caller), so p1 is still player 1's second controller and must not read player 2's
      * keys. */
     const int player = 0;
+
+    /* Menus: fixed buttons on both halves, either stick on the cursor. */
+    if (geInFrontEnd()) {
+        u16 menu = geN64ToCont(geMenuButtons(st));
+        if (st->dup)    { menu |= CONT_UP; }
+        if (st->ddown)  { menu |= CONT_DOWN; }
+        if (st->dleft)  { menu |= CONT_LEFT; }
+        if (st->dright) { menu |= CONT_RIGHT; }
+        p0->button  = menu;
+        p0->stick_x = geStickOr(st->rx, st->lx);
+        p0->stick_y = (s8)(-(int)geStickOr(st->ry, st->ly));
+        p0->errno   = 0;
+        p1->button  = menu;
+        p1->stick_x = geStick(st->lx);
+        p1->stick_y = (s8)(-(int)geStick(st->ly));
+        p1->errno   = 0;
+        return;
+    }
+
+    /* Scripted N64 buttons bypass the bindings. Z is fire, which the 2.x styles take
+     * from controller 1 only, so it is added to p0 below rather than to both. */
+    common |= geN64ToCont(st->n64 & ~GE_N64_Z);
 
     if (geHeld(st, player, GE_ACT_WEAPON_NEXT)) { common |= CONT_A; }  /* cycle: either pad */
     if (geHeld(st, player, GE_ACT_USE))         { common |= CONT_B; }  /* btap (tank): either pad */
@@ -874,6 +948,7 @@ static void geDecodeDualAnalog(const struct GePadState *st, OSContPad *p0, OSCon
      * (`bondview2.c:5070-5085`). The binding layer decides which physical input each
      * one is; the port assignment is fixed by the style. */
     p0->button  = common | (geHeld(st, player, GE_ACT_FIRE) ? CONT_G : 0)
+                         | ((st->n64 & GE_N64_Z) ? CONT_G : 0)
                          | (geHeld(st, player, GE_ACT_WEAPON_PREV) ? CONT_G : 0);
     p0->errno   = 0;
 

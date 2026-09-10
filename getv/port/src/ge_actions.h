@@ -134,6 +134,21 @@ enum {
     GE_AXIS_MAX
 };
 
+/* ---- N64 buttons, named directly ----------------------------------------
+ *
+ * For the two inputs that must reach the game as a SPECIFIC N64 button no matter what
+ * the player has bound: front-end menus (geMenuButtons) and scripted input. Bit values
+ * are this port's own, not libultra's CONT_*, because this header is included by files
+ * that cannot see <PR/os.h>; port_os.c translates them.
+ */
+#define GE_N64_A      0x01u
+#define GE_N64_B      0x02u
+#define GE_N64_Z      0x04u
+#define GE_N64_START  0x08u
+#define GE_N64_L      0x10u
+#define GE_N64_R      0x20u
+#define GE_N64_ALL    0x3Fu
+
 /* ---- presets -------------------------------------------------------------
  *
  * A preset is a complete set of defaults for BOTH the keyboard and the pad. It is only

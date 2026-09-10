@@ -48,6 +48,25 @@ struct GePadState {
 
     int lx, ly, rx, ry;                 /* -32768..32767, SDL sign convention (+Y down) */
 
+    /* Front-end menu inputs, set from FIXED keys and mouse buttons and read only while a
+     * front.c menu is active (geMenuButtons in ge_bindings.c).
+     *
+     * They exist because gameplay bindings make terrible menu controls. Under the modern
+     * preset the pad's bottom face button is `use`, which is the N64 B button -- so it
+     * backed out of every menu instead of confirming -- and the mouse wheel is a weapon
+     * cycle, which is the N64 A button, so scrolling picked whatever was highlighted.
+     * Worse, rebinding weapon_next in the launcher could remove the keyboard's only
+     * confirm key and strand a player on the mission report. Menus now ignore bindings
+     * and read these instead: Return/Space and left-click confirm, Backspace and
+     * right-click go back, Tab and Keypad Enter are START. */
+    unsigned char menu_confirm, menu_back, menu_start;
+
+    /* N64 buttons asserted directly (GE_N64_*), bypassing every binding and preset. Used
+     * by GETV_SCRIPT, whose letters are N64 button names: a script that says `A` must
+     * press N64 A on every machine, not whatever the local player has put on the pad's
+     * bottom face button. */
+    unsigned int n64;
+
     /* Actions asserted directly by the keyboard and mouse, indexed by GE_ACT_*.
      *
      * This is the second of the two binding layers and the reason keyboard remapping

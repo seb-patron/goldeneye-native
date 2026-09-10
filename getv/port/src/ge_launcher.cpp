@@ -2760,8 +2760,10 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                     SliderRow("Sensitivity", &m.mouse_sens, 10, 400, "%", cw, true);
                     ImGui::Checkbox("Invert Y", &m.mouse_invert);
                     ImGui::Dummy(ImVec2(0, 6));
-                    Hint("Left button fires, right aims, ESC releases the cursor. "
-                         "Sensitivity depends on mouse DPI; modern mode uses 0.1 degree per count at 100%.");
+                    Hint("In a level the left button fires and the right aims. In menus, move the "
+                         "mouse to move the cursor, left-click to select and right-click to go "
+                         "back. ESC releases the cursor.");
+                    Hint("Sensitivity depends on mouse DPI; modern mode uses 0.1 degree per count at 100%.");
                     if (!m.mouse_mode)
                         Hint("Vehicles, network sessions and scripted replays use Classic N64 controls.");
                 } else {

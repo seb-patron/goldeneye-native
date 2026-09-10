@@ -82,6 +82,12 @@ int geActionHeld(const struct GePadState *st, int player, int act);
  * can ask "is anything pressed right now" without duplicating the field switch. */
 int geSourceHeld(const struct GePadState *st, int src);
 
+/* The N64 buttons (GE_N64_*) a front-end MENU sees, from fixed positions and fixed keys,
+ * ignoring every gameplay binding: bottom face / Return / Space / left click select,
+ * right face / Backspace / right click go back, Start / Back / Tab / Keypad Enter are
+ * START. port_os.c uses this instead of the bindings whenever a front.c menu is up. */
+unsigned geMenuButtons(const struct GePadState *st);
+
 /* ---- hold vs toggle ------------------------------------------------------
  *
  * GETV_AIM_MODE / GETV_CROUCH_MODE, each GE_HOLD or GE_TOGGLE, read once and cached.

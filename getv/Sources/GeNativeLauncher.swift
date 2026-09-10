@@ -760,6 +760,8 @@ private struct ControlsPage: View {
                     if m.mouse {
                         GeStepper(label: "Sensitivity", value: $m.mouseSens, range: 10...400, suffix: "%")
                         Toggle(isOn: $m.mouseInvert) { Text("Invert Y").foregroundColor(geText) }
+                        Text("In a level the left button fires and the right aims. In menus, move the mouse to move the cursor, left-click to select and right-click to go back. ESC releases the cursor.")
+                            .foregroundColor(geDim).font(.system(size: 11))
                     }
                     Toggle(isOn: $m.keyboard) { Text("Keyboard").foregroundColor(geText) }
                 }

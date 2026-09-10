@@ -205,10 +205,6 @@ static void test_presets(void)
             ok(gePresetSource(p, GE_ACT_USE)   != GE_SRC_NONE, "preset binds use on the pad");
             ok(gePresetSource(p, GE_ACT_PAUSE) != GE_SRC_NONE, "preset binds pause on the pad");
             ok(gePresetKeys(p, GE_ACT_USE)[0]  != '\0',        "preset binds use on the keyboard");
-            /* weapon_next drives the N64 A button, which is what confirms a front.c
-             * menu item. A keyboard player with it unbound cannot start a mission. */
-            ok(gePresetKeys(p, GE_ACT_WEAPON_NEXT)[0] != '\0',
-               "preset binds weapon_next on the keyboard (menu confirm)");
         }
     }
 
@@ -470,6 +466,62 @@ static void test_use_also_reloads(void)
            "use doubles as reload");
 }
 
+/* ---- menus ignore gameplay bindings ------------------------------------- */
+
+static void test_menu_buttons(void)
+{
+    struct GePadState st;
+
+    printf("# menus read fixed buttons, not the bindings\n");
+    eq_int((int) geMenuButtons(NULL), 0, "NULL pad is not a crash");
+
+    /* The bug this exists for: under the modern preset the bottom face button is `use`,
+     * which is the N64 B button, so in every menu it backed out instead of selecting. */
+    memset(&st, 0, sizeof st);
+    st.a = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_A, "pad bottom face button selects");
+    memset(&st, 0, sizeof st);
+    st.b = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_B, "pad right face button goes back");
+    memset(&st, 0, sizeof st);
+    st.start = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_START, "pad start is START");
+    memset(&st, 0, sizeof st);
+    st.back = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_START, "pad back is START");
+    memset(&st, 0, sizeof st);
+    st.rtrigger = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_Z, "right trigger is Z");
+
+    /* Keyboard and mouse, through the fixed menu fields. */
+    memset(&st, 0, sizeof st);
+    st.menu_confirm = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_A, "Return / Space / left click select");
+    memset(&st, 0, sizeof st);
+    st.menu_back = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_B, "Backspace / right click go back");
+    memset(&st, 0, sizeof st);
+    st.menu_start = 1;
+    eq_int((int) geMenuButtons(&st), (int) GE_N64_START, "Tab / Keypad Enter are START");
+
+    /* Gameplay actions do nothing in a menu. The wheel is weapon_next, which used to be
+     * N64 A, so scrolling selected the highlighted item. */
+    memset(&st, 0, sizeof st);
+    st.act[GE_ACT_WEAPON_NEXT] = 1;
+    st.act[GE_ACT_WEAPON_PREV] = 1;
+    eq_int((int) geMenuButtons(&st), 0, "the mouse wheel does not select");
+    memset(&st, 0, sizeof st);
+    st.act[GE_ACT_USE] = 1;
+    st.act[GE_ACT_FIRE] = 1;
+    st.act[GE_ACT_CROUCH] = 1;
+    eq_int((int) geMenuButtons(&st), 0, "no gameplay action reaches a menu");
+
+    /* Scripted N64 buttons pass straight through. */
+    memset(&st, 0, sizeof st);
+    st.n64 = GE_N64_A | GE_N64_START;
+    eq_int((int) geMenuButtons(&st), (int) (GE_N64_A | GE_N64_START), "scripted buttons pass through");
+}
+
 static void test_per_player_isolation(void)
 {
     struct GePadState st;
@@ -583,6 +635,7 @@ int main(int argc, char **argv)
         test_action_held();
         test_reload_edge();
         test_no_stand_action();
+        test_menu_buttons();
         test_per_player_isolation();
     } else if (strcmp(phase, "hold") == 0) {
         setenv("GETV_CROUCH_MODE", "hold", 1);

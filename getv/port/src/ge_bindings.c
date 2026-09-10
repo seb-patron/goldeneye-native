@@ -192,10 +192,10 @@ static const char *const ge_key_preset[GE_PRESET_MAX][GE_ACT_MAX] = {
         [GE_ACT_RELOAD]      = "R",
         [GE_ACT_CROUCH]      = "C,Left Ctrl",
         /* Q is free in this preset -- aim moved to the right mouse button -- so it
-         * takes weapon-next, alongside the wheel. Return stays bound because every
-         * front.c menu branch confirms on the N64 A button and weapon_next is what
-         * drives it; unbinding it would leave a keyboard player unable to accept a menu
-         * item, which is not a controls preference but a soft lock in mission select. */
+         * takes weapon-next, alongside the wheel. Return is a third alternative only.
+         * It used to be load-bearing -- weapon_next was the keyboard's N64 A, the
+         * menu confirm -- but menus now read fixed keys through geMenuButtons, so no
+         * binding here can strand a player on a menu screen. */
         [GE_ACT_WEAPON_NEXT] = "wheelup,Q,Return",
         [GE_ACT_WEAPON_PREV] = "wheeldown",
         [GE_ACT_PAUSE]       = "Tab,Keypad Enter",
@@ -428,6 +428,41 @@ int geActionHeld(const struct GePadState *st, int player, int act)
      * neither remap disturbs the other. */
     if (st->act[act]) { return 1; }
     return geSourceHeld(st, geBindSrc(player, act));
+}
+
+/* ---- menus -------------------------------------------------------------------
+ *
+ * The N64 buttons a front-end menu sees, taken from fixed positions and ignoring every
+ * gameplay binding. See GePadState::menu_confirm in port_input.h for why: bindings that
+ * make sense in a level put confirm on "back", turned the wheel into "select", and let a
+ * launcher rebind remove the keyboard's only way past the mission report.
+ *
+ *   A (select)  pad bottom face button, Return, Space, left click
+ *   B (back)    pad right face button, Backspace, right click
+ *   START       pad Start or Back, Tab, Keypad Enter
+ *   Z           right trigger     (every front.c select also accepts Z)
+ *   L / R       shoulders, left trigger as L   (folder deletion reads L/R)
+ *
+ * Left click is A, not START, deliberately. front.c treats them differently: on the
+ * mission briefing START launches the mission from any page while A acts on the
+ * highlighted tab (front.c:7265-7292), in the 007 and multiplayer options START is a
+ * separate shortcut (:4098, :4968), and the cheat menu does not accept START at all
+ * (:8180). A picks the thing under the cursor on every one of them.
+ *
+ * Positional like every other pad source: "bottom face button" is Cross on a DualSense
+ * and B on a Switch Pro. */
+unsigned geMenuButtons(const struct GePadState *st)
+{
+    unsigned n = 0;
+
+    if (st == NULL) { return 0; }
+    if (st->a || st->menu_confirm)                  { n |= GE_N64_A; }
+    if (st->b || st->menu_back)                     { n |= GE_N64_B; }
+    if (st->start || st->back || st->menu_start)    { n |= GE_N64_START; }
+    if (st->rtrigger)                               { n |= GE_N64_Z; }
+    if (st->lshoulder || st->ltrigger)              { n |= GE_N64_L; }
+    if (st->rshoulder)                              { n |= GE_N64_R; }
+    return n | (st->n64 & GE_N64_ALL);
 }
 
 /* ---- hold vs toggle ------------------------------------------------------ */

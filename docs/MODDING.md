@@ -170,6 +170,10 @@ Example - boot to file select and press A on frame 120:
 GETV_MENU=5 GETV_SCRIPT="120:A:6" GETV_EXIT_FRAME=181 ./build-mac/goldeneye
 ```
 
+Script letters `A`, `B`, `Z` and `START` name N64 buttons and press them directly, whatever
+`input_preset` or the local player's bindings say, so a script means the same thing on every
+machine.
+
 **Determinism and instrumentation.**
 
 | Gate | Effect |

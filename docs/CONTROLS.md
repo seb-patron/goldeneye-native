@@ -29,14 +29,13 @@ useful if it describes the whole layout.
 |---|---|---|
 | `W` `A` `S` `D` | Move | Move |
 | Arrow keys | Look | Look |
-| Left mouse button | Fire | Fire |
-| Right mouse button | Aim | Aim |
+| Left mouse button | Fire (select in menus) | same |
+| Right mouse button | Aim (back in menus) | same |
 | `Space` | Fire | Fire (also `Left Ctrl`) |
 | `Q` | Next weapon | Aim |
 | `E` or `F` | Use / interact | Use / interact |
 | `R` | **Reload** | Next weapon (with `Return`) |
 | `C` or `Left Ctrl` | Crouch | Crouch (`C` or `Left Shift`) |
-| `V` | Stand | Stand |
 | Mouse wheel up / down | Next / previous weapon | — |
 | `Return` | Next weapon; also confirms menu items | same |
 | `Tab` or keypad `Enter` | Start / pause / watch | same |
@@ -45,9 +44,26 @@ useful if it describes the whole layout.
 `Z` / `X` are the N64 left and right shoulder inputs and `I` `J` `K` `L` are the d-pad. Those are
 not actions and are not bindable — nothing in the game reads them on their own.
 
-`Return` stays on next weapon in both presets on purpose: it drives the N64 A button, which is
-what confirms a `front.c` menu item. Unbinding it would leave a keyboard player unable to start a
-mission.
+### In menus
+
+Menus do **not** use your bindings. However you have remapped things for play, the front end
+always reads the same inputs:
+
+| Do | Mouse | Keyboard | Gamepad |
+|---|---|---|---|
+| Move the cursor | Move the mouse | `W` `A` `S` `D` or arrow keys | Either stick or the d-pad |
+| Select | Left click | `Return` or `Space` | Bottom face button (A / Cross) |
+| Back | Right click | `Backspace` | Right face button (B / Circle) |
+| Start | — | `Tab` or keypad `Enter` | Start |
+
+Left click is *select*, not START, on purpose: on the mission briefing START launches the mission
+from any page, while select acts on the tab under the cursor.
+
+This exists because gameplay bindings made poor menu controls. The modern pad layout puts *use* on
+the bottom face button, and *use* is the N64's back button, so that button backed out of every
+menu. The wheel cycles weapons, which pressed the N64's select button, so scrolling picked
+whatever was highlighted. And rebinding next weapon in the launcher could remove the keyboard's
+only confirm key, leaving `Tab` as the only way past the mission report.
 
 After releasing the cursor or switching to another app, left-click inside the game to resume mouse
 control. The resume click does not fire; release the mouse buttons before clicking to fire or aim

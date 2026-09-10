@@ -305,24 +305,18 @@ static void geScriptApply(int port, int frame, struct GePadState *out)
  out->present   = 1;
  out->synthetic = 1;
 
- if (keys & GE_SK_A)     { out->a = 1; }
- if (keys & GE_SK_B)     { out->b = 1; }
+ /* A, B, Z and START are N64 button names and press those buttons directly, bypassing
+  * the bindings. With the modern preset `use` sits on the pad's bottom face button, so
+  * writing `out->a` made a script's `A` press N64 B -- the documented
+  * `GETV_SCRIPT="120:A:6"` backed out of file select instead of choosing it, and every
+  * tools/playtest.py script changed meaning with the local player's preset. */
+ if (keys & GE_SK_A)     { out->n64 |= GE_N64_A; }
+ if (keys & GE_SK_B)     { out->n64 |= GE_N64_B; }
  if (keys & GE_SK_X)     { out->x = 1; }
  if (keys & GE_SK_Y)     { out->y = 1; }
- if (keys & GE_SK_START) { out->start = 1; }
+ if (keys & GE_SK_START) { out->n64 |= GE_N64_START; }
  if (keys & GE_SK_BACK)  { out->back = 1; }
- /* GE_SK_Z drives the RIGHT trigger, not the left.
-  *
-  * The key names in this parser are the N64's, and on the N64 Z is the fire button --
-  * bondview2.c picks `shootButtons = Z_TRIG` for every control style except KISSY and
-  * GOODNIGHT. But this harness emits a *gamepad* state, which port_os.c then maps to N64
-  * buttons, and it binds GE_ACT_FIRE to GE_SRC_RT (port_os.c:467) while AIM takes the left
-  * trigger. Wiring "Z" to ltrigger therefore aimed instead of firing.
-  *
-  * No key in this parser reached fire at all, so a scripted run could walk, open menus and
-  * aim but never shoot. The symptom is `trigger_down` stuck at 0 with a loaded weapon in
-  * hand. */
- if (keys & GE_SK_Z)     { out->rtrigger = 1; out->rt_raw = 32767; }
+ if (keys & GE_SK_Z)     { out->n64 |= GE_N64_Z; }
  if (keys & GE_SK_RT)    { out->rtrigger = 1; out->rt_raw = 32767; }
  if (keys & GE_SK_LT)    { out->ltrigger = 1; out->lt_raw = 32767; }
  if (keys & GE_SK_L)     { out->lshoulder = 1; }
@@ -1263,8 +1257,9 @@ static void geKeymapEnsure(void)
 
 /* ---- the mouse wheel as a weapon cycle -----------------------------------
  *
- * Wheel motion arrives as SDL_MOUSEWHEEL events, not as a pollable state, so the event
- * owner in gfx_sdl2.c hands each one here and the count waits until the next poll.
+ * Wheel motion arrives as SDL_MOUSEWHEEL events, not as a pollable state, so an SDL
+ * event watch (geWheelEventWatch below) counts each one and the count waits until the
+ * next poll.
  *
  * Draining is one notch per frame with a gap frame after it, and the gap is the whole
  * point. The engine cycles weapons on a RISING edge of the inventory button
@@ -1386,6 +1381,22 @@ static void geActionsApply(struct GePadState *out, const Uint8 *k, Uint32 mb)
  * the measured sweep in docs/MOUSE.md rather than by feel; the old 220 was set against nothing
  * and needed roughly a metre of desk for a 180 degree turn. */
 
+/* Is a front.c menu up? Mirrors geInFrontEnd() in port_os.c, which cannot be called
+ * from here -- that file sees <PR/os.h> and this one sees <SDL.h>.
+ *
+ * Modern mouse look sends motion to camera angles, which only exist in a level; in a
+ * menu that motion was simply thrown away, so the mouse could not move the menu cursor
+ * at all (#64). While a menu is up the classic path below runs instead and the motion
+ * becomes right-stick deflection, which the menu decoder in port_os.c feeds to the
+ * cursor. -1 is "in game", and RUN_STAGE / SPECTRUM_EMU are gameplay states rather than
+ * menus. */
+static int geMouseInMenu(void)
+{
+    extern int current_menu;
+    if (current_menu < 0) { return 0; }
+    return current_menu != 11 /* MENU_RUN_STAGE */ && current_menu != 25 /* MENU_SPECTRUM_EMU */;
+}
+
 static void geMousePoll(int port, struct GePadState *out)
 {
  int dx = 0, dy = 0;
@@ -1503,7 +1514,7 @@ static void geMousePoll(int port, struct GePadState *out)
          * it replaced over 16,800 swept calls in tests/test_mouse.c. That care is warranted:
          * of the first three attempts at this input path, two made the mouse worse and one
          * stopped it moving at all. The reasoning for each step lives in that header. */
- if (geMouseModern() && ge_mouse_look.context != 2) {
+ if (geMouseModern() && ge_mouse_look.context != 2 && !geMouseInMenu()) {
      geMouseLookAdd(&ge_mouse_look, dx, dy, sens);
      /* Buttons still use the controller path; physical stick axes stay intact. */
      goto mouse_buttons;
@@ -1550,6 +1561,13 @@ mouse_buttons:
      * ge_mouse_resume_buttons above). The wheel is gated by the same conditions in
      * geWheelTick. */
     geActionsApply(out, NULL, mb);
+
+    /* In menus the left button selects and the right goes back, whatever fire and aim
+     * are bound to. The wheel is deliberately NOT a menu input: as weapon_next it used
+     * to press N64 A, so scrolling picked the highlighted item. */
+    if (mb & SDL_BUTTON(SDL_BUTTON_LEFT))  { out->menu_confirm = 1; out->present = 1; out->real_gamepad = 1; }
+    if (mb & SDL_BUTTON(SDL_BUTTON_RIGHT)) { out->menu_back = 1;    out->present = 1; out->real_gamepad = 1; }
+
     if (ge_wheel.up_now || ge_wheel.dn_now) {
         out->present = 1;
         out->real_gamepad = 1;
@@ -1810,6 +1828,14 @@ static void geKeyboardApply(int port, struct GePadState *out)
      * and R are not actions in this port -- gePortDecodePad wires them straight through
      * -- and nothing in the game reads them on their own. */
     geActionsApply(out, k, 0);
+
+    /* Fixed menu keys, independent of every binding. Read only while a front.c menu is
+     * up (geMenuButtons). Without these, a launcher rebind that took Return off
+     * weapon_next left the keyboard no way past the mission report but Tab -- and
+     * nothing on screen says Tab is START. */
+    if (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_SPACE])  { out->menu_confirm = 1; }
+    if (k[SDL_SCANCODE_BACKSPACE])                        { out->menu_back = 1; }
+    if (k[SDL_SCANCODE_TAB] || k[SDL_SCANCODE_KP_ENTER])  { out->menu_start = 1; }
 
     if (k[SDL_SCANCODE_Z]) { out->lshoulder = 1; out->present = 1; out->real_gamepad = 1; }
     if (k[SDL_SCANCODE_X]) { out->rshoulder = 1; out->present = 1; out->real_gamepad = 1; }
