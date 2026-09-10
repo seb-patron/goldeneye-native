@@ -1927,6 +1927,20 @@ static void gePortInputPollPortInner(int port, struct GePadState *out)
      * enumeration below looks for devices. Idempotent, compiled out everywhere else. */
  gePortAndroidTouchInit();
 
+#ifdef GE_PLATFORM_DESKTOP
+        /* The wheel is drained once per FRAME, not once per port. osContGetReadData
+         * polls port 0 exactly once per frame and before any other port, so this block
+         * is the frame boundary -- draining per port would fire the same notch up to
+         * four times.
+         *
+         * The gate is deliberately generous. The wheel only has to survive the same
+         * conditions the rest of the keyboard does; geMousePoll discards the backlog
+         * itself on the stricter mouse-specific paths (pointer released, console
+         * capture), and duplicating that logic here would be a second place to get it
+         * wrong. */
+ geWheelTick(geKeyboardEnabled() && !geKeyboardIdle());
+#endif
+
         (void)gePortInputPadCount();
  geSynthFrame++;
  geFrontTraceTick(geSynthFrame);
@@ -2037,21 +2051,6 @@ static void gePortInputPollPortInner(int port, struct GePadState *out)
 /* One entry point: the inner function has six returns and the self-test must survive all of them. */
 void gePortInputPollPort(int port, struct GePadState *out)
 {
-#ifdef GE_PLATFORM_DESKTOP
-    /* The wheel is drained once per FRAME, and osContGetReadData polls port 0 exactly
-     * once per frame before any other port, so port 0 is the frame boundary. Draining
-     * per port would fire the same notch up to four times.
-     *
-     * The gate is deliberately generous -- the wheel only has to survive the same
-     * conditions the rest of the keyboard does -- because geMousePoll discards the
-     * backlog itself on the stricter mouse-specific paths (pointer released, console
-     * capture), and duplicating that logic here would be a second place to get it
-     * wrong. */
-    if (port == 0) {
-        geWheelTick(geKeyboardEnabled() && !geKeyboardIdle());
-    }
-#endif
-
     gePortInputPollPortInner(port, out);
     geMoveSelftestApply(port, out);
 

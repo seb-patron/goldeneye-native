@@ -39,7 +39,7 @@ int main() {
     m.net_mode = 1;
     m.mouse_mode = 0;
     m.framerate = 60;
-    m.bind_all[0] = 3;
+    m.bind_all[GE_ACT_FIRE] = 3;
     m.msaa = 8;
     m.hd_textures = m.widescreen = true;
     m.gibs = 3;
@@ -52,7 +52,7 @@ int main() {
     check(m.base_game, "Base Game suppresses Brutal effects");
     check(m.ruleset == 0 && !m.rs_custom && !m.horde, "Base Game uses original gameplay");
     check(m.coop_players == 0 && m.net_mode == 0, "Base Game disables added multiplayer modes");
-    check(m.mouse_mode == 0 && m.bind_all[0] == 3 && m.framerate == 60,
+    check(m.mouse_mode == 0 && m.bind_all[GE_ACT_FIRE] == 3 && m.framerate == 60,
           "Base Game preserves mouse, bindings and selected frame rate");
     check(m.msaa == 0 && !m.hd_textures && !m.widescreen && m.filtering == 2,
           "Base Game shows original image settings");
@@ -80,8 +80,21 @@ int main() {
     with tempfile.TemporaryDirectory(prefix="launcher-model-") as directory:
         root = Path(directory)
         cpp, exe = root / "model.cpp", root / "model.exe"
-        cpp.write_text("#include <cstdio>\n#include <cstring>\n" + model + profile.group() + harness)
-        subprocess.run([compiler, "-std=c++17", str(cpp), "-o", str(exe)], env=env, check=True)
+        # ge_actions.h is included rather than having its constants restated here.
+        # `struct Model` sizes its binding arrays with GE_ACT_MAX and GE_AXIS_MAX, and a
+        # local copy of those numbers would compile happily while testing a Model that
+        # is a different shape from the real one -- which is exactly the drift the
+        # header exists to prevent. It includes nothing itself, so pulling it in costs
+        # no SDL, no ImGui and no game data.
+        cpp.write_text(
+            '#include <cstdio>\n#include <cstring>\n#include "ge_actions.h"\n'
+            + model + profile.group() + harness
+        )
+        include = args.source_root / "getv/port/src"
+        subprocess.run(
+            [compiler, "-std=c++17", f"-I{include}", str(cpp), "-o", str(exe)],
+            env=env, check=True,
+        )
         subprocess.run([str(exe)], env=env, check=True)
 
 

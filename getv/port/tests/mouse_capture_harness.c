@@ -9,6 +9,12 @@
 
 #include "port_input.h"
 #include "ge_mouse_accum.h"
+/* Same reason as ge_mouse_accum.h above: the extracted production code below uses these,
+ * and both headers include nothing themselves, so pulling them in costs no SDL and no
+ * game data. */
+#include "ge_actions.h"
+#include "ge_bindings.h"
+#include "ge_wheel.h"
 #ifdef GE_TEST_HAS_MODERN_MOUSE
 #include "ge_mouse_look.h"
 #endif
@@ -91,6 +97,64 @@ static Sint16 controller_axes[SDL_CONTROLLER_AXIS_MAX];
 static Uint8 controller_buttons[SDL_CONTROLLER_BUTTON_MAX];
 #define GE_TRIGGER_ON 8000
 void *SDL_memset(void *dst, int value, size_t size) { return memset(dst, value, size); }
+int SDL_strcasecmp(const char *a, const char *b) { return strcasecmp(a, b); }
+
+/* Scancode names, for the keyboard binding layer.
+ *
+ * Stubbed rather than linked, like every other SDL entry point in this harness -- the
+ * whole point of this file is that it runs with SDL HEADERS and no SDL library. But
+ * unlike the others these cannot be inert: geKeymapEnsure() resolves the presets through
+ * SDL_GetScancodeFromName, so a stub that returned UNKNOWN would leave every keyboard
+ * action unbound and the scenarios below would be testing nothing while still passing.
+ *
+ * This table must cover every name used by a preset in ge_bindings.c. It does not have
+ * to cover all of SDL's ~240 names, and deliberately does not -- an unlisted name is
+ * reported by geParseCodeList as "not a key name" on stdout, and the movement and fire
+ * scenarios below fail outright, which is the loud failure wanted here.
+ *
+ * The spellings are SDL's own, because that is what a config file contains. */
+static const struct { SDL_Scancode code; const char *name; } scancode_names[] = {
+    { SDL_SCANCODE_A, "A" }, { SDL_SCANCODE_C, "C" }, { SDL_SCANCODE_D, "D" },
+    { SDL_SCANCODE_E, "E" }, { SDL_SCANCODE_F, "F" }, { SDL_SCANCODE_Q, "Q" },
+    { SDL_SCANCODE_R, "R" }, { SDL_SCANCODE_S, "S" }, { SDL_SCANCODE_V, "V" },
+    { SDL_SCANCODE_W, "W" }, { SDL_SCANCODE_X, "X" }, { SDL_SCANCODE_Z, "Z" },
+    { SDL_SCANCODE_I, "I" }, { SDL_SCANCODE_J, "J" }, { SDL_SCANCODE_K, "K" },
+    { SDL_SCANCODE_L, "L" },
+    { SDL_SCANCODE_SPACE, "Space" }, { SDL_SCANCODE_RETURN, "Return" },
+    { SDL_SCANCODE_TAB, "Tab" }, { SDL_SCANCODE_ESCAPE, "Escape" },
+    { SDL_SCANCODE_BACKSPACE, "Backspace" },
+    { SDL_SCANCODE_KP_ENTER, "Keypad Enter" },
+    { SDL_SCANCODE_LCTRL, "Left Ctrl" }, { SDL_SCANCODE_RCTRL, "Right Ctrl" },
+    { SDL_SCANCODE_LSHIFT, "Left Shift" }, { SDL_SCANCODE_RSHIFT, "Right Shift" },
+    { SDL_SCANCODE_LALT, "Left Alt" }, { SDL_SCANCODE_RALT, "Right Alt" },
+    { SDL_SCANCODE_UP, "Up" }, { SDL_SCANCODE_DOWN, "Down" },
+    { SDL_SCANCODE_LEFT, "Left" }, { SDL_SCANCODE_RIGHT, "Right" },
+};
+
+const char *SDL_GetScancodeName(SDL_Scancode code)
+{
+    size_t i;
+    for (i = 0; i < sizeof scancode_names / sizeof scancode_names[0]; i++) {
+        if (scancode_names[i].code == code) { return scancode_names[i].name; }
+    }
+    return "";
+}
+
+SDL_Scancode SDL_GetScancodeFromName(const char *name)
+{
+    size_t i;
+    if (name == NULL || *name == '\0') { return SDL_SCANCODE_UNKNOWN; }
+    /* Case-insensitive, as SDL's own implementation is. */
+    for (i = 0; i < sizeof scancode_names / sizeof scancode_names[0]; i++) {
+        if (strcasecmp(name, scancode_names[i].name) == 0) { return scancode_names[i].code; }
+    }
+    return SDL_SCANCODE_UNKNOWN;
+}
+
+/* The binding layer itself. SDL-free and game-data-free, so it is compiled straight in
+ * -- the same arrangement as ge_console_input.c above. Without it the extracted keyboard
+ * code has no geActionName/gePresetKeys/geInputPreset to call. */
+#include "ge_bindings.c"
 void SDL_GameControllerUpdate(void) {}
 Sint16 SDL_GameControllerGetAxis(SDL_GameController *gc, SDL_GameControllerAxis axis)
 { return controller_axes[axis]; }
@@ -251,14 +315,14 @@ int main(int argc, char **argv)
         check(attempts == 0, "unfocused first poll does not request capture");
         focus_event(SDL_WINDOWEVENT_FOCUS_GAINED, 7);
         click(); out = poll();
-        check(relative && !out.rtrigger, "first focused click captures without firing");
+        check(relative && !out.act[GE_ACT_FIRE], "first focused click captures without firing");
         return failures != 0;
     }
     check(relative, "initial mouse capture");
 
     if (strcmp(scenario, "no-keyboard") == 0) {
         motion_x = 12; buttons = SDL_BUTTON_RMASK; out = poll();
-        check(out.rx > 0 && out.ltrigger, "controller and mouse work with keyboard disabled");
+        check(out.rx > 0 && out.act[GE_ACT_AIM], "controller and mouse work with keyboard disabled");
         return failures != 0;
     }
     if (strcmp(scenario, "mixed") == 0) {
@@ -273,8 +337,18 @@ int main(int argc, char **argv)
         check(out.lx == 16000 && out.ly == -18000 && out.a,
               "controller movement and buttons survive simultaneous mouse look");
         check(out.rx > 0 && out.ry < 0, "mouse movement overrides controller look axes");
-        check(out.rtrigger && out.ltrigger && out.rt_raw == 32767 && out.lt_raw == 32767,
+        /* The ACTION, not the trigger fields.
+         *
+         * The mouse used to write `rtrigger`/`ltrigger` directly, which meant it was not
+         * bound to fire and aim so much as bound to whatever those two happened to sit
+         * on -- rebinding aim to a face button took it off the right mouse button too.
+         * Mouse buttons are ordinary bindings now, so the trigger fields stay 0 and the
+         * action is what carries the meaning. This is a stronger check than the one it
+         * replaces: it holds however the player has remapped things. */
+        check(out.act[GE_ACT_FIRE] && out.act[GE_ACT_AIM],
               "mouse fire and aim work with a connected controller");
+        check(!out.rtrigger && !out.ltrigger,
+              "the mouse no longer fakes a gamepad trigger to say so");
         keys[SDL_SCANCODE_RIGHT] = 1; keys[SDL_SCANCODE_W] = 1;
         motion_x = -12; out = poll();
         check(out.rx < 0 && out.ly == -GE_KB_FULL && out.lx == 16000,
@@ -316,7 +390,7 @@ int main(int argc, char **argv)
         focus_event(SDL_WINDOWEVENT_FOCUS_GAINED, 7);
         check(!relative, "focus alone does not recapture");
         click(); out = poll();
-        check(relative && !out.rtrigger && !out.rx, "activating click resumes without shot or jump");
+        check(relative && !out.act[GE_ACT_FIRE] && !out.rx, "activating click resumes without shot or jump");
         return failures != 0;
     }
 
@@ -347,10 +421,10 @@ int main(int argc, char **argv)
         release_buttons();
         geConsoleInputSetOpen(1); gePortInputConsoleCapture(1); before = attempts;
         click(); out = poll();
-        check(attempts == before && !out.rtrigger, "open console owns the click");
+        check(attempts == before && !out.act[GE_ACT_FIRE], "open console owns the click");
         geConsoleInputSetOpen(0); gePortInputConsoleCapture(0); before = attempts;
         click(); out = poll();
-        check(attempts == before && !out.rtrigger, "console close quarantine owns held click");
+        check(attempts == before && !out.act[GE_ACT_FIRE], "console close quarantine owns held click");
         release_buttons(); click();
         check(relative, "fresh click works after console quarantine ends");
         return failures != 0;
@@ -373,25 +447,26 @@ int main(int argc, char **argv)
     check(relative && attempts == before + 1, "click event recaptures after Escape");
     out = poll();
     check(!out.rx && !out.ry, "recapture discards pre-capture motion and carry");
-    check(!out.rtrigger && !out.rt_raw, "resume click does not fire");
+    check(!out.act[GE_ACT_FIRE], "resume click does not fire");
     motion_x = 12; out = poll();
-    check(out.rx != 0 && !out.rtrigger, "mouse look resumes while resume click is held");
+    check(out.rx != 0 && !out.act[GE_ACT_FIRE], "mouse look resumes while resume click is held");
     buttons |= SDL_BUTTON_RMASK; out = poll();
-    check(!out.rtrigger && !out.ltrigger, "mouse actions stay blocked until all buttons release");
+    check(!out.act[GE_ACT_FIRE] && !out.act[GE_ACT_AIM],
+          "mouse actions stay blocked until all buttons release");
     release_buttons(); click(); out = poll();
-    check(out.rtrigger && out.rt_raw == 32767, "fresh click after release fires normally");
+    check(out.act[GE_ACT_FIRE], "fresh click after release fires normally");
     release_buttons(); release_cursor();
     queue[0] = click_event(SDL_MOUSEBUTTONDOWN, SDL_BUTTON_LEFT, 7, 100, 100);
     queue[1] = click_event(SDL_MOUSEBUTTONUP, SDL_BUTTON_LEFT, 7, 100, 100);
     queue_count = 2; queue_index = 0; gfx_sdl_handle_events(); out = poll();
-    check(relative && !out.rtrigger, "click down and up between polls still recaptures without firing");
+    check(relative && !out.act[GE_ACT_FIRE], "click down and up between polls still recaptures without firing");
     for (int i = 0; i < 3; i++) {
         release_buttons(); release_cursor(); click(); out = poll();
-        check(relative && !out.rtrigger, "repeated Escape-click cycle stays usable");
+        check(relative && !out.act[GE_ACT_FIRE], "repeated Escape-click cycle stays usable");
     }
     release_buttons(); escape(1); before = attempts; escape(1);
     check(!relative && attempts == before, "held Escape does not flap capture");
     escape(0); buttons = SDL_BUTTON_LMASK; escape(1); out = poll();
-    check(relative && !out.rtrigger, "second Escape recaptures without leaking a held click");
+    check(relative && !out.act[GE_ACT_FIRE], "second Escape recaptures without leaking a held click");
     return failures != 0;
 }
