@@ -3,31 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Build it &mdash; Goldeneye-Native</title>
+<title>Build from source &mdash; Goldeneye-Native</title>
 <meta name="description" content="How to build Goldeneye-Native from source on Windows, macOS or Linux with your own ROM, and the full honest status of every platform and feature.">
 <link rel="icon" href="assets/images/mark.png">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="page">
 
+<a class="skip-link" href="#main">Skip to content</a>
+
 <header class="site">
   <div class="wrap">
     <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
-    <nav class="site-nav">
+    <nav class="site-nav" aria-label="Primary">
       <a href="index.html">Overview</a>
-      <a href="build.html" class="current">Build it</a>
+      <a href="install.html" class="current" aria-current="page">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
       <a href="faq.html">FAQ</a>
-      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
-      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="GitHub">&#9733;</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
     </nav>
   </div>
 </header>
 
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
 <div class="page-header">
   <div class="wrap">
-    <h1>Building it</h1>
-    <p>There is no prebuilt binary to download. That's a deliberate consequence of how this project
-    handles game data, not a missing feature &mdash; see below. Building it is a handful of commands.</p>
+    <h1>Build from source</h1>
+    <p>The deeper build reference. If this is your first time, start at
+    <a href="install.html">Install</a> instead &mdash; it walks the same ground one step at a time.
+    There is no prebuilt binary to download; that's a deliberate consequence of how this project
+    handles game data, not a missing feature &mdash; see below.</p>
   </div>
 </div>
 
@@ -74,23 +103,45 @@
 <section class="content">
   <div class="wrap">
     <h2>Quick start</h2>
+    <p class="section-sub">One installer per platform. It fetches the public dependencies, prepares
+    the decompilation, extracts the assets from your own ROM locally, and builds the native program.
+    Re-running it is safe and resumes completed work.</p>
     <p class="section-sub">macOS and Linux:</p>
     <div class="panel reveal">
     <pre><code>git clone https://github.com/seb-patron/goldeneye-native.git
 cd goldeneye-native
-tools/setup.sh                 # fetches deps, applies patches
-./getv/build_mac.sh all        # or build_linux.sh
-./getv/build-mac/goldeneye --launcher</code></pre>
+bash tools/install.sh                          # finds a ROM on the Desktop or in Downloads
+bash tools/install.sh --rom /path/to/rom.z64   # or name it explicitly
+./getv/build-mac/goldeneye --launcher          # or build-linux/goldeneye</code></pre>
     </div>
-    <p class="section-sub" style="margin-top:24px">Windows (PowerShell):</p>
+    <p class="section-sub" style="margin-top:24px">Windows (PowerShell), with Git for Windows and
+    Python&nbsp;3 installed:</p>
     <div class="panel reveal">
-    <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_deps_windows.ps1
-.\getv\build_windows.ps1 -Target all</code></pre>
+    <pre><code>powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -Rom C:\path\to\rom.z64
+.\getv\build-windows\goldeneye.exe</code></pre>
     </div>
+    <p class="section-sub" style="margin-top:24px">Rebuilding afterwards, without re-running the
+    installer:</p>
+    <div class="panel reveal">
+    <pre><code>./getv/build_mac.sh all                        # macOS OpenGL
+./getv/build_linux.sh all                      # Linux
+GETV_RENDERER=metal ./getv/build_mac.sh all    # macOS Metal, separate build directory</code></pre>
+    </div>
+    <div class="panel reveal">
+    <pre><code>.\getv\build_windows.ps1 -Target all -Mingw C:\mingw64</code></pre>
+    </div>
+    <p class="section-sub" style="margin-top:24px">
+      <code>tools/setup.sh</code> still exists and does something narrower: it fetches the
+      dependencies and the decompilation, applies the source patch, and <em>stops before the ROM</em>.
+      Use it when you intend to drive the asset pipeline and the build by hand;
+      <code>tools/install.sh</code> supersedes it otherwise.
+    </p>
     <p class="section-sub" style="margin-bottom:0; margin-top:24px">
+      <a href="install.html">Install</a> is the step-by-step version of the above.
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/SETUP.md">docs/SETUP.md</a>
-      is the real guide &mdash; every prerequisite, every command, the output each should produce, and
-      a troubleshooting section. The asset-generation step is the one you can't shortcut.
+      is the exhaustive manual pipeline &mdash; every prerequisite, every command, the output each
+      should produce, and a troubleshooting section. The asset-generation step is the one you can't
+      shortcut.
     </p>
   </div>
 </section>
@@ -101,7 +152,9 @@ tools/setup.sh                 # fetches deps, applies patches
     <p class="section-sub">
       Scored honestly: <span class="tag tag-done">DONE</span> is implemented and verified,
       <span class="tag tag-partial">PARTIAL</span> is real and working with a stated gap,
-      <span class="tag tag-open">OPEN</span> is not started. Full detail in the repository's
+      <span class="tag tag-open">OPEN</span> is not started. The fuller picture, including what is
+      disputed and what is blocked, is on the <a href="roadmap.html">roadmap</a>; known limitations
+      are on <a href="bugs.html">Known bugs</a>. Full detail in the repository's
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/ROADMAP.md">ROADMAP.md</a>
       and <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/VISION.md">VISION.md</a>.
     </p>
@@ -112,15 +165,15 @@ tools/setup.sh                 # fetches deps, applies patches
         <tr><td class="item">Windows / macOS / Linux</td><td><span class="tag tag-done">DONE</span></td><td class="note">Native builds from one source tree, build from source.</td></tr>
         <tr><td class="item">Split-screen multiplayer</td><td><span class="tag tag-done">DONE</span></td><td class="note">Radar, all 64 characters, all five watch pages, saves persist.</td></tr>
         <tr><td class="item">Rulesets &amp; horde mode</td><td><span class="tag tag-done">DONE</span></td><td class="note">Classic / hardcore / survival / chaos / horde, plus nine individual percentages.</td></tr>
-        <tr><td class="item">Lua modding</td><td><span class="tag tag-done">DONE</span></td><td class="note">Read-only API today; write access (move a player, spawn a prop) is next.</td></tr>
-        <tr><td class="item">Metal renderer backend</td><td><span class="tag tag-done">DONE</span></td><td class="note">Landed 2026-08-26 on macOS &mdash; boots to the title crawl. Unlocks tvOS/iOS.</td></tr>
+        <tr><td class="item">Lua modding</td><td><span class="tag tag-done">DONE</span></td><td class="note">Read-only API into live game state. Write access (move a player, spawn a prop) is not implemented.</td></tr>
+        <tr><td class="item">Metal renderer backend</td><td><span class="tag tag-done">DONE</span></td><td class="note">Native Metal backend on macOS, selected with <code>GETV_RENDERER=metal</code> into its own build directory. Three-point texture filtering and depth-tested blob shadows followed. Unlocks the tvOS and iOS work.</td></tr>
         <tr><td class="item">Co-op campaign</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha. Players spawn, render and move; objectives/AI/cutscenes still assume one Bond.</td></tr>
-        <tr><td class="item">LAN play</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha, and disputed in the project's own docs &mdash; see <a href="faq.html">FAQ</a>.</td></tr>
-        <tr><td class="item">High frame rate above 60</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Uncapped renders at 350&ndash;560+ fps, but gameplay is tick-coupled today.</td></tr>
-        <tr><td class="item">Apple TV / iOS</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Not shipped. Metal backend is done; device bring-up is next.</td></tr>
-        <tr><td class="item">Android</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Architecture is in place (SDL2, split platform layer, a GLES renderer path). Not built yet.</td></tr>
-        <tr><td class="item">VR</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Camera seam exists for a per-eye transform. Listed because the hook exists, not because it works.</td></tr>
-        <tr><td class="item">HD texture packs</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Roadmap item, following Perfect Dark's <code>ext_tex</code> approach.</td></tr>
+        <tr><td class="item">LAN play</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha, and disputed in the project's own docs &mdash; see <a href="roadmap.html#disputed">Disputed</a>.</td></tr>
+        <tr><td class="item">High frame rate above 60</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">On the default synthetic clock a rendered frame is a video field, so rendering faster runs the world faster and a cap above 60 is refused. <code>framerate = off</code> switches to the real timebase and holds the world near 60 fields/sec while the renderer free-runs &mdash; 486 fps measured on an Apple M1. The remaining gap is the frame-counted systems, not gameplay speed as a whole.</td></tr>
+        <tr><td class="item">tvOS (Apple TV)</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Bring-up, not a product. Builds, signs and deploys to real hardware, GL ES or Metal.</td></tr>
+        <tr><td class="item">iOS</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Bring-up. <code>lib</code> and <code>app</code> build against Metal, and there is a Simulator build; deploying to a device needs a paired one.</td></tr>
+        <tr><td class="item">Android</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Bring-up. The port layer builds for arm64 GL ES and carries on-screen touch controls as a virtual pad. <strong>It has never been run</strong> &mdash; not yet a running game.</td></tr>
+                <tr><td class="item">HD texture packs</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">A hash-keyed pack lookup exists but is <strong>unverified</strong> &mdash; no compiler was available to check the path &mdash; and is off by default. Note that <code>docs/VISION.md</code> item 11 still scores this OPEN while <code>docs/CONFIGURATION.md</code> documents the working keys; the two disagree.</td></tr>
         <tr><td class="item">True widescreen</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Resolution is configurable, but a wider window fits the 4:3 view rather than widening it.</td></tr>
         <tr><td class="item">Online play</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Downstream of the frame-timing work.</td></tr>
       </tbody>
@@ -144,7 +197,9 @@ tools/setup.sh                 # fetches deps, applies patches
       CRT shader (scanlines, aperture mask, barrel curve, vignette) ships as a mod you can read and
       change. Start at
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/MODDING.md">docs/MODDING.md</a>.
-      HD texture replacement is on the roadmap and isn't implemented yet.
+      HD texture replacement is implemented behind <code>hd_textures</code> and <code>texpack</code>, off
+      by default, and <strong>unverified</strong> &mdash; see the <a href="settings.html#display">settings
+      reference</a>.
     </p>
   </div>
 </section>
@@ -168,19 +223,37 @@ tools/setup.sh                 # fetches deps, applies patches
   </div>
 </section>
 
+</main>
+
 <footer class="site">
   <div class="wrap">
-    <div class="foot-links">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
       <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
       <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
       <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
-    </div>
+    </nav>
     <p class="foot-note">
       GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
       to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
     </p>
   </div>
 </footer>

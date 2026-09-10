@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "about": "Static manifest for the documentation version selector. Hand-maintained, committed to the repository, and read at authoring time -- never fetched at runtime and never resolved through the GitHub API. tools/check_site.py verifies that every entry here resolves and that every directory under site/v/ appears here.",
+  "current": "development",
+  "latest_release": null,
+  "archive_root": "v",
+  "versions": [
+    {
+      "id": "development",
+      "label": "development",
+      "status": "current",
+      "released": null,
+      "path": ".",
+      "source_ref": "dc6294bfdd0c6050d68e1899d8c6028806c99173",
+      "source_ref_short": "dc6294b",
+      "source_ref_kind": "commit",
+      "last_reviewed": "2026-09-09",
+      "changelog_anchor": "unreleased",
+      "notes": "Unreleased. These pages describe the current main branch. The repository has no Git tag and no GitHub Release."
+    }
+  ]
+}

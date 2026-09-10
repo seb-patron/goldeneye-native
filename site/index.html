@@ -10,32 +10,59 @@
 </head>
 <body>
 
+<a class="skip-link" href="#main">Skip to content</a>
+
 <header class="site">
   <div class="wrap">
     <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
-    <nav class="site-nav">
-      <a href="index.html" class="current">Overview</a>
-      <a href="build.html">Build it</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html" class="current" aria-current="page">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
       <a href="faq.html">FAQ</a>
-      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
-      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="GitHub">&#9733;</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
     </nav>
   </div>
 </header>
 
+<main id="main">
+
 <section class="hero">
   <div class="hero-bg"><img src="assets/images/screenshot-04.jpg" alt="" loading="eager"></div>
   <div class="wrap">
-    <p class="eyebrow">NATIVE &middot; MIT &middot; BRING YOUR OWN ROM</p>
+    <p class="eyebrow">NATIVE &middot; SOURCE AVAILABLE &middot; BRING YOUR OWN ROM</p>
     <h1>GoldenEye 007.<br><em>Compiled, not emulated.</em></h1>
     <p class="lede">Rare's game, 100% decompiled, built native for Windows, macOS and Linux &mdash; with a modern platform layer underneath.</p>
     <div class="hero-actions">
-      <a class="btn" href="build.html">Build it</a>
+      <a class="btn" href="install.html">Install it</a>
       <a class="link-more" href="https://github.com/seb-patron/goldeneye-native">View source <span class="chev">&#8250;</span></a>
     </div>
   </div>
   <div class="scroll-cue"><span>Scroll</span><span class="bar"></span></div>
 </section>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
 
 <section class="scrolly-track">
   <div class="scrolly-stage">
@@ -65,7 +92,7 @@
           <p>Radar, every watch page, saves that persist. Co-op in the campaign, too &mdash; something the original never had.</p>
         </div>
         <div class="scrolly-step" data-step="2">
-          <h3>One launcher.<br>Every setting.</h3>
+          <h3>One launcher.<br>The settings that matter.</h3>
           <p>Level, ruleset, cheats, resolution and field of view, before you play &mdash; no config file editing.</p>
         </div>
         <div class="scrolly-step" data-step="3">
@@ -103,12 +130,11 @@
       <div class="p"><div class="p-name">macOS</div><div class="p-status">&#9679; Native</div></div>
       <div class="p"><div class="p-name">Linux</div><div class="p-status">&#9679; Native</div></div>
     </div>
-    <p class="roadmap-label">On the roadmap</p>
+    <p class="roadmap-label">Bring-up &mdash; not products</p>
     <div class="roadmap-row">
-      <div class="p"><div class="p-name">Apple TV</div><div class="p-status">Metal backend done</div></div>
-      <div class="p"><div class="p-name">iOS</div><div class="p-status">Not started</div></div>
-      <div class="p"><div class="p-name">Android</div><div class="p-status">Not started</div></div>
-      <div class="p"><div class="p-name">VR</div><div class="p-status">Hooks only</div></div>
+      <div class="p"><div class="p-name">Apple TV</div><div class="p-status">Builds and deploys</div></div>
+      <div class="p"><div class="p-name">iOS</div><div class="p-status">Builds; needs a paired device</div></div>
+      <div class="p"><div class="p-name">Android</div><div class="p-status">Builds; never yet run</div></div>
     </div>
   </div>
 </section>
@@ -122,20 +148,34 @@
       <tr><td>Byte order</td><td>Big-endian <code>z64</code></td></tr>
       <tr><td>Header magic</td><td><code>80371240</code></td></tr>
     </table>
-    <p style="margin-top:24px"><a class="link-more" href="build.html">Full requirements and the honest status of every platform <span class="chev">&#8250;</span></a></p>
+    <p style="margin-top:24px"><a class="link-more" href="install.html">How to install it, step by step <span class="chev">&#8250;</span></a>
+    &nbsp;&nbsp;<a class="link-more" href="roadmap.html">Where it actually stands <span class="chev">&#8250;</span></a></p>
   </div>
 </section>
 
+</main>
+
 <footer class="site">
   <div class="wrap">
-    <div class="foot-links">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
       <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
       <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
       <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
-    </div>
+    </nav>
     <p class="foot-note">
       Built by <a href="https://github.com/SegfaultEvan">@SegfaultEvan</a>. The game's C
       source is the work of the <a href="https://github.com/n64decomp/007">n64decomp/007</a>
@@ -143,6 +183,11 @@
       endorsed by, or connected to Nintendo, Rare, MGM, Danjaq or EON Productions. Not an emulator:
       no MIPS interpreter and no dynamic recompiler. Not static recompilation. Not a fork of the
       Xbox 360 remaster.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
     </p>
   </div>
 </footer>

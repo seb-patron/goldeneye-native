@@ -1,0 +1,60 @@
+name: Public site validation
+
+# Validates the published site's markup, links, assets, version metadata, changelog
+# entries and version selector. ROM-free: it reads site/, site/versions.json and
+# CHANGELOG.md only, and needs no ROM, extracted assets or built game.
+#
+# Deliberately separate from .github/workflows/pages.yml, which deploys and does
+# nothing else. A validation failure must never be able to publish, and a deploy
+# must never be able to skip validation by living in the same job.
+
+on:
+  pull_request:
+    paths:
+      - "site/**"
+      - "CHANGELOG.md"
+      - "tools/check_site.py"
+      - ".github/workflows/site-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "CHANGELOG.md"
+      - "tools/check_site.py"
+      - ".github/workflows/site-validation.yml"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Proposed version for a release-readiness check, e.g. v1.0.0. Advisory."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site:
+    name: site-validation-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Validate the public site
+        run: python3 tools/check_site.py
+
+      - name: Release readiness for a proposed version (advisory)
+        if: github.event_name == 'workflow_dispatch' && inputs.release != ''
+        env:
+          # Passed through the environment rather than interpolated into the script,
+          # so a crafted input cannot become a command.
+          RELEASE: ${{ inputs.release }}
+        run: python3 tools/check_site.py --release "$RELEASE"
+
+      - name: Reject ROMs, saves and non-public artifacts
+        run: python3 tools/check_no_game_data.py --tracked

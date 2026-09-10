@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap &mdash; Goldeneye-Native</title>
+<meta name="description" content="What is shipped, partial, planned, disputed and blocked in Goldeneye-Native, scored against what the tree actually does.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html" class="current" aria-current="page">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Roadmap</h1>
+    <p>Scored against what the tree actually does, using the project's own three labels. A plan that
+    does not distinguish shipped work from intention stops being useful about a week in.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <h2>How to read this</h2>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Label</th><th scope="col">Means</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><span class="tag tag-done">DONE</span></td><td>Implemented and verified, with the verification named.</td></tr>
+        <tr><td class="k"><span class="tag tag-partial">PARTIAL</span></td><td>Real code exists and does something, with a stated gap.</td></tr>
+        <tr><td class="k"><span class="tag tag-open">OPEN</span></td><td>Not started &mdash; or a config key exists that is parsed and inert.</td></tr>
+        <tr><td class="k"><span class="tag tag-disputed">DISPUTED</span></td><td>The project's own documents disagree, and both are deliberately kept.</td></tr>
+        <tr><td class="k"><span class="tag tag-blocked">BLOCKED</span></td><td>Cannot proceed until something else lands.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="notice" style="margin-top:24px">
+      <strong>A config key is not a feature.</strong> That is the project's own rule, and it is why
+      <code>ssao</code>, <code>shadows</code>, <code>per_pixel_lighting</code> and
+      <code>muzzle_lights</code> are scored OPEN despite being settable. Nothing here is promoted
+      without a measurement.
+    </div>
+    <p class="section-sub" style="margin-top:24px;margin-bottom:0">
+      Sources:
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/VISION.md">docs/VISION.md</a>
+      (the long arc, with the numbered feature table this page follows),
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/ROADMAP.md">docs/ROADMAP.md</a>
+      (what is being worked on now), and the repository's open issues and milestones. Reviewed by hand
+      on <time datetime="2026-09-09">2026-09-09</time>.
+    </p>
+  </div>
+</section>
+
+<section class="content" id="shipped">
+  <div class="wrap">
+    <h2>Shipped</h2>
+    <p class="section-sub">Implemented and verified. Available today by building from
+    <code>main</code> &mdash; there is <a href="versions.html">no release</a> yet, so that is the only
+    way to get any of it.</p>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Item</th><th scope="col">Status</th><th scope="col">What was verified</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Native on Windows, macOS, Linux</td><td><span class="tag tag-done">DONE</span></td><td>One source tree, three native builds. Fast3D over OpenGL via SDL2. No emulator, no recompiler, no compatibility layer.</td></tr>
+        <tr><td class="k">All 27 stages boot</td><td><span class="tag tag-done">DONE</span></td><td>Every loadable level renders and exits without a crash or hang &mdash; measured, not assumed.</td></tr>
+        <tr><td class="k">Split-screen multiplayer</td><td><span class="tag tag-done">DONE</span></td><td>Radar, all 64 characters, all five watch pages, saves persist.</td></tr>
+        <tr><td class="k">Rulesets &amp; horde mode</td><td><span class="tag tag-done">DONE</span></td><td>Classic / hardcore / survival / chaos / horde plus nine individual percentages. Measured on Agent: hardcore takes AI health 2.000 &rarr; 1.000 and ammo 2.000 &rarr; 1.000.</td></tr>
+        <tr><td class="k">FOV system</td><td><span class="tag tag-done">DONE</span></td><td><code>fov</code> 50&ndash;160, applied at the perspective call. Two earlier attempts scaled the wrong thing and moved triangle counts convincingly, which is why this one names its verification.</td></tr>
+        <tr><td class="k">Filtering, mipmaps, MSAA, anisotropic</td><td><span class="tag tag-done">DONE</span></td><td>Three-point filtering is the real N64 behaviour and the default. Anisotropic is clamped to the driver maximum; MSAA verified at 4 samples.</td></tr>
+        <tr><td class="k">Lua modding</td><td><span class="tag tag-done">DONE</span></td><td>A folder with a <code>mod.lua</code> in it, loaded at startup, no rebuild. Read API into live game state. The CRT screen ships as a readable example mod.</td></tr>
+        <tr><td class="k">Metal renderer backend</td><td><span class="tag tag-done">DONE</span></td><td>Landed 2026-08-26 on macOS &mdash; boots to the title crawl. Three-point filtering and depth-tested blob shadows followed. Unlocks tvOS/iOS work.</td></tr>
+        <tr><td class="k">The launcher</td><td><span class="tag tag-done">DONE</span></td><td>Eight pages over the existing setting surface. Every control resolves to a gate that already worked from a shell.</td></tr>
+        <tr><td class="k">Mouse look</td><td><span class="tag tag-done">DONE</span></td><td>Modern mouse look with a classic fallback, sensitivity and inversion, and a fix for fast camera movement. <strong>Note:</strong> <code>docs/VISION.md</code> item 5 still scores this OPEN &mdash; that row is stale, and the shipped work is in the <a href="changelog.html#unreleased">changelog</a>.</td></tr>
+        <tr><td class="k">Developer console &amp; tooling</td><td><span class="tag tag-done">DONE</span></td><td>Typed core, cross-renderer UI, a game-thread-owned pause policy, read-only session queries, explicit-slot mutations and controlled mission transitions. Launcher Developer Tools page and local telemetry reports.</td></tr>
+        <tr><td class="k">Enemy gibs &amp; Brutal GoldenEye</td><td><span class="tag tag-done">DONE</span></td><td>Policy-gated gibs, textured blood, a Base Game switch that suppresses the whole family without discarding your preferences.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="partial">
+  <div class="wrap">
+    <h2>Partial</h2>
+    <p class="section-sub">Real code that does something real, with a gap that is stated rather than
+    glossed. Details for each are on <a href="bugs.html#limitations">Known bugs &amp; limitations</a>.</p>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Item</th><th scope="col">Status</th><th scope="col">The gap</th></tr></thead>
+      <tbody>
+        <tr><td class="k">High frame rate above 60</td><td><span class="tag tag-partial">PARTIAL</span></td><td><strong>The most consequential open problem in the project</strong>, in its own words. Gameplay is tick-coupled, so rendering faster runs the world faster. A fixed simulation tick with interpolated rendering is the correct fix.</td></tr>
+        <tr><td class="k">Resolution / aspect</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Resolution, aspect, fullscreen and supersampling work. A wider window fits the 4:3 view rather than widening the horizontal field, and split-screen's per-viewport aspect has not been audited against an arbitrary host window.</td></tr>
+        <tr><td class="k">Co-op campaign</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Players spawn, separate and render, and movement through the player API was verified over 6,001 frames against a no-input control. Objectives, AI and cutscenes still assume one Bond, and two humans at two pads is untested.</td></tr>
+        <tr><td class="k">Modern controller support</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Rare's eight styles, glyph profiles, per-player bindings and deadzone all exist. A modern stick-response option alongside Classic N64 is <a href="https://github.com/seb-patron/goldeneye-native/issues/62">#62</a>; complete independent keyboard/mouse/gamepad rebinding is <a href="https://github.com/seb-patron/goldeneye-native/issues/63">#63</a>.</td></tr>
+        <tr><td class="k">Multiplayer bots</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Multiplayer itself works. Bots do not exist yet; the offline navmesh, prop-extent and node-table work behind them is done.</td></tr>
+        <tr><td class="k">Custom missions &amp; scripting</td><td><span class="tag tag-partial">PARTIAL</span></td><td>The scripting host exists. Mission authoring does not.</td></tr>
+        <tr><td class="k">HD texture replacement</td><td><span class="tag tag-partial">PARTIAL</span></td><td>A hash-keyed pack lookup is implemented but <strong>unverified</strong> &mdash; no compiler was available to check the path. Off by default.</td></tr>
+        <tr><td class="k">tvOS (Apple TV)</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Bring-up, not a product. Builds, signs and deploys to real hardware, on GL ES or Metal.</td></tr>
+        <tr><td class="k">iOS</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Bring-up. <code>lib</code> and <code>app</code> build against Metal and there is an iOS Simulator build, which needs no paired hardware; deploying to a device does. iOS work started after Metal was already the proven renderer.</td></tr>
+        <tr><td class="k">Android</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Bring-up. The port layer builds for arm64 GL ES and carries on-screen touch controls as a virtual pad. <strong>It has never been run</strong>, so it is not yet a running game.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="disputed">
+  <div class="wrap">
+    <h2>Disputed</h2>
+    <p class="section-sub">Where the project's own documents disagree with each other. Both are kept
+    on purpose &mdash; recording a real disagreement is more useful than declaring a winner
+    prematurely.</p>
+
+    <div class="entry">
+      <h3>Lockstep netplay <span class="tag tag-disputed">DISPUTED</span></h3>
+      <p class="entry-meta">
+        <span><strong>for</strong> docs/NETPLAY.md</span>
+        <span><strong>against</strong> docs/PLAYER_API.md</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+      </p>
+      <p>A lockstep session exists in the tree and is alpha. <code>NETPLAY.md</code> argues the model
+      can work; <code>PLAYER_API.md</code> argues against it from measurements. Netplay determinism
+      itself was verified over 3,000 identical frames, so the disagreement is about the model rather
+      than about determinism. Online play is downstream of the frame-timing work either way.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Whether co-op players move <span class="tag tag-disputed">RESOLVED, DOCS STALE</span></h3>
+      <p class="entry-meta">
+        <span><strong>current</strong> docs/ROADMAP.md &sect;M4</span>
+        <span><strong>stale</strong> docs/VISION.md item 38, docs/FAQ.md</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+      </p>
+      <p>Resolved in favour of "they move": the earlier conclusion came from an accessor that returned
+      a field zeroed at spawn and rarely written, so both players <em>were</em> walking while the
+      measurement said otherwise. The bug was in the measuring tool. Two documents still carry the old
+      conclusion and have not been updated; that is recorded here rather than fixed silently on a
+      website.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="blocked">
+  <div class="wrap">
+    <h2>Blocked</h2>
+    <p class="section-sub">Not merely unstarted &mdash; waiting on something specific and named.</p>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Item</th><th scope="col">Blocked on</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Online play</td><td>The fixed-tick work. Rollback or interpolation over a variable tick is not worth attempting, so this waits on the frame-timing problem above.</td></tr>
+        <tr><td class="k">ADS, manual reload, dual wield, secondary fire</td><td>All tick-coupled, so all downstream of the same frame-timing problem.</td></tr>
+        <tr><td class="k">Third-person camera, animation, collision</td><td>The camera/player orientation split, which has not been done.</td></tr>
+        <tr><td class="k">An in-game options menu</td><td>An explicit maintainer comment not to change the Watch's screen-count constant until the player struct is fully shiftable. This is why the launcher exists instead, and why only three keys are live.</td></tr>
+        <tr><td class="k">Any official release or download</td><td>Eight readiness gates in <code>docs/RELEASING.md</code>, none met: coordinated macOS packaging, clean-machine Windows acceptance, a licensing and code-signing decision, and a reviewed permission boundary among them. See <a href="versions.html">Releases &amp; versions</a>.</td></tr>
+        <tr><td class="k">Distributing a playable binary</td><td>Unresolvable as stated: a built binary contains the entire game. It is not a scheduling problem and it is not on this roadmap.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="planned">
+  <div class="wrap">
+    <h2>Planned</h2>
+    <p class="section-sub">Not started. Listed because the shape is understood, not because a date
+    exists &mdash; there are no dates on this page and there deliberately are none.</p>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Item</th><th scope="col">Status</th><th scope="col">Note</th></tr></thead>
+      <tbody>
+        <tr><td class="k">True aspect-aware widescreen</td><td><span class="tag tag-open">OPEN</span></td><td>The distinction that matters is whether widescreen widens the horizontal field or stretches a 4:3 image; that has not been measured.</td></tr>
+        <tr><td class="k">Free camera / photo mode</td><td><span class="tag tag-open">OPEN</span></td><td>A fly camera exists behind <code>GETV_FREECAM</code> and is beta: visibility stays rooted at Bond's room, so flying out of it culls the world. Re-rooting the portal walk was tried and deliberately not shipped because it could never be shown to run.</td></tr>
+        <tr><td class="k">Dynamic lighting, shadows, post-processing</td><td><span class="tag tag-open">OPEN</span></td><td>The config keys exist and are inert. <a href="settings.html#reserved">See the reserved list</a>.</td></tr>
+        <tr><td class="k">Night vision, thermal, remote camera</td><td><span class="tag tag-open">OPEN</span></td><td>Post-processing over an existing frame, and the cheapest items in their range.</td></tr>
+        <tr><td class="k">Enhanced guard AI, communication, personalities</td><td><span class="tag tag-open">OPEN</span></td><td>Downstream of the bot work.</td></tr>
+        <tr><td class="k">Custom levels</td><td><span class="tag tag-open">OPEN</span></td><td>The hardest item on the list: it needs the setup / STAN / background pipeline running in reverse.</td></tr>
+        <tr><td class="k">Custom weapons and enemies</td><td><span class="tag tag-open">OPEN</span></td><td>Data-table driven, and considerably more tractable than levels.</td></tr>
+        <tr><td class="k">Randomizer, weather, environmental audio</td><td><span class="tag tag-open">OPEN</span></td><td>Not started.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="milestones">
+  <div class="wrap">
+    <h2>What is being worked on now</h2>
+    <p class="section-sub">The repository's open milestones, which are the closest thing to a
+    current work queue. Live counts are on GitHub; this page does not repeat them, because a number
+    copied onto a static page is wrong within a day.</p>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Milestone</th><th scope="col">About</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/milestone/1">Developer tooling v1</a></td><td>Console, frame-safe inspector and one-click safe diagnostic bundles.</td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/milestone/2">Brutal GoldenEye</a></td><td>Blood from ordinary hits, selective dismemberment, and the rules governing them.</td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/milestone/3">Metal by default on macOS</a></td><td>Qualification and rollout checklist before Metal becomes the default.</td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/milestone/4">Improving controls</a></td><td>Independent rebinding, a modern stick-response option, and mouse look in LAN and online play.</td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/milestone/5">Public Project Site, Release Documentation &amp; Contributor Onboarding</a></td><td>This site, the changelog, the versioning model and the release process.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-top:24px;margin-bottom:0">Two open issues sit outside any
+    milestone and are worth knowing about if you touch CI:
+    <a href="https://github.com/seb-patron/goldeneye-native/issues/35">#35</a> (run CI only for
+    relevant changes) and
+    <a href="https://github.com/seb-patron/goldeneye-native/issues/46">#46</a> (harden CI trust and
+    resource controls). Plus
+    <a href="https://github.com/seb-patron/goldeneye-native/issues/26">#26</a>, exporting
+    authoritative STAN and pad placement evidence.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

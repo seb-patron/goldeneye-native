@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Releases &amp; versions &mdash; Goldeneye-Native</title>
+<meta name="description" content="Which versions of Goldeneye-Native exist, which documentation each one has, and how the version selector works.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html" class="current" aria-current="page">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Releases &amp; versions</h1>
+    <p>Every version of the documentation, and every official release it corresponds to.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <div class="notice">
+      <strong>No official release exists yet.</strong> As of 2026-09-09 this repository has zero Git
+      tags and zero GitHub Releases. The version selector therefore offers one entry,
+      <code>development</code>, and the project deliberately does not invent a version number to
+      fill the gap.
+    </div>
+
+    <h2>Versions</h2>
+    <p class="section-sub">The table below is the readable form of
+    <a href="versions.json">versions.json</a>, the static manifest that drives the version selector
+    in the bar at the top of every page.</p>
+    <div class="status-panel">
+      <div class="table-scroll">
+      <table class="ref">
+        <thead><tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Released</th><th scope="col">Documentation</th><th scope="col">Source</th><th scope="col">Last reviewed</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="k">development</td>
+            <td><span class="tag tag-partial">UNRELEASED</span></td>
+            <td>&mdash;</td>
+            <td><a href="index.html">current pages</a></td>
+            <td><a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a></td>
+            <td><time datetime="2026-09-09">2026-09-09</time></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <p class="section-sub" style="margin-top:20px;margin-bottom:0">
+      Official releases, once they exist, will be listed at
+      <a href="https://github.com/seb-patron/goldeneye-native/releases">github.com/seb-patron/goldeneye-native/releases</a>
+      and each will appear in this table. <strong>Major</strong> releases will also link to their
+      archived documentation under <code>/v/&lt;version&gt;/</code>; minor and patch releases point at
+      the current pages, because they do not require a snapshot.
+    </p>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>How the version selector works</h2>
+    <p class="section-sub">Deliberately boring, so that it cannot break.</p>
+    <ul>
+      <li>The current documentation always lives at the site root. It describes the commit named in
+      the bar at the top of each page.</li>
+      <li>Each released <strong>major</strong> version gets a frozen copy under
+      <code>/v/&lt;version&gt;/</code>. A direct link to an old version keeps working after the
+      current pages move on.</li>
+      <li>The list of versions comes from <a href="versions.json">versions.json</a>, a small static
+      file committed to the repository. It is read when a page is written, not when a page is
+      viewed &mdash; there is no backend, no JavaScript requirement and no GitHub API call at
+      runtime.</li>
+      <li>The selector itself is a plain disclosure widget holding ordinary links, so it works with
+      JavaScript disabled and is keyboard operable without any custom code.</li>
+      <li><code>tools/check_site.py</code> checks that every entry in the manifest resolves, that
+      every archived directory appears in the manifest, that the selector on each page lists every
+      version, and that every page carries a version, a source ref and a review date. It runs in CI
+      on every pull request that touches the site, and takes <code>--release vX.Y.Z</code> for an
+      advisory release-readiness check that a human runs before a version is tagged.</li>
+    </ul>
+    <h3>What each release has to update</h3>
+    <div class="status-panel">
+      <div class="table-scroll">
+      <table class="ref">
+        <thead><tr><th scope="col">Release</th><th scope="col">Changelog entry</th><th scope="col">Pages update</th><th scope="col">Archived snapshot</th></tr></thead>
+        <tbody>
+          <tr><td class="k">major <code>vX.0.0</code></td><td>required</td><td>required</td><td><strong>required</strong></td></tr>
+          <tr><td class="k">minor <code>v0.X.0</code></td><td>required</td><td>required if a page is now wrong</td><td>optional</td></tr>
+          <tr><td class="k">patch <code>v0.0.X</code></td><td>required</td><td>required if a page is now wrong</td><td>optional</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <p class="section-sub" style="margin-top:20px;margin-bottom:0">Procedure:
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASE_CHECKLIST.md">docs/RELEASE_CHECKLIST.md</a>.
+    Readiness gates that must be met before any publishing automation is built:
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASING.md">docs/RELEASING.md</a>.</p>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>What a release will never contain</h2>
+    <div class="notice notice-stop">
+      <strong>No ROM. No save file. No <code>base.zip</code>. No extracted game data, generated asset
+      source, texture dump or audio bank. No compiled playable binary.</strong>
+      A built binary of this port has the entire game compiled into it, which is not this project's
+      to distribute. Renaming, compressing or encoding any of the above does not make it allowed.
+      The reasoning is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>;
+      the rule is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/AGENTS.md">AGENTS.md</a>.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

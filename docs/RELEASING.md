@@ -1,5 +1,11 @@
 # Release readiness
 
+This document is the **whether**: the gates that must be complete before publishing automation is
+built at all. [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) is the **how**: the step-by-step
+procedure for cutting a version, updating the public site and its archived documentation, verifying
+the deployment, and repairing it if the deployment fails. Neither document declares the gates below
+met, and following the checklist does not bypass them.
+
 There is no official Windows release automation yet. The current Windows workflow has read-only
 repository permissions for pull requests and manual dispatches: it builds and tests a setup
 candidate inside the runner workspace but does not upload an artifact or publish a GitHub Release.
