@@ -11,6 +11,13 @@ options without choosing among them.
 Last verified 2026-09-01 against the working tree and the repository's advertised Git refs. Every claim
 below states how it was checked.
 
+The root-LICENSE statements were re-verified on 2026-09-09 and corrected. This document previously
+said in three places that the repository had no root LICENSE file. It does: `LICENSE` is MIT,
+© 2026 SegfaultEvan, present since the first published commit `4ce5851f` (2026-08-22) and last
+touched by `105dd7d3` (2026-08-29). What that licence does and does not reach is set out in
+`NOTICE` and repeated in section 3 below. Nothing else in this document changed with that
+correction, and in particular the unresolved questions in sections 4 and 5 are unaffected.
+
 ---
 
 ## 1. What this repository contains, and what it does not
@@ -135,7 +142,7 @@ explicit decision**, because anyone who has already cloned holds the old objects
 
 | component | path | origin | terms | state |
 |---|---|---|---|---|
-| Platform layer | `getv/port/src/`, `getv/port/mac/`, `getv/port/include/{config,platform,platform_info,port_support,system}.h` | This project | Not yet declared - the repository has **no root LICENSE file** | Open, but ours to decide |
+| Platform layer | `getv/port/src/`, `getv/port/mac/`, `getv/port/include/{config,platform,platform_info,port_support,system}.h` | This project | **MIT** - root `LICENSE`, © 2026 SegfaultEvan. Scope stated in `NOTICE`: this project's own work only | Settled for this project's own work |
 | Sky RDP decoder | `getv/port/fast3d/ge_sky_rdp.{c,h}` | This project | Same as above | Ours |
 | Build tooling | `tools/*.py`, `getv/patches/`, `*/build.sh`, `*/project.yml` | This project | Same as above | Ours |
 | Fast3D renderer | `getv/port/fast3d/gfx_*.{c,h}` | **sm64ex**, which took it from **`Emill/n64-fast3d-engine`** | **Contested** | **Unresolved - section 4** |
@@ -367,9 +374,11 @@ happen on the user's machine.
 The wizard is deliberately designed to carry no ROM-derived or `assets/` data, decompilation code,
 or Fast3D renderer code. The renderer and ROM-derived assets are linked into the locally built
 `goldeneye.exe`, never into the setup candidate. This is a narrower technical artifact than the
-playable binary; it is **not** a conclusion that distributing it is permitted. In particular, this
-repository has no root licence for its own code and the upstream decompilation has no licence file.
-Those questions require maintainer and, where appropriate, legal review before public release.
+playable binary; it is **not** a conclusion that distributing it is permitted. This repository's own
+code is MIT (root `LICENSE`), but that reaches only this project's own work: the upstream
+decompilation still has no licence file, and the inherited Fast3D and mixer question in section 4 is
+still unresolved. Those questions require maintainer and, where appropriate, legal review before
+public release.
 
 That is checked rather than asserted. `getv/build_wizard.ps1` links exactly three of this
 project's own compilation units -- `setup_wizard.cpp`, `sha1.c` and `ge_icon_apply.c` -- plus its
@@ -477,8 +486,32 @@ SIMD dispatch block at `getv/port/audio/ge_mixer.c:34-44` matches
 `vendor/pd-port/port/src/mixer.c:12-25`. It should carry a comment naming
 `perfect-dark-pc-port/perfect_dark @ 514bf7a`, `port/src/mixer.c`, MIT, © 2022 Ryan Dwyer.
 
-### Not yet decided
+### Decided: this project's own work
 
-**This repository has no root LICENSE file.** The platform layer, the sky RDP decoder and the
-build tooling are this project's own work and no terms have been declared for them. That is a
-separate decision from section 4 and can be made independently of it.
+**The repository has a root `LICENSE`, and it is MIT** (© 2026 SegfaultEvan) - verified by reading
+the file. It has been present since the first published commit `4ce5851f` (2026-08-22) and was last
+touched by `105dd7d3` (2026-08-29). An earlier revision of this document said in three places that
+no such file existed; that was stale and is corrected here, in section 3, and in the Windows
+setup-candidate boundary above.
+
+`NOTICE` states the scope, and the scope is the whole point: the MIT grant covers **the original
+work in this repository** - the platform layer under `getv/port/` excluding the fetched third-party
+sources, the build scripts, `tools/`, and the documentation. It does not reach, and cannot reach:
+
+- the Fast3D renderer and the audio mixer inherited through sm64ex (section 4, **unresolved**);
+- the two verbatim sm64ex headers `getv/port/configfile.h` and `getv/port/fs/fs.h`
+  (section 4.4, **unresolved**);
+- the `n64decomp/007` decompilation, which ships no licence file upstream and whose
+  `src/libultra/` sources carry SGI proprietary notices (section 5, **upstream's situation**);
+- any game data, which is not in this repository at all and never will be.
+
+Because of that, "this project is MIT" is not an accurate one-line summary of the repository and
+should not be used as one in public material. "Source available" is accurate; the itemised account
+is this document.
+
+### Still not decided
+
+Sections 4 and 4.4 are unchanged by the above and remain open: what the inherited Fast3D and mixer
+code may be redistributed under, and under what terms the two verbatim sm64ex headers sit here.
+Declaring MIT over this project's own work does not answer either question, and nobody on this
+project has asked Emill.

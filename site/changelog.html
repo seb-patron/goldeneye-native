@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changelog &mdash; Goldeneye-Native</title>
+<meta name="description" content="What has changed in Goldeneye-Native. There are no releases yet; everything here is unreleased work on the main branch.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="build.html">Build</a>
+      <a href="faq.html">FAQ</a>
+      <a href="changelog.html" class="current" aria-current="page">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Changelog</h1>
+    <p>A readable copy of
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CHANGELOG.md">CHANGELOG.md</a>,
+    which is the canonical file. If the two ever disagree, the file in the repository is right.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <div class="notice">
+      <strong>There are no releases yet.</strong> This repository has zero Git tags and zero GitHub
+      Releases as of 2026-09-09. Everything below is unreleased work on <code>main</code>. Do not
+      quote a version number for it &mdash; there isn't one.
+      See <a href="versions.html">Releases &amp; versions</a>.
+    </div>
+
+    <h2>How versions will work</h2>
+    <p class="section-sub">SemVer-style <code>vMAJOR.MINOR.PATCH</code>, which is the shape already
+    written into the project's own
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASING.md">RELEASING.md</a>.</p>
+    <div class="status-panel">
+      <div class="table-scroll">
+      <table class="ref">
+        <caption class="visually-hidden">What each kind of release requires</caption>
+        <thead><tr><th scope="col">Release</th><th scope="col">Changelog entry</th><th scope="col">Pages update</th><th scope="col">Archived docs snapshot</th></tr></thead>
+        <tbody>
+          <tr><td class="k">major <code>vX.0.0</code></td><td>required</td><td>required</td><td><strong>required</strong></td></tr>
+          <tr><td class="k">minor <code>v0.X.0</code></td><td>required</td><td>required if a page is now wrong</td><td>optional</td></tr>
+          <tr><td class="k">patch <code>v0.0.X</code></td><td>required</td><td>required if a page is now wrong</td><td>optional</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <p class="section-sub" style="margin-top:20px;margin-bottom:0">The full procedure &mdash; version
+    selection, tagging, release notes, snapshot, verification and rollback &mdash; is
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASING.md">docs/RELEASING.md</a>.
+    No release, tag or GitHub Release may ever carry a ROM, a save, <code>base.zip</code>, extracted
+    game data, a texture dump, an audio bank or a compiled playable binary.</p>
+  </div>
+</section>
+
+<section class="content" id="unreleased">
+  <div class="wrap">
+    <h2>Unreleased</h2>
+    <p class="section-sub">This changelog was started on 2026-09-09, after the work below had already
+    landed. Entries are reconstructed from merged pull requests, which are the reviewable unit here;
+    the commit history before the first pull request is the initial import and is not itemised.</p>
+
+    <h3>Added</h3>
+    <ul>
+      <li>Quake-style enemy gibs behind policy gates (<a href="https://github.com/seb-patron/goldeneye-native/pull/7">#7</a>),
+      and textured blood effects with Base Game controls (<a href="https://github.com/seb-patron/goldeneye-native/pull/45">#45</a>).</li>
+      <li>In-game developer console: typed core, cross-renderer UI and input capture, a game-thread-owned
+      solo pause policy, read-only session handlers, a runtime gibs command, explicit-slot player
+      mutations and controlled mission transitions
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/16">#16</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/17">#17</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/19">#19</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/20">#20</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/21">#21</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/22">#22</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/23">#23</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/24">#24</a>).</li>
+      <li>Windows: ROM-free one-click setup and a custom launcher
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/54">#54</a>).</li>
+      <li>macOS: application bundles that open the custom launcher
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/51">#51</a>) and a saved
+      OpenGL/Metal renderer choice (<a href="https://github.com/seb-patron/goldeneye-native/pull/67">#67</a>).</li>
+      <li>Metal renderer: three-point texture filtering
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/1">#1</a>) and depth-tested blob
+      shadows (<a href="https://github.com/seb-patron/goldeneye-native/pull/3">#3</a>).</li>
+      <li>Modern mouse look with a classic fallback
+      (<a href="https://github.com/seb-patron/goldeneye-native/commit/e1a52f6">e1a52f6</a>).</li>
+      <li>Launcher Developer Tools with local telemetry reports
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/58">#58</a>), and versioned
+      <code>PropRecord</code> allocator telemetry
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/55">#55</a>).</li>
+      <li>Content-free semantic-row exporter
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/29">#29</a>), and standard Claude
+      skill entrypoints with native permission prompts
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/56">#56</a>).</li>
+    </ul>
+
+    <h3>Changed</h3>
+    <ul>
+      <li>Launcher modes clarified; Brutal effects are opt-in and Base Game mission selection is
+      enforced (<a href="https://github.com/seb-patron/goldeneye-native/pull/66">#66</a>).</li>
+      <li>Mouse input stays active alongside a connected controller instead of being taken away
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/57">#57</a>).</li>
+      <li>Explicit save directories are isolated and diagnostic handoffs are retained durably
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/59">#59</a>).</li>
+      <li>Transformed asset arrays are generated locally rather than carried in the tree
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/28">#28</a>).</li>
+      <li>CI privilege boundary and merge-review baseline hardened
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/47">#47</a>,
+      <a href="https://github.com/seb-patron/goldeneye-native/pull/48">#48</a>); the public-artifact
+      guard now catches generated asset arrays that carry no braces
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/60">#60</a>).</li>
+      <li>Contribution evidence tightened: regression tests must actually run in CI
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/34">#34</a>), visual fixes need
+      before/after screenshots and skill changes need committed behavioral evals
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/65">#65</a>).</li>
+    </ul>
+
+    <h3>Fixed</h3>
+    <ul>
+      <li><code>GETV_FILTERING</code> environment precedence
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/4">#4</a>) and the file-level
+      widescreen setting (<a href="https://github.com/seb-patron/goldeneye-native/pull/5">#5</a>).</li>
+      <li>Runway multi-ammo crate halfword order on little-endian hosts
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/31">#31</a>).</li>
+      <li>Native collision hull candidates for coincident extrema
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/33">#33</a>).</li>
+      <li>Native cuff switch indexing and six-entry bounds
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/44">#44</a>).</li>
+      <li>Mouse capture is restored when clicking back into the game after Escape
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/50">#50</a>).</li>
+      <li>Fast mouse camera movement with modern mouse look
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/64">#64</a>), and auto-crouch
+      across render-only frames
+      (<a href="https://github.com/seb-patron/goldeneye-native/commit/a972003">a972003</a>).</li>
+    </ul>
+
+    <h3>Documentation</h3>
+    <ul>
+      <li>Upstream deletion and maintenance status
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/2">#2</a>), community
+      continuation workflow (<a href="https://github.com/seb-patron/goldeneye-native/pull/6">#6</a>),
+      safe agent contribution workflows
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/8">#8</a>), the developer
+      tooling plan (<a href="https://github.com/seb-patron/goldeneye-native/pull/9">#9</a>), player
+      and contributor guides (<a href="https://github.com/seb-patron/goldeneye-native/pull/10">#10</a>),
+      and aligned installation walkthroughs
+      (<a href="https://github.com/seb-patron/goldeneye-native/pull/15">#15</a>).</li>
+      <li>This public site: accurate licensing and provenance language, a documented versioning and
+      archive model, this changelog, and the beginner installation, launcher, settings, FAQ,
+      agent-help, bugs and roadmap pages
+      (<a href="https://github.com/seb-patron/goldeneye-native/milestone/5">milestone 5</a>).</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="build.html">Build from source</a>
+      <a href="faq.html">FAQ</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>
