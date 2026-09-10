@@ -1,6 +1,6 @@
 ---
 name: investigate-goldeneye-bug
-description: "Investigate a GoldenEye-Native gameplay, crash, rendering, configuration or build failure on Windows, macOS or Linux; reproduce it on a known build, capture bounded local evidence, compare hypotheses and hand off a sanitized finding. Use for diagnosis before fixing or reporting. Do not use to publish an issue or implement a fix."
+description: "Investigate a GoldenEye-Native gameplay, crash, rendering, controls or menu, configuration or build failure on Windows, macOS or Linux; reproduce it on a known build, capture bounded local evidence including screenshots, compare hypotheses and hand off a sanitized finding. Use for diagnosis before fixing or reporting, including when a non-technical player describes what they saw. Do not use to publish an issue or implement a fix."
 ---
 
 # Investigate a GoldenEye-Native bug

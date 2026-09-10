@@ -24,6 +24,16 @@ the complete issue body and attachment list.
 Allow sanitized error text, build/runtime logs, coarse render fingerprints and screenshots of the
 running game. Keep screenshots outside Git and attach them only after review.
 
+## Help a non-technical reporter
+
+Many reporters are players, not developers. Ask short, plain questions one at a time for anything
+missing: what they did just before, what they saw, what they expected, how often it happens and
+which settings or controls they changed. Offer to run the commands yourself, and ask for a
+screenshot of the game window when the problem is visible. Look at every screenshot and crop
+personal details such as other windows or account names before attaching it. Decline offered
+saves or game files and explain that steps, logs and screenshots are enough. Write the draft in
+plain language, show it to them, and wait for their approval before anything is posted.
+
 ## Investigate
 
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, `docs/AGENTIC_CONTRIBUTING.md` and the relevant setup,
@@ -31,11 +41,14 @@ running game. Keep screenshots outside Git and attach them only after review.
 2. Search current issues and known limitations before reproducing. Do not create a duplicate.
 3. Record `git rev-parse HEAD`, branch and worktree state. Confirm the problem against current
    `main` or explain why that comparison is unavailable.
-4. Classify the problem as gameplay, configuration, rendering, build or crash. Record platform,
-   architecture, renderer, stage/screen, frequency and all relevant settings.
+4. Classify the problem as gameplay, controls, configuration, rendering, build or crash. Record
+   platform, architecture, renderer, stage/screen, frequency, changed controls and all relevant
+   settings.
 5. Reproduce with exact, bounded steps. Use a clean temporary `save_dir`, `unlock_all` or explicit
    `GETV_*` inputs instead of copying or publishing a save.
-6. Separate an unchanged-main failure from a regression introduced by local changes.
+6. Separate an unchanged-main failure from a regression introduced by local changes. When the
+   failure exists only on a pull-request branch, prepare a review comment for that pull request
+   instead of a new issue.
 
 ## Collect evidence
 
@@ -51,6 +64,23 @@ running game. Keep screenshots outside Git and attach them only after review.
      ./getv/build-mac/goldeneye > /private/tmp/ge-report/runtime.log 2>&1
    ```
 
+   On Windows, use PowerShell. `Start-Process` redirection keeps the logs as plain text; Windows
+   PowerShell's `>` can write UTF-16, which the collector rejects. Always set `GETV_SHOTPATH`
+   outside the checkout, because the default location is the game's working directory:
+
+   ```powershell
+   $evidence = "$env:USERPROFILE\Goldeneye-Native-Reports\capture"
+   New-Item -ItemType Directory -Force $evidence | Out-Null
+   $env:GETV_LAUNCHER = '0'; $env:GETV_STAGE = '31'; $env:GETV_EXIT_FRAME = '300'
+   $env:GETV_SHOTFRAME = '280'; $env:GETV_SHOTPATH = "$evidence\capture.bmp"
+   $game = Resolve-Path .\getv\build-windows
+   Start-Process "$game\goldeneye.exe" -WorkingDirectory $game -NoNewWindow -Wait `
+     -RedirectStandardOutput "$evidence\runtime.log" -RedirectStandardError "$evidence\runtime.err.log"
+   ```
+
+   For a state a person reaches by hand, such as a menu after finishing a mission, ask them to
+   screenshot the game window while the problem is on screen.
+
 4. Create a local sanitized bundle. Supply the actual, expected and reproduction fields when they
    are already known:
 
@@ -64,6 +94,11 @@ running game. Keep screenshots outside Git and attach them only after review.
      --log /private/tmp/ge-report/runtime.log \
      --screenshot /private/tmp/ge-report/capture.bmp
    ```
+
+   On Windows, pass the same options to `python tools\collect_bug_report.py` with an `--output`
+   such as `"$env:USERPROFILE\Goldeneye-Native-Reports\rendering-$(Get-Date -Format yyyyMMdd-HHmmss)"`.
+   If `python` opens the Microsoft Store, use the setup app's private copy under
+   `%LOCALAPPDATA%\GoldenEyeNative\bootstrap`.
 
    Choose a new durable private `--output` directory outside every checkout and temporary
    staging area. Verify its permissions and that it is not shared or automatically published.
