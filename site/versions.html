@@ -112,8 +112,10 @@
       <li>The selector itself is a plain disclosure widget holding ordinary links, so it works with
       JavaScript disabled and is keyboard operable without any custom code.</li>
       <li><code>tools/check_site.py</code> checks that every entry in the manifest resolves, that
-      every archived directory appears in the manifest, and that every page carries a version, a
-      source ref and a review date.</li>
+      every archived directory appears in the manifest, that the selector on each page lists every
+      version, and that every page carries a version, a source ref and a review date. It takes
+      <code>--release vX.Y.Z</code> for an advisory release-readiness check before a version is
+      tagged, and is run by hand as part of the release checklist.</li>
     </ul>
     <h3>What each release has to update</h3>
     <div class="status-panel">
@@ -129,7 +131,7 @@
       </div>
     </div>
     <p class="section-sub" style="margin-top:20px;margin-bottom:0">Procedure:
-    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASING.md">docs/RELEASING.md</a>.
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASE_CHECKLIST.md">docs/RELEASE_CHECKLIST.md</a>.
     Readiness gates that must be met before any publishing automation is built:
     <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/RELEASING.md">docs/RELEASING.md</a>.</p>
   </div>

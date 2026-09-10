@@ -44,15 +44,14 @@ disclosure holding real links, written into the page from `versions.json` at aut
 - no GitHub API call at runtime and no `fetch` of any kind;
 - works with JavaScript disabled, and is keyboard operable natively.
 
-`versions.json` is the machine-readable source of truth. `tools/check_site.py` (planned, issue
-[#77](https://github.com/seb-patron/goldeneye-native/issues/77)) will verify that every entry in it
-resolves, that every directory under `v/` appears in it, and that every page carries its version
-metadata.
+`versions.json` is the machine-readable source of truth. `tools/check_site.py` verifies that every
+entry in it resolves, that every directory under `v/` appears in it, that every page carries its
+version metadata, and that the selector on each page lists every version in the manifest.
 
 **There is no release yet.** The repository has zero Git tags and zero GitHub Releases, so the
 current version is `development` and `v/` holds no snapshots. Creating a `v/v1.0.0/` before
 `v1.0.0` exists would fabricate a release. See [`v/README.md`](v/README.md) for the snapshot
-procedure and `docs/RELEASE_CHECKLIST.md` (planned, issue [#76](https://github.com/seb-patron/goldeneye-native/issues/76)) for the full release
+procedure and [`../docs/RELEASE_CHECKLIST.md`](../docs/RELEASE_CHECKLIST.md) for the full release
 process.
 
 ## Preview locally
@@ -62,15 +61,23 @@ cd site
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080`. Before publishing anything, run:
+Then open `http://localhost:8080`. Before publishing anything, run both checks:
 
 ```
+python3 tools/check_site.py
 python3 tools/check_no_game_data.py --tracked
 ```
 
-A static-site validator covering HTML, internal links, required assets, version metadata,
-changelog entries and the version selector is planned under issue
-[#77](https://github.com/seb-patron/goldeneye-native/issues/77).
+`check_site.py` covers markup balance, internal links and anchors, required assets, external-request
+and tracker hygiene, version metadata on every page, changelog entries, and the version selector. It
+also takes `--release vX.Y.Z` for a release-readiness check.
+
+`check_no_game_data.py --tracked` already runs in CI on every pull request, via
+`.github/workflows/public-artifact-safety.yml`. **`check_site.py` does not run in CI yet.** Its
+workflow is written and staged at [`../docs/ci/site-validation.yml`](../docs/ci/site-validation.yml);
+moving it to `.github/workflows/` is the only remaining step, and it was not done here because the
+token used lacked the GitHub `workflow` scope. Until then, run `check_site.py` by hand &mdash; the
+release checklist requires it.
 
 ## Publishing
 

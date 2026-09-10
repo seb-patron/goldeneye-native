@@ -30,11 +30,10 @@ misleading. If a page is wrong after the release, fixing it is part of the relea
    review date, and mark the entry as archived rather than current.
 4. Add the version to `site/versions.json` and add the new option to the version picker on every
    current page **and** on every existing snapshot page, so old versions can navigate forward.
-5. Run `python3 tools/check_no_game_data.py --tracked`, and `python3 tools/check_site.py` once it
-   exists (issue [#77](https://github.com/seb-patron/goldeneye-native/issues/77)).
+5. Run `python3 tools/check_site.py` and `python3 tools/check_no_game_data.py --tracked`.
 
 An archived snapshot is not edited again except to correct a factual error, and such a correction
 is noted in `CHANGELOG.md` rather than made silently.
 
 The full procedure, including verification and rollback, is in
-`docs/RELEASE_CHECKLIST.md` (planned, issue [#76](https://github.com/seb-patron/goldeneye-native/issues/76)).
+[`docs/RELEASE_CHECKLIST.md`](../../docs/RELEASE_CHECKLIST.md).
