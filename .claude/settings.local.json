@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(python3 tools/check_no_game_data.py --staged)",
+      "Bash(git commit *)"
+    ]
+  }
+}

@@ -1105,9 +1105,19 @@ static int apply(const char *key_in, const char *val, int over)
         return 1;
     }
 
-    /* The dedicated crouch/stand keys as a feature switch, for faithful-only play. */
+    /* The dedicated crouch key as a feature switch, for faithful-only play. */
     if (strcmp(key, "crouch_key") == 0) {
         key_bool_gate("GETV_CROUCH_KEY", key, val, over); return 1;
+    }
+
+    /* Does the USE button still reload when nothing is in reach?
+     *
+     * Left UNSET by default on purpose, because the sensible answer depends on whether
+     * a reload key exists: ge_bindings.c infers it (off once reload is bound, on under
+     * input_preset = n64). Writing a value here overrides that inference in both
+     * directions -- use_reloads = 1 keeps the retail double duty even with R bound. */
+    if (strcmp(key, "use_reloads") == 0) {
+        key_bool_gate("GETV_USE_RELOADS", key, val, over); return 1;
     }
 
     /* ---- mods ---------------------------------------------------------------- */
@@ -1471,16 +1481,17 @@ static void usage(void)
 "filtering=point|bilinear|three-point                               [three-point]\n"
 "gamepad=auto|xbox|playstation|switch|generic changes PROMPT GLYPHS only  [auto]\n"
 "input_preset=modern|n64  the defaults every binding falls back to       [modern]\n"
-"aim_mode=hold|toggle   crouch_mode=hold|toggle                        [hold]\n"
-"fire=aim=use=reload=crouch=stand=weapon_next=weapon_prev=pause=\n"
+"aim_mode=hold|toggle [hold]   crouch_mode=hold|toggle [toggle]\n"
+"use_reloads=0|1 use also reloads with nothing in reach [auto: off once reload is bound]\n"
+"fire=aim=use=reload=crouch=weapon_next=weapon_prev=pause=\n"
 "    a|b|x|y|lb|rb|lt|rt|start|back|dup|ddown|dleft|dright|lstick|rstick|none\n"
-"p1.<action> .. p4.<action>  the same nine, for one player only; falls back to\n"
+"p1.<action> .. p4.<action>  the same eight, for one player only; falls back to\n"
 "                            the bare key above, then to the preset\n"
 "key.<action>  keyboard/mouse binding, comma-separated SDL scancode names plus\n"
 "              mouse1..mouse5, wheelup, wheeldown -- e.g. key.crouch=C,Left Ctrl\n"
 "key.forward|backward|strafe_left|strafe_right|look_up|look_down|look_left|\n"
 "              look_right   movement, same value syntax\n"
-"crouch_key=0|1 the port's dedicated crouch/stand keys; 0 = retail gesture only [1]\n"
+"crouch_key=0|1 the port's dedicated crouch key; 0 = retail gesture only     [1]\n"
 "moddir=<dir>  mods_off=<name,name>  Lua mods: where to scan, and which to skip\n"
 "pad names are POSITIONAL (a = bottom face button), not label\n"
 "[modern: fire=rt aim=lt use=a reload=x crouch=b weapon_next=y pause=start]\n"
@@ -1565,10 +1576,10 @@ static const char *DEFAULT_CFG =
 "# engine itself reads as a press rather than a hold -- it is GoldenEye's own\n"
 "# setting, not something bolted on. crouch_mode is enforced by the port,\n"
 "# because the engine has no crouch button to latch.\n"
-"# In hold mode, RELEASING crouch now stands you up; it used to leave you\n"
-"# squatting until you pressed the separate stand key.\n"
+"# There is NO stand key. Crouch toggles: press it again to stand up. In hold\n"
+"# mode, releasing it stands you up instead.\n"
 "aim_mode    = hold        # hold | toggle\n"
-"crouch_mode = hold        # hold | toggle\n"
+"crouch_mode = toggle      # hold | toggle\n"
 "\n"
 "# --- gamepad / bindings ------------------------------------------------------\n"
 "# gamepad picks which glyphs get PRINTED for prompts (auto|xbox|playstation|\n"
@@ -1589,7 +1600,6 @@ static const char *DEFAULT_CFG =
 "# use         = a\n"
 "# reload      = x\n"
 "# crouch      = b\n"
-"# stand       = none\n"
 "# weapon_next = y\n"
 "# weapon_prev defaults to NONE on the pad -- GoldenEye has no back-cycle button.\n"
 "# The retail gesture is hold-inventory + tap-fire (bondview2.c); the synthesised\n"
@@ -1614,7 +1624,6 @@ static const char *DEFAULT_CFG =
 "# key.use         = E,F\n"
 "# key.reload      = R\n"
 "# key.crouch      = C,Left Ctrl\n"
-"# key.stand       = V\n"
 "# key.weapon_next = Q,wheelup,Return\n"
 "# key.weapon_prev = wheeldown\n"
 "# key.pause       = Tab,Keypad Enter\n"
@@ -1630,9 +1639,16 @@ static const char *DEFAULT_CFG =
 "# key.look_left    = Left\n"
 "# key.look_right   = Right\n"
 "#\n"
-"# crouch_key = 0 removes the port's dedicated crouch/stand keys entirely and\n"
-"# leaves only the retail gesture (hold aim, push down).\n"
+"# crouch_key = 0 removes the port's dedicated crouch key entirely and leaves\n"
+"# only the retail gesture (hold aim, push down).\n"
 "# crouch_key = 1\n"
+"#\n"
+"# Retail reload is the USE button with nothing in reach, so E near a door opens\n"
+"# the door and E near nothing reloads. Once a reload key is bound that double\n"
+"# duty is turned off automatically, because the same key doing two things\n"
+"# depending on where you stand is what a dedicated key replaces. Set\n"
+"# use_reloads = 1 to keep it anyway, or 0 to drop it even without a reload key.\n"
+"# use_reloads = 1\n"
 "\n"
 "deadzone    = 20          # percent, 0-40, clamped -- worn-pad drift trimmer\n"
 "invert_look = 1           # stick UP looks UP. MEASURED, not a preference toggle:\n"

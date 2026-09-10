@@ -1,50 +1,62 @@
 diff --git a/src/game/lv.c b/src/game/lv.c
 --- a/src/game/lv.c
 +++ b/src/game/lv.c
-@@ -2,6 +2,10 @@
+@@ -2,6 +2,11 @@
  #ifdef GE_PORT_NATIVE
  #include <stdio.h>   /* GETV probes in this file print */
  #include <stdlib.h>
-+/* port_input.c. Declared here rather than in a header because the port layer has no
-+ * header this file already includes, and the same pattern is used for the crouch pair
-+ * in bondview2.c. */
++/* port_input.c / ge_bindings.c. Declared here rather than in a header because the port
++ * layer has no header this file already includes, and the same pattern is used for the
++ * crouch pair in bondview2.c. */
 +extern int gePortReloadPressed(void);
++extern int gePortUseAlsoReloads(void);
  #endif
  #include <math.h>
  #include <os_extension.h>
-@@ -884,7 +888,34 @@ Gfx* lvlRender(Gfx* DL)
+@@ -884,10 +889,43 @@ Gfx* lvlRender(Gfx* DL)
              chrpropUpdateAutoaimTarget();
              chraiCheckUseHeldItems();
  
 -            if (bond_pressed_reload_activate() && bond_interact_object())
-+            if (bond_pressed_reload_activate() && bond_interact_object()
-+#ifdef GE_PORT_NATIVE
-+                /* GETV: a reload key that reloads wherever you are standing.
-+                 *
-+                 * Retail reload is not a separate input -- it is the USE button with
-+                 * nothing to use. bond_pressed_reload_activate() is the B tap
-+                 * (bondview2.c sets field_D0 from moveData.btap) and
-+                 * bond_interact_object() returns TRUE only when propFindForInteract()
-+                 * found nothing, having already performed the interaction otherwise.
-+                 * So B near a door opens the door, and B near nothing reloads.
-+                 *
-+                 * That is faithful and it is not what a key labelled R should do:
-+                 * reloading is not supposed to depend on where you are standing, and
-+                 * in front of a door the modern binding would be silently dead. This
-+                 * ORs an unconditional port-side reload alongside it.
-+                 *
-+                 * Deliberately the RIGHT operand. Keeping the retail test first
-+                 * preserves its evaluation exactly: bond_interact_object() has side
-+                 * effects and must still be called on precisely the frames it was
-+                 * called on before -- when B was tapped, and never otherwise, since &&
-+                 * already short-circuits. Putting the port's test first would skip the
-+                 * interaction on any frame the reload key happened to be down.
-+                 *
-+                 * gePortReloadPressed() is one frame per press (port_input.c). A level
-+                 * would restart the reload animation on every frame the key was held. */
-+                || gePortReloadPressed()
-+#endif
-+                )
              {
-                 attempt_reload_item_in_hand(GUNRIGHT);
-                 attempt_reload_item_in_hand(GUNLEFT);
+-                attempt_reload_item_in_hand(GUNRIGHT);
+-                attempt_reload_item_in_hand(GUNLEFT);
++                /* GETV: a reload key that reloads wherever you are standing, and a use
++                 * button that stops doubling as one once that key exists.
++                 *
++                 * Retail reload is not a separate input. bond_pressed_reload_activate()
++                 * is the B tap (bondview2.c sets field_D0 from moveData.btap), and
++                 * bond_interact_object() returns TRUE only when propFindForInteract()
++                 * found nothing, having already performed the interaction otherwise. So
++                 * B near a door opens the door and B near nothing reloads.
++                 *
++                 * That is fine while it is the only way to reload. Once R exists it is
++                 * a second, unpredictable trigger -- the same key reloads or opens a
++                 * door depending on where you happen to be standing -- which is the
++                 * behaviour a dedicated key is meant to replace. gePortUseAlsoReloads()
++                 * is false whenever RELOAD is bound to anything, and true under
++                 * `input_preset = n64`, which leaves it unbound and keeps retail.
++                 *
++                 * bond_interact_object() is still CALLED exactly when it was before. It
++                 * has side effects -- it performs the interaction -- so the retail
++                 * condition is evaluated first and in full, and only whether a reload
++                 * FOLLOWS is gated. Short-circuiting it away would stop doors opening. */
++                s32 ge_retail_reload = (bond_pressed_reload_activate()
++                                        && bond_interact_object());
++                s32 ge_do_reload = ge_retail_reload;
++
++#ifdef GE_PORT_NATIVE
++                ge_do_reload = (ge_retail_reload && gePortUseAlsoReloads());
++                /* One frame per press (port_input.c). A level would restart the reload
++                 * animation on every frame the key was held. */
++                if (gePortReloadPressed()) { ge_do_reload = 1; }
++#endif
++
++                if (ge_do_reload)
++                {
++                    attempt_reload_item_in_hand(GUNRIGHT);
++                    attempt_reload_item_in_hand(GUNLEFT);
++                }
+             }
+ 
+             propsTickPlayer();

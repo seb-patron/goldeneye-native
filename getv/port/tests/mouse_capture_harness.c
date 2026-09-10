@@ -98,6 +98,10 @@ static Uint8 controller_buttons[SDL_CONTROLLER_BUTTON_MAX];
 #define GE_TRIGGER_ON 8000
 void *SDL_memset(void *dst, int value, size_t size) { return memset(dst, value, size); }
 int SDL_strcasecmp(const char *a, const char *b) { return strcasecmp(a, b); }
+/* The wheel registers an event watch. This harness has no SDL event queue, so the watch
+ * is never called; wheel notches are pushed straight in through gePortInputMouseWheel()
+ * instead, which is the same counter the watch feeds. */
+void SDL_AddEventWatch(SDL_EventFilter filter, void *userdata) { (void) filter; (void) userdata; }
 
 /* Scancode names, for the keyboard binding layer.
  *
@@ -320,6 +324,59 @@ int main(int argc, char **argv)
     }
     check(relative, "initial mouse capture");
 
+    if (strcmp(scenario, "wheel") == 0) {
+        /* The wheel end to end, through the real geMousePoll and the real binding
+         * table -- not the state machine in isolation, which test_wheel.c already
+         * covers. This exists because the first version of the wheel was wired through
+         * a fetched third-party file that established checkouts never re-fetch, so it
+         * worked on a fresh clone and did nothing everywhere else. A scenario here runs
+         * the production path and cannot be satisfied by a hook that is not installed. */
+        /* Polls through gePortInputPollPortInner rather than the harness's poll(),
+         * which shortcuts straight to geMousePoll when no controller is attached. The
+         * wheel is drained once per FRAME, at the top of the inner poll, so the
+         * shortcut skips it -- and the production path never does: osContGetReadData
+         * always calls gePortInputPollPort. Testing the shortcut here would have
+         * reported a failure that does not exist in the game, and passing it by
+         * moving the drain would have broken the once-per-frame rule the whole design
+         * rests on. */
+        int i, next_frames = 0;
+        #define WHEEL_FRAME() do { gePortInputPollPortInner(0, &out); } while (0)
+
+        gePortInputMouseWheel(1);
+        for (i = 0; i < 8; i++) {
+            WHEEL_FRAME();
+            if (out.act[GE_ACT_WEAPON_NEXT]) { next_frames++; }
+        }
+        check(next_frames == 1, "one wheel notch is one weapon-next press");
+
+        /* Four notches inside a single frame, which is what a real flick delivers.
+         * They must become four separate presses: the engine cycles on a rising edge,
+         * so asserting the button for all four would advance one weapon. */
+        next_frames = 0;
+        for (i = 0; i < 4; i++) { gePortInputMouseWheel(1); }
+        for (i = 0; i < 30; i++) {
+            WHEEL_FRAME();
+            if (out.act[GE_ACT_WEAPON_NEXT]) { next_frames++; }
+        }
+        check(next_frames == 4, "a four-notch flick is four presses");
+
+        {
+            int prev_frames = 0;
+            gePortInputMouseWheel(-1);
+            for (i = 0; i < 8; i++) {
+                WHEEL_FRAME();
+                if (out.act[GE_ACT_WEAPON_PREV]) { prev_frames++; }
+            }
+            check(prev_frames == 1, "scrolling down is weapon-prev");
+        }
+
+        /* Wheel motion must not fire the gun on its way past. */
+        gePortInputMouseWheel(1);
+        WHEEL_FRAME();
+        check(!out.act[GE_ACT_FIRE], "the wheel does not fire");
+        #undef WHEEL_FRAME
+        return failures != 0;
+    }
     if (strcmp(scenario, "no-keyboard") == 0) {
         motion_x = 12; buttons = SDL_BUTTON_RMASK; out = poll();
         check(out.rx > 0 && out.act[GE_ACT_AIM], "controller and mouse work with keyboard disabled");

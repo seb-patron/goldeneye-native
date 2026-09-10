@@ -147,10 +147,6 @@ static const int ge_pad_preset[GE_PRESET_MAX][GE_ACT_MAX] = {
         [GE_ACT_USE]         = GE_SRC_A,
         [GE_ACT_RELOAD]      = GE_SRC_X,
         [GE_ACT_CROUCH]      = GE_SRC_B,
-        /* No pad STAND. In hold mode releasing crouch stands you up and in toggle mode
-         * pressing it again does, so a second button would be dead weight on a pad that
-         * has none to spare. The keyboard keeps one because it can afford it. */
-        [GE_ACT_STAND]       = GE_SRC_NONE,
         [GE_ACT_WEAPON_NEXT] = GE_SRC_Y,
         /* Unbound by default even here: the back-cycle is synthesised from the retail
          * inventory+fire gesture rather than being a real engine input (see
@@ -169,7 +165,6 @@ static const int ge_pad_preset[GE_PRESET_MAX][GE_ACT_MAX] = {
         [GE_ACT_USE]         = GE_SRC_B,
         [GE_ACT_RELOAD]      = GE_SRC_NONE,
         [GE_ACT_CROUCH]      = GE_SRC_NONE,
-        [GE_ACT_STAND]       = GE_SRC_NONE,
         [GE_ACT_WEAPON_NEXT] = GE_SRC_A,
         [GE_ACT_WEAPON_PREV] = GE_SRC_NONE,
         [GE_ACT_PAUSE]       = GE_SRC_START,
@@ -196,7 +191,6 @@ static const char *const ge_key_preset[GE_PRESET_MAX][GE_ACT_MAX] = {
         [GE_ACT_USE]         = "E,F",
         [GE_ACT_RELOAD]      = "R",
         [GE_ACT_CROUCH]      = "C,Left Ctrl",
-        [GE_ACT_STAND]       = "V",
         /* Q is free in this preset -- aim moved to the right mouse button -- so it
          * takes weapon-next, alongside the wheel. Return stays bound because every
          * front.c menu branch confirms on the N64 A button and weapon_next is what
@@ -218,7 +212,6 @@ static const char *const ge_key_preset[GE_PRESET_MAX][GE_ACT_MAX] = {
         [GE_ACT_USE]         = "E,F",
         [GE_ACT_RELOAD]      = "",
         [GE_ACT_CROUCH]      = "C,Left Shift",
-        [GE_ACT_STAND]       = "V",
         [GE_ACT_WEAPON_NEXT] = "Return,R",
         [GE_ACT_WEAPON_PREV] = "",
         [GE_ACT_PAUSE]       = "Tab,Keypad Enter",
@@ -400,7 +393,7 @@ int geAimMode(void)
          * still honoured, so an existing config keeps working. */
         const char *s = getenv("GETV_AIM_MODE");
         if (s == NULL || *s == '\0') { s = getenv("GETV_AIM_TOGGLE"); }
-        m = geParseHoldToggle(s, GE_HOLD);
+        m = geParseHoldToggle(s, GE_AIM_MODE_DEFAULT);
     }
     return m;
 }
@@ -409,9 +402,46 @@ int geCrouchMode(void)
 {
     static int m = -1;
     if (m < 0) {
-        m = geParseHoldToggle(getenv("GETV_CROUCH_MODE"), GE_HOLD);
+        m = geParseHoldToggle(getenv("GETV_CROUCH_MODE"), GE_CROUCH_MODE_DEFAULT);
     }
     return m;
+}
+
+/* Is RELOAD bound to anything at all, on either device?
+ *
+ * Drives whether USE keeps its retail double duty. Retail reload is the use button with
+ * nothing to use -- bond_interact_object() returns true only when no prop is in range --
+ * and that is fine when it is the ONLY way to reload. Once R exists it is just a second,
+ * unpredictable trigger: the same key reloads or opens a door depending on where you
+ * happen to be standing, which is exactly the behaviour a dedicated key is meant to
+ * replace.
+ *
+ * Checked rather than assumed, because `input_preset = n64` leaves reload unbound and
+ * must keep the retail behaviour it describes. GETV_USE_RELOADS forces either way. */
+int geUseAlsoReloads(void)
+{
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("GETV_USE_RELOADS");
+        if (e != NULL && *e != '\0') {
+            v = (atoi(e) != 0);
+        } else {
+            int p = geInputPreset();
+            int pad_bound = (geBindSrc(0, GE_ACT_RELOAD) != GE_SRC_NONE);
+            int key_bound = 0;
+            char key[64];
+            const char *kv;
+            snprintf(key, sizeof key, "GETV_KEY_%s", geActionEnvSuffix(GE_ACT_RELOAD));
+            kv = getenv(key);
+            if (kv == NULL) { kv = gePresetKeys(p, GE_ACT_RELOAD); }
+            key_bound = (kv != NULL && *kv != '\0' && strcmp(kv, "none") != 0);
+            v = !(pad_bound || key_bound);
+        }
+        printf("[getv] input: use button %s reload when nothing is in reach\n",
+               v ? "DOES" : "does NOT");
+        fflush(stdout);
+    }
+    return v;
 }
 
 /* ---- per-frame state -----------------------------------------------------
@@ -435,7 +465,6 @@ int geCrouchMode(void)
 
 struct GeFrameState {
     int prev_crouch;
-    int prev_stand;
     int prev_reload;
     int latched;        /* toggle mode only */
     int stand_pulse;    /* frames of crouchUp still owed */
@@ -454,45 +483,43 @@ void geBindingsReset(void)
 void geBindingsFrame(int player, const struct GePadState *st)
 {
     struct GeFrameState *f;
-    int raw_crouch, raw_stand, raw_reload;
+    int raw_crouch, raw_reload;
 
     if (player < 0 || player >= GE_PORT_MAX_PADS) { return; }
     f = &ge_frame[player];
 
     raw_crouch = geActionHeld(st, player, GE_ACT_CROUCH);
-    raw_stand  = geActionHeld(st, player, GE_ACT_STAND);
     raw_reload = geActionHeld(st, player, GE_ACT_RELOAD);
 
     f->reload_edge = (raw_reload && !f->prev_reload);
 
     if (geCrouchMode() == GE_TOGGLE) {
+        /* Press to crouch, press again to stand. There is no separate stand input and
+         * deliberately so: a key that does nothing except when you are already crouched
+         * is a key nobody finds, and the first version of this shipped one. */
         if (raw_crouch && !f->prev_crouch) {
             f->latched = !f->latched;
             if (!f->latched) { f->stand_pulse = GE_STAND_PULSE_FRAMES; }
         }
-        /* An explicit STAND press clears the latch. Without this the two inputs
-         * disagree: V would stand Bond up while the latch still said "crouched", and
-         * the next crouch press would toggle it OFF and leave him standing. */
-        if (raw_stand && !f->prev_stand) { f->latched = 0; }
         f->crouch_active = f->latched;
     } else {
         f->crouch_active = raw_crouch;
-        /* Releasing crouch stands you up. This is new: before remapping, crouch was
-         * momentary but nothing watched the release, so a player who tapped C stayed
-         * squatting until they found the separate stand key. That is not what "hold"
-         * means anywhere else, and it was the most common complaint about the feature. */
+        /* Releasing crouch stands you up. Before remapping, crouch was momentary but
+         * nothing watched the release, so a tap left Bond squatting indefinitely. */
         if (!raw_crouch && f->prev_crouch) { f->stand_pulse = GE_STAND_PULSE_FRAMES; }
         f->latched = 0;
     }
 
-    f->stand_active = raw_stand;
+    /* Standing is only ever the pulse now. It must not be a level: bondview2.c reads
+     * `if (crouchDown) ... else if (crouchUp)`, so a permanently-true crouchUp would
+     * cancel the retail aim-stick crouch the instant the stick recentred. */
+    f->stand_active = 0;
     if (f->stand_pulse > 0) {
         f->stand_pulse--;
         f->stand_active = 1;
     }
 
     f->prev_crouch = raw_crouch;
-    f->prev_stand  = raw_stand;
     f->prev_reload = raw_reload;
 }
 

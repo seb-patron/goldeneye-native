@@ -770,7 +770,7 @@ private struct ControlsPage: View {
                     holdToggleRow(label: "Crouch", value: $m.crouchMode)
                     Text("Aim toggle is GoldenEye's own per-player aim-control option, which the engine reads as a press rather than a hold. Crouch is the port's, because the engine has no crouch button.")
                         .foregroundColor(geDim).font(.system(size: 11))
-                    Text("In hold mode, releasing crouch now stands you up. It used to leave you squatting until you pressed the separate stand key.")
+                    Text("There is no stand key. Crouch toggles: press it again to stand up. In hold mode, releasing it stands you up instead.")
                         .foregroundColor(geDim).font(.system(size: 11))
                 }
             }
@@ -822,7 +822,7 @@ private struct ControlsPage: View {
                 }
             }
             Toggle(isOn: $m.crouchKey) {
-                Text("Dedicated crouch and stand keys").foregroundColor(geText)
+                Text("Dedicated crouch key").foregroundColor(geText)
             }
             Text("Off leaves only the retail gesture: hold aim and push down.")
                 .foregroundColor(geDim).font(.system(size: 11))
@@ -878,7 +878,7 @@ private struct ControlsPage: View {
 
             Text("Button names are positional, not printed labels. \"a\" is always the bottom face button, including on Nintendo pads where it is marked B.")
                 .foregroundColor(geDim).font(.system(size: 12))
-            Text("Crouch, stand and reload are bindable now. None of them reaches the game through the N64 controller -- the engine has no button for any of them -- so the port reads them out of the binding table directly. The retail gestures still work: hold aim and push down to crouch, use with nothing in reach to reload.")
+            Text("Crouch and reload are bindable now. Neither reaches the game through the N64 controller -- the engine has no button for either -- so the port reads them out of the binding table directly. The retail crouch gesture still works: hold aim and push down. Retail reload was the use button with nothing in reach; binding a reload key turns that double duty off, so interacting no longer reloads.")
                 .foregroundColor(geDim).font(.system(size: 12))
 
             /* Everything else in this launcher lasts until you quit: settings are handed
@@ -1374,6 +1374,16 @@ private struct GeLauncherView: View {
                     Spacer()
                     Button(action: {
                         m.save()
+                        // Persist the controls page on START, not only when SAVE
+                        // CONTROLS is pressed. Every other setting takes effect by
+                        // being handed to the relaunched game as an environment
+                        // variable, so a rebind looks like it worked and is then gone
+                        // the next cold start, with nothing having said so. Requiring a
+                        // second click to make a rebind permanent is a trap; a player
+                        // who hits it concludes saving is broken. Deliberately NOT done
+                        // on the GETV_LAUNCHER_AUTOPLAY path below, which is a headless
+                        // probe and has no business writing the user's config.
+                        m.saveControls()
                         onStart()
                     }) {
                         Text(m.pickStage ? "START MISSION" : "START GAME")

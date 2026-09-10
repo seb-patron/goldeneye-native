@@ -41,13 +41,18 @@ extern "C" {
  * written for the old build still resolves. CROUCH, STAND, RELOAD and WEAPON_PREV are
  * new here -- see ge_bindings.c for what each one can and cannot reach in the engine.
  */
+/* There is no STAND action. Crouch is a toggle: pressing it again stands you up, and
+ * in hold mode releasing it does. A separate "stand" key was in the first version of
+ * this and was wrong -- it is a button that does nothing at all most of the time, and
+ * every player who tapped crouch and stayed squatting went looking for a bug rather
+ * than for a second key. The port still tells the game to stand (gePortStandHeld), it
+ * just is not a thing anyone binds. */
 #define GE_ACTION_LIST(M)                        \
     M(FIRE,        "fire",        "FIRE")        \
     M(AIM,         "aim",         "AIM")         \
     M(USE,         "use",         "USE")         \
     M(RELOAD,      "reload",      "RELOAD")      \
     M(CROUCH,      "crouch",      "CROUCH")      \
-    M(STAND,       "stand",       "STAND")       \
     M(WEAPON_NEXT, "weapon_next", "WEAPON_NEXT") \
     M(WEAPON_PREV, "weapon_prev", "WEAPON_PREV") \
     M(PAUSE,       "pause",       "PAUSE")
@@ -162,6 +167,13 @@ enum {
     GE_HOLD = 0,
     GE_TOGGLE
 };
+
+/* Crouch defaults to TOGGLE. Hold is what the port did before and is still available,
+ * but toggle is what a crouch key means in every shooter of the last twenty years, and
+ * it is the only one of the two where "press it again" stands you up -- which is the
+ * behaviour there is no second button for. Aim stays HOLD, matching retail. */
+#define GE_CROUCH_MODE_DEFAULT GE_TOGGLE
+#define GE_AIM_MODE_DEFAULT    GE_HOLD
 
 #ifdef __cplusplus
 }

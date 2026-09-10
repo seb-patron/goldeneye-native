@@ -94,6 +94,12 @@ int geSourceHeld(const struct GePadState *st, int src);
 int geAimMode(void);
 int geCrouchMode(void);
 
+/* Whether the USE button keeps its retail second job of reloading when there is nothing
+ * in reach. False once RELOAD is bound to anything, so a dedicated reload key replaces
+ * the double duty rather than sitting alongside it. GETV_USE_RELOADS forces either way;
+ * `input_preset = n64` leaves reload unbound and so keeps the retail behaviour. */
+int geUseAlsoReloads(void);
+
 /* ---- per-frame state -----------------------------------------------------
  *
  * Crouch and reload need memory between frames -- a toggle needs the previous press, a

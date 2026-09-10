@@ -16,7 +16,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS = ("resume", "focus", "ownership", "failure", "disabled", "idle", "selftest-x",
-             "selftest-y", "unfocused-start")
+             "selftest-y", "unfocused-start", "wheel")
 SCENARIOS += tuple("controller-" + name for name in SCENARIOS) + (
     "controller-mixed", "controller-no-keyboard", "modern", "controller-modern")
 

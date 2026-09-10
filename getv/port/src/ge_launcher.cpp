@@ -293,7 +293,6 @@ static const char *ActionLabel(int a)
         case GE_ACT_USE:         return "Use / interact";
         case GE_ACT_RELOAD:      return "Reload";
         case GE_ACT_CROUCH:      return "Crouch";
-        case GE_ACT_STAND:       return "Stand";
         case GE_ACT_WEAPON_NEXT: return "Next weapon";
         case GE_ACT_WEAPON_PREV: return "Prev weapon";
         case GE_ACT_PAUSE:       return "Pause";
@@ -2824,8 +2823,8 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                      "engine reads as a press rather than a hold -- not something bolted on "
                      "top. Crouch is the port's, because the engine has no crouch button.");
                 ImGui::Dummy(ImVec2(0, 4));
-                Hint("In HOLD mode, releasing crouch now stands you up. It used to leave you "
-                     "squatting until you pressed the separate stand key.");
+                Hint("There is no stand key. Crouch TOGGLES: press it again to stand up. "
+                     "In HOLD mode, releasing it stands you up instead.");
 
                 Section("KEYBOARD AND MOUSE");
                 Hint("Click a binding and press the key or mouse button you want. ESC "
@@ -2858,9 +2857,9 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                     CaptureCancel();
                 }
                 ImGui::Dummy(ImVec2(0, 6));
-                ImGui::Checkbox("Dedicated crouch and stand keys", &m.crouch_key);
+                ImGui::Checkbox("Dedicated crouch key", &m.crouch_key);
                 Hint("Off leaves only the retail gesture: hold aim and push down. The crouch "
-                     "and stand bindings above stop working.");
+                     "binding above stops working.");
 
                 Section("BINDINGS FOR");
                 /* ALL first, then the four players. The tab IS the scope, so the thing being
@@ -2947,11 +2946,12 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                      "The gamepad profile changes prompts only, so it cannot make \"a\" mean "
                      "a different physical button.");
                 ImGui::Dummy(ImVec2(0, 6));
-                Hint("Crouch, stand and reload are bindable now. They do not reach the game "
-                     "through the N64 controller at all -- the engine has no button for any "
-                     "of them -- so the port reads them back out of the binding table "
-                     "directly. The retail gestures still work alongside: hold aim and push "
-                     "down to crouch, and use with nothing in reach to reload.");
+                Hint("Crouch and reload are bindable now. Neither reaches the game through "
+                     "the N64 controller -- the engine has no button for either -- so the "
+                     "port reads them back out of the binding table directly. The retail "
+                     "crouch gesture still works: hold aim and push down. Retail RELOAD was "
+                     "the use button with nothing in reach; binding a reload key turns that "
+                     "double duty off, so interacting no longer reloads.");
                 ImGui::Dummy(ImVec2(0, 6));
                 Hint("Prev weapon is unbound on the pad on purpose. GoldenEye has no "
                      "back-cycle button; the port synthesises the retail hold-inventory + "
@@ -3478,6 +3478,22 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
     }
 
     model_store(m);
+    /* Persist the controls page on LAUNCH, not only when SAVE CONTROLS is pressed.
+     *
+     * The explicit button was not enough. Every other page in this launcher takes
+     * effect by being handed to the relaunched game as environment variables, so
+     * "change a binding, press launch, play" looks exactly like it worked -- and then
+     * the remap is gone the next time the game starts cold, with nothing having said
+     * so. Requiring a second, separate click to make a rebind permanent is a trap, and
+     * a player who falls into it concludes that saving is broken rather than that they
+     * missed a button.
+     *
+     * Launching is an explicit, deliberate act, which is what made the button-only
+     * design defensible in the first place; this simply attaches the write to the act
+     * the player already performs. The write itself is careful -- comments, ordering
+     * and every other setting in the file survive -- so doing it more often is cheap.
+     * The button stays, for saving without launching. */
+    controls_save_to_config(m);
     printf("[getv][launcher] starting: profile=%s ruleset=%s%s%s\n",
            m.profile ? "goldeneye+" : "base-game",
            kRulesets[m.ruleset],

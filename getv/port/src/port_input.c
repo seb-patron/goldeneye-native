@@ -1274,8 +1274,51 @@ static void geKeymapEnsure(void)
  */
 static struct GeWheel ge_wheel;
 
-/* Called from the SDL event loop for every SDL_MOUSEWHEEL. `y` is SDL's wheel delta,
- * already flipped for SDL_MOUSEWHEEL_FLIPPED by the caller. */
+/* Wheel motion, taken with an SDL event WATCH rather than a hook in the event loop.
+ *
+ * The first version of this called gePortInputMouseWheel() from a new `case
+ * SDL_MOUSEWHEEL` in gfx_sdl2.c, next to the existing mouse-click hook. That worked on
+ * a fresh clone and silently did nothing on every existing one. gfx_sdl2.c is a FETCHED
+ * third-party file (getv/patches/thirdparty/MANIFEST): it is gitignored, it is
+ * reconstructed by tools/fetch-thirdparty.sh, and `tools/setup.sh` skips the fetch
+ * entirely when the file is already on disk -- so an established checkout keeps its old
+ * copy, without the new case, and nothing in `git status` says so. Putting a new entry
+ * point in a file most people will never re-fetch was the mistake.
+ *
+ * A watch needs no third-party change at all. SDL calls it as each event is ADDED to the
+ * queue and ignores the return value, so nothing is consumed and the console, the
+ * launcher and gfx_sdl2.c all still see every event exactly as before. It also runs on
+ * whichever pump adds the event, so wheel motion is caught on frames this port never
+ * reaches its own poll.
+ *
+ * Registered lazily rather than in an init function because there is no single input
+ * init that every platform reaches before the first poll, and the guard makes a second
+ * call free. */
+static int SDLCALL geWheelEventWatch(void *userdata, SDL_Event *event)
+{
+    (void) userdata;
+    if (event != NULL && event->type == SDL_MOUSEWHEEL) {
+        int wy = event->wheel.y;
+        /* SDL_MOUSEWHEEL_FLIPPED means the platform already inverted the sign for
+         * "natural" scrolling. Undoing it here keeps the whole notion of a flipped
+         * wheel next to SDL, so the binding layer only ever sees up and down. */
+        if (event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED) { wy = -wy; }
+        geWheelAdd(&ge_wheel, wy);
+    }
+    return 0;
+}
+
+static void geWheelWatchEnsure(void)
+{
+    static int added = 0;
+    if (added) { return; }
+    added = 1;
+    SDL_AddEventWatch(geWheelEventWatch, NULL);
+}
+
+/* Kept as an entry point so a host that would rather push wheel motion in than have it
+ * watched -- and the mouse-capture harness, which has no SDL event queue at all -- can
+ * still reach the same counter. */
 void gePortInputMouseWheel(int y)
 {
     geWheelAdd(&ge_wheel, y);
@@ -1289,6 +1332,7 @@ static void geWheelDiscard(void)
 /* Once per frame, before the pads are read. */
 static void geWheelTick(int allowed)
 {
+    geWheelWatchEnsure();
     geWheelTickState(&ge_wheel, allowed);
 }
 
@@ -1851,6 +1895,10 @@ int gePortCrouchHeld(void)
 #endif
 }
 
+/* Stand is not a binding. It is the short pulse geBindingsFrame emits when a crouch
+ * ends -- the second press of a toggle, or the release in hold mode. There is no key to
+ * press: a "stand" button does nothing except while already crouched, and the first
+ * version of this shipped one that players reasonably never found. */
 int gePortStandHeld(void)
 {
 #ifdef GE_PLATFORM_DESKTOP
@@ -1871,6 +1919,16 @@ int gePortReloadPressed(void)
 #else
     return 0;
 #endif
+}
+
+/* Does the USE button still reload when nothing is in reach?
+ *
+ * lv.c asks once per frame. The answer is resolved and cached in ge_bindings.c, which
+ * is where the binding table lives; this is the port-side name the game patch uses, the
+ * same arrangement as gePortReloadPressed above. */
+int gePortUseAlsoReloads(void)
+{
+    return geUseAlsoReloads();
 }
 
 /* GETV_MOVE_SELFTEST=<frame>: hold the left stick forward on every port from that frame.

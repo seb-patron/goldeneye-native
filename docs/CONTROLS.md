@@ -73,8 +73,8 @@ port adds `mouse1` through `mouse5`, `wheelup` and `wheeldown`, and accepts the 
 Use `none` to unbind. The resolved list is printed at startup, so a binding that failed to apply
 is visible rather than silent.
 
-The bindable actions are `fire`, `aim`, `use`, `reload`, `crouch`, `stand`, `weapon_next`,
-`weapon_prev` and `pause`; the movement axes are `forward`, `backward`, `strafe_left`,
+The bindable actions are `fire`, `aim`, `use`, `reload`, `crouch`, `weapon_next`, `weapon_prev`
+and `pause`; the movement axes are `forward`, `backward`, `strafe_left`,
 `strafe_right`, `look_up`, `look_down`, `look_left` and `look_right`.
 
 `look_*` drive the right stick, which is also how a keyboard player moves the front-end menu
@@ -83,16 +83,18 @@ cursor — worth leaving bound even with the mouse on.
 ### Hold or toggle
 
 ```ini
-aim_mode    = hold     # or: toggle
-crouch_mode = hold     # or: toggle
+aim_mode    = hold       # or: toggle
+crouch_mode = toggle     # or: hold
 ```
 
 Aim toggle sets GoldenEye's own per-player aim-control option, which the engine reads as a press
 rather than a hold. It is the retail setting, not something bolted on top. Crouch toggle is the
 port's, because the engine has no crouch button to latch.
 
-In **hold** mode, releasing crouch now stands you up. Before remapping, crouch was momentary but
-nothing watched the release, so a tap left you squatting until you found the separate stand key.
+**There is no stand key.** Crouch defaults to `toggle`, so pressing it again stands you up. In
+`hold` mode, releasing it stands you up instead. An earlier version of this shipped a separate
+stand key on `V`; it did nothing except while already crouched, so nobody found it and the crouch
+read as broken. It is gone.
 
 ### Mouse
 
@@ -118,7 +120,7 @@ on a rising edge, so three notches flicked inside a single frame would otherwise
 weapon instead of three. A backlog of more than eight notches is dropped, and the backlog is
 discarded entirely whenever the game should not be reading input.
 
-## Crouch, stand and reload
+## Crouch and reload
 
 None of these three reaches the game through the N64 controller, because the engine has no button
 for any of them. The port reads them back out of the binding table directly. The retail gestures
@@ -131,8 +133,14 @@ still work alongside them:
   reloads. A key bound to `reload` reloads wherever you are standing, which is what a key labelled
   R should do.
 
-Set `crouch_key = 0` to remove the port's dedicated crouch and stand bindings entirely and keep
-only the retail gesture.
+  **Binding a reload key turns the retail double duty off**, so `E` then only interacts and never
+  reloads. That is automatic: the same key doing two different things depending on where you are
+  standing is exactly what a dedicated key replaces. `input_preset = n64` leaves reload unbound
+  and therefore keeps retail behaviour. `use_reloads = 1` forces the double duty back on,
+  `use_reloads = 0` removes it even with no reload key bound.
+
+Set `crouch_key = 0` to remove the port's dedicated crouch binding entirely and keep only the
+retail gesture.
 
 ## Gamepad
 
@@ -147,7 +155,7 @@ automatically.
 | Aim | Left trigger (`lt`) | `lt` |
 | Use / interact | South face (`a`) | East face (`b`) |
 | Reload | West face (`x`) | Unbound |
-| Crouch | East face (`b`) | Unbound |
+| Crouch | East face (`b`) — press again to stand | Unbound |
 | Next weapon | North face (`y`) | South face (`a`) |
 | Previous weapon | Unbound | Unbound |
 | Pause / watch | `start` | `start` |
@@ -184,10 +192,14 @@ is the ImGui one. Both edit the same settings.
 - **SwiftUI** — type the key name into the field. A binding can be a list, which a
   press-a-key capture cannot express, and the placeholder shows what the preset supplies.
 
-**Press SAVE CONTROLS to keep them.** Everything else in the launcher lasts only until you quit —
-settings are handed to the relaunched game as environment variables and nothing writes them down.
-Save rewrites `goldeneye.cfg` in place: comments, ordering, settings from other pages, and any key
-this build does not recognise are all left alone.
+**Starting the game saves them.** The controls page is written to `goldeneye.cfg` when you press
+START, and there is also a SAVE CONTROLS button for saving without launching. Every *other*
+setting in the launcher still works the old way — handed to the relaunched game as an environment
+variable, gone when you quit — but a rebind that vanished on the next cold start was a trap, so
+controls are persisted.
+
+The write is a rewrite in place: comments, ordering, settings from other pages, and any key this
+build does not recognise are all left alone.
 
 ### In `goldeneye.cfg`
 

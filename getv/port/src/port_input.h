@@ -113,8 +113,9 @@ const char *gePortInputCodeName(int code);
  * All three are resolved once per frame during the input poll; these are pure reads.
  * gePortReloadPressed() is one frame per press, not a level. */
 int gePortCrouchHeld(void);
-int gePortStandHeld(void);
+int gePortStandHeld(void);   /* the pulse that ends a crouch; not a bindable key */
 int gePortReloadPressed(void);
+int gePortUseAlsoReloads(void);
 
 /* GETV_INPUT_DEBUG, read once and cached.
  *   0 = silent (default)

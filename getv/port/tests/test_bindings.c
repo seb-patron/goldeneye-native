@@ -327,12 +327,11 @@ static void test_action_held(void)
 /* ---- crouch hold vs toggle, and the reload edge -------------------------- */
 
 /* Drive one frame with a given set of raw actions held. */
-static void frame(int crouch, int stand, int reload)
+static void frame(int crouch, int reload)
 {
     struct GePadState st;
     memset(&st, 0, sizeof st);
     st.act[GE_ACT_CROUCH] = (unsigned char) (crouch != 0);
-    st.act[GE_ACT_STAND]  = (unsigned char) (stand  != 0);
     st.act[GE_ACT_RELOAD] = (unsigned char) (reload != 0);
     geBindingsFrame(0, &st);
 }
@@ -342,79 +341,101 @@ static void test_crouch_hold(void)
     printf("# crouch, hold mode\n");
     forget_bindings();
 
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geCrouchActive(0), 0, "idle");
 
-    frame(1, 0, 0);
+    frame(1, 0);
     eq_int(geCrouchActive(0), 1, "held down");
-    frame(1, 0, 0);
+    frame(1, 0);
     eq_int(geCrouchActive(0), 1, "still held");
 
-    /* Releasing crouch must stand Bond up. This is the behaviour change: crouch was
-     * momentary before, but nothing watched the release, so a player who tapped C
-     * stayed squatting until they found the separate stand key. */
-    frame(0, 0, 0);
+    /* Releasing crouch must stand Bond up. There is no stand key to press: crouch was
+     * momentary before and nothing watched the release, so a tap left you squatting
+     * until you found a second key that most players never did. */
+    frame(0, 0);
     eq_int(geCrouchActive(0), 0, "released");
-    eq_int(geStandActive(0),  1, "release pulses stand");
+    eq_int(geStandActive(0),  1, "release stands you up");
 
     /* The pulse is short and self-terminating. A permanently-true stand would cancel
      * the retail aim-stick crouch the instant the stick recentred, because bondview2.c
      * reads `if (crouchDown) ... else if (crouchUp)`. */
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geStandActive(0), 1, "pulse spans a second frame (render-only ticks)");
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geStandActive(0), 0, "pulse has ended");
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geStandActive(0), 0, "and stays ended");
-
-    /* An explicit stand key is momentary and needs no edge. */
-    frame(0, 1, 0);
-    eq_int(geStandActive(0), 1, "explicit stand key");
-    frame(0, 0, 0);
-    eq_int(geStandActive(0), 0, "explicit stand released");
 }
 
 static void test_crouch_toggle(void)
 {
-    printf("# crouch, toggle mode\n");
+    printf("# crouch, toggle mode -- the default\n");
     forget_bindings();
 
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geCrouchActive(0), 0, "idle");
 
     /* Latches on the press, not on the hold. */
-    frame(1, 0, 0);
-    eq_int(geCrouchActive(0), 1, "first press latches");
-    frame(1, 0, 0);
-    eq_int(geCrouchActive(0), 1, "still latched while held");
-    frame(0, 0, 0);
-    eq_int(geCrouchActive(0), 1, "still latched after release");
-    frame(0, 0, 0);
-    eq_int(geCrouchActive(0), 1, "and stays latched");
-    eq_int(geStandActive(0),  0, "no stand pulse while latched");
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 1, "first press crouches");
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 1, "still crouched while held");
+    frame(0, 0);
+    eq_int(geCrouchActive(0), 1, "still crouched after release");
+    frame(0, 0);
+    eq_int(geCrouchActive(0), 1, "and stays crouched");
+    eq_int(geStandActive(0),  0, "no stand pulse while crouched");
 
-    /* Second press unlatches and pulses stand. Asserting crouchDown continuously is
-     * safe -- currentPlayerAdjustCrouchPos(-2) clamps at CROUCH_SQUAT -- but coming
-     * back up needs crouchUp for at least one frame. */
-    frame(1, 0, 0);
-    eq_int(geCrouchActive(0), 0, "second press unlatches");
-    eq_int(geStandActive(0),  1, "unlatch pulses stand");
-    frame(1, 0, 0);
-    eq_int(geCrouchActive(0), 0, "holding does not re-latch");
-    frame(0, 0, 0);
+    /* The whole point: the SAME key stands you back up. Asserting crouchDown
+     * continuously is safe -- currentPlayerAdjustCrouchPos(-2) clamps at CROUCH_SQUAT --
+     * but coming back up needs crouchUp for at least one frame. */
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 0, "second press stands up");
+    eq_int(geStandActive(0),  1, "and pulses stand");
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 0, "holding does not re-crouch");
+    frame(0, 0);
     eq_int(geCrouchActive(0), 0, "released, still standing");
     eq_int(geStandActive(0),  0, "pulse finished");
 
-    /* An explicit stand press clears the latch. Without this the two inputs disagree:
-     * V stands Bond up while the latch still says crouched, and the next crouch press
-     * toggles it OFF and leaves him standing. */
-    frame(1, 0, 0);
-    eq_int(geCrouchActive(0), 1, "latched again");
-    frame(0, 1, 0);
-    eq_int(geCrouchActive(0), 0, "stand key clears the latch");
-    frame(0, 0, 0);
-    frame(1, 0, 0);
-    eq_int(geCrouchActive(0), 1, "next press crouches rather than un-crouching");
+    /* And round again, so the toggle is not one-shot. */
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 1, "third press crouches again");
+    frame(0, 0);
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 0, "fourth press stands again");
+}
+
+static void test_crouch_default_is_toggle(void)
+{
+    printf("# crouch defaults to toggle with nothing configured\n");
+    forget_bindings();
+
+    /* Run with GETV_CROUCH_MODE unset. Toggle is the default because it is the only
+     * mode where pressing crouch again stands you up, and there is no second key. */
+    eq_int(geCrouchMode(), GE_TOGGLE, "default crouch mode");
+
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 1, "press crouches");
+    frame(0, 0);
+    eq_int(geCrouchActive(0), 1, "stays crouched on release");
+    frame(1, 0);
+    eq_int(geCrouchActive(0), 0, "press again stands up");
+}
+
+static void test_no_stand_action(void)
+{
+    printf("# there is no bindable stand action\n");
+    {
+        int a, found = 0;
+        for (a = 0; a < GE_ACT_MAX; a++) {
+            if (strcmp(geActionName(a), "stand") == 0) { found = 1; }
+        }
+        /* A stand key does nothing except while already crouched, so nobody finds it
+         * and everybody reports the crouch as broken instead. Crouch toggling is the
+         * replacement, and this pins that the key does not come back by accident. */
+        eq_int(found, 0, "no action is named \"stand\"");
+    }
 }
 
 static void test_reload_edge(void)
@@ -422,21 +443,31 @@ static void test_reload_edge(void)
     printf("# reload is one frame per press\n");
     forget_bindings();
 
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geReloadEdge(0), 0, "idle");
 
-    frame(0, 0, 1);
+    frame(0, 1);
     eq_int(geReloadEdge(0), 1, "press");
     /* A level would restart the reload animation every frame the key was down, which
      * spends the whole magazine's worth of animation going nowhere. */
-    frame(0, 0, 1);
+    frame(0, 1);
     eq_int(geReloadEdge(0), 0, "held is not a second reload");
-    frame(0, 0, 1);
+    frame(0, 1);
     eq_int(geReloadEdge(0), 0, "still held");
-    frame(0, 0, 0);
+    frame(0, 0);
     eq_int(geReloadEdge(0), 0, "release");
-    frame(0, 0, 1);
+    frame(0, 1);
     eq_int(geReloadEdge(0), 1, "next press reloads again");
+}
+
+/* ---- does USE still reload? ---------------------------------------------- */
+
+static void test_use_also_reloads(void)
+{
+    printf("# use stops doubling as reload once reload is bound\n");
+    /* Cached on first call, so main() runs each configuration in its own process. */
+    eq_int(geUseAlsoReloads(), atoi(getenv("EXPECT_USE_RELOADS")),
+           "use doubles as reload");
 }
 
 static void test_per_player_isolation(void)
@@ -498,7 +529,10 @@ int main(int argc, char **argv)
      * configuration runs as a child process with its own environment. */
     if (phase[0] == '\0') {
         static const char *const phases[] = {
-            "pure", "hold", "toggle", "bind-default", "bind-global", "bind-player", NULL
+            "pure", "hold", "toggle", "crouch-default",
+            "use-reload-modern", "use-reload-n64", "use-reload-unbound",
+            "use-reload-forced",
+            "bind-default", "bind-global", "bind-player", NULL
         };
         int i, rc = 0;
 
@@ -518,6 +552,7 @@ int main(int argc, char **argv)
         test_source_held();
         test_action_held();
         test_reload_edge();
+        test_no_stand_action();
         test_per_player_isolation();
     } else if (strcmp(phase, "hold") == 0) {
         setenv("GETV_CROUCH_MODE", "hold", 1);
@@ -525,6 +560,35 @@ int main(int argc, char **argv)
     } else if (strcmp(phase, "toggle") == 0) {
         setenv("GETV_CROUCH_MODE", "toggle", 1);
         test_crouch_toggle();
+    } else if (strcmp(phase, "crouch-default") == 0) {
+        unsetenv("GETV_CROUCH_MODE");
+        test_crouch_default_is_toggle();
+    } else if (strcmp(phase, "use-reload-modern") == 0) {
+        /* Modern binds reload to R and to the west face button, so the use button
+         * should stop reloading -- otherwise the same key opens a door or reloads
+         * depending on where you stand, which is what a dedicated key replaces. */
+        setenv("GETV_INPUT_PRESET", "modern", 1);
+        setenv("EXPECT_USE_RELOADS", "0", 1);
+        test_use_also_reloads();
+    } else if (strcmp(phase, "use-reload-n64") == 0) {
+        /* n64 leaves reload unbound, so retail behaviour must survive: use with
+         * nothing in reach is the ONLY way to reload there. */
+        setenv("GETV_INPUT_PRESET", "n64", 1);
+        setenv("EXPECT_USE_RELOADS", "1", 1);
+        test_use_also_reloads();
+    } else if (strcmp(phase, "use-reload-unbound") == 0) {
+        /* Explicitly unbinding reload under modern must also restore it. */
+        setenv("GETV_INPUT_PRESET", "modern", 1);
+        setenv("GETV_KEY_RELOAD", "none", 1);
+        setenv("GETV_BIND_RELOAD", "none", 1);
+        setenv("EXPECT_USE_RELOADS", "1", 1);
+        test_use_also_reloads();
+    } else if (strcmp(phase, "use-reload-forced") == 0) {
+        /* GETV_USE_RELOADS overrides the inference either way. */
+        setenv("GETV_INPUT_PRESET", "modern", 1);
+        setenv("GETV_USE_RELOADS", "1", 1);
+        setenv("EXPECT_USE_RELOADS", "1", 1);
+        test_use_also_reloads();
     } else if (strcmp(phase, "bind-default") == 0) {
         setenv("EXPECT_P1_FIRE", "rt", 1);
         setenv("EXPECT_P2_FIRE", "rt", 1);

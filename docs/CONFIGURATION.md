@@ -323,7 +323,7 @@ preset is that picking it describes the whole layout.
 
 ### Button bindings
 
-`fire`, `aim`, `use`, `reload`, `crouch`, `stand`, `weapon_next`, `weapon_prev`, `pause`.
+`fire`, `aim`, `use`, `reload`, `crouch`, `weapon_next`, `weapon_prev`, `pause`.
 
 Each accepts one of: `a`, `b`, `x`, `y`, `lb`, `rb`, `lt`, `rt`, `start`, `back`, `dup`, `ddown`,
 `dleft`, `dright`, `lstick`, `rstick`, `none`.
@@ -335,7 +335,6 @@ Each accepts one of: `a`, `b`, `x`, `y`, `lb`, `rb`, `lt`, `rt`, `start`, `back`
 | `use` | `a` | `b` |
 | `reload` | `x` | `none` |
 | `crouch` | `b` | `none` |
-| `stand` | `none` | `none` |
 | `weapon_next` | `y` | `a` |
 | `weapon_prev` | `none` | `none` |
 | `pause` | `start` | `start` |
@@ -349,14 +348,15 @@ physical button.
 `fire = rt` / `aim = lt` is the modern-shooter convention rather than a settled fact; GoldenEye's
 retail scheme has neither. Swapping them is one line: `fire = lt`, `aim = rt`.
 
-`reload`, `crouch` and `stand` do not reach the game through the N64 controller at all - the
-engine has no button for any of them - so the port reads them back out of the binding table
-directly, in `port_input.c`. The retail gestures still work alongside; see
+`reload` and `crouch` do not reach the game through the N64 controller at all - the engine has no
+button for either - so the port reads them back out of the binding table directly, in
+`port_input.c`. The retail crouch gesture still works alongside; see
 [`CONTROLS.md`](CONTROLS.md).
 
-There is no pad `stand` default. In hold mode releasing crouch stands you up and in toggle mode
-pressing it again does, so a second button would be dead weight on a pad that has none to spare.
-The keyboard keeps one because it can afford it.
+**There is no `stand` action.** Crouch toggles, so pressing it again stands you up, and in hold
+mode releasing it does. An earlier revision of this work shipped a bindable `stand`; it did
+nothing except while already crouched, which meant nobody found it and the crouch itself read as
+broken. Removing it is the fix.
 
 `weapon_prev` defaults to `none` on the pad deliberately. GoldenEye has no back-cycle button - the
 retail gesture is hold-inventory plus tap-fire, which `gePortDecodePad()` synthesises as a single
@@ -407,29 +407,52 @@ silent:
 
 ### `aim_mode` and `crouch_mode`
 
-`hold` or `toggle`. Both default `hold`.
+`hold` or `toggle`. `aim_mode` defaults to `hold`, matching retail. **`crouch_mode` defaults to
+`toggle`**, because that is the only mode in which pressing crouch again stands you up, and there
+is deliberately no second key that does.
 
 `aim_mode = toggle` sets the same engine option `aim_toggle` does - see its entry below for why
 that is answered at the read rather than latched in the port. `aim_toggle` is still accepted and
 still means what it meant.
 
 `crouch_mode` is enforced by the port, in `ge_bindings.c`, because the engine has no crouch button
-to latch. In hold mode, **releasing** crouch now stands you up: crouch was momentary before, but
-nothing watched the release, so a tap left you squatting until you found the separate stand key.
-Standing up is emitted as a two-frame pulse rather than a level, because `bondview2.c` reads
-`if (crouchDown) ... else if (crouchUp)` and a permanently-true `crouchUp` would cancel the retail
-aim-stick crouch the instant the stick recentred.
+to latch. In hold mode, **releasing** crouch stands you up. Standing is emitted as a two-frame
+pulse rather than a level, because `bondview2.c` reads `if (crouchDown) ... else if (crouchUp)`
+and a permanently-true `crouchUp` would cancel the retail aim-stick crouch the instant the stick
+recentred.
 
 ### `crouch_key`
 
-`0` or `1`. Default `1`. Set `0` to remove the port's dedicated crouch and stand bindings entirely
-and keep only the retail gesture (hold aim, push down).
+`0` or `1`. Default `1`. Set `0` to remove the port's dedicated crouch binding entirely and keep
+only the retail gesture (hold aim, push down).
+
+### `use_reloads`
+
+`0` or `1`. **Unset by default, and that is not the same as `0`.**
+
+Retail reload is the use button with nothing in reach: `bond_interact_object()` returns true only
+when `propFindForInteract()` found nothing, so `E` near a door opens the door and `E` near nothing
+reloads. With no reload key that is the only way to reload and must stay.
+
+Once `reload` is bound to anything, the double duty is turned off automatically -- the same input
+reloading or opening a door depending on where you happen to be standing is precisely what a
+dedicated key replaces. `input_preset = n64` leaves reload unbound and therefore keeps retail
+behaviour.
+
+Setting the key overrides that inference in both directions: `1` keeps the double duty even with a
+reload key bound, `0` removes it even without one. The resolved answer is printed at startup.
 
 ### Saving from the launcher
 
 The launcher has always applied settings by setting environment variables and re-exec'ing the
 game, which is enough for them to take effect and not enough for them to survive quitting. The
-Controls page can now write itself to `goldeneye.cfg` with **SAVE CONTROLS**.
+Controls page is now written to `goldeneye.cfg` **when you start the game**, and there is a
+**SAVE CONTROLS** button for saving without launching.
+
+Persisting on start rather than only on an explicit button is deliberate. Every other page takes
+effect through the relaunch, so a rebind looked like it had worked and was then gone at the next
+cold start with nothing having said so; requiring a second click to make it permanent is a trap
+rather than a safeguard.
 
 It is a rewrite in place, not a regeneration: comments, ordering, blank lines, settings from every
 other page, and any key this build does not recognise are all preserved. A key that is present but
@@ -471,8 +494,8 @@ appear only when they differ from it, so an override is impossible to miss and t
 stays one line:
 
 ```
-[getv] input: pad bindings, player 1 -- fire=lt aim=lt use=a reload=x crouch=b stand=none weapon_next=y weapon_prev=none pause=start
-[getv] input: pad bindings, player 2 -- fire=rb aim=lt use=a reload=x crouch=b stand=none weapon_next=y weapon_prev=none pause=start
+[getv] input: pad bindings, player 1 -- fire=lt aim=lt use=a reload=x crouch=b weapon_next=y weapon_prev=none pause=start
+[getv] input: pad bindings, player 2 -- fire=rb aim=lt use=a reload=x crouch=b weapon_next=y weapon_prev=none pause=start
 ```
 
 ### `deadzone`
