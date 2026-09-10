@@ -518,6 +518,35 @@ static void test_bind_resolution(void)
     eq_int(geBindSrc(99, GE_ACT_FIRE), geBindSrc(0, GE_ACT_FIRE), "player above range clamps");
 }
 
+static void test_bind_migration(void)
+{
+    int a, b, shared = 0;
+
+    printf("# a pre-remap config does not put two actions on one pad button\n");
+    /* The exact lines every config written by the old template contains. Under the
+     * modern preset, crouch defaults to b -- the button this config explicitly gave to
+     * use -- which is how pressing B to open a door also crouched on the first launch. */
+    eq_int(geBindSrc(0, GE_ACT_USE),         GE_SRC_B,    "explicit use=b is kept");
+    eq_int(geBindSrc(0, GE_ACT_WEAPON_NEXT), GE_SRC_A,    "explicit weapon_next=a is kept");
+    eq_int(geBindSrc(0, GE_ACT_CROUCH),      GE_SRC_NONE, "preset crouch yields its b to use");
+    eq_int(geBindSrc(0, GE_ACT_RELOAD),      GE_SRC_X,    "a preset default with no clash survives");
+
+    for (a = 0; a < GE_ACT_MAX; a++) {
+        for (b = a + 1; b < GE_ACT_MAX; b++) {
+            if (geBindSrc(0, a) != GE_SRC_NONE && geBindSrc(0, a) == geBindSrc(0, b)) { shared++; }
+        }
+    }
+    eq_int(shared, 0, "no two actions share a pad button");
+}
+
+static void test_bind_explicit_clash(void)
+{
+    printf("# two actions the player bound to one button are both kept\n");
+    /* A deliberate choice, not a migration accident -- only preset defaults yield. */
+    eq_int(geBindSrc(0, GE_ACT_USE),    GE_SRC_B, "explicit use=b");
+    eq_int(geBindSrc(0, GE_ACT_CROUCH), GE_SRC_B, "explicit crouch=b is not dropped");
+}
+
 int main(int argc, char **argv)
 {
     const char *phase = (argc > 1) ? argv[1] : "";
@@ -532,7 +561,8 @@ int main(int argc, char **argv)
             "pure", "hold", "toggle", "crouch-default",
             "use-reload-modern", "use-reload-n64", "use-reload-unbound",
             "use-reload-forced",
-            "bind-default", "bind-global", "bind-player", NULL
+            "bind-default", "bind-global", "bind-player",
+            "bind-migration", "bind-explicit-clash", NULL
         };
         int i, rc = 0;
 
@@ -600,6 +630,20 @@ int main(int argc, char **argv)
         setenv("EXPECT_P1_FIRE", "lt", 1);
         setenv("EXPECT_P2_FIRE", "lt", 1);
         test_bind_resolution();
+    } else if (strcmp(phase, "bind-migration") == 0) {
+        setenv("GETV_INPUT_PRESET", "modern", 1);
+        setenv("GETV_BIND_FIRE", "rt", 1);
+        setenv("GETV_BIND_AIM", "lt", 1);
+        setenv("GETV_BIND_USE", "b", 1);
+        setenv("GETV_BIND_WEAPON_NEXT", "a", 1);
+        setenv("GETV_BIND_WEAPON_PREV", "none", 1);
+        setenv("GETV_BIND_PAUSE", "start", 1);
+        test_bind_migration();
+    } else if (strcmp(phase, "bind-explicit-clash") == 0) {
+        setenv("GETV_INPUT_PRESET", "modern", 1);
+        setenv("GETV_BIND_USE", "b", 1);
+        setenv("GETV_BIND_CROUCH", "b", 1);
+        test_bind_explicit_clash();
     } else if (strcmp(phase, "bind-player") == 0) {
         /* Split-screen is the whole reason bindings are per player: with one global
          * table, moving fire for a player on a Nintendo pad moved it for everyone. */

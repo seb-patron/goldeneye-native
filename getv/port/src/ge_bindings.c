@@ -282,6 +282,18 @@ const char *gePresetAxisKeys(int preset, int axis)
 
 /* ---- pad binding resolution ---------------------------------------------- */
 
+/* Is `v` a recognised source name? Silent, unlike geParseSource, because the resolver
+ * asks this about every key and a typo has already been reported once by the parse. */
+static int geSourceNameValid(const char *v)
+{
+    int i;
+    if (v == NULL || *v == '\0') { return 0; }
+    for (i = 0; i < GE_SRC_MAX; i++) {
+        if (strcmp(v, ge_src_name[i]) == 0) { return 1; }
+    }
+    return 0;
+}
+
 /* Compose "GETV_BIND_<ACT>" (player < 1) or "GETV_P<n>_BIND_<ACT>". */
 static void geBindKey(char *dst, size_t cap, int player, const char *suffix)
 {
@@ -305,16 +317,51 @@ int geBindSrc(int player, int act)
         const int preset = geInputPreset();
         int p, a;
 
+        /* 1 where the value came from the environment/config rather than the preset. */
+        int explicit_bind[GE_PORT_MAX_PADS][GE_ACT_MAX];
+
         for (a = 0; a < GE_ACT_MAX; a++) {
             char key[64];
-            int g;
+            int g, g_explicit;
 
             geBindKey(key, sizeof key, 0, ge_act_env[a]);
             g = geParseSource(getenv(key), ge_pad_preset[preset][a]);
+            g_explicit = geSourceNameValid(getenv(key));
 
             for (p = 0; p < GE_PORT_MAX_PADS; p++) {
                 geBindKey(key, sizeof key, p + 1, ge_act_env[a]);
                 src[p][a] = geParseSource(getenv(key), g);
+                explicit_bind[p][a] = g_explicit || geSourceNameValid(getenv(key));
+            }
+        }
+
+        /* An explicit binding claims its button; a preset default yields rather than
+         * doubling up on it.
+         *
+         * Found on the first real launch. Every config written by the pre-remap template
+         * carries explicit `use = b` and `weapon_next = a` lines, and the modern preset puts
+         * crouch on b -- so an existing install came up with B doing use AND crouch, and a
+         * player who pressed it to open a door would also drop to a squat. "Explicit beats
+         * the preset" already governs a single action; this extends it to the button the
+         * explicit binding sits on.
+         *
+         * Only a PRESET default is ever dropped. Two actions the player explicitly put on
+         * one button are both kept: that is a choice, not a migration accident. */
+        for (p = 0; p < GE_PORT_MAX_PADS; p++) {
+            for (a = 0; a < GE_ACT_MAX; a++) {
+                int b;
+                if (explicit_bind[p][a] || src[p][a] == GE_SRC_NONE) { continue; }
+                for (b = 0; b < GE_ACT_MAX; b++) {
+                    if (b == a || !explicit_bind[p][b] || src[p][b] != src[p][a]) { continue; }
+                    if (p == 0) {
+                        printf("[getv] input: pad %s default (%s) dropped -- %s is explicitly bound "
+                               "to %s; set %s yourself to keep both\n",
+                               ge_act_name[a], ge_src_name[src[p][a]], ge_src_name[src[p][a]],
+                               ge_act_name[b], ge_act_name[a]);
+                    }
+                    src[p][a] = GE_SRC_NONE;
+                    break;
+                }
             }
         }
         resolved = 1;
