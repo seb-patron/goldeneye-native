@@ -11,20 +11,25 @@ page in front of them.
 | File | Role |
 |---|---|
 | `index.html` | Overview / landing page |
-| `build.html` | Build from source, plus the feature status table |
+| `install.html` | Beginner installation and first run, Windows / macOS / Linux |
+| `build.html` | Deeper build-from-source reference and the feature status table |
+| `launcher.html` | Launcher guide, first launch through starting a game |
+| `settings.html` | Complete user-facing settings reference |
 | `faq.html` | FAQ |
+| `agent-help.html` | How to ask an agent for help with this project |
+| `bugs.html` | Known bugs and documented limitations |
+| `roadmap.html` | Roadmap: shipped / partial / disputed / blocked / planned |
 | `changelog.html` | Readable copy of the canonical `CHANGELOG.md` |
 | `versions.html` | Release and documentation version index |
 | `versions.json` | Static manifest driving the version selector |
 | `v/` | Archived documentation snapshots, one directory per released major version |
 
-`index.html`, `build.html`, `faq.html` and `changelog.html` are in the primary navigation.
-`versions.html` is reached from the version bar and from the footer, which lists everything.
+Eight pages are in the primary navigation: Overview, Install, Launcher, Settings, FAQ, Bugs,
+Roadmap, Changelog. `build.html`, `agent-help.html` and `versions.html` are reached from the pages
+that need them and from the footer, which lists everything. That split keeps the nav to one row on a
+desktop while leaving nothing unreachable.
 
-Further pages &mdash; a beginner installation guide, a launcher guide, a settings reference, an
-agent-help page, a known-bugs page and a roadmap page &mdash; are scoped under the
-[Public Project Site milestone](https://github.com/seb-patron/goldeneye-native/milestone/5) and are
-not here yet. Do not link to a page before it exists.
+Do not add a navigation link to a page before the page exists.
 
 ## Versioning and archives
 
@@ -86,8 +91,13 @@ verification record, including the deployed URL and the exact workflow run.
 
 Every claim on these pages is meant to match the honesty standard the rest of this project holds
 itself to (`docs/VISION.md`'s DONE / PARTIAL / OPEN labels, `docs/STANCE.md`,
-`docs/LICENSING.md`). If a feature moves, update the status table in `build.html` at the same time
-&mdash; a stale claim here is worse than no claim.
+`docs/LICENSING.md`). If a feature moves, update the status table in `build.html` and the
+`roadmap.html` sections at the same time &mdash; a stale claim here is worse than no claim.
+
+Three pages carry a stated selection rule or drift note rather than pretending to be complete, and
+those notes are load-bearing: `bugs.html` says how its list was assembled and that it is not
+exhaustive, `roadmap.html` names which upstream document rows are stale, and `settings.html` explains
+why it is hand-maintained rather than generated. Do not delete those paragraphs to tidy the page up.
 
 Two rules that are easy to get wrong:
 

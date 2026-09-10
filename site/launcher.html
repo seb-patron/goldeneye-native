@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The launcher &mdash; Goldeneye-Native</title>
+<meta name="description" content="A guide to the Goldeneye-Native launcher, from first launch through starting a game: its eight pages, the two modes, controls, renderer, mods, saves and troubleshooting.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html" class="current" aria-current="page">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>The launcher</h1>
+    <p>Everything you would otherwise set by editing a config file, in a window that opens before
+    the game does. This walks from first launch through starting a mission. The exhaustive
+    per-setting reference is <a href="settings.html">Settings</a>.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Opening it</h2>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Platform</th><th scope="col">How</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Windows</td><td>Double-click <code>goldeneye.exe</code>. It opens the launcher by default. <strong>Play GoldenEye.cmd</strong> does the same.</td></tr>
+        <tr><td class="k">macOS</td><td>Double-click <code>getv/build-mac/GoldenEye.app</code>, or <strong>Play GoldenEye.command</strong> in the project folder.</td></tr>
+        <tr><td class="k">Any platform, terminal</td><td><code>./getv/build-mac/goldeneye --launcher</code> (or <code>build-linux</code>, <code>build-windows</code>). <code>GETV_LAUNCHER=1</code> does the same thing.</td></tr>
+        <tr><td class="k">Skip it</td><td>Omit <code>--launcher</code> to boot straight into the game with your current settings. On Windows, where the launcher is the default, use <code>GETV_LAUNCHER=0</code> &mdash; intended for scripted runs.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-top:24px">On macOS the app has to stay beside the
+    <code>goldeneye</code> executable, including when you move the build folder. It runs the binary
+    next to it; it does not contain its own copy of the game. <code>./getv/build_mac.sh bundle</code>
+    recreates the app for an existing build without recompiling.</p>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Two things worth knowing first</h2>
+
+    <div class="notice">
+      <strong>The launcher does not compete with your config file &mdash; and does not write it.</strong>
+      Every control resolves to a <code>GETV_*</code> setting that already worked from a shell, and
+      each one opens showing the value the config layer just resolved. So it reflects your
+      <code>goldeneye.cfg</code> rather than overriding it, and choices you make here apply to
+      <em>this launch</em>. To keep a preference between sessions, put it in
+      <code>goldeneye.cfg</code> &mdash; see <a href="settings.html#where">where that file lives</a>.
+    </div>
+
+    <div class="notice">
+      <strong>Pressing Play restarts the process, on purpose.</strong>
+      76 of the port's settings are read once into a static on first use, so changing one after the
+      game has started would silently do nothing for most of the surface. The launcher therefore
+      sets the environment and re-executes the binary with the launcher flag removed, so the game
+      begins in a process where nothing has been read yet. That is why it is a launcher and not an
+      in-game options menu.
+    </div>
+  </div>
+</section>
+
+<section class="content" id="modes">
+  <div class="wrap">
+    <h2>Base Game or GoldenEye+</h2>
+    <p class="section-sub">The first choice, at the top of the window. It decides how much of the
+    rest of the launcher you can reach.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Base Game</h3>
+        <p>The original game. N64 graphics, 4:3 framing, three-point filtering and a retail-size
+        reticle. It suppresses Brutal effects, all Lua mods, launcher cheats, custom gameplay
+        balance, horde, co-op, forced unlocks and netplay.</p>
+        <p style="margin-top:10px">Still yours to set: resolution, fullscreen, vsync, audio, the save
+        location, your frame rate, and your controls and mouse response. <strong>Controls</strong>
+        and <strong>Timing</strong> stay editable.</p>
+      </div>
+      <div class="card">
+        <h3>GoldenEye+</h3>
+        <p>Everything this port has added. Choose it to customise gameplay and image quality.</p>
+        <p style="margin-top:10px">The equivalent config line is <code>preset = plus</code>, which
+        turns on supersampling, MSAA, anisotropic filtering, mipmaps, HD textures, parallax, FXAA, a
+        0.6 crosshair and an uncapped frame rate on the real clock.</p>
+      </div>
+    </div>
+    <p class="section-sub" style="margin-top:24px;margin-bottom:0">In Base Game the
+    <strong>CO-OP</strong>, <strong>GAMEPLAY</strong>, <strong>CHEATS</strong> and
+    <strong>MODS</strong> pages are shown but disabled, with a hint saying why. Base Game is enforced
+    after the config file and command line have been parsed, so an older config cannot re-enable a
+    conflicting setting behind your back. It does not rewrite your config file either way.
+    <em>Base Game</em> replaced the earlier <em>97 Console</em> label; the config key is
+    <code>base_game</code>, with <code>base_only</code> as an alias.</p>
+  </div>
+</section>
+
+<section class="content" id="pages">
+  <div class="wrap">
+    <h2>The eight pages</h2>
+    <p class="section-sub">In the order they appear down the left-hand side.</p>
+
+    <div class="entry">
+      <h3>1. MISSION</h3>
+      <p><strong>Game start</strong> chooses between <em>Original game start</em>, which boots to the
+      title screen, and <em>Mission selector</em>, which boots straight into the mission you pick.
+      The mission list stays visible but disabled for a title-screen start. Both modes allow either
+      choice, and the button at the bottom reads <strong>Start Game</strong> or
+      <strong>Start Mission</strong> to match.</p>
+      <p><strong>Solo campaign</strong> and <strong>Multiplayer arenas</strong> are the two lists.
+      All 27 loadable stages boot; the multiplayer setup has all 64 characters, the radar, and every
+      watch page.</p>
+    </div>
+
+    <div class="entry">
+      <h3>2. CO-OP <span class="tag tag-partial">PARTIAL</span></h3>
+      <p>Loads a single-player mission with two to four players sharing it in split screen. This is
+      bring-up, not a finished feature: the mission's objectives, AI and cutscenes are written around
+      a single Bond, so the extra players are present rather than accounted for. It is distinct from
+      multiplayer, which uses its own arena setups.</p>
+      <p><strong>Team options</strong> holds <code>coop_friendly_fire</code> (off by default &mdash;
+      everyone starts on one pad facing the same way, so with it on the first shot usually finds a
+      team mate) and <code>coop_respawn</code>, 0&ndash;30 seconds, default 5. Zero waits for a
+      button press instead. If everyone is down at once the mission is lost and nobody returns.</p>
+    </div>
+
+    <div class="entry">
+      <h3>3. GAMEPLAY</h3>
+      <p><strong>Gameplay preset</strong> picks a ruleset: <code>classic</code> (as shipped, and
+      completely silent), <code>hardcore</code>, <code>survival</code>, <code>chaos</code> or
+      <code>horde</code>. <strong>Balance</strong> exposes the nine individual percentages that a
+      preset sets, and any one of them overrides the preset &mdash; hardcore plus
+      <code>ammo = 200</code> is a hardcore run with generous ammo.</p>
+      <p><strong>Brutal GoldenEye</strong> is the gore family: <em>Enable Brutal effects</em> is off
+      by default and, when ticked, selects explosion-triggered gibs if no trigger is chosen yet.
+      Blood is <code>original</code> / <code>enhanced</code> (default) / <code>excessive</code>, with
+      a persistent-stain cap of 16&ndash;512, default 128. Ordinary weapon hits do not emit added
+      blood yet. Blood attaches to static level triangles including walls and ceilings and fades
+      after roughly thirty seconds; doors and other moving objects do not receive decals.</p>
+      <p><strong>Horde mode</strong> spawns replacements where a guard fell, growing each wave.
+      A refused spawn is not an error &mdash; the level's own character-slot budget is the real
+      ceiling, and a refused spawn just leaves the wave smaller.</p>
+    </div>
+
+    <div class="entry">
+      <h3>4. CONTROLS</h3>
+      <p><strong>Mouse and keyboard</strong> covers mouse look, sensitivity, Y-inversion, and the
+      <code>mouse_mode</code> choice between <code>modern</code> (the default: mouse travel changes
+      camera angles directly, with no stick acceleration, turn-speed cap or carried surplus motion)
+      and <code>classic</code> (the original mouse-to-N64-stick mapping). Vehicles, network sessions
+      and scripted or replay input stay on Classic N64 regardless.</p>
+      <p><strong>Bindings for</strong> selects which player you are editing &mdash; bindings are
+      per-player, which is what makes a mixed set of controllers workable in split screen.
+      <strong>Actions</strong> holds the six bindable ones: fire, aim, use, next weapon, previous
+      weapon, pause.</p>
+      <figure class="shot">
+        <img src="assets/images/launcher-controls.png" alt="The launcher's Controls page, showing mouse and keyboard options above the per-player action bindings.">
+        <figcaption>The Controls page. Button names are positional, not label-based:
+        <code>a</code> always means the physically bottom face button, including on a Nintendo pad
+        where that button is printed <code>B</code>.</figcaption>
+      </figure>
+      <p>A gamepad works <em>alongside</em> the keyboard rather than replacing it &mdash; whichever
+      input is being held wins, so plugging one in never takes the keyboard away. Controllers go
+      through SDL2's game-controller layer, so a DualSense, DualShock&nbsp;4, Xbox pad, Switch Pro
+      controller or 8BitDo is recognised without a mapping file, wired or wireless, and both analogue
+      sticks are live.</p>
+    </div>
+
+    <div class="entry">
+      <h3>5. CHEATS</h3>
+      <p>The named cheats, the same list as the <code>cheats</code> config key and
+      <code>--list-cheats</code>. Some are marked <strong>(in-game)</strong>: those need a player
+      context that does not exist at startup, so they are turned on from the game's own switch
+      instead. They are labelled rather than hidden, because a checkbox that silently does nothing is
+      worse than one that says so.</p>
+    </div>
+
+    <div class="entry">
+      <h3>6. VIDEO</h3>
+      <p id="renderer"><strong>Renderer</strong> is macOS-only and chooses OpenGL or Metal. The choice
+      is remembered separately from profiles, rules and saves, and OpenGL remains the default. A
+      renderer that is missing or unavailable is disabled in the list and cannot be selected. If the
+      selected one fails to start, an error dialog offers <em>Open launcher with OpenGL</em>; that
+      recovery does not overwrite your saved choice, and nothing retries automatically. There is no
+      in-game hot switch.</p>
+      <p>The standard installer builds one renderer. Building the separate Metal executable
+      afterwards:</p>
+      <pre><code>GETV_RENDERER=metal ./getv/build_mac.sh all
+./getv/build-mac-metal/goldeneye-metal --launcher</code></pre>
+      <p>OpenGL and Metal use separate build directories and do not overwrite each other. Installing
+      both automatically is tracked in
+      <a href="https://github.com/seb-patron/goldeneye-native/issues/53">issue&nbsp;#53</a>.</p>
+      <p><strong>Display</strong> is resolution, fullscreen and vsync. <strong>Image quality</strong>
+      is supersampling, MSAA, anisotropic filtering, mipmaps, FXAA, HD textures, widescreen,
+      filtering and crosshair size and colour. <strong>Timing</strong> is the frame rate &mdash; see
+      <a href="#timing">below</a>, because it is the one setting here with a real catch.</p>
+    </div>
+
+    <div class="entry">
+      <h3>7. MODS</h3>
+      <p><strong>Mod directory</strong> points at whichever folder you keep mods in
+      (<code>moddir</code>). <strong>Installed</strong> lists every mod found there with a checkbox
+      each. A mod is a folder containing a <code>mod.lua</code>; that is the entire rule, and a folder
+      without one is skipped silently. Everything found is loaded at startup &mdash; no rebuild, no
+      registration list, nothing else to edit.</p>
+      <figure class="shot">
+        <img src="assets/images/launcher-mods.png" alt="The launcher's Mods page, listing the mod directory and the installed mods with a checkbox for each.">
+        <figcaption>The Mods page. From a shell the same thing is
+        <code>mods_off = crt_screen</code> in <code>goldeneye.cfg</code>, or
+        <code>GETV_MODS_OFF=crt_screen</code>.</figcaption>
+      </figure>
+      <p id="crt"><strong>The CRT screen is a mod, not a built-in setting.</strong> It is what draws
+      the scanlines, the aperture mask, the curved tube and the vignette, and it lives in
+      <code>mods/crt_screen/mod.lua</code> where you can read and change it. Untick it in the launcher
+      and the scanlines go away. Its five values are edited at the top of that file and take effect on
+      the next start:</p>
+      <div class="table-scroll">
+      <table class="ref">
+        <thead><tr><th scope="col">Value</th><th scope="col">Default</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="k">SCANLINE</td><td>0.28</td><td>Depth of the dark line between scanlines. 0&ndash;1.</td></tr>
+          <tr><td class="k">MASK</td><td>0.18</td><td>Aperture grille: how far each column leans to one phosphor. Subtle deliberately &mdash; at full strength it eats a third of the brightness and reads as a colour bug. 0&ndash;1.</td></tr>
+          <tr><td class="k">CURVE</td><td>0.025</td><td>Barrel distortion. 0.06 pulls the corners in far enough that the black surround becomes the first thing you notice, which is a bezel rather than a tube. 0&ndash;1.</td></tr>
+          <tr><td class="k">VIGNETTE</td><td>0.22</td><td>Darkening toward the corners. 0&ndash;1.</td></tr>
+          <tr><td class="k">LINES</td><td>240</td><td>How many scanlines the tube draws, independent of window size. 240 is the console's own count. Deliberately not one line per output pixel &mdash; a two-pixel period lands on fragment centres, every pixel gets the same darkening, and the image just dims.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <figure class="shot">
+        <img src="assets/images/launcher-crt.png" alt="The launcher showing the CRT screen mod's controls.">
+        <figcaption>Copy the <code>crt_screen</code> folder, rename it, and you have a working mod.
+        Deeper: <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/MODDING.md">docs/MODDING.md</a>.</figcaption>
+      </figure>
+    </div>
+
+    <div class="entry">
+      <h3>8. DEVELOPER TOOLS</h3>
+      <p><strong>Record prop usage</strong>, <strong>Debugging</strong> and <strong>Help</strong>.
+      This page groups the performance/debug overlay, the console hotkey, telemetry recording and
+      debug logging. The overlay is off by default; the console hotkey is always available and does
+      not depend on it.</p>
+      <p>Press backquote/grave during a game to open the command console, on either OpenGL or Metal.
+      <code>console_key</code> changes that key to any SDL scancode name (<code>F10</code>,
+      <code>F12</code>, <code>grave</code>&hellip;); an unknown name is reported and falls back to
+      grave. While the console is open it owns keyboard and mouse input, and closing it holds a short
+      release quarantine until every key and button is up, so typing Enter, Space or Tab cannot also
+      fire a weapon, skip a cutscene or open the watch. Gamepads stay available. Command history is
+      bounded to the current process and is never written to your config or to diagnostic output.</p>
+      <p>Full guide:
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/DEVELOPER_TOOLS.md">docs/DEVELOPER_TOOLS.md</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="timing">
+  <div class="wrap">
+    <h2>The one catch: frame rate</h2>
+    <p class="section-sub">Worth reading before you turn anything up, because the obvious setting is
+    the wrong one.</p>
+    <div class="notice">
+      <strong>A frame cap above 60 is refused, and <code>off</code> is the high-refresh setting.</strong>
+      GoldenEye advances its clock in whole video fields. On the default synthetic counter, one
+      rendered frame <em>is</em> one video field by construction, so the world runs exactly as fast as
+      the renderer &mdash; uncapped on the synthetic clock measured 812 fields per second where 60 is
+      correct. Choosing <code>off</code> also switches to the real timebase, where a field is a unit
+      of real time: measured 60.5 fields/sec at 456 fps. A cap never free-runs, so <code>120</code> on
+      the real clock still delivers 60. That is why a capped rate above 60 is either wrong or
+      pointless, with no third case.
+    </div>
+    <p class="section-sub"><code>framerate = 30</code> is the faithful setting: it pairs with a tick
+    divider so game time stays real (thirty updates a second times two fields is sixty) while the
+    frame-counted systems drop to 30&nbsp;Hz. The cost of <code>off</code> is reproducibility &mdash;
+    elapsed fields become load-dependent, so no two runs are frame-for-frame comparable and
+    measurement should stay on 60.</p>
+    <p class="section-sub" style="margin-bottom:0">The whole story, with the measurements, is
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/FRAME_TIMING.md">docs/FRAME_TIMING.md</a>.</p>
+  </div>
+</section>
+
+<section class="content" id="live">
+  <div class="wrap">
+    <h2>What you can change without restarting</h2>
+    <p class="section-sub">Three things, bound directly rather than exposed through any menu.
+    Everything else in the launcher is read once at startup and fixed for the life of the process.</p>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Key</th><th scope="col">Effect</th></tr></thead>
+      <tbody>
+        <tr><td class="k">F11 &middot; Alt+Enter (Windows) &middot; Cmd+F (macOS)</td><td>Toggle fullscreen</td></tr>
+        <tr><td class="k">F9</td><td>Toggle vsync</td></tr>
+        <tr><td class="k">F5 / F6</td><td>Field of view &minus;10% / +10%, clamped to 50&ndash;160%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-top:24px;margin-bottom:0">There is no in-game options page,
+    and that is a decision rather than an omission: the only reusable settings page in the codebase is
+    the Watch's, and adding to it is blocked by an explicit maintainer comment not to change the
+    screen-count constant until the player struct is fully shiftable.</p>
+  </div>
+</section>
+
+<section class="content" id="saves">
+  <div class="wrap">
+    <h2>Saves</h2>
+    <p class="section-sub">Save data is an <code>eeprom.bin</code> in the platform user-data
+    directory, or in <code>save_dir</code> if you set one. It is separate from
+    <code>goldeneye.cfg</code>, and the path in use is printed at startup.</p>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Platform</th><th scope="col">Default location</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Windows</td><td><code>%APPDATA%\Goldeneye-Native\</code></td></tr>
+        <tr><td class="k">macOS</td><td><code>~/Library/Application Support/Goldeneye-Native/</code></td></tr>
+        <tr><td class="k">Linux</td><td><code>~/.local/share/Goldeneye-Native/</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-top:24px;margin-bottom:0">If a directory you set cannot be
+    created, persistence is disabled and the game says so rather than pretending to save. Never
+    attach an <code>eeprom.bin</code> to an issue or a pull request &mdash; a save file is game data
+    and falls under the same rule as a ROM.</p>
+  </div>
+</section>
+
+<section class="content" id="multiplayer">
+  <div class="wrap">
+    <h2>Multiplayer, honestly</h2>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Mode</th><th scope="col">Status</th><th scope="col">Where</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Split screen</td><td><span class="tag tag-done">DONE</span></td><td>MISSION &rarr; Multiplayer arenas. All 64 characters, radar, every watch page, saves persist.</td></tr>
+        <tr><td class="k">Co-op campaign</td><td><span class="tag tag-partial">PARTIAL</span></td><td>CO-OP page. Alpha &mdash; see above.</td></tr>
+        <tr><td class="k">LAN</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Alpha, and whether the approach can work at all is <a href="roadmap.html#disputed">disputed inside the project's own documentation</a>.</td></tr>
+        <tr><td class="k">Online</td><td><span class="tag tag-open">OPEN</span></td><td>Downstream of the frame-timing work. Not implemented.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="troubleshooting">
+  <div class="wrap">
+    <h2>If the launcher misbehaves</h2>
+
+    <h3>It reopens every time, even when I want to skip it</h3>
+    <p class="lead-note">On Windows the launcher is the default. Set <code>GETV_LAUNCHER=0</code> for
+    an intentional direct start. Passing gameplay arguments is also a direct start.</p>
+
+    <h3>A setting I changed did not take effect</h3>
+    <p class="lead-note">Check the startup log first: the game prints its renderer, config path, save
+    path, controllers and resolved bindings, and a non-default ruleset prints both what was requested
+    and what the engine actually ended up holding. If a preset wanted something your config had
+    already set, it says so on stdout rather than passing over it quietly.</p>
+
+    <h3>The renderer I chose will not start (macOS)</h3>
+    <p class="lead-note">Use <em>Open launcher with OpenGL</em> in the error dialog. Your saved choice
+    is untouched. An unavailable renderer is disabled in the list and cannot be selected at all; the
+    standard installer only builds OpenGL.</p>
+
+    <h3>Explosions look like coloured confetti</h3>
+    <p class="lead-note">That is a known byte-order symptom with its own gate,
+    <code>GETV_RGBA16BE</code>, which defaults to the corrected mode. It is not the paintball cheat.
+    Measurements are in
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/COLOUR_BUGS.md">docs/COLOUR_BUGS.md</a>.</p>
+
+    <h3>Something else</h3>
+    <p class="lead-note">See <a href="bugs.html">Known bugs</a> first, then
+    <a href="agent-help.html">Help from an agent</a> for how to report it with the evidence that
+    actually gets it fixed &mdash; and never with a ROM, a save or a built binary attached.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FAQ &mdash; Goldeneye-Native</title>
-<meta name="description" content="Questions people actually ask about Goldeneye-Native.">
+<meta name="description" content="Questions people actually ask about Goldeneye-Native: installing, ROMs, controls, multiplayer, modding, performance, licensing, troubleshooting and downloads.">
 <link rel="icon" href="assets/images/mark.png">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -17,8 +17,12 @@
     <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
     <nav class="site-nav" aria-label="Primary">
       <a href="index.html">Overview</a>
-      <a href="build.html">Build</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
       <a href="faq.html" class="current" aria-current="page">FAQ</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
       <a href="changelog.html">Changelog</a>
       <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
     </nav>
@@ -50,12 +54,14 @@
   <div class="wrap">
     <h1>Questions people actually ask</h1>
     <p>The short version. The project's <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/FAQ.md">docs/FAQ.md</a>
-    and <a href="https://github.com/seb-patron/goldeneye-native/wiki/FAQ">wiki FAQ</a> go deeper on most of these.</p>
+    and <a href="https://github.com/seb-patron/goldeneye-native/wiki/FAQ">wiki FAQ</a> go deeper on
+    most of these.</p>
   </div>
 </div>
 
-<section class="content" style="border-bottom:none">
+<section class="content" id="what-is-it">
   <div class="wrap">
+    <h2>What this is</h2>
 
     <div class="faq-item reveal">
       <h3>Is this an emulator?</h3>
@@ -78,17 +84,115 @@
     </div>
 
     <div class="faq-item reveal">
-      <h3>Do I need the ROM?</h3>
-      <p>Yes &mdash; your own legal copy of the NTSC (US) cartridge. Nothing in this repository contains
-      game data and nothing ever will. Every texture, model, animation, sound bank and level layout is
-      read out of your dump once, at build time, and emitted as C.</p>
+      <h3>Does it need Wine, Proton or WSL?</h3>
+      <p>No. Every platform gets a real native binary. The Windows build uses mingw-w64, with no
+      MSYS2, Cygwin or WSL anywhere near it.</p>
     </div>
+  </div>
+</section>
+
+<section class="content" id="downloads">
+  <div class="wrap">
+    <h2>Downloads and installing</h2>
+
+    <div class="faq-item reveal">
+      <h3>Where can I download it?</h3>
+      <p>You can't. There is no prebuilt binary, no installer with the game in it, and no release of
+      any kind &mdash; this repository has zero tags and zero GitHub Releases. A built copy of this
+      port has the entire game compiled into it, which is not this project's to hand out. You build it
+      yourself from your own copy. <a href="install.html">Install</a> walks through it.</p>
+      <p><strong>If you find a "GoldenEye-Native" download somewhere, it did not come from here.</strong>
+      That includes executables pulled from GitHub Actions runs and third-party reposts.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>How do I install it, and how long does it take?</h3>
+      <p>One installer per platform: double-click <strong>Install on Mac</strong> on macOS, or run
+      <code>bash tools/install.sh</code> on macOS/Linux, or
+      <code>tools\install.ps1</code> in PowerShell on Windows. You need about 4&nbsp;GB free, an
+      internet connection for the first run, and 10 to 40 minutes. That happens once.
+      <a href="install.html">Step by step</a>.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Is there a one-click Windows installer?</h3>
+      <p>It exists as an unsigned release candidate and is <strong>not published</strong>. There is no
+      official Windows download and no release automation &mdash; the CI workflow validates the
+      candidate inside the runner and deliberately does not upload it. Until this repository's Releases
+      page lists a coordinated package, use the <a href="install.html#windows">developer path</a>.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>The installer stopped partway. Do I start over?</h3>
+      <p>No &mdash; run it again. Every step checks whether its own output already exists and skips it,
+      so re-running resumes. On Linux, a missing system dependency makes the installer print the exact
+      package-manager command and stop rather than running <code>sudo</code> itself; install that
+      package and re-run.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>How do I know the build worked?</h3>
+      <p>Every build group reports <code>0 failed</code>. Any name in a <code>FAILED:</code> line is a
+      real regression, not an expected one. Then the launcher opens.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="rom">
+  <div class="wrap">
+    <h2>The ROM</h2>
+
+    <div class="faq-item reveal">
+      <h3>Do I need the ROM?</h3>
+      <p>Yes &mdash; your own legal copy of the NTSC (US) cartridge, dumped to a file. Nothing in this
+      repository contains game data and nothing ever will. Every texture, model, animation, sound bank
+      and level layout is read out of your dump once, at build time, and emitted as C.</p>
+      <p><strong>This site will not tell you where to get one</strong>, and no page here ever will.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>What exactly does the build expect?</h3>
+      <p>12,582,912 bytes exactly, big-endian <code>z64</code>, header magic <code>80371240</code>,
+      internal name <code>GOLDENEYE</code>, SHA-1
+      <code>abe01e4aeb033b6c0836819f549c791b26cfde83</code>. A <code>.n64</code> or <code>.v64</code>
+      extension, or a header of <code>37804012</code>, means byte-swapped. The macOS and Linux
+      installers accept those byte orders; the Windows setup app recognises but refuses them, because
+      the no-copy installer will not write a converted second file to your disk.
+      <a href="build.html">Details</a>.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Does the installer copy or upload my ROM?</h3>
+      <p>No. It reads the file where it already sits, verifies its SHA-1 in place, and extracts locally.
+      It is not copied, modified or uploaded. The playable build happens entirely on your machine.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Does the game still need the ROM after it is built?</h3>
+      <p>No. The build reads it once. What you run afterwards never touches it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="controls">
+  <div class="wrap">
+    <h2>Controls</h2>
 
     <div class="faq-item reveal">
       <h3>Does it support mouse and keyboard?</h3>
       <p>Yes, and it's the default. Mouse look with sensitivity and Y-invert, WASD to move, ESC to
-      release the cursor. A gamepad (DualSense, DualShock 4, Xbox, Switch Pro, 8BitDo) works
-      alongside it rather than replacing it &mdash; whichever input is being held wins.</p>
+      release the cursor. A gamepad (DualSense, DualShock 4, Xbox, Switch Pro, 8BitDo) works alongside
+      it rather than replacing it &mdash; whichever input is being held wins, so plugging one in never
+      takes the keyboard away. Both analogue sticks are live, which the N64 controller could never
+      do.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>What is "modern" versus "classic" mouse?</h3>
+      <p><code>modern</code> is the default: mouse travel changes camera angles directly, with no stick
+      acceleration, turn-speed cap or carried surplus motion. <code>classic</code> keeps the original
+      mouse-to-N64-stick mapping. <strong>Vehicles, network sessions and scripted or replay input stay
+      on Classic N64 regardless of the setting.</strong></p>
     </div>
 
     <div class="faq-item reveal">
@@ -99,59 +203,182 @@
     </div>
 
     <div class="faq-item reveal">
+      <h3>Can I rebind everything?</h3>
+      <p>Six gamepad actions can be rebound today &mdash; fire, aim, use, next weapon, previous weapon
+      and pause &mdash; and bindings are per player, which is what makes a mixed set of controllers
+      workable in split screen. <strong>Complete independent keyboard, mouse and gamepad rebinding is
+      not done yet</strong>; it is
+      <a href="https://github.com/seb-patron/goldeneye-native/issues/63">issue&nbsp;#63</a>. One trap:
+      button names are positional, so <code>a</code> always means the physically bottom face button,
+      including on a Nintendo pad where it is printed <code>B</code>.
+      <a href="settings.html#controls">Reference</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="performance">
+  <div class="wrap">
+    <h2>Performance and picture</h2>
+
+    <div class="faq-item reveal">
       <h3>How fast does it run? Can it go above 60fps?</h3>
-      <p>Uncapped, it measures 354&ndash;562 fps on an Apple Silicon Mac. But GoldenEye's gameplay
-      logic is tied to its frame step &mdash; weapon fire rates, guard reactions and turret behaviour
-      advance per tick, not per second &mdash; so rendering faster also runs the game faster.
+      <p>Uncapped, it measures 354&ndash;562 fps on an Apple Silicon Mac. But GoldenEye's gameplay logic
+      is tied to its frame step &mdash; weapon fire rates, guard reactions and turret behaviour advance
+      per tick, not per second &mdash; so rendering faster also runs the game faster.
       <code>framerate=30</code> pairs with a tick divider to run the simulation at its authored cadence
       while rendering stays smooth. A fixed simulation tick with interpolated rendering is the correct
       fix and is on the roadmap; until it lands, 60fps is the honest ceiling for unchanged gameplay.</p>
     </div>
 
     <div class="faq-item reveal">
-      <h3>Is there widescreen?</h3>
-      <p>Resolution and aspect are fully configurable, but changing the window aspect does not widen
-      the field of view today &mdash; the renderer fits the 4:3 view into whatever shape the window is.
-      True aspect-aware widescreen is a roadmap item.</p>
+      <h3>Why does it refuse a frame cap above 60?</h3>
+      <p>Because a capped rate above 60 is either wrong or pointless, with no third case. On the
+      default synthetic clock a cap above 60 runs the world too fast; on the real clock a cap never
+      free-runs, so <code>120</code> still delivers 60. <code>framerate = off</code> is the high-refresh
+      setting and switches to the real timebase as part of the same choice.
+      <a href="launcher.html#timing">The measurements</a>.</p>
     </div>
 
     <div class="faq-item reveal">
+      <h3>Is there widescreen?</h3>
+      <p>Resolution and aspect are fully configurable, but changing the window aspect does not widen
+      the field of view today &mdash; the renderer fits the 4:3 view into whatever shape the window is.
+      The <code>widescreen</code> key fills the real window at its own aspect for single player;
+      split-screen's per-viewport aspect is untouched either way. True aspect-aware widescreen is a
+      roadmap item. Use <code>fov</code> if you want to genuinely see more.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Can it run at 4K?</h3>
+      <p>Internal resolution is arbitrary and supersampling is available, so yes. Whether it is a good
+      idea depends on the frame-timing answer above.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Why do crate explosions look like coloured confetti?</h3>
+      <p>That is an RGBA16 byte-order symptom with its own gate, <code>GETV_RGBA16BE</code>, which
+      defaults to the corrected mode. It is not the paintball cheat. It gets reported often enough to
+      be worth naming.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="multiplayer">
+  <div class="wrap">
+    <h2>Multiplayer</h2>
+
+    <div class="faq-item reveal">
       <h3>Is multiplayer online, or over LAN?</h3>
-      <p>Split screen works today. A LAN session exists and is alpha, and whether the approach can work
-      at all is honestly disputed inside the project's own docs: one document argues for a lockstep
-      model, another argues against it from measurements &mdash; both are kept rather than picking a
-      winner prematurely. Online play sits downstream of the frame-timing work.</p>
+      <p>Split screen works today, with all 64 characters, the radar and the full multiplayer setup. A
+      LAN session exists and is alpha, and whether the approach can work at all is honestly disputed
+      inside the project's own docs: one document argues for a lockstep model, another argues against
+      it from measurements &mdash; both are kept rather than picking a winner prematurely. Online play
+      sits downstream of the frame-timing work. <a href="roadmap.html#disputed">Where that stands</a>.</p>
     </div>
 
     <div class="faq-item reveal">
       <h3>Can two people play the single-player campaign?</h3>
       <p>Partly, and it's alpha. Two to four players spawn into a solo mission with its own geometry,
-      props and objectives, and everyone moves and renders. What isn't adapted yet is everything the
-      campaign authors around a single Bond: objectives, AI and cutscenes.</p>
+      props and objectives, and everyone moves and renders &mdash; movement was verified over 6,001
+      frames against a no-input control. What isn't adapted yet is everything the campaign authors
+      around a single Bond: objectives, AI and cutscenes. Two <em>humans</em> at two pads is still
+      untested.</p>
+      <p>Note that <code>docs/VISION.md</code> and <code>docs/FAQ.md</code> still carry an older
+      conclusion that players do not move. That was a measurement bug in the accessor, corrected in
+      <code>docs/ROADMAP.md</code> &sect;M4; the two older documents are stale.
+      <a href="bugs.html#limitations">Recorded here</a> rather than quietly reconciled.</p>
     </div>
+  </div>
+</section>
+
+<section class="content" id="modding">
+  <div class="wrap">
+    <h2>Modding</h2>
 
     <div class="faq-item reveal">
       <h3>Can I mod it?</h3>
       <p>Three ways, none needing a rebuild: Lua scripts in <code>mods/</code> (<code>onFrame</code>,
       <code>onPlayerSpawn</code>, <code>onWeaponFire</code>, plus a read API into live game state),
       roughly 275 <code>GETV_*</code> behaviour gates, and the source itself. HD texture replacement is
-      on the roadmap and not implemented yet.</p>
+      implemented but unverified, and is off by default.</p>
     </div>
+
+    <div class="faq-item reveal">
+      <h3>How do I write one?</h3>
+      <p>Copy <code>mods/crt_screen</code>, rename it, and edit it. A mod is a folder with a
+      <code>mod.lua</code> in it &mdash; that is the entire rule. Everything found is loaded at
+      startup; a folder without a <code>mod.lua</code> is skipped silently. The launcher's Mods page
+      gives each one a checkbox. <a href="launcher.html#crt">The CRT mod</a> is deliberately the example
+      because it is a real, visible feature rather than a toy.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Is there a mod-pack download hub?</h3>
+      <p>Not yet. Mods live in the repository's own <code>mods/</code> directory today and are shared
+      the same way the project is: clone it, drop one in, or open a pull request. A launcher setting
+      points at whichever mods directory you choose.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="platforms">
+  <div class="wrap">
+    <h2>Platforms</h2>
 
     <div class="faq-item reveal">
       <h3>Does it run on Steam Deck, Raspberry Pi, Android or iPhone?</h3>
       <p>Linux builds run where Linux runs, so a Deck is a Linux build. An Apple TV target builds from
-      this tree as of the Metal backend landing (2026-08-26), with device bring-up next. iOS and
-      Android are not here yet &mdash; the groundwork exists (SDL2 underneath, a platform layer already
-      split from the game, a renderer that already targets GLES) but the shipping work doesn't.
-      Nothing mobile is distributed and nothing mobile is claimed as working today.</p>
+      this tree as of the Metal backend landing (2026-08-26), with device bring-up next. iOS and Android
+      are not here yet &mdash; the groundwork exists (SDL2 underneath, a platform layer already split
+      from the game, a renderer that already targets GLES) but the shipping work doesn't. Nothing mobile
+      is distributed and nothing mobile is claimed as working today.</p>
     </div>
 
     <div class="faq-item reveal">
-      <h3>Does it need Wine, Proton or WSL?</h3>
-      <p>No. Every platform gets a real native binary. The Windows build uses mingw-w64, with no
-      MSYS2, Cygwin or WSL anywhere near it.</p>
+      <h3>OpenGL or Metal on macOS?</h3>
+      <p>Both exist; OpenGL is the default and is what the installer builds. The launcher's Video page
+      remembers a renderer choice separately from profiles, rules and saves, and a renderer that is
+      missing or unavailable is disabled rather than offered. The Metal build is a separate build
+      directory. <a href="launcher.html#renderer">How to build it</a>.</p>
     </div>
+  </div>
+</section>
+
+<section class="content" id="files">
+  <div class="wrap">
+    <h2>Settings, saves and privacy</h2>
+
+    <div class="faq-item reveal">
+      <h3>Where are my settings and saves?</h3>
+      <p>Settings are <code>goldeneye.cfg</code> and saves are <code>eeprom.bin</code>, both in the
+      platform user-data directory &mdash; <code>%APPDATA%\Goldeneye-Native\</code> on Windows,
+      <code>~/Library/Application Support/Goldeneye-Native/</code> on macOS,
+      <code>~/.local/share/Goldeneye-Native/</code> on Linux. <strong>The exact paths in use are
+      printed at startup</strong>, which is the authoritative answer for your machine.
+      <a href="settings.html#where">Details</a>.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Does the launcher overwrite my config file?</h3>
+      <p>No. It reads your resolved settings and shows them, and applies your choices to that launch.
+      It never writes <code>goldeneye.cfg</code>. Put a setting in the file if you want it to persist
+      between sessions.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>Does any of this phone home?</h3>
+      <p>No. This website has no analytics, no trackers and no external requests &mdash; system fonts
+      only and every image local. The game has a <code>PropRecord</code> allocator telemetry gate, but
+      it is a local diagnostic that is silent by default and writes JSON Lines on your own machine; it
+      sends nothing anywhere. The console's command history is bounded to the running process and is
+      never written to your config or to diagnostic output.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="legal">
+  <div class="wrap">
+    <h2>Licensing</h2>
 
     <div class="faq-item reveal" id="licence">
       <h3>What's the licence? Is &ldquo;MIT&rdquo; the right word for this project?</h3>
@@ -182,13 +409,51 @@
     </div>
 
     <div class="faq-item reveal">
-      <h3>Where can I download it?</h3>
-      <p>You can't &mdash; there is no prebuilt binary, no installer with the game in it, and no
-      release to download. A built binary of this port contains the entire game compiled in, which is
-      not this project's to hand out. You build it yourself from your own copy &mdash;
-      <a href="build.html">Build from source</a> has the steps.</p>
+      <h3>Is it legal for me to build and play this?</h3>
+      <p>That depends on where you live and on how you obtained your cartridge dump, and nobody here is
+      in a position to answer it for you. What this project can say factually is what it does: it
+      distributes no game data, the build reads a file you already have, and the result stays on your
+      machine. <strong>Using that dump and the build you make from it in a way permitted where you live
+      is your responsibility.</strong></p>
     </div>
 
+    <div class="faq-item reveal">
+      <h3>Why not just ship a binary and read the ROM at runtime?</h3>
+      <p>Because this port compiles the extracted assets directly into the executable rather than
+      loading them at runtime. Changing that would mean re-architecting asset delivery to load from
+      disk, which is a significant piece of work and is not currently planned.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="help" style="border-bottom:none">
+  <div class="wrap">
+    <h2>Something is wrong</h2>
+
+    <div class="faq-item reveal">
+      <h3>Is it a known problem?</h3>
+      <p>Check <a href="bugs.html">Known bugs &amp; limitations</a> first. A number of things that look
+      like bugs are documented constraints &mdash; the widescreen field of view, the frame-rate ceiling,
+      six settings that parse and do nothing, and four traps that each look like a broken feature.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>How do I report it?</h3>
+      <p>Two ways, both fine. If you use a coding agent, this project ships its own workflows and that
+      is the recommended route &mdash; see <a href="agent-help.html">Help from an agent</a>. Otherwise
+      the <a href="https://github.com/seb-patron/goldeneye-native/issues/new/choose">guided issue forms</a>
+      ask for the same information. Have your commit (<code>git rev-parse --short HEAD</code>),
+      platform, renderer, settings, exact steps, and whether it happens on clean <code>main</code>.</p>
+      <p><strong>Never attach a ROM, a save file, <code>base.zip</code>, extracted game data or your
+      built executable</strong> to an issue, a pull request or a chat message. Text logs, error messages
+      and screenshots of the running game are exactly what is useful.</p>
+    </div>
+
+    <div class="faq-item reveal">
+      <h3>I found a security problem.</h3>
+      <p>Use the <a href="https://github.com/seb-patron/goldeneye-native/security/policy">security
+      policy</a> privately instead of opening a public issue.</p>
+    </div>
   </div>
 </section>
 
@@ -198,8 +463,14 @@
   <div class="wrap">
     <nav class="foot-links" aria-label="Footer">
       <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
       <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
       <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
       <a href="changelog.html">Changelog</a>
       <a href="versions.html">Releases &amp; versions</a>
       <a href="https://github.com/seb-patron/goldeneye-native">Source</a>

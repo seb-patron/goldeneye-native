@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings reference &mdash; Goldeneye-Native</title>
+<meta name="description" content="Every user-facing Goldeneye-Native setting: values, defaults, environment gate, whether the launcher exposes it, and its limitations.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html" class="current" aria-current="page">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Settings reference</h1>
+    <p>Every user-facing setting, with its values, its default, the environment variable behind it,
+    and whether the launcher exposes it. For the guided tour, start at
+    <a href="launcher.html">The launcher</a>.</p>
+  </div>
+</div>
+
+<section class="content" id="how">
+  <div class="wrap">
+    <h2>Three rules that apply to everything below</h2>
+    <ol>
+      <li><strong>Every setting has the same name on the command line and in the config file.</strong>
+      A row named <code>resolution</code> is <code>resolution = 1920x1440</code> in the file and
+      <code>--resolution=1920x1440</code> on the command line. A bare <code>--key value</code> pair
+      also works when the next argument does not begin with <code>-</code>. There is no separate
+      CLI spelling to look up.</li>
+      <li><strong>The environment gate is the third spelling.</strong> Each row's
+      <em>gate</em> column is the raw <code>GETV_*</code> variable the friendly key resolves to. You
+      can set the gate directly &mdash; in the environment, in the config file, or as
+      <code>--GETV_STAGE=34</code> &mdash; and raw names are matched before friendly ones, so a
+      friendly key can never shadow a gate.</li>
+      <li><strong>Precedence never changes:</strong>
+      <code>command line &gt; environment &gt; config file &gt; built-in default</code>.
+      An environment variable always beats the file.</li>
+    </ol>
+    <p class="lead-note" style="margin-bottom:0"><strong>Almost everything needs a restart.</strong>
+    76 of the port's gates are read once into a static on first use. Only the three keys in
+    <a href="#live">Live keys</a> change during a running game; the launcher's Play button restarts
+    the process precisely so that everything else can take effect. Where a setting has an extra
+    restart or platform limitation beyond that, the row says so.</p>
+  </div>
+</section>
+
+<section class="content" id="where">
+  <div class="wrap">
+    <h2>Where the config file lives</h2>
+    <p class="section-sub">The first of these that exists is used, and the rest are ignored.</p>
+    <ol>
+      <li><code>$GETV_CONFIG</code></li>
+      <li><code>--config=PATH</code></li>
+      <li><code>goldeneye.cfg</code> in the same directory as the binary</li>
+      <li><code>goldeneye.cfg</code> in the platform user-data directory</li>
+    </ol>
+    <p class="lead-note">If none exists and none was asked for, the game writes a commented template
+    to location 4 and reads it back &mdash; that first-run write is how the port's tuned defaults
+    actually reach you. <strong>The selected path is printed at startup, and that is the
+    authoritative answer for your machine.</strong></p>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Platform</th><th scope="col">User-data directory</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Windows</td><td><code>%APPDATA%\Goldeneye-Native\</code></td></tr>
+        <tr><td class="k">macOS</td><td><code>~/Library/Application Support/Goldeneye-Native/</code></td></tr>
+        <tr><td class="k">Linux</td><td><code>~/.local/share/Goldeneye-Native/</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>File format</h3>
+    <pre><code># comment
+; also a comment
+key = value</code></pre>
+    <p class="lead-note">Whitespace is trimmed. <code>#</code> and <code>;</code> start a comment
+    anywhere on a line. No sections, no quoting, no line continuations. An unrecognised key, or a
+    line with no <code>=</code>, is <em>reported on stdout</em> rather than silently ignored. Values
+    are lowercased before matching, except for <code>save_dir</code> and raw <code>GETV_*</code>
+    passthrough, where case is meaningful.</p>
+    <h3>The four command-line flags that are not settings</h3>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Flag</th><th scope="col">Effect</th></tr></thead>
+      <tbody>
+        <tr><td class="k">--help, -h</td><td>Print the built-in usage summary and exit.</td></tr>
+        <tr><td class="k">--list-cheats</td><td>Print every named cheat with its id and whether it is live. Exits.</td></tr>
+        <tr><td class="k">--config=PATH</td><td>Read this file instead of searching. <code>--config PATH</code> also works.</td></tr>
+        <tr><td class="k">--write-config[=PATH]</td><td>Write the commented default config and exit. With no path, writes to the platform user-data directory, creating it.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="display">
+  <div class="wrap">
+    <h2>Display and image quality</h2>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Default</th><th scope="col">Gate</th><th scope="col">Launcher</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="k">resolution</td><td><code>WIDTHxHEIGHT</code>, or <code>fullscreen</code> / <code>native</code></td><td><code>1280x960</code></td><td><code>GETV_WINDOW</code></td><td>Yes &mdash; Video</td><td>Minimum 320&times;240; anything smaller is rejected with an error and the default kept. <code>fullscreen</code>/<code>native</code> are shorthand for <code>fullscreen = 1</code>. The built-in default is clamped down in whole 4:3 steps if it would not fit the usable display area.</td></tr>
+        <tr><td class="k">fullscreen</td><td><code>0</code>/<code>1</code>, <code>on</code>/<code>off</code>, <code>true</code>/<code>false</code>, <code>yes</code>/<code>no</code></td><td><code>0</code></td><td><code>GETV_FULLSCREEN</code></td><td>Yes &mdash; Video</td><td>Desktop builds start windowed. Also a <a href="#live">live key</a>.</td></tr>
+        <tr><td class="k">aspect</td><td><code>4:3</code>, <code>16:9</code>, <code>auto</code> (aliases <code>43</code>, <code>169</code>)</td><td>none</td><td><code>GETV_ASPECT</code></td><td>No</td><td>Does exactly two things: picks a default window shape when <code>resolution</code> is unset (<code>1280x960</code> / <code>1600x900</code>), and warns if a set resolution disagrees with the requested aspect by more than 3%. An explicit resolution always wins; <code>auto</code> is a no-op. There is deliberately no second aspect control &mdash; two would aspect-correct twice.</td></tr>
+        <tr><td class="k">widescreen</td><td><code>on</code>/<code>off</code></td><td><code>on</code></td><td><code>GETV_WIDESCREEN</code></td><td>Yes &mdash; Video</td><td><strong>Single-player only.</strong> <code>on</code> fills the real window at its own aspect with a wider field of view rather than a stretched image; <code>off</code> restores the original letterboxed framing byte-for-byte. Split-screen's per-viewport aspect is untouched either way, because it has not been audited against an arbitrary host window.</td></tr>
+        <tr><td class="k">supersample</td><td><code>1</code> or <code>2</code></td><td><code>1</code></td><td><code>GETV_SUPERSAMPLE</code></td><td>Yes &mdash; Video</td><td>Anything else is rejected. <code>2</code> renders at double size and downsamples. It changes the framebuffer size and therefore the heap layout, so runs at different values are not comparable for anything more precise than "it looks better".</td></tr>
+        <tr><td class="k">filtering</td><td><code>point</code> (<code>nearest</code>, <code>n64</code>), <code>bilinear</code> (<code>linear</code>), <code>three-point</code> (<code>threepoint</code>, <code>3point</code>, <code>default</code>)</td><td><code>three-point</code></td><td><code>GETV_FILTERING</code> + <code>GETV_POINT_FILTER</code></td><td>Yes &mdash; Video</td><td>Two independent mechanisms sit behind this key and do not mean the same thing; the key sets both consistently so they cannot disagree. <code>three-point</code> is what the N64 RDP actually did.</td></tr>
+        <tr><td class="k">msaa</td><td><code>0</code>&ndash;<code>8</code>, clamped</td><td><code>0</code></td><td><code>GETV_MSAA</code></td><td>Yes &mdash; Video</td><td>Verified working at 4 samples; the obtained sample count is printed at startup. The N64 had its own anti-aliasing and this port otherwise has none.</td></tr>
+        <tr><td class="k">anisotropic</td><td><code>0</code>&ndash;<code>16</code>, clamped</td><td><code>0</code></td><td><code>GETV_ANISO</code></td><td>Yes &mdash; Video</td><td>Clamped again at runtime to the driver's maximum, because asking for more than the hardware offers is a GL error rather than a silent downgrade. Applied only where the game already chose linear filtering, so the HUD, watch faces and text stay point-sampled and sharp.</td></tr>
+        <tr><td class="k">mipmaps</td><td><code>0</code> / <code>1</code></td><td><code>0</code></td><td><code>GETV_MIPMAPS</code></td><td>Yes &mdash; Video</td><td>Trilinear filtering. Affects minification only &mdash; GL has no magnification mipmap mode &mdash; so close-up textures are unchanged. Meant to be tuned together with <code>anisotropic</code>.</td></tr>
+        <tr><td class="k">fxaa</td><td><code>0</code> / <code>1</code></td><td><code>0</code></td><td><code>GETV_FXAA</code></td><td>Yes &mdash; Video</td><td>Edge antialiasing over the finished frame. An image-quality setting rather than a look, which is why it lives here and the CRT terms live in <a href="launcher.html#crt"><code>mods/crt_screen</code></a>.</td></tr>
+        <tr><td class="k">depth_bits</td><td><code>16</code>&ndash;<code>32</code>, clamped</td><td>driver default</td><td><code>GETV_DEPTH_BITS</code></td><td>No</td><td><strong>The driver decides.</strong> On Apple silicon the context comes back 32-bit whatever is asked for, including 16, so this cannot currently be used to reproduce N64 z-fighting. The obtained width is printed at startup as <code>[getv][gl] depth buffer N-bit</code>.</td></tr>
+        <tr><td class="k">hd_textures</td><td><code>on</code>/<code>off</code></td><td><code>off</code></td><td><code>GETV_HD_TEXTURES</code></td><td>Yes &mdash; Video</td><td><span class="tag tag-partial">UNVERIFIED</span> Unlike <code>filtering</code> and <code>widescreen</code>, this path has had no compiler available to verify it against and is offered as reasoned-through rather than measured. An empty pack directory is a no-op, so turning it on without a pack costs one failed lookup per unique texture.</td></tr>
+        <tr><td class="k">texpack</td><td>directory path</td><td><code>hdtextures</code></td><td><code>GETV_TEXPACK</code></td><td>Yes &mdash; Video</td><td>Resolved next to the executable if no such folder exists relative to the working directory. Textures are matched by FNV-1a 64 content hash: a file named <code>&lt;hash&gt;.png</code> replaces that texture; anything absent renders unchanged.</td></tr>
+        <tr><td class="k">parallax</td><td><code>0</code> / <code>1</code></td><td><code>1</code></td><td><code>GETV_PARALLAX</code></td><td>Yes &mdash; Video</td><td><strong>Does nothing on its own.</strong> It decides whether a texture pack's <code>&lt;hash&gt;_h.png</code> height maps displace the diffuse UVs. There is no height data in the game's own assets, so with no pack it changes nothing either way.</td></tr>
+        <tr><td class="k">crosshair_scale</td><td><code>0.25</code>&ndash;<code>2.0</code> (alias <code>reticle_scale</code>)</td><td><code>1.0</code></td><td><code>GETV_CROSSHAIR_SCALE</code></td><td>Yes &mdash; Video</td><td><code>1.0</code> is the retail sight size exactly. Applied after the 16:9 and PAL aspect corrections, so the shape never changes and only the size does. Out-of-range values are <em>refused rather than clamped</em>, so a typo is reported instead of silently becoming something else. GoldenEye+ asks for <code>0.6</code>.</td></tr>
+        <tr><td class="k">crosshair_color</td><td><code>RRGGBB</code> hex</td><td><code>FFFFFF</code></td><td><code>GETV_CROSSHAIR_COLOR</code></td><td>Yes &mdash; Video</td><td><strong>It tints, it does not recolour</strong> &mdash; measured, not assumed. The baked N64 sight carries its own hue and an RDP primitive multiply cannot pull it to a pure colour. On Windows, 2342 of 14400 reticle pixels change and a sampled pixel moves only from (153,170,176) to (153,173,179).</td></tr>
+        <tr><td class="k">fov</td><td><code>50</code>&ndash;<code>160</code>, clamped</td><td><code>100</code></td><td><code>GETV_FOV</code></td><td>Yes &mdash; Video</td><td>Vertical field of view as a percentage of the original. Applied on the way through rather than set once, because the game re-sets FOV every frame from the player's zoom state. It deliberately does not alter the value the game reads back, so the view widens and aim sensitivity behaves exactly as before. Also a <a href="#live">live key</a>.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="timing">
+  <div class="wrap">
+    <h2>Timing</h2>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Default</th><th scope="col">Gate</th><th scope="col">Launcher</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="k">framerate</td><td><code>30</code>, <code>50</code>, <code>60</code>, <code>off</code> (<code>0</code>, <code>uncapped</code>, <code>unlimited</code>)</td><td><code>60</code> NTSC, <code>50</code> PAL</td><td><code>GETV_FPS</code>, and <code>GETV_REALCLOCK</code> / <code>GETV_TICKFIELDS</code> depending on the value</td><td>Yes &mdash; Video &rarr; Timing</td><td><strong>A cap above 60 is refused; <code>off</code> is the high-refresh setting.</strong> <code>off</code> also sets the real clock, because uncapped on the synthetic clock is the worst configuration available. <code>30</code> additionally sets two elapsed fields per update, so game time stays real while frame-counted systems drop to 30&nbsp;Hz. The cost of <code>off</code> is reproducibility. <a href="launcher.html#timing">Longer explanation</a>.</td></tr>
+        <tr><td class="k">realclock</td><td><code>0</code> / <code>1</code> (alias <code>real_clock</code>)</td><td><code>0</code></td><td><code>GETV_REALCLOCK</code></td><td>Yes &mdash; Video &rarr; Timing</td><td>Switches the port's clock source. Diagnostic. Setting <code>realclock = 0</code> alongside <code>framerate = off</code> still wins, for anyone deliberately measuring the synthetic behaviour.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="controls">
+  <div class="wrap">
+    <h2>Controls and input</h2>
+    <p class="section-sub">The player-facing guide is
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/CONTROLS.md">docs/CONTROLS.md</a>;
+    this is the settings surface underneath it.</p>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Default</th><th scope="col">Gate</th><th scope="col">Launcher</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="k">mouse_mode</td><td><code>modern</code>, <code>classic</code></td><td><code>modern</code></td><td><code>GETV_MOUSE_MODE</code></td><td>Yes &mdash; Controls</td><td><code>modern</code> changes camera angles directly from mouse travel: no stick acceleration, no turn-speed cap, no carried surplus motion. <code>classic</code> keeps the original mouse-to-N64-stick mapping. Sensitivity and inversion apply to both. <strong>Vehicles, network sessions and scripted or replay input stay on Classic N64 regardless.</strong></td></tr>
+        <tr><td class="k">controls</td><td><code>1.1</code>&hellip;<code>2.4</code>, or the names <code>honey</code>, <code>solitaire</code>, <code>kissy</code>, <code>goodnight</code>, <code>plenty</code>, <code>galore</code>, <code>domino</code>, <code>goodhead</code></td><td><code>2.2</code> (<code>galore</code>)</td><td><code>GETV_CONTROLS</code></td><td>No</td><td>Rare's eight control styles. <code>2.2</code> and <code>2.4</code> are the true dual-analog layouts &mdash; one physical gamepad presented as N64 ports 0 and 1, left stick moving and right stick looking. Rare's own shipped default is <code>1.1</code>. Selecting a two-controller style prints a note; <strong>with three or four players the game forces everyone back to <code>1.1</code></strong>.</td></tr>
+        <tr><td class="k">gamepad</td><td><code>auto</code>, <code>xbox</code>, <code>playstation</code>, <code>switch</code>, <code>generic</code></td><td><code>auto</code></td><td><code>GETV_GAMEPAD</code></td><td>No</td><td><strong>Changes on-screen prompt glyphs only.</strong> It never changes what a binding does. Set it when SDL misidentifies a third-party pad.</td></tr>
+        <tr><td class="k">fire</td><td><code>a</code>, <code>b</code>, <code>x</code>, <code>y</code>, <code>lb</code>, <code>rb</code>, <code>lt</code>, <code>rt</code>, <code>start</code>, <code>back</code>, <code>none</code></td><td><code>rt</code></td><td><code>GETV_BIND_FIRE</code></td><td>Yes &mdash; Controls</td><td rowspan="6"><strong>Button names are positional, not label-based.</strong> <code>a</code> always means the physically bottom face button, including on a Nintendo pad where it is printed <code>B</code>; the <code>gamepad</code> profile cannot change that. Prefix any of these with <code>p1.</code>&ndash;<code>p4.</code> for one player only (<code>p2.fire = rb</code>); the environment spelling is <code>GETV_P2_BIND_FIRE</code>. Resolution is per-player, then bare key, then default. What each player resolved to is printed at startup.</td></tr>
+        <tr><td class="k">aim</td><td>as above</td><td><code>lt</code></td><td><code>GETV_BIND_AIM</code></td><td>Yes &mdash; Controls</td></tr>
+        <tr><td class="k">use</td><td>as above</td><td><code>b</code></td><td><code>GETV_BIND_USE</code></td><td>Yes &mdash; Controls</td></tr>
+        <tr><td class="k">weapon_next</td><td>as above</td><td><code>a</code></td><td><code>GETV_BIND_WEAPON_NEXT</code></td><td>Yes &mdash; Controls</td></tr>
+        <tr><td class="k">weapon_prev</td><td>as above</td><td><code>none</code></td><td><code>GETV_BIND_WEAPON_PREV</code></td><td>Yes &mdash; Controls</td></tr>
+        <tr><td class="k">pause</td><td>as above</td><td><code>start</code></td><td><code>GETV_BIND_PAUSE</code></td><td>Yes &mdash; Controls</td></tr>
+        <tr><td class="k">deadzone</td><td><code>0</code>&ndash;<code>40</code> (percent), clamped</td><td><code>20</code></td><td><code>GETV_DEADZONE</code></td><td>No</td><td>The port's deadzone on the raw SDL axis (20% is 6553 of 32767 counts). Out-of-range values are clamped rather than rejected, matching the input layer. This is <em>not</em> the game's own aim and walk thresholds, which are applied downstream in N64 counts and are left alone.</td></tr>
+        <tr><td class="k">invert_look</td><td><code>0</code> / <code>1</code> (alias <code>invertlook</code>)</td><td>unset; template writes <code>1</code></td><td><code>GETV_INVERTLOOK</code></td><td>No (the launcher has its own mouse-invert control)</td><td><strong>Unset is not the same as <code>0</code>.</strong> When the key is absent, the game's own Look Up/Down option in the save file decides &mdash; which is retail behaviour. The template sets <code>1</code> from a measurement, not a preference: retail's default omits the flag, which makes stick-up drive pitch down at full rate and pins the camera at the &minus;90&deg; clamp in about a second and a half. A fresh install opened staring at the floor and it was reported as a bug twice. Comment the line out for retail behaviour.</td></tr>
+        <tr><td class="k">aim_toggle</td><td><code>0</code> / <code>1</code> (alias <code>toggle_aim</code>)</td><td><code>0</code></td><td><code>GETV_AIM_TOGGLE</code></td><td>No</td><td>Press to aim instead of holding. This is GoldenEye's own option, answered at the point the engine reads it &mdash; so it survives a save-file reload and leaves the in-game options menu showing whatever you last chose. Aim mode is still aim mode: the game stops you walking while the sight is up, so a toggle removes the held key rather than creating a move-and-shoot mode.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="gameplay">
+  <div class="wrap">
+    <h2>Gameplay, rules and co-op</h2>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Default</th><th scope="col">Gate</th><th scope="col">Launcher</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="k">preset</td><td><code>faithful</code> (<code>97</code>, <code>console</code>) or <code>plus</code> (<code>enhanced</code>, <code>goldeneye+</code>, <code>ge+</code>); alias <code>profile</code></td><td><code>faithful</code></td><td><code>GETV_PRESET</code>, <code>GETV_PROFILE_PLUS</code></td><td>Yes &mdash; the Base Game / GoldenEye+ switch</td><td><code>plus</code> sets supersample 2, MSAA 4, anisotropic 8, mipmaps on, HD textures on, parallax on, FXAA on, crosshair 0.6 and framerate off with the real clock. <strong>It fills gaps and displaces nothing</strong> &mdash; it sits below your own config lines in precedence, so <code>preset = plus</code> plus <code>fxaa = 0</code> gives the profile without FXAA. Anything the profile wanted but found already set is named on stdout. Faithful is and stays the default: the N64 look is the product.</td></tr>
+        <tr><td class="k">ruleset</td><td><code>classic</code>, <code>hardcore</code>, <code>survival</code>, <code>chaos</code>, <code>horde</code></td><td><code>classic</code></td><td><code>GETV_RULESET</code></td><td>Yes &mdash; Gameplay</td><td>Scales values the game already reads; no level, model, setup file or asset is involved. <code>classic</code> is the game as shipped and completely silent. Any non-stock ruleset prints both what was requested and what the engine ended up holding, at level load &mdash; the second line is the claim, the <code>applied:</code> line is the measurement.</td></tr>
+        <tr><td class="k">enemy_health<br>enemy_damage<br>enemy_accuracy<br>enemy_reaction<br>player_health<br>player_armour<br>ammo<br>explosion_damage<br>turret_damage</td><td>percentages, 100 = unmodified</td><td>whatever the ruleset chose</td><td><code>GETV_RS_*</code></td><td>Yes &mdash; Gameplay &rarr; Balance</td><td>Any individual key overrides the preset, so <code>ruleset = hardcore</code> plus <code>ammo = 200</code> is a hardcore run with generous ammo. Two are inverted internally and the implementation compensates so the name means what it says. <strong><code>enemy_reaction</code> carries no difficulty claim</strong>: it scales the upper bound of a randomised AI timer and which direction feels harder has not been measured.</td></tr>
+        <tr><td class="k">horde</td><td><code>0</code> / <code>1</code></td><td><code>0</code></td><td><code>GETV_HORDE</code>, tuned with <code>GETV_HORDE_PER_KILL</code> (1), <code>_PER_KILL_CAP</code> (3), <code>_MAX_ALIVE</code> (12), <code>_WAVE_KILLS</code> (10), <code>_GROWTH</code> (1)</td><td>Yes &mdash; Gameplay</td><td>Replacements spawn where a guard fell, inheriting its body and AI list. <strong>A refused spawn is not an error:</strong> the character-slot table is allocated with only guard-count + 10 entries and the engine declines below three free, so the level owns the real ceiling and a refused spawn leaves the wave smaller.</td></tr>
+        <tr><td class="k">coop</td><td><code>0</code>&ndash;<code>4</code>, clamped</td><td><code>0</code></td><td><code>GETV_COOP</code></td><td>Yes &mdash; CO-OP</td><td><span class="tag tag-partial">PARTIAL</span> Bring-up only. The mission's objectives, AI and cutscenes are written around one Bond, so extra players are present rather than accounted for. Distinct from multiplayer, which uses its own arena setups.</td></tr>
+        <tr><td class="k">coop_friendly_fire</td><td><code>0</code> / <code>1</code></td><td><code>0</code></td><td><code>GETV_COOP_FRIENDLYFIRE</code></td><td>Yes &mdash; CO-OP</td><td>Read only when <code>coop</code> is 2 or more. Off is the co-op default and the opposite of multiplayer's: everyone starts on one pad facing the same way. Guards, explosions and falls are unaffected either way.</td></tr>
+        <tr><td class="k">coop_respawn</td><td><code>0</code>&ndash;<code>30</code> seconds</td><td><code>5</code></td><td><code>GETV_COOP_RESPAWN</code></td><td>Yes &mdash; CO-OP</td><td><code>0</code> waits for a button press instead. If everyone is down at once the mission is lost and nobody returns.</td></tr>
+        <tr><td class="k">cheats</td><td>comma-separated cheat names</td><td>none</td><td>none &mdash; written straight into the game's cheat array; the launcher transports them across its restart as <code>GETV_CHEATS</code></td><td>Yes &mdash; Cheats</td><td>Cheats whose effect lives in the game's turn-on switch are marked <strong>(in-game)</strong> in the launcher, because they need a player context that does not exist at startup. Full list: <code>--list-cheats</code> or <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/CHEATS.md">docs/CHEATS.md</a>.</td></tr>
+        <tr><td class="k">roster</td><td><code>8</code> or <code>64</code></td><td><code>8</code></td><td>none &mdash; applied directly</td><td>No</td><td>Multiplayer character count. <code>8</code> is the shipped default and does nothing; <code>64</code> unlocks the full list. <strong><code>33</code> is refused rather than faked</strong> &mdash; the 33-character roster is derived from the save file and recomputed every frame for any value other than 64, so writing it would be overwritten on the first character-select frame and the setting would appear not to work.</td></tr>
+        <tr><td class="k">unlock_all</td><td><code>0</code> / <code>1</code> (alias <code>unlockall</code>)</td><td><code>0</code></td><td><code>GETV_UNLOCKALL</code></td><td>No</td><td>Shows every mission on the file-select screen.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="brutal">
+  <div class="wrap">
+    <h2>Gibs and Brutal GoldenEye</h2>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Default</th><th scope="col">Gate</th><th scope="col">Launcher</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="k">gibs</td><td><code>off</code>, <code>explosions</code>, <code>high_damage</code>, <code>always</code></td><td><code>off</code></td><td><code>GETV_GIBS</code></td><td>Yes &mdash; Gameplay</td><td><code>explosions</code> = area explosions and direct rocket impacts. <code>high_damage</code> = a final hit of at least 4.0 internal damage units. <code>always</code> = every observed non-player death including scripted ones &mdash; and it really means <em>all</em> NPC actors, friendly and civilian mission actors included, not hostiles only. Twelve chunks launch, collide with floors and walls, bounce up to three times, settle for about ten seconds and fade. Scoring, AI notification, dropped items, objectives and cleanup are unchanged. Players are unaffected. Unknown values fail closed to <code>off</code>.</td></tr>
+        <tr><td class="k">base_game</td><td><code>on</code> / <code>off</code> (alias <code>base_only</code>)</td><td><code>off</code></td><td><code>GETV_BASE_GAME</code></td><td>Yes &mdash; the Base Game mode switch</td><td>Disables all Brutal GoldenEye effects, including the original optional gibs, <strong>without replacing</strong> your <code>gibs</code>, <code>blood</code> or <code>blood_limit</code> values &mdash; switch it off and those preferences come back. It controls this feature family only; mods, cheats and rulesets have their own controls. It also wins over the runtime <code>gibs</code> console command.</td></tr>
+        <tr><td class="k">blood</td><td><code>original</code> (<code>off</code>), <code>enhanced</code>, <code>excessive</code></td><td><code>enhanced</code></td><td><code>GETV_BLOOD</code></td><td>Yes &mdash; Gameplay</td><td>Added blood from gib deaths. <strong>Ordinary weapon hits do not emit added blood yet.</strong> Blood attaches to static level triangles including walls and ceilings and fades after roughly thirty seconds of simulation time; doors and other moving objects do not receive decals.</td></tr>
+        <tr><td class="k">blood_limit</td><td><code>16</code>&ndash;<code>512</code></td><td><code>128</code></td><td><code>GETV_BLOOD_LIMIT</code></td><td>Yes &mdash; Gameplay</td><td>Caps persistent stains. Major splashes take priority over tiny marks when full; airborne blood has its own separate fixed cap. Rendering also respects available graphics memory, so crowded views may show fewer effects.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="system">
+  <div class="wrap">
+    <h2>Mods, audio, saves and diagnostics</h2>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Default</th><th scope="col">Gate</th><th scope="col">Launcher</th><th scope="col">Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="k">moddir</td><td>directory path</td><td><code>mods</code></td><td><code>GETV_MODDIR</code></td><td>Yes &mdash; Mods</td><td>Passed through verbatim, because a directory path has no enumerable value set to validate against. Resolved next to the executable if no such folder exists relative to the working directory.</td></tr>
+        <tr><td class="k">mods_off</td><td>comma-separated mod folder names</td><td>none</td><td><code>GETV_MODS_OFF</code></td><td>Yes &mdash; Mods checkboxes</td><td>Also passed through verbatim: rejecting an unrecognised name here would mean you could not write the config before installing the mod. Names are matched whole, and anything not recognised as disabled is loaded.</td></tr>
+        <tr><td class="k">audio</td><td><code>0</code> / <code>1</code></td><td><code>1</code></td><td><code>GETV_NO_AUDIO</code> (inverted)</td><td>No</td><td>The underlying gate is presence-tested and inverted, so <code>audio = 0</code> <em>sets</em> it and <code>audio = 1</code> leaves it unset. That only matters if you are setting the raw gate by hand.</td></tr>
+        <tr><td class="k">save_dir</td><td>path (alias <code>savedir</code>)</td><td>platform user-data directory</td><td><code>GETV_SAVEDIR</code></td><td>No</td><td><strong>Case is preserved</strong>, unlike every other value. The EEPROM image is written as <code>eeprom.bin</code> inside it. If the directory cannot be created, persistence is disabled and the game says so.</td></tr>
+        <tr><td class="k">developer_tools</td><td><code>0</code> / <code>1</code> (alias <code>developer_overlay</code>)</td><td><code>0</code></td><td><code>GETV_IMGUI</code></td><td>Yes &mdash; Developer Tools</td><td>The performance/debug overlay. Separate from the command console, whose hotkey is always available and does not depend on this.</td></tr>
+        <tr><td class="k">console_key</td><td>any SDL scancode name (<code>grave</code>, <code>F10</code>, <code>F12</code>&hellip;)</td><td><code>grave</code></td><td><code>GETV_CONSOLE_KEY</code></td><td>Yes &mdash; Developer Tools</td><td>Transport-only in the config layer, because SDL resolves the name at window initialisation where the platform key table exists &mdash; so every SDL-supported name works. An unknown name is reported and falls back to grave.</td></tr>
+        <tr><td class="k">debug_position</td><td><code>0</code> / <code>1</code> (alias <code>debugpos</code>)</td><td><code>0</code></td><td><code>GETV_DEBUGPOS</code></td><td>No</td><td>Rare's own left-in readout: room id, collision X/Y/Z and a compass heading, drawn every frame. Works in a stock build and needs no debug menu.</td></tr>
+        <tr><td class="k">debug_menu</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>No</td><td><span class="tag tag-open">NOT A RUNTIME SETTING</span> Present only to explain that it does not work as one. The leftover debug menu is compiled into every binary but its trigger is gated on a macro that changes code generation in two places, one of which repurposes the Start button. Setting the key prints the rebuild command instead. Its level select does not work either &mdash; those entries are gutted no-ops; use <code>GETV_STAGE=&lt;n&gt;</code>.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="reserved">
+  <div class="wrap">
+    <h2>Reserved: parsed, validated, and currently inert</h2>
+    <div class="notice">
+      <strong>These do nothing today.</strong> They parse and validate so that the option surface is
+      stable before the features land and a configuration written now keeps working. Turning one on
+      prints a not-implemented notice rather than silently doing nothing. Integer keys are clamped to
+      their range rather than rejected.
+    </div>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Setting</th><th scope="col">Values</th><th scope="col">Gate</th><th scope="col">Intended effect</th></tr></thead>
+      <tbody>
+        <tr><td class="k">fog_per_pixel</td><td><code>0</code> / <code>1</code></td><td><code>GETV_FOG_PERPIXEL</code></td><td>Per-pixel fog. N64 fog is per-vertex.</td></tr>
+        <tr><td class="k">muzzle_lights</td><td><code>0</code> / <code>1</code></td><td><code>GETV_MUZZLE_LIGHTS</code></td><td>Dynamic lighting on muzzle flashes.</td></tr>
+        <tr><td class="k">audio_3d</td><td><code>0</code> / <code>1</code> (alias <code>hrtf</code>)</td><td><code>GETV_AUDIO_3D</code></td><td>Positional audio / HRTF.</td></tr>
+        <tr><td class="k">ssao</td><td><code>0</code> / <code>1</code></td><td><code>GETV_SSAO</code></td><td>Screen-space ambient occlusion.</td></tr>
+        <tr><td class="k">shadows</td><td><code>0</code> / <code>1</code></td><td><code>GETV_SHADOWS</code></td><td>Real-time shadow maps. The game ships blob shadows.</td></tr>
+        <tr><td class="k">per_pixel_lighting</td><td><code>0</code> / <code>1</code></td><td><code>GETV_PERPIXEL_LIGHT</code></td><td>Per-pixel lighting. N64 lighting is per-vertex Gouraud, so this would change the look the most of anything on the list.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="live">
+  <div class="wrap">
+    <h2>Live keys: the only three that change without a restart</h2>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Key</th><th scope="col">Effect</th></tr></thead>
+      <tbody>
+        <tr><td class="k">F11 &middot; Alt+Enter (Windows) &middot; Cmd+F (macOS)</td><td>Toggle fullscreen</td></tr>
+        <tr><td class="k">F9</td><td>Toggle vsync</td></tr>
+        <tr><td class="k">F5 / F6</td><td>Field of view &minus;10% / +10%, clamped to 50&ndash;160%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="section-sub" style="margin-top:24px;margin-bottom:0">Everything else in this reference is
+    read once at startup and fixed for the process lifetime. That is a measured limit, not a missing
+    feature, and it is why the launcher restarts the game rather than applying settings in place.</p>
+  </div>
+</section>
+
+<section class="content" id="raw">
+  <div class="wrap">
+    <h2>Raw gates</h2>
+    <p class="section-sub">Around 250 development gates exist beyond the friendly keys above. Any of
+    them can be set by its real name, in the config file or on the command line:</p>
+    <div class="panel">
+    <pre><code>GETV_STAGE = 34
+GETV_EXIT_FRAME = 61</code></pre>
+    </div>
+    <pre><code>./getv/build-mac/goldeneye --GETV_STAGE=34</code></pre>
+    <p class="section-sub" style="margin-top:24px">The useful ones are covered in
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/MODDING.md">docs/MODDING.md</a>.
+    Four traps are documented because each one looks like a broken feature rather than a setting:</p>
+    <ul>
+      <li><code>GETV_KEYBOARD_IDLE</code> is on whenever <code>GETV_EXIT_FRAME</code> is set, so
+      scripted input is ignored with no error printed &mdash; an input test looks like a null result
+      rather than a disabled one.</li>
+      <li>Screenshots are always 24-bit BMP whatever extension <code>GETV_SHOTPATH</code> is given.
+      Naming a file <code>.png</code> produces a BMP called <code>.png</code>.</li>
+      <li><code>GETV_AIM_SELFTEST</code> takes a frame number, not a boolean, and it must be a frame
+      after the locked-controls intro or no rising edge ever arrives.</li>
+      <li><code>run_tests.ps1</code> defaults to <code>-Mingw C:\msys64\mingw64</code> while the
+      project installs to <code>C:\mingw64</code>. Run it without the flag and it silently uses a
+      different compiler.</li>
+    </ul>
+    <p class="section-sub" style="margin-bottom:0">One more worth naming because the symptom gets
+    reported: coloured confetti on crate and barrel explosions is <code>GETV_RGBA16BE</code>, an
+    RGBA16 byte-order gate that defaults to the corrected mode. It is not the paintball cheat.
+    Measurements: <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/COLOUR_BUGS.md">docs/COLOUR_BUGS.md</a>.</p>
+  </div>
+</section>
+
+<section class="content" id="maintenance">
+  <div class="wrap">
+    <h2>How this page is kept honest</h2>
+    <p class="section-sub">Stated openly, because a settings reference is the easiest page on any site
+    to let rot.</p>
+    <ul>
+      <li>Every row here was taken from
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/CONFIGURATION.md">docs/CONFIGURATION.md</a>,
+      which is the authoritative reference, and cross-checked against
+      <code>getv/port/src/ge_config.c</code> (the source of truth for keys, gates and defaults) and
+      <code>getv/port/src/ge_launcher.cpp</code> (for the <em>Launcher</em> column, which was
+      determined by checking which gate each launcher control actually writes).</li>
+      <li><strong>Nothing here was written from memory.</strong> Where a value, default or limitation
+      is not stated in those sources, this page says so rather than guessing.</li>
+      <li>This page is hand-maintained rather than generated. Generating it would mean parsing
+      <code>ge_config.c</code>, which is a fragile contract with a file whose shape is not designed
+      to be machine-read; the drift risk was judged smaller than the risk of a generator quietly
+      producing a wrong table. The tradeoff is that <strong>updating this page is a step in the
+      release checklist</strong> rather than something CI can prove.</li>
+      <li>The 250-odd raw <code>GETV_*</code> development gates are deliberately <em>not</em>
+      enumerated here. They are development gates, not player settings, and
+      <code>docs/MODDING.md</code> is where they live.</li>
+    </ul>
+    <p class="section-sub" style="margin-bottom:0">If a row disagrees with
+    <code>docs/CONFIGURATION.md</code>, that document is right and this page has a bug &mdash;
+    <a href="https://github.com/seb-patron/goldeneye-native/issues/new/choose">please report it</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>
