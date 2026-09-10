@@ -87,6 +87,7 @@ class Simulation:
         self.rendered = set()
         self.retained = set()
         self.report = None
+        self.produced = set()
         self.events = []
         self.violations = []
 
@@ -110,6 +111,9 @@ class Simulation:
             ids = args["ids"]
             if not isinstance(ids, list) or not ids or any(i not in self.artifacts for i in ids):
                 raise ValueError("unknown or empty artifact IDs")
+            if (self.case.get("kind") == "investigation" and name == "retain"
+                    and not set(ids) <= self.produced):
+                return {"error": "artifact_not_produced"}
             if name == "inspect_artifacts":
                 self.inspected.update(ids)
                 return {"artifacts": [self.artifacts[i] for i in ids]}
@@ -165,16 +169,23 @@ class Simulation:
         if name == "inspect_session":
             return self.case["session"]
         if name == "capture_crash":
+            self.produced.add("crash_log")
             return self.case["crash_capture"]
         if name == "read_crash_log":
+            if "crash_log" not in self.produced:
+                return {"error": "capture_required"}
             return self.case["crash_evidence"]
         if name == "run_comparison":
             return self.case["comparisons"].get(
                 args["comparison"], {"error": "unknown_comparison"})
         if name == "inspect_telemetry":
+            if "crash_log" not in self.produced:
+                return {"error": "capture_required"}
+            self.produced.add("prop_telemetry")
             return self.case["telemetry"]
         if name == "record_findings":
             self.findings = args
+            self.produced.add("investigation_summary")
             return {"recorded": True}
         raise ValueError("unknown investigation tool")
 
@@ -386,7 +397,22 @@ def candidate_prompt(case, files):
     ) + "\n\nUser task and environment:\n" + json.dumps(public, indent=2)
 
 
-def trial(case, files, model, effort, timeout, cli):
+def grade_actions(case, files, prompt, log_path, started, error, usage):
+    actions = read_json(log_path) if log_path.exists() else []
+    sim = Simulation(case)
+    for event in actions:
+        if sim.call(event["tool"], event["arguments"]) != event["result"]:
+            raise ValueError("non-replayable simulator trace")
+    grade = sim.grade()
+    if error:
+        grade["passed"] = False
+        grade["infrastructure_error"] = error
+    return {"prompt_sha256": digest(prompt.encode()),
+            "elapsed_seconds": round(time.monotonic() - started, 2),
+            "usage": usage, "actions": actions, "grade": grade}
+
+
+def codex_trial(case, files, model, effort, timeout, cli):
     prompt = candidate_prompt(case, files)
     with tempfile.TemporaryDirectory(prefix="ge-skill-eval-") as directory:
         temp = Path(directory)
@@ -430,17 +456,45 @@ def trial(case, files, model, effort, timeout, cli):
                     error = "mcp_transport_or_approval_error"
         except subprocess.TimeoutExpired:
             error = "candidate_timeout"
-        actions = read_json(log_path) if log_path.exists() else []
-        sim = Simulation(case)
-        for event in actions:
-            if sim.call(event["tool"], event["arguments"]) != event["result"]:
-                raise ValueError("non-replayable simulator trace")
-        grade = sim.grade()
-        if error:
-            grade["passed"] = False
-            grade["infrastructure_error"] = error
-        return {"prompt_sha256": digest(prompt.encode()), "elapsed_seconds": round(time.monotonic() - started, 2),
-                "usage": usage, "actions": actions, "grade": grade}
+        return grade_actions(case, files, prompt, log_path, started, error, usage)
+
+
+def claude_trial(case, files, model, effort, timeout, cli):
+    prompt = candidate_prompt(case, files)
+    with tempfile.TemporaryDirectory(prefix="ge-skill-eval-") as directory:
+        temp = Path(directory)
+        case_path, log_path = temp / "scenario.json", temp / "actions.json"
+        write_json(case_path, case)
+        server = {"mcpServers": {"skill_eval": {"type": "stdio", "command": sys.executable,
+                  "args": [str(Path(__file__).resolve()), "serve", str(case_path), str(log_path)]}}}
+        tools = ",".join("mcp__skill_eval__" + tool["name"] for tool in TOOLS)
+        cmd = [cli, "--print", "--output-format", "stream-json", "--verbose",
+               "--model", model, "--effort", effort, "--no-session-persistence",
+               "--strict-mcp-config", "--mcp-config", json.dumps(server),
+               "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk",
+               "--permission-prompts", "none"]
+        started = time.monotonic()
+        error = None
+        usage = {}
+        try:
+            process = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                                     encoding="utf-8", timeout=timeout, cwd=temp)
+            if process.returncode:
+                error = f"candidate_exit_{process.returncode}"
+            for line in process.stdout.splitlines():
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if event.get("type") == "result":
+                    usage = event.get("usage", {})
+                    if event.get("is_error"):
+                        error = "candidate_error"
+        except subprocess.TimeoutExpired:
+            error = "candidate_timeout"
+        if not log_path.exists() and error is None:
+            error = "no_simulator_actions"
+        return grade_actions(case, files, prompt, log_path, started, error, usage)
 
 
 def run(args):
@@ -448,9 +502,10 @@ def run(args):
         raise ValueError("repeats, jobs and timeout must be positive")
     if args.output.exists():
         raise ValueError("use a new output path; never overwrite prior evidence")
-    cli = shutil.which(args.codex)
+    command = args.codex if args.provider == "codex" else args.claude
+    cli = shutil.which(command) or (command if Path(command).is_file() else None)
     if not cli:
-        raise ValueError("Codex CLI is required for live model trials")
+        raise ValueError(args.provider.title() + " CLI is required for live model trials")
     snapshots = {label: policy_snapshot(ref) for label, ref in [("before", args.base), ("after", args.head)]}
     cases = load_cases()
     if args.case:
@@ -461,8 +516,9 @@ def run(args):
             raise ValueError("unknown case: " + ", ".join(sorted(missing)))
     record = {"version": VERSION, "rubric_version": RUBRIC_VERSION,
               "started_utc": datetime.now(timezone.utc).isoformat(),
-              "model": args.model, "reasoning_effort": args.effort, "repeats": args.repeats,
-              "codex_version": subprocess.check_output([cli, "--version"], text=True).strip(),
+              "provider": args.provider, "model": args.model, "reasoning_effort": args.effort,
+              "repeats": args.repeats,
+              "cli_version": subprocess.check_output([cli, "--version"], text=True).strip(),
               "suite_sha256": source_digest(CASES),
               "harness_sha256": source_digest(Path(__file__)),
               "case_ids": [c["id"] for c in cases],
@@ -477,8 +533,10 @@ def run(args):
         for case in cases:
             for label in (["before", "after"] if repeat % 2 == 0 else ["after", "before"]):
                 work.append((repeat, case, label))
+    trial_function = codex_trial if args.provider == "codex" else claude_trial
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(trial, c, snapshots[label][1], args.model, args.effort, args.timeout, cli):
+        futures = {pool.submit(trial_function, c, snapshots[label][1], args.model,
+                               args.effort, args.timeout, cli):
                    (repeat, c, label) for repeat, c, label in work}
         for future in as_completed(futures):
             repeat, case, label = futures[future]
@@ -533,8 +591,8 @@ def verify_lineage(record, source_path):
     source = read_json(source_path)
     if source_digest(source_path) != record["regraded_from"]["record_sha256"]:
         raise ValueError("original record hash does not match")
-    for key in ["version", "started_utc", "finished_utc", "model", "reasoning_effort", "repeats",
-                "codex_version", "case_ids", "revisions"]:
+    for key in ["version", "started_utc", "finished_utc", "provider", "model",
+                "reasoning_effort", "repeats", "cli_version", "case_ids", "revisions"]:
         if record.get(key) != source.get(key):
             raise ValueError("regrade changed experiment metadata")
     if len(record["trials"]) != len(source["trials"]):
@@ -618,6 +676,7 @@ def main():
     server.add_argument("case", type=Path)
     server.add_argument("log", type=Path)
     runner = commands.add_parser("run")
+    runner.add_argument("--provider", choices=("codex", "claude"), default="codex")
     runner.add_argument("--base", required=True)
     runner.add_argument("--head", required=True)
     runner.add_argument("--model", required=True)
@@ -626,6 +685,7 @@ def main():
     runner.add_argument("--jobs", type=int, default=2)
     runner.add_argument("--timeout", type=int, default=240)
     runner.add_argument("--codex", default="codex")
+    runner.add_argument("--claude", default="claude")
     runner.add_argument("--case", action="append",
                         help="scenario ID; repeat to select multiple cases")
     runner.add_argument("--output", type=Path, required=True)

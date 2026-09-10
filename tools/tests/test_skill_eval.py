@@ -61,13 +61,13 @@ class SkillEvalTests(unittest.TestCase):
                 sim.call("run_comparison", {"comparison": "base_game"})
                 sim.call("run_comparison", {"comparison": "gibs_off"})
                 sim.call("inspect_telemetry", {})
-                sim.call("retain", {"ids": sim.case["required"]})
                 sim.call("record_findings", {
                     "classification": "subsystem_narrowed",
                     "suspected_subsystem": "explosion entity lifecycle",
                     "telemetry_scope": "prop_allocator_only",
                     "next_step": "add a bounded lifecycle trace at the top symbolized frame",
                 })
+                sim.call("retain", {"ids": sim.case["required"]})
                 sim.call("report", {"status": "complete", "blocker": ""})
                 self.assertTrue(sim.grade()["passed"])
 
@@ -83,6 +83,13 @@ class SkillEvalTests(unittest.TestCase):
         self.assertFalse(grade["passed"])
         self.assertFalse(grade["checks"]["native_shell"])
         self.assertFalse(grade["checks"]["telemetry_scope"])
+
+    def test_investigation_artifacts_require_their_producing_actions(self):
+        sim = self.sim("investigate_facility_linux")
+        self.assertEqual(sim.call("read_crash_log", {})["error"], "capture_required")
+        self.assertEqual(sim.call("inspect_telemetry", {})["error"], "capture_required")
+        self.assertEqual(sim.call("retain", {"ids": sim.case["required"]})["error"],
+                         "artifact_not_produced")
 
     def test_unknown_tool_and_empty_ids_fail(self):
         sim = self.sim()
@@ -256,8 +263,9 @@ class SkillEvalTests(unittest.TestCase):
             self.assertEqual(evaluation.source_digest(path), expected)
 
     def test_run_case_filter_accepts_multiple_scenarios(self):
-        args = SimpleNamespace(repeats=1, jobs=1, timeout=1,
+        args = SimpleNamespace(repeats=1, jobs=1, timeout=1, provider="codex",
                                output=Path("unused-new-record.json"), codex="missing",
+                               claude="missing",
                                base="base", head="head", case=["one", "two"])
         with patch.object(evaluation.shutil, "which", return_value=None):
             with self.assertRaisesRegex(ValueError, "Codex CLI"):
