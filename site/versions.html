@@ -113,9 +113,9 @@
       JavaScript disabled and is keyboard operable without any custom code.</li>
       <li><code>tools/check_site.py</code> checks that every entry in the manifest resolves, that
       every archived directory appears in the manifest, that the selector on each page lists every
-      version, and that every page carries a version, a source ref and a review date. It takes
-      <code>--release vX.Y.Z</code> for an advisory release-readiness check before a version is
-      tagged, and is run by hand as part of the release checklist.</li>
+      version, and that every page carries a version, a source ref and a review date. It runs in CI
+      on every pull request that touches the site, and takes <code>--release vX.Y.Z</code> for an
+      advisory release-readiness check that a human runs before a version is tagged.</li>
     </ul>
     <h3>What each release has to update</h3>
     <div class="status-panel">

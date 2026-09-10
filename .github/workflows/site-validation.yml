@@ -1,13 +1,3 @@
-# NOT ACTIVE YET. Move this file to .github/workflows/site-validation.yml to enable it.
-#
-# It is staged here because the token that prepared this change does not carry the
-# GitHub `workflow` scope, and GitHub refuses any commit that touches
-# .github/workflows/ without it. The file below is complete and unmodified; moving it
-# is the entire remaining step. Tracked in issue #77.
-#
-#   git mv docs/ci/site-validation.yml .github/workflows/site-validation.yml
-#
-# Until that happens, `python3 tools/check_site.py` is a local/manual check only.
 name: Public site validation
 
 # Validates the published site's markup, links, assets, version metadata, changelog

@@ -80,11 +80,12 @@ An archived snapshot is optional for minor and patch releases; taking one anyway
       manifest entry, version metadata, and an archived snapshot when the version is major.
 - [ ] `python3 tools/check_no_game_data.py --tracked`
 
-> **`check_site.py` is not enforced by CI yet.** Its workflow is written and staged at
-> [`ci/site-validation.yml`](ci/site-validation.yml); moving it to `.github/workflows/` activates it.
-> Until then these two commands are a manual gate, and GitHub cannot stop a release that skips them.
-> The release-readiness check is advisory for the same reason and says so in its own output. Making
-> it enforcing needs repository protection rules that are not configured. Tracked in
+> **`check_site.py` runs in CI on every pull request touching the site**
+> (`.github/workflows/site-validation.yml`), so a broken page cannot reach `main` unnoticed.
+> The `--release` check is different: it is **advisory**. Nothing runs it automatically, because
+> the version being proposed is not known until a human proposes it, and with no repository
+> protection rules configured GitHub cannot block a tag or a Release that skips it. Run it by hand
+> before tagging. Making it enforcing is a separate decision about protection rules, tracked in
 > [issue #77](https://github.com/seb-patron/goldeneye-native/issues/77).
 - [ ] Open the site locally (`cd site && python3 -m http.server 8080`) and click through every page,
       including the version selector and at least one archived version.

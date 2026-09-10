@@ -72,12 +72,14 @@ python3 tools/check_no_game_data.py --tracked
 and tracker hygiene, version metadata on every page, changelog entries, and the version selector. It
 also takes `--release vX.Y.Z` for a release-readiness check.
 
-`check_no_game_data.py --tracked` already runs in CI on every pull request, via
-`.github/workflows/public-artifact-safety.yml`. **`check_site.py` does not run in CI yet.** Its
-workflow is written and staged at [`../docs/ci/site-validation.yml`](../docs/ci/site-validation.yml);
-moving it to `.github/workflows/` is the only remaining step, and it was not done here because the
-token used lacked the GitHub `workflow` scope. Until then, run `check_site.py` by hand &mdash; the
-release checklist requires it.
+Both run in CI on every pull request: `check_site.py` via
+`.github/workflows/site-validation.yml` when the change touches `site/**`, `CHANGELOG.md` or the
+script itself, and `check_no_game_data.py --tracked` via
+`.github/workflows/public-artifact-safety.yml` on every pull request regardless.
+
+Site validation is deliberately a separate workflow from `pages.yml`, which deploys and does nothing
+else. A failing check must never be able to publish, and a deploy must never be able to skip
+validation by sharing a job with it.
 
 ## Publishing
 
