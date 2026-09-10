@@ -165,15 +165,16 @@ GETV_RENDERER=metal ./getv/build_mac.sh all    # macOS Metal, separate build dir
         <tr><td class="item">Windows / macOS / Linux</td><td><span class="tag tag-done">DONE</span></td><td class="note">Native builds from one source tree, build from source.</td></tr>
         <tr><td class="item">Split-screen multiplayer</td><td><span class="tag tag-done">DONE</span></td><td class="note">Radar, all 64 characters, all five watch pages, saves persist.</td></tr>
         <tr><td class="item">Rulesets &amp; horde mode</td><td><span class="tag tag-done">DONE</span></td><td class="note">Classic / hardcore / survival / chaos / horde, plus nine individual percentages.</td></tr>
-        <tr><td class="item">Lua modding</td><td><span class="tag tag-done">DONE</span></td><td class="note">Read-only API today; write access (move a player, spawn a prop) is next.</td></tr>
+        <tr><td class="item">Lua modding</td><td><span class="tag tag-done">DONE</span></td><td class="note">Read-only API into live game state. Write access (move a player, spawn a prop) is not implemented.</td></tr>
         <tr><td class="item">Metal renderer backend</td><td><span class="tag tag-done">DONE</span></td><td class="note">Landed 2026-08-26 on macOS &mdash; boots to the title crawl. Unlocks tvOS/iOS.</td></tr>
         <tr><td class="item">Co-op campaign</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha. Players spawn, render and move; objectives/AI/cutscenes still assume one Bond.</td></tr>
         <tr><td class="item">LAN play</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Alpha, and disputed in the project's own docs &mdash; see <a href="roadmap.html#disputed">Disputed</a>.</td></tr>
         <tr><td class="item">High frame rate above 60</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Uncapped renders at 350&ndash;560+ fps, but gameplay is tick-coupled today.</td></tr>
-        <tr><td class="item">Apple TV / iOS</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Not shipped. Metal backend is done; device bring-up is next.</td></tr>
-        <tr><td class="item">Android</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Architecture is in place (SDL2, split platform layer, a GLES renderer path). Not built yet.</td></tr>
+        <tr><td class="item">tvOS (Apple TV)</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Bring-up, not a product. Builds, signs and deploys to real hardware, GL ES or Metal.</td></tr>
+        <tr><td class="item">iOS</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Bring-up. <code>lib</code> and <code>app</code> build against Metal, and there is a Simulator build; deploying to a device needs a paired one.</td></tr>
+        <tr><td class="item">Android</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">Bring-up. The port layer builds for arm64 GL ES and carries on-screen touch controls as a virtual pad. <strong>It has never been run</strong> &mdash; not yet a running game.</td></tr>
         <tr><td class="item">VR</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Camera seam exists for a per-eye transform. Listed because the hook exists, not because it works.</td></tr>
-        <tr><td class="item">HD texture packs</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Roadmap item, following Perfect Dark's <code>ext_tex</code> approach.</td></tr>
+        <tr><td class="item">HD texture packs</td><td><span class="tag tag-partial">PARTIAL</span></td><td class="note">A hash-keyed pack lookup exists but is <strong>unverified</strong> &mdash; no compiler was available to check the path &mdash; and is off by default. Note that <code>docs/VISION.md</code> item 11 still scores this OPEN while <code>docs/CONFIGURATION.md</code> documents the working keys; the two disagree.</td></tr>
         <tr><td class="item">True widescreen</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Resolution is configurable, but a wider window fits the 4:3 view rather than widening it.</td></tr>
         <tr><td class="item">Online play</td><td><span class="tag tag-open">OPEN</span></td><td class="note">Downstream of the frame-timing work.</td></tr>
       </tbody>
@@ -197,7 +198,9 @@ GETV_RENDERER=metal ./getv/build_mac.sh all    # macOS Metal, separate build dir
       CRT shader (scanlines, aperture mask, barrel curve, vignette) ships as a mod you can read and
       change. Start at
       <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/MODDING.md">docs/MODDING.md</a>.
-      HD texture replacement is on the roadmap and isn't implemented yet.
+      HD texture replacement is implemented behind <code>hd_textures</code> and <code>texpack</code>, off
+      by default, and <strong>unverified</strong> &mdash; see the <a href="settings.html#display">settings
+      reference</a>.
     </p>
   </div>
 </section>

@@ -147,7 +147,11 @@
       <p>Yes &mdash; your own legal copy of the NTSC (US) cartridge, dumped to a file. Nothing in this
       repository contains game data and nothing ever will. Every texture, model, animation, sound bank
       and level layout is read out of your dump once, at build time, and emitted as C.</p>
-      <p><strong>This site will not tell you where to get one</strong>, and no page here ever will.</p>
+      <p><strong>This site will not tell you where to get one</strong>, and no page here ever will
+      &mdash; not out of squeamishness, but because downloading a ROM is an unauthorised reproduction
+      even if you own the cartridge, which is one of the few genuinely settled points in
+      <a href="#legal">the legal answer below</a>. Linking to one would put the project on the wrong
+      side of the one line it can actually be sure about.</p>
     </div>
 
     <div class="faq-item reveal">
@@ -226,8 +230,15 @@
       is tied to its frame step &mdash; weapon fire rates, guard reactions and turret behaviour advance
       per tick, not per second &mdash; so rendering faster also runs the game faster.
       <code>framerate=30</code> pairs with a tick divider to run the simulation at its authored cadence
-      while rendering stays smooth. A fixed simulation tick with interpolated rendering is the correct
-      fix and is on the roadmap; until it lands, 60fps is the honest ceiling for unchanged gameplay.</p>
+      while rendering stays smooth.</p>
+      <p>The correct fix is a fixed simulation tick with interpolated rendering, and the project names
+      it as such &mdash;
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/VISION.md">docs/VISION.md</a>
+      calls the tick coupling &ldquo;the most consequential open problem in the project&rdquo;.
+      <strong>It is not scheduled and has no tracking issue.</strong> It needs every visually
+      interpolated quantity identified, and the game stores plenty of state that must <em>not</em> be
+      interpolated, so getting the list wrong produces jitter that is harder to diagnose than the
+      original problem. Until it lands, 60fps is the honest ceiling for unchanged gameplay.</p>
     </div>
 
     <div class="faq-item reveal">
@@ -244,8 +255,10 @@
       <p>Resolution and aspect are fully configurable, but changing the window aspect does not widen
       the field of view today &mdash; the renderer fits the 4:3 view into whatever shape the window is.
       The <code>widescreen</code> key fills the real window at its own aspect for single player;
-      split-screen's per-viewport aspect is untouched either way. True aspect-aware widescreen is a
-      roadmap item. Use <code>fov</code> if you want to genuinely see more.</p>
+      split-screen's per-viewport aspect is untouched either way. True aspect-aware widescreen is not
+      done: <code>docs/VISION.md</code> item 2 records that whether widescreen widens the horizontal
+      field or stretches a 4:3 image has not been measured. Use <code>fov</code> if you want to
+      genuinely see more.</p>
     </div>
 
     <div class="faq-item reveal">
@@ -327,11 +340,20 @@
 
     <div class="faq-item reveal">
       <h3>Does it run on Steam Deck, Raspberry Pi, Android or iPhone?</h3>
-      <p>Linux builds run where Linux runs, so a Deck is a Linux build. An Apple TV target builds from
-      this tree as of the Metal backend landing (2026-08-26), with device bring-up next. iOS and Android
-      are not here yet &mdash; the groundwork exists (SDL2 underneath, a platform layer already split
-      from the game, a renderer that already targets GLES) but the shipping work doesn't. Nothing mobile
-      is distributed and nothing mobile is claimed as working today.</p>
+      <p>Linux builds run where Linux runs, so a Deck is a Linux build.</p>
+      <p>The other three are further along than &ldquo;not yet&rdquo;, and further from
+      &ldquo;working&rdquo; than that sounds. <code>README.md</code> calls them <strong>bring-up, not
+      products</strong>:</p>
+      <ul>
+        <li><strong>tvOS (Apple TV)</strong> builds, signs and deploys to real hardware, on GL ES or
+        Metal.</li>
+        <li><strong>iOS</strong> builds against Metal, and there is a Simulator build that needs no
+        paired hardware. Deploying to an actual device does need one.</li>
+        <li><strong>Android</strong>'s port layer builds for arm64 GL ES and carries on-screen touch
+        controls as a virtual pad &mdash; but <strong>it has never been run</strong>. It is not a
+        running game.</li>
+      </ul>
+      <p>Nothing mobile is distributed, and none of it is a thing you can go and play today.</p>
     </div>
 
     <div class="faq-item reveal">
@@ -408,13 +430,61 @@
       the unresolved renderer question is its section 4. This is a factual record, not legal advice.</p>
     </div>
 
-    <div class="faq-item reveal">
-      <h3>Is it legal for me to build and play this?</h3>
-      <p>That depends on where you live and on how you obtained your cartridge dump, and nobody here is
-      in a position to answer it for you. What this project can say factually is what it does: it
-      distributes no game data, the build reads a file you already have, and the result stays on your
-      machine. <strong>Using that dump and the build you make from it in a way permitted where you live
-      is your responsibility.</strong></p>
+    <div class="faq-item reveal" id="legal">
+      <h3>Is it legal for me to build and play this? (United States)</h3>
+      <p>This project cannot answer that for you, and <strong>anyone giving you a confident yes or no is
+      overstating what is actually settled.</strong> What follows is a factual account of which parts are
+      settled and which are not, under US law. It is not legal advice.</p>
+
+      <p><strong>Settled &mdash; not seriously disputed by anyone:</strong></p>
+      <ul>
+        <li><strong>Distributing is infringement.</strong> The ROM, extracted assets, generated asset
+        source, or a built binary with the game compiled into it. That is precisely why this project
+        ships none of them, and why there is no download.</li>
+        <li><strong>Downloading a ROM is an unauthorised reproduction &mdash; even if you own the
+        cartridge.</strong> Owning one copy does not entitle you to receive another from a stranger.
+        &ldquo;I own it, so I can download it&rdquo; is the most common misconception in this space and
+        it has no statutory basis.</li>
+        <li><strong>GoldenEye 007 is in copyright</strong> and will be for decades. There is no
+        public-domain angle here.</li>
+      </ul>
+
+      <p><strong>Not settled &mdash; and this is the honest reason we will not tell you it is
+      fine:</strong></p>
+      <ul>
+        <li><strong>Dumping a cartridge you own.</strong> No US court has held that it is lawful, and no
+        statute plainly says so. People point to
+        <a href="https://www.law.cornell.edu/uscode/text/17/117">17&nbsp;U.S.C. &sect;117(a)(2)</a>,
+        which lets the <em>owner of a copy</em> of a computer program make an archival copy &mdash; but
+        its scope is narrow, courts have read &ldquo;owner&rdquo; restrictively where a licence is
+        involved, and it has never been applied to a game-cartridge dump in a controlling decision.
+        <a href="https://www.law.cornell.edu/uscode/text/17/107">Fair use (&sect;107)</a> is a
+        fact-specific defence raised after the fact, not permission granted in advance.</li>
+        <li><strong>The decompilation itself.</strong> <em>Sega v. Accolade</em> (9th&nbsp;Cir. 1992) and
+        <em>Sony v. Connectix</em> (9th&nbsp;Cir. 2000) protected reverse engineering as fair use, and
+        they are the cases usually cited here &mdash; but both concerned <em>intermediate</em> copying to
+        achieve interoperability. A decompilation that reproduces the program's own expression is a
+        different question and has not been tested. <code>n64decomp/007</code> ships no licence file at
+        all, which
+        <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>
+        &sect;5 records as unresolved rather than resolved in anyone's favour.</li>
+      </ul>
+
+      <p><strong>What is true in practice, which is not the same thing.</strong> Enforcement in this area
+      has gone after distribution &mdash; sites hosting ROMs, sellers of preloaded devices &mdash; rather
+      than individuals dumping a cartridge they own for their own use. That is an observation about what
+      rightsholders have actually done. It is not a statement that private dumping is lawful, and it is
+      not a prediction about anyone's future behaviour.</p>
+
+      <p><strong>What this project does, factually:</strong> it distributes no game data of any kind, the
+      build reads a file you already have and leaves it untouched, and everything it produces stays on
+      your machine. Nothing here uploads your dump, copies it, or sends it anywhere.</p>
+
+      <p>If the answer matters to you &mdash; because you are doing anything beyond playing, on your own
+      machine, a game you already own &mdash; ask a lawyer. This project deliberately reaches no legal
+      conclusion, in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>
+      or here.</p>
     </div>
 
     <div class="faq-item reveal">

@@ -137,6 +137,9 @@
         <tr><td class="k">Multiplayer bots</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Multiplayer itself works. Bots do not exist yet; the offline navmesh, prop-extent and node-table work behind them is done.</td></tr>
         <tr><td class="k">Custom missions &amp; scripting</td><td><span class="tag tag-partial">PARTIAL</span></td><td>The scripting host exists. Mission authoring does not.</td></tr>
         <tr><td class="k">HD texture replacement</td><td><span class="tag tag-partial">PARTIAL</span></td><td>A hash-keyed pack lookup is implemented but <strong>unverified</strong> &mdash; no compiler was available to check the path. Off by default.</td></tr>
+        <tr><td class="k">tvOS (Apple TV)</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Bring-up, not a product. Builds, signs and deploys to real hardware, on GL ES or Metal.</td></tr>
+        <tr><td class="k">iOS</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Bring-up. <code>lib</code> and <code>app</code> build against Metal and there is an iOS Simulator build, which needs no paired hardware; deploying to a device does. iOS work started after Metal was already the proven renderer.</td></tr>
+        <tr><td class="k">Android</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Bring-up. The port layer builds for arm64 GL ES and carries on-screen touch controls as a virtual pad. <strong>It has never been run</strong>, so it is not yet a running game.</td></tr>
       </tbody>
     </table>
     </div>
@@ -220,8 +223,6 @@
         <tr><td class="k">Custom levels</td><td><span class="tag tag-open">OPEN</span></td><td>The hardest item on the list: it needs the setup / STAN / background pipeline running in reverse.</td></tr>
         <tr><td class="k">Custom weapons and enemies</td><td><span class="tag tag-open">OPEN</span></td><td>Data-table driven, and considerably more tractable than levels.</td></tr>
         <tr><td class="k">Randomizer, weather, environmental audio</td><td><span class="tag tag-open">OPEN</span></td><td>Not started.</td></tr>
-        <tr><td class="k">Apple TV / iOS</td><td><span class="tag tag-open">OPEN</span></td><td>An Apple TV target builds from this tree as of the Metal backend landing; device bring-up is next. Nothing mobile is distributed and nothing mobile is claimed as working.</td></tr>
-        <tr><td class="k">Android</td><td><span class="tag tag-open">OPEN</span></td><td>The groundwork exists &mdash; SDL2 underneath, a platform layer already split from the game, a renderer that already targets GLES. The shipping work does not.</td></tr>
         <tr><td class="k">VR</td><td><span class="tag tag-open">OPEN</span></td><td>A camera seam exists for a per-eye transform. Listed because the hook exists, not because it works.</td></tr>
       </tbody>
     </table>
