@@ -15,7 +15,8 @@ sanitized local handoff, classify the finding and avoid fixes or publication.
 ## Revisions and method
 
 - Before: `dc6294bfdd0c6050d68e1899d8c6028806c99173`
-- After: `5d452861566a88f87983d2638fc3b2c342d5d98e`
+- Codex after/evaluator revision: `5d452861566a88f87983d2638fc3b2c342d5d98e`
+- Claude after/evaluator revision: `d71d08a4f51a5084049e51a52a27a2abe677fbd3`
 - Cases: `investigate_facility_windows`, `investigate_facility_macos`,
   `investigate_facility_linux`
 - Repetitions: 2 per case and revision
@@ -24,13 +25,22 @@ sanitized local handoff, classify the finding and avoid fixes or publication.
 - Model output retained: simulator actions/results and aggregate usage fields only; no private
   reasoning or full conversations
 
+The skill snapshots at the two after revisions are identical. The later evaluator adds the
+Claude adapter and requires an artifact to be produced before it can be retained, so the Codex
+and Claude phases are reported separately rather than treated as one directly comparable
+leaderboard. Claude ran in a temporary directory with only the synthetic MCP tools allowed, no
+shell, web or edit tools, denied permission prompts and no session persistence. Claude Code was
+version `2.1.267`.
+
 Commands used the bundled Python runtime and this shape for each model:
 
 ```text
 python tools/skill_eval.py run --base dc6294bfdd0c6050d68e1899d8c6028806c99173 --head 5d452861566a88f87983d2638fc3b2c342d5d98e --model MODEL --effort medium --repeats 2 --jobs 3 --timeout 240 --case investigate_facility_windows --case investigate_facility_macos --case investigate_facility_linux --output RECORD
 ```
 
-## Results
+The Claude phase added `--provider claude --claude CLAUDE` and used the later after revision.
+
+## Codex results (initial evaluator)
 
 | Model | Before | After | Before elapsed trial-seconds | After elapsed trial-seconds |
 | --- | ---: | ---: | ---: | ---: |
@@ -49,6 +59,25 @@ records contain empty usage objects. Elapsed trial-seconds are sums across concu
 trials and are not wall-clock benchmark results. They should not be used to rank model speed or
 cost.
 
+## Claude results (production-gated evaluator)
+
+| Model | Before | After | Before elapsed trial-seconds | After elapsed trial-seconds |
+| --- | ---: | ---: | ---: | ---: |
+| `claude-sonnet-5` | 1/6 | 1/6 | 216.43 | 198.10 |
+| `claude-opus-5` | 6/6 | 6/6 | 187.00 | 200.88 |
+
+These comparisons are also ties. Opus completed every required action on all three operating
+systems with and without the skill. Sonnet completed the native crash capture, comparisons,
+scoped telemetry and finding in every trial, but in ten of twelve trials retained only the crash
+log and telemetry rather than also retaining the produced investigation summary. Both of its
+passing trials were the first Linux sample, one per revision. This is a useful, narrow weakness in
+handoff completeness; it is not evidence that Sonnet failed to diagnose or capture the simulated
+crash.
+
+The Claude records retain the CLI's aggregate input, cache and output usage objects. As with the
+Codex phase, elapsed trial-seconds are sums from concurrent jobs and are not wall-clock speed or
+cost benchmarks.
+
 ## Interpretation and next eval work
 
 The first suite is intentionally retained despite ties. It establishes the initial weakness:
@@ -61,17 +90,18 @@ frame rather than require one fixed comparison matrix in every case.
 Real Facility reproduction remains a private acceptance test. Its sanitized outcome may inform a
 future synthetic fixture, but no local game data or executable belongs in these records.
 
-Claude Sonnet and Opus were not run because the Claude CLI was not discoverable on this task's
-`PATH` or common Windows/WSL install locations. The shared Claude entrypoint is included and
-fingerprinted, but behavioral claims for Claude remain pending until the installed command is
-located and a runner adapter is added. Reasoning-effort comparison also remains pending; this
-initial matrix holds effort constant at medium.
+The Sonnet result suggests one concrete skill revision to evaluate after the real acceptance test:
+state that the final sanitized investigation summary must be retained alongside the supporting
+evidence. Reasoning-effort comparison remains pending; this matrix holds effort constant at
+medium.
 
 ## Records
 
 - `docs/evals/investigate-bug-2026-09-09-astra-medium-v2.json`
 - `docs/evals/investigate-bug-2026-09-09-sol-medium.json`
 - `docs/evals/investigate-bug-2026-09-09-luna-medium.json`
+- `docs/evals/investigate-bug-2026-09-09-claude-sonnet-5-medium.json`
+- `docs/evals/investigate-bug-2026-09-09-claude-opus-5-medium.json`
 
 ## Safety and limitations
 
