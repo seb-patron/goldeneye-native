@@ -167,8 +167,20 @@
 
     <div class="faq-item reveal">
       <h3>Does the installer copy or upload my ROM?</h3>
-      <p>No. It reads the file where it already sits, verifies its SHA-1 in place, and extracts locally.
-      It is not copied, modified or uploaded. The playable build happens entirely on your machine.</p>
+      <p><strong>Nothing is ever uploaded, and your original file is never moved or modified.</strong>
+      Whether a copy is made depends on the platform:</p>
+      <ul>
+        <li><strong>Windows.</strong> The setup app reads your big-endian <code>.z64</code> where it
+        sits and verifies its SHA-1 in place. No copy.</li>
+        <li><strong>macOS and Linux.</strong> <code>tools/install.sh</code> asks first
+        (&ldquo;convert and copy this into <code>roms/</code>?&rdquo;), then writes one verified copy
+        to <code>roms/ge007.u.z64</code> inside the project folder and links the build at that. Your
+        original is left exactly where it was.</li>
+      </ul>
+      <p>Copying is currently done even when the dump is already the right byte order and needs no
+      conversion. That is tracked as
+      <a href="https://github.com/seb-patron/goldeneye-native/issues/80">issue&nbsp;#80</a>. Either
+      way, the extraction and the build happen entirely on your machine.</p>
     </div>
 
     <div class="faq-item reveal">
@@ -226,7 +238,10 @@
 
     <div class="faq-item reveal">
       <h3>How fast does it run? Can it go above 60fps?</h3>
-      <p>Uncapped, it measures 354&ndash;562 fps on an Apple Silicon Mac. But GoldenEye's gameplay logic
+      <p>Uncapped, it measures <strong>486 fps</strong> on an Apple M1 &mdash; Dam, 1280&times;960,
+      three runs, with the game itself ticking at the 60 fields per second it should
+      (<code>README.md</code>). <code>docs/CONFIGURATION.md</code> records 456 fps for the same
+      machine on the real clock. But GoldenEye's gameplay logic
       is tied to its frame step &mdash; weapon fire rates, guard reactions and turret behaviour advance
       per tick, not per second &mdash; so rendering faster also runs the game faster.
       <code>framerate=30</code> pairs with a tick divider to run the simulation at its authored cadence
@@ -294,8 +309,11 @@
       <p>Partly, and it's alpha. Two to four players spawn into a solo mission with its own geometry,
       props and objectives, and everyone moves and renders &mdash; movement was verified over 6,001
       frames against a no-input control. What isn't adapted yet is everything the campaign authors
-      around a single Bond: objectives, AI and cutscenes. Two <em>humans</em> at two pads is still
-      untested.</p>
+      around a single Bond: objectives, AI and cutscenes.</p>
+      <p>Two people <em>have</em> sat down and played it at two pads &mdash; that session is how the
+      friendly-fire problem was found, because no scripted run was ever going to point one player's
+      gun at another's back. Friendly fire is the one rule still not measured directly
+      (<code>docs/COOP.md</code>).</p>
       <p>Note that <code>docs/VISION.md</code> and <code>docs/FAQ.md</code> still carry an older
       conclusion that players do not move. That was a measurement bug in the accessor, corrected in
       <code>docs/ROADMAP.md</code> &sect;M4; the two older documents are stale.
@@ -312,8 +330,9 @@
       <h3>Can I mod it?</h3>
       <p>Three ways, none needing a rebuild: Lua scripts in <code>mods/</code> (<code>onFrame</code>,
       <code>onPlayerSpawn</code>, <code>onWeaponFire</code>, plus a read API into live game state),
-      roughly 275 <code>GETV_*</code> behaviour gates, and the source itself. HD texture replacement is
-      implemented but unverified, and is off by default.</p>
+      roughly 275 <code>GETV_*</code> behaviour gates, and <code>goldeneye.cfg</code>. Editing the
+      source is a fourth way, but that one does need a rebuild. HD texture replacement is implemented
+      but unverified, and is off by default.</p>
     </div>
 
     <div class="faq-item reveal">

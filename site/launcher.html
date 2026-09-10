@@ -232,9 +232,12 @@
       <p>OpenGL and Metal use separate build directories and do not overwrite each other. Installing
       both automatically is tracked in
       <a href="https://github.com/seb-patron/goldeneye-native/issues/53">issue&nbsp;#53</a>.</p>
-      <p><strong>Display</strong> is resolution, fullscreen and vsync. <strong>Image quality</strong>
-      is supersampling, MSAA, anisotropic filtering, mipmaps, FXAA, HD textures, widescreen,
-      filtering and crosshair size and colour. <strong>Timing</strong> is the frame rate &mdash; see
+      <p><strong>Display</strong> is resolution and fullscreen &mdash; there is no vsync control
+      here; vsync is the <a href="#live">F9 live toggle</a>. <strong>Image quality</strong> is
+      supersampling, MSAA, anisotropic filtering, field of view, FXAA, texture filtering, mipmaps,
+      widescreen, HD texture packs, parallax and reticle size. Crosshair <em>colour</em> is not a
+      launcher control &mdash; it is <code>crosshair_color</code> in the config file only.
+      <strong>Timing</strong> is the frame rate &mdash; see
       <a href="#timing">below</a>, because it is the one setting here with a real catch.</p>
     </div>
 

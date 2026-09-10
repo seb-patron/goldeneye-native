@@ -67,8 +67,12 @@
       <strong>1. You supply the game. This project supplies the program.</strong>
       Installing builds the game <em>on your computer</em> from your own copy of GoldenEye 007 for
       the Nintendo 64 &mdash; a cartridge dump file that you already have and are permitted to use.
-      The installer reads that file where it sits. It does not copy it, move it, modify it or upload
-      it anywhere.
+      <strong>Nothing is uploaded anywhere, and your original file is never moved or modified.</strong>
+      On Windows the setup app reads it where it sits. On macOS and Linux the installer asks, then
+      writes one verified copy into the project's own <code>roms/</code> folder (converting the byte
+      order if your dump needs it) and builds from that &mdash; see
+      <a href="faq.html#rom">the FAQ</a> and
+      <a href="https://github.com/seb-patron/goldeneye-native/issues/80">issue&nbsp;#80</a>.
     </div>
 
     <div class="notice notice-stop">
@@ -171,9 +175,15 @@
     <p class="section-sub">One command, from the project folder.</p>
     <ol class="steps">
       <li>
-        <h3>Install <code>git</code> and <code>python3</code></h3>
-        <p>From your distribution's package manager. These are the only system packages you need in
-        advance.</p>
+        <h3>Install the build prerequisites</h3>
+        <p>From your distribution's package manager. The installer checks for <code>git</code>,
+        <code>python3</code>, <code>cmake</code>, <code>make</code> and a C compiler
+        (<code>clang</code> is preferred on Linux), and it needs SDL2 and OpenGL development
+        headers.</p>
+        <p>You do not have to work the list out yourself: if anything is missing the installer prints
+        the exact command for your distribution &mdash; <code>apt</code>, <code>dnf</code> and
+        <code>pacman</code> are all covered &mdash; and stops without running <code>sudo</code>
+        itself.</p>
       </li>
       <li>
         <h3>Get the project and open a terminal in it</h3>
