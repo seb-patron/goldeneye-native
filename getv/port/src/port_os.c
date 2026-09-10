@@ -35,6 +35,8 @@
  * declaration. */
 unsigned int gePortHostN64Count(void);
 
+#include "ge_actions.h"
+#include "ge_bindings.h"
 #include "port_input.h"
 
 /* ---- the heap ----------------------------------------------------------- */
@@ -411,186 +413,25 @@ static int geInFrontEnd(void)
  * (`joyGetStickX(0) >= 6`, `< -0x2D`, ...) are written against. */
 /* ---- action bindings ------------------------------------------------------------
  *
- * Every game action resolves through here instead of naming a pad field inline, so a
- * player can move fire off the right trigger without a rebuild. Keys are read with
- * getenv(), which is deliberate: the config layer (`ge_config.c`) publishes every
- * `goldeneye.cfg` key by setenv(), so file, environment and CLI all arrive through one
- * lookup and this translation unit keeps no link coupling to the config translation
- * unit -- important because the tvOS build must keep linking whether or not it
- * compiles ge_config.c.
+ * Moved out to ge_bindings.c. It used to live here, and that placement is exactly what
+ * blocked keyboard remapping: this translation unit sees <PR/os.h> and therefore can
+ * never see <SDL.h>, so the SDL half of the port could not call into the binding table
+ * and had to hard-code scancodes instead. Crouch is the visible scar -- the old comment
+ * here explained at length why crouch could not be bindable, when the real obstacle was
+ * which file the table sat in.
  *
- * Sources are positional, matching SDL and `struct GePadState`: "a" is the bottom face
- * button on every pad, including Nintendo's (where it is labelled B). See the profile
- * note in port_input.h. A binding therefore never needs to know the pad type; only a
- * printed prompt does.
+ * ge_bindings.c includes neither header, so both halves reach it. geActionHeld() is the
+ * OR of the pad binding resolved there and the keyboard/mouse actions port_input.c
+ * asserts into GePadState::act[].
  *
- * Crouch is not bindable here, and that is a property of the game rather than an
- * omission. In the two-controller styles crouch is not a button at all: it is
- * controller 2's stick Y crossing +-30 while aiming (`bondview2.c:5027-5085`,
- * GE_RETAIL_BEHAVIOUR.md §1.3), the same axis that walks you when not aiming. Binding
- * a button to it would mean synthesising a stick deflection that fights the move
- * stick. It needs a design decision, not a key. */
-enum {
-    GE_SRC_NONE = 0,
-    GE_SRC_A, GE_SRC_B, GE_SRC_X, GE_SRC_Y,
-    GE_SRC_LB, GE_SRC_RB, GE_SRC_LT, GE_SRC_RT,
-    GE_SRC_START, GE_SRC_BACK
-};
+ * Keys are still read with getenv(), which is deliberate: ge_config.c publishes every
+ * goldeneye.cfg key by setenv(), so file, environment and CLI arrive through one lookup
+ * and neither this file nor ge_bindings.c takes a link dependency on the config unit --
+ * important because the tvOS build must keep linking whether or not it compiles it.
+ */
 
-enum {
-    GE_ACT_FIRE = 0, GE_ACT_AIM, GE_ACT_USE,
-    GE_ACT_WEAPON_NEXT, GE_ACT_WEAPON_PREV, GE_ACT_PAUSE,
-    GE_ACT_MAX
-};
-
-/* No <string.h> in this translation unit -- <PR/os.h> and the system string headers
- * cannot coexist (see the include note at the top). Six lines of comparator is cheaper
- * than reopening that, and makes the accepted spelling explicit. */
-static int geStrEq(const char *a, const char *b)
-{
-    while (*a != '\0' && *b != '\0' && *a == *b) { a++; b++; }
-    return *a == '\0' && *b == '\0';
-}
-
-static int geParseSrc(const char *v, int fallback)
-{
-    if (v == NULL || *v == '\0')  { return fallback; }
-    if (geStrEq(v, "a"))          { return GE_SRC_A; }
-    if (geStrEq(v, "b"))          { return GE_SRC_B; }
-    if (geStrEq(v, "x"))          { return GE_SRC_X; }
-    if (geStrEq(v, "y"))          { return GE_SRC_Y; }
-    if (geStrEq(v, "lb"))         { return GE_SRC_LB; }
-    if (geStrEq(v, "rb"))         { return GE_SRC_RB; }
-    if (geStrEq(v, "lt"))         { return GE_SRC_LT; }
-    if (geStrEq(v, "rt"))         { return GE_SRC_RT; }
-    if (geStrEq(v, "start"))      { return GE_SRC_START; }
-    if (geStrEq(v, "back"))       { return GE_SRC_BACK; }
-    if (geStrEq(v, "none"))       { return GE_SRC_NONE; }
-    printf("[getv] input: binding \"%s\" not recognised -- expected a/b/x/y/lb/rb/"
-           "lt/rt/start/back/none; keeping the default\n", v);
-    return fallback;
-}
-
-/* Compose a binding key into `dst`, either "GETV_BIND_<ACT>" (player < 1) or
- * "GETV_P<n>_BIND_<ACT>". Written by hand because this translation unit has no <string.h>:
- * <PR/os.h> and the system string headers cannot coexist here (see the include note at the
- * top of the file), which is also why geStrEq exists. */
-static void geBindKey(char *dst, int cap, int player, const char *act)
-{
-    static const char pre[]  = "GETV_P";
-    static const char mid[]  = "_BIND_";
-    static const char glob[] = "GETV_BIND_";
-    int i = 0, k;
-
-    if (player >= 1) {
-        for (k = 0; pre[k] != '\0' && i < cap - 1; k++) { dst[i++] = pre[k]; }
-        if (i < cap - 1) { dst[i++] = (char)('0' + player); }
-        for (k = 0; mid[k] != '\0' && i < cap - 1; k++) { dst[i++] = mid[k]; }
-    } else {
-        for (k = 0; glob[k] != '\0' && i < cap - 1; k++) { dst[i++] = glob[k]; }
-    }
-    for (k = 0; act[k] != '\0' && i < cap - 1; k++) { dst[i++] = act[k]; }
-    dst[i] = '\0';
-}
-
-/* The trigger defaults below are a judgement call, not a settled fact. RT=fire /
- * LT=aim is the modern-shooter convention, but a meaningful minority of players expect
- * the inverse and GoldenEye's own retail scheme has neither. Swapping them is
- * `fire=lt aim=rt`, one config line, precisely so the choice is cheap to reverse.
- *
- * Bindings are PER PLAYER, resolved in three steps: `GETV_P2_BIND_FIRE` if set, else the
- * global `GETV_BIND_FIRE`, else the default. Split-screen is the whole reason -- with one
- * global table, moving fire off the right trigger for a player on a Nintendo pad moved it for
- * everyone, so a mixed set of controllers could not be accommodated at all. The global key
- * keeps working and still means "all four", so nothing that was configured before changes. */
-static int geBindSrc(int player, int act)
-{
-    static int resolved = 0;
-    static int src[GE_PORT_MAX_PADS][GE_ACT_MAX];
-
-    /* Ordinal hazard, the same class as the CHEAT_ID table in ge_config.c: these tables are
-     * positional and must track the GE_SRC_* / GE_ACT_* enums above verbatim. Adding or
-     * removing an enum member shifts every later ordinal, and the report below then prints
-     * the wrong name -- worse than no line at all, because it looks authoritative. The enums
-     * are GE_SRC_* = none,a,b,x,y,lb,rb,lt,rt,start,back (11) and
-     * GE_ACT_* = fire,aim,use,weapon_next,weapon_prev,pause (6, GE_ACT_MAX).
-     * `dflt` is now a third table under the same rule. Re-check all three on any change. */
-    static const char *const nm[] = {
-        "none", "a", "b", "x", "y", "lb", "rb", "lt", "rt", "start", "back"
-    };
-    static const char *const act_nm[] = {
-        "fire", "aim", "use", "weapon_next", "weapon_prev", "pause"
-    };
-    static const char *const act_key[] = {
-        "FIRE", "AIM", "USE", "WEAPON_NEXT", "WEAPON_PREV", "PAUSE"
-    };
-    static const int dflt[] = {
-        GE_SRC_RT, GE_SRC_LT, GE_SRC_B, GE_SRC_A, GE_SRC_NONE, GE_SRC_START
-    };
-
-    if (!resolved) {
-        int p, a;
-
-        for (a = 0; a < GE_ACT_MAX; a++) {
-            char key[64];
-            int g;
-
-            geBindKey(key, (int)sizeof key, 0, act_key[a]);
-            g = geParseSrc(getenv(key), dflt[a]);
-
-            for (p = 0; p < GE_PORT_MAX_PADS; p++) {
-                geBindKey(key, (int)sizeof key, p + 1, act_key[a]);
-                src[p][a] = geParseSrc(getenv(key), g);
-            }
-        }
-        resolved = 1;
-
-        /* Positive confirmation of what each action resolved to. With only the
-         * "not recognised" warning, a correctly-applied binding produced no evidence
-         * at all, so a config key that silently failed to reach here was
-         * indistinguishable from one that worked. Verifying a setting requires the
-         * consumer to say what it actually got.
-         *
-         * Player 1 is always printed; the others only when they differ from it, so the
-         * common case stays one line and a per-player override is impossible to miss. */
-        for (p = 0; p < GE_PORT_MAX_PADS; p++) {
-            int differs = 0;
-            for (a = 0; a < GE_ACT_MAX; a++) {
-                if (src[p][a] != src[0][a]) { differs = 1; }
-            }
-            if (p > 0 && !differs) { continue; }
-
-            printf("[getv] input: bindings resolved, player %d --", p + 1);
-            for (a = 0; a < GE_ACT_MAX && a < (int)(sizeof act_nm / sizeof act_nm[0]); a++) {
-                int v = src[p][a];
-                printf(" %s=%s", act_nm[a],
-                       (v >= 0 && v < (int)(sizeof nm / sizeof nm[0])) ? nm[v] : "?");
-            }
-            printf("\n");
-        }
-    }
-
-    if (player < 0 || player >= GE_PORT_MAX_PADS) { player = 0; }
-    return (act >= 0 && act < GE_ACT_MAX) ? src[player][act] : GE_SRC_NONE;
-}
-
-/* Is the input bound to `act` held this frame, for the player on `player`? */
-static int geHeld(const struct GePadState *st, int player, int act)
-{
-    switch (geBindSrc(player, act)) {
-        case GE_SRC_A:     return st->a;
-        case GE_SRC_B:     return st->b;
-        case GE_SRC_X:     return st->x;
-        case GE_SRC_Y:     return st->y;
-        case GE_SRC_LB:    return st->lshoulder;
-        case GE_SRC_RB:    return st->rshoulder;
-        case GE_SRC_LT:    return st->ltrigger;
-        case GE_SRC_RT:    return st->rtrigger;
-        case GE_SRC_START: return st->start || st->back;
-        case GE_SRC_BACK:  return st->back;
-        default:           return 0;
-    }
-}
+/* The old spelling, kept so the decode functions below read as they did. */
+#define geHeld(st, player, act) geActionHeld((st), (player), (act))
 
 static s8 geStick(int v);   /* defined below, next to the C-button thresholds */
 
@@ -905,12 +746,82 @@ static void gePortInputTrace(int port, const struct GePadState *st, u16 button, 
  * port. Shared hysteresis across four players would let player 1's right stick latch
  * player 3's C-buttons -- invisible in solo and unplayable in multiplayer.
  */
+/* ---- front-end menus ------------------------------------------------------------
+ *
+ * Menus do not use the gameplay bindings at all; see geMenuButtons() in ge_bindings.c.
+ * The short version: the modern preset put pad confirm on the N64 B button, made the
+ * mouse wheel press A, and a launcher rebind could delete the keyboard's only confirm
+ * key. None of that is a preference anyone chose for a menu.
+ */
+static u16 geN64ToCont(unsigned n)
+{
+    u16 b = 0;
+    if (n & GE_N64_A)     { b |= CONT_A; }
+    if (n & GE_N64_B)     { b |= CONT_B; }
+    if (n & GE_N64_Z)     { b |= CONT_G; }
+    if (n & GE_N64_START) { b |= CONT_START; }
+    if (n & GE_N64_L)     { b |= CONT_L; }
+    if (n & GE_N64_R)     { b |= CONT_R; }
+    return b;
+}
+
+/* Either stick moves the menu cursor, and the right stick produces no C-buttons here.
+ *
+ * That is what the dual-analog decoder below already does in menus, and doing the same
+ * in the single-pad styles is what lets the mouse point: mouse motion arrives as right
+ * stick deflection, and front.c moves its cursor from joyGetStickX/Y (front.c:1156-1218).
+ * Keeping right-stick C-buttons as well would move character select twice for one
+ * gesture -- it reads both L_CBUTTONS and the stick (front.c:5998). The pad's X/Y still
+ * give C-down/C-up, and the d-pad still gives every direction. */
+static void geDecodeMenuPad(const struct GePadState *st, OSContPad *pad)
+{
+    u16 b = geN64ToCont(geMenuButtons(st));
+
+    if (st->dup)    { b |= CONT_UP; }
+    if (st->ddown)  { b |= CONT_DOWN; }
+    if (st->dleft)  { b |= CONT_LEFT; }
+    if (st->dright) { b |= CONT_RIGHT; }
+    if (st->y)      { b |= CONT_E; }
+    if (st->x)      { b |= CONT_D; }
+
+    pad->button  = b;
+    pad->stick_x = geStickOr(st->lx, st->rx);
+    pad->stick_y = (s8)(-(int)geStickOr(st->ly, st->ry));
+    pad->errno   = 0;
+}
+
 static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pad)
 {
     u16 b = 0;
 
+    if (geInFrontEnd()) {
+        geDecodeMenuPad(st, pad);
+        return;
+    }
+
     if (geHeld(st, port, GE_ACT_WEAPON_NEXT)) { b |= CONT_A; }   /* GE's "inventory" button */
     if (geHeld(st, port, GE_ACT_USE))   { b |= CONT_B; }
+
+    /* Back-cycle, synthesised from the retail gesture rather than from an engine input
+     * that does not exist. bondview2.c reads it as
+     *
+     *     weaponBackOffset = (buttons & invButtons) && ((buttons & ~oldbuttons) & shootButtons)
+     *
+     * -- inventory HELD and fire on a RISING edge -- with invButtons = A and
+     * shootButtons = Z in every control style except KISSY and GOODNIGHT. Asserting
+     * both bits on the same frame satisfies it: A is held and Z is rising, both true.
+     *
+     * Two things make it safe to OR in here. Forward-cycle does not also fire, because
+     * that wants `(A rising) && !(Z held)` and Z is held. And the gun does not
+     * discharge, because `triggerOn` is suppressed while inventory is down
+     * (bondview2.c). It only cycles once per press either way: after the first frame Z
+     * is held rather than rising.
+     *
+     * This was already in geDecodeDualAnalog and missing here, so `weapon_prev` bound
+     * to anything did nothing at all in the single-pad control styles -- which are the
+     * ones a keyboard player is in. The mouse wheel binds to it by default, so this is
+     * the path that makes scroll-down work. */
+    if (geHeld(st, port, GE_ACT_WEAPON_PREV)) { b |= CONT_A | CONT_G; }
     if (st->lshoulder) { b |= CONT_L; }
     if (st->rshoulder) { b |= CONT_R; }
 
@@ -924,7 +835,7 @@ static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pa
 
     /* Start is the pause menu and, in solo, Bond's watch. Aliasing the pad's Back /
      * Menu button onto it costs nothing -- the N64 has no fifth face bit for Back to
-     * map to, and every front.c menu branch accepts START_BUTTON. */
+     * map to. (Menus do not come through here at all -- see geDecodeMenuPad.) */
     if (geHeld(st, port, GE_ACT_PAUSE)) { b |= CONT_START; }
 
     /* Z is the N64 trigger and, in the default control style, GoldenEye's FIRE button:
@@ -966,6 +877,9 @@ static void gePortDecodePad(int port, const struct GePadState *st, OSContPad *pa
         if (geCEdge( st->rx, &cr[port]))          { b |= CONT_F; }   /* C-right */
     }
 
+    /* Scripted N64 buttons, which bypass the bindings on purpose. */
+    b |= geN64ToCont(st->n64);
+
     pad->button  = b;
     pad->stick_x = geStick(st->lx);
     pad->stick_y = (s8)(-(int)geStick(st->ly));   /* SDL +Y is down, the N64's is up */
@@ -984,6 +898,28 @@ static void geDecodeDualAnalog(const struct GePadState *st, OSContPad *p0, OSCon
      * caller), so p1 is still player 1's second controller and must not read player 2's
      * keys. */
     const int player = 0;
+
+    /* Menus: fixed buttons on both halves, either stick on the cursor. */
+    if (geInFrontEnd()) {
+        u16 menu = geN64ToCont(geMenuButtons(st));
+        if (st->dup)    { menu |= CONT_UP; }
+        if (st->ddown)  { menu |= CONT_DOWN; }
+        if (st->dleft)  { menu |= CONT_LEFT; }
+        if (st->dright) { menu |= CONT_RIGHT; }
+        p0->button  = menu;
+        p0->stick_x = geStickOr(st->rx, st->lx);
+        p0->stick_y = (s8)(-(int)geStickOr(st->ry, st->ly));
+        p0->errno   = 0;
+        p1->button  = menu;
+        p1->stick_x = geStick(st->lx);
+        p1->stick_y = (s8)(-(int)geStick(st->ly));
+        p1->errno   = 0;
+        return;
+    }
+
+    /* Scripted N64 buttons bypass the bindings. Z is fire, which the 2.x styles take
+     * from controller 1 only, so it is added to p0 below rather than to both. */
+    common |= geN64ToCont(st->n64 & ~GE_N64_Z);
 
     if (geHeld(st, player, GE_ACT_WEAPON_NEXT)) { common |= CONT_A; }  /* cycle: either pad */
     if (geHeld(st, player, GE_ACT_USE))         { common |= CONT_B; }  /* btap (tank): either pad */
@@ -1012,6 +948,7 @@ static void geDecodeDualAnalog(const struct GePadState *st, OSContPad *p0, OSCon
      * (`bondview2.c:5070-5085`). The binding layer decides which physical input each
      * one is; the port assignment is fixed by the style. */
     p0->button  = common | (geHeld(st, player, GE_ACT_FIRE) ? CONT_G : 0)
+                         | ((st->n64 & GE_N64_Z) ? CONT_G : 0)
                          | (geHeld(st, player, GE_ACT_WEAPON_PREV) ? CONT_G : 0);
     p0->errno   = 0;
 

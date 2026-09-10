@@ -154,6 +154,64 @@ int  geBridgeGetBindP(int player, int action);
 void geBridgeSetBindP(int player, int action, int src);
 void geBridgeResetBindTab(void);
 
+/* ---- keyboard and mouse rebinding, presets, hold vs toggle ----------------
+ *
+ * The same shared Model the ImGui page edits (g_bridgeModel in ge_launcher.cpp), so the
+ * two launchers cannot disagree about what a setting means -- only about how it is
+ * drawn.
+ *
+ * A key binding is a STRING, not an index: it can be a list ("C,Left Ctrl"), the names
+ * are SDL's own plus this port's mouse1..mouse5/wheelup/wheeldown, and a name written
+ * here goes into goldeneye.cfg verbatim. An empty string means "inherit the preset",
+ * which is the same tri-state the pad bindings express with -1, and for the same
+ * reason: the launcher must not pin every binding the first time the page is opened.
+ * geBridgeGetKeyBindDefault() is what an empty string resolves to under the CURRENT
+ * preset, so an untouched row can still show something concrete.
+ *
+ * Movement axes are separate from actions because they are not buttons -- they deflect
+ * a virtual stick -- and are keyboard-only; on a pad they come from a real analogue
+ * axis and are not bindable. */
+int geBridgeAxisCount(void);
+const char *geBridgeAxisLabel(int i);
+
+const char *geBridgeGetKeyBind(int action);
+void        geBridgeSetKeyBind(int action, const char *v);
+const char *geBridgeGetKeyBindDefault(int action);
+
+const char *geBridgeGetAxisBind(int axis);
+void        geBridgeSetAxisBind(int axis, const char *v);
+const char *geBridgeGetAxisBindDefault(int axis);
+
+/* 0 = modern, 1 = n64, matching GE_PRESET_* in ge_actions.h. Setting it clears every
+ * explicit binding: the value of a preset is that picking it describes the layout
+ * completely, which a leftover binding from the other one would break. */
+int  geBridgeGetInputPreset(void);
+void geBridgeSetInputPreset(int v);
+
+/* 0 = hold, 1 = toggle, matching GE_HOLD / GE_TOGGLE. */
+int  geBridgeGetAimMode(void);
+void geBridgeSetAimMode(int v);
+int  geBridgeGetCrouchMode(void);
+void geBridgeSetCrouchMode(int v);
+
+/* The port's dedicated crouch/stand keys at all. 0 leaves only the retail gesture. */
+int  geBridgeGetCrouchKey(void);
+void geBridgeSetCrouchKey(int v);
+
+/* ---- persisting the controls page ----------------------------------------
+ *
+ * geBridgeSave() applies settings to the environment for the relaunch, and they are
+ * gone when the process ends. geBridgeSaveControls() writes the CONTROLS page into
+ * goldeneye.cfg so a rebound key is still there next session -- a rewrite in place that
+ * leaves comments, ordering and every other page's settings alone.
+ *
+ * Separate calls because applying and persisting are different acts with different
+ * blast radii: one lasts until you quit, the other edits a file the player also edits
+ * by hand. geBridgeConfigPath() is where it will go, for the UI to show; it is the
+ * empty string when no config file could be located or created. */
+void geBridgeSaveControls(void);
+const char *geBridgeConfigPath(void);
+
 int geBridgeModCount(void);
 const char *geBridgeModName(int i);
 int  geBridgeGetModOn(int i);

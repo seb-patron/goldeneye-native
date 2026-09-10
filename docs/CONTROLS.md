@@ -3,45 +3,123 @@
 GoldenEye-Native accepts keyboard, mouse, and SDL2-compatible gamepads at the same time. A
 connected gamepad does not disable keyboard or mouse input.
 
-Gamepad actions can be rebound globally or per player. The physical keyboard layout is currently
-fixed; there is no keyboard-key picker or config syntax for assigning an arbitrary key.
+**Everything is rebindable** — keys, mouse buttons, the wheel, and gamepad buttons, each
+independently of the others. Bindings can be saved to `goldeneye.cfg` from the launcher so they
+survive quitting.
+
+## Presets
+
+A preset supplies the defaults for both devices. An explicit binding always beats it, so pick the
+one closest to what you want and change only what you care about.
+
+```ini
+input_preset = modern     # or: n64
+```
+
+**`modern`** (the default) is the layout a player coming from any shooter of the last fifteen
+years expects. **`n64`** reproduces exactly what this port defaulted to before remapping existed,
+so it is a true revert rather than an approximation — use it if you preferred the old keys.
+
+Changing the preset in either launcher clears every binding you have set, because a preset is only
+useful if it describes the whole layout.
 
 ## Keyboard and mouse
 
-| Input | Default action |
-|---|---|
-| `W` `A` `S` `D` | Move |
-| Arrow keys | Look |
-| `Space` or `Left Ctrl` | Fire |
-| `Q` | Aim |
-| `E` or `F` | Use, open, activate, or plant |
-| `R` or `Return` | Inventory / next weapon; `Return` also confirms menu items |
-| `Tab` or keypad `Enter` | Start / pause / watch |
-| `Backspace` | Back |
-| `I` `J` `K` `L` | D-pad up / left / down / right |
-| `Z` / `X` | N64 left / right shoulder input |
-| `C` or `Left Shift` | Crouch |
-| `V` | Stand |
-| Mouse movement | Look |
-| Left mouse button | Fire |
-| Right mouse button | Aim |
-| `Escape` | Release or recapture the mouse cursor |
+| Input | `modern` | `n64` |
+|---|---|---|
+| `W` `A` `S` `D` | Move | Move |
+| Arrow keys | Look | Look |
+| Left mouse button | Fire (select in menus) | same |
+| Right mouse button | Aim (back in menus) | same |
+| `Space` | Fire | Fire (also `Left Ctrl`) |
+| `Q` | Next weapon | Aim |
+| `E` or `F` | Use / interact | Use / interact |
+| `R` | **Reload** | Next weapon (with `Return`) |
+| `C` or `Left Ctrl` | Crouch | Crouch (`C` or `Left Shift`) |
+| Mouse wheel up / down | Next / previous weapon | — |
+| `Return` | Next weapon; also confirms menu items | same |
+| `Tab` or keypad `Enter` | Start / pause / watch | same |
+| `Escape` | Release or recapture the mouse cursor | same |
 
-After releasing the cursor or switching to another app, left-click inside the game to resume
-mouse control. The resume click does not fire; release the mouse buttons before clicking to fire
-or aim again. Pressing `Escape` again also recaptures the cursor. The developer console keeps
-control of clicks while it is open.
+`Z` / `X` are the N64 left and right shoulder inputs and `I` `J` `K` `L` are the d-pad. Those are
+not actions and are not bindable — nothing in the game reads them on their own.
 
-The keyboard map comes from `geKeyboardApply()` and the crouch helpers in
-`getv/port/src/port_input.c`. It is also summarized in the launcher and printed at startup.
+### In menus
+
+Menus do **not** use your bindings. However you have remapped things for play, the front end
+always reads the same inputs:
+
+| Do | Mouse | Keyboard | Gamepad |
+|---|---|---|---|
+| Move the cursor | Move the mouse | `W` `A` `S` `D` or arrow keys | Either stick or the d-pad |
+| Select | Left click | `Return` or `Space` | Bottom face button (A / Cross) |
+| Back | Right click | `Backspace` | Right face button (B / Circle) |
+| Start | — | `Tab` or keypad `Enter` | Start |
+
+Left click is *select*, not START, on purpose: on the mission briefing START launches the mission
+from any page, while select acts on the tab under the cursor.
+
+This exists because gameplay bindings made poor menu controls. The modern pad layout puts *use* on
+the bottom face button, and *use* is the N64's back button, so that button backed out of every
+menu. The wheel cycles weapons, which pressed the N64's select button, so scrolling picked
+whatever was highlighted. And rebinding next weapon in the launcher could remove the keyboard's
+only confirm key, leaving `Tab` as the only way past the mission report.
+
+After releasing the cursor or switching to another app, left-click inside the game to resume mouse
+control. The resume click does not fire; release the mouse buttons before clicking to fire or aim
+again. Pressing `Escape` again also recaptures the cursor. The developer console keeps control of
+clicks and wheel notches while it is open.
+
+### Rebinding a key
+
+Each action takes a comma-separated list; any one of them fires it.
+
+```ini
+key.reload      = R
+key.crouch      = C,Left Ctrl
+key.aim         = mouse2
+key.weapon_next = Q,wheelup,Return
+key.weapon_prev = wheeldown
+key.forward     = W
+```
+
+Names are SDL's own — `Left Ctrl`, `Space`, `Keypad Enter`, `F1` — and are case-insensitive. This
+port adds `mouse1` through `mouse5`, `wheelup` and `wheeldown`, and accepts the short forms
+`lctrl`, `rctrl`, `lshift`, `rshift`, `lalt`, `ralt`, `esc`, `enter`, `pgup`, `pgdn`, `kpenter`.
+Use `none` to unbind. The resolved list is printed at startup, so a binding that failed to apply
+is visible rather than silent.
+
+The bindable actions are `fire`, `aim`, `use`, `reload`, `crouch`, `weapon_next`, `weapon_prev`
+and `pause`; the movement axes are `forward`, `backward`, `strafe_left`,
+`strafe_right`, `look_up`, `look_down`, `look_left` and `look_right`.
+
+`look_*` drive the right stick, which is also how a keyboard player moves the front-end menu
+cursor — worth leaving bound even with the mouse on.
+
+### Hold or toggle
+
+```ini
+aim_mode    = hold       # or: toggle
+crouch_mode = toggle     # or: hold
+```
+
+Aim toggle sets GoldenEye's own per-player aim-control option, which the engine reads as a press
+rather than a hold. It is the retail setting, not something bolted on top. Crouch toggle is the
+port's, because the engine has no crouch button to latch.
+
+**There is no stand key.** Crouch defaults to `toggle`, so pressing it again stands you up. In
+`hold` mode, releasing it stands you up instead. An earlier version of this shipped a separate
+stand key on `V`; it did nothing except while already crouched, so nobody found it and the crouch
+read as broken. It is gone.
+
+### Mouse
 
 Mouse look defaults to **Modern** response: mouse distance directly controls the camera angle.
-Choose **Classic N64** in the desktop launcher's Controls page, or set `mouse_mode = classic`,
-for the original stick acceleration and turn-speed limit. Controller response is unchanged.
-See [MOUSE.md](MOUSE.md) for vehicle and network fallback behavior.
+Choose **Classic N64** in the launcher's Controls page, or set `mouse_mode = classic`, for the
+original stick acceleration and turn-speed limit. Controller response is unchanged. See
+[MOUSE.md](MOUSE.md) for vehicle and network fallback behavior.
 
-Mouse and keyboard are enabled by default. The launcher exposes mouse sensitivity, mouse Y
-inversion, and an enable/disable switch for both devices. The equivalent raw settings are:
+Mouse and keyboard are both enabled by default:
 
 ```ini
 GETV_MOUSE = 1
@@ -50,71 +128,116 @@ GETV_MOUSE_INVERT = 0
 GETV_KEYBOARD = 1
 ```
 
-`GETV_MOUSE_SENS` is a percentage and is clamped to `1` through `1000`. Set
-`GETV_CROUCH_KEY = 0` to disable the dedicated crouch/stand keys and retain only the original
-in-game crouch gesture.
+`GETV_MOUSE_SENS` is a percentage clamped to `1` through `1000`.
 
-### Can keyboard keys be rebound?
+The wheel is the one input the port cannot poll — SDL exposes wheel motion only as an event — so
+notches are counted and released one per frame with a gap between them. The engine cycles weapons
+on a rising edge, so three notches flicked inside a single frame would otherwise advance one
+weapon instead of three. A backlog of more than eight notches is dropped, and the backlog is
+discarded entirely whenever the game should not be reading input.
 
-Not individually. The keyboard generates the same virtual gamepad inputs as a controller, so the
-action bindings described below can change their meaning indirectly. For example, changing
-`fire = lt` and `aim = rt` makes the fixed `Q`/right-mouse input fire and the fixed
-`Space`/left-mouse input aim. That remap also affects gamepads and is not an arbitrary keyboard
-binding system.
+## Crouch and reload
 
-Adding true keyboard rebinding would require a key-to-virtual-input configuration layer in
-`port_input.c` and corresponding launcher controls. Until then, the keys in the table above are
-the supported physical layout.
+None of these three reaches the game through the N64 controller, because the engine has no button
+for any of them. The port reads them back out of the binding table directly. The retail gestures
+still work alongside them:
 
-## Gamepad defaults
+- **Crouch** — retail is aim mode plus stick down (`bondview2.c` requires `insightaimmode`), so
+  crouching means holding aim, pushing down, then releasing aim while staying low.
+- **Reload** — retail is the *use* button with nothing to use. `bond_interact_object()` returns
+  true only when there is no prop in range, so `E` near a door opens the door and `E` near nothing
+  reloads. A key bound to `reload` reloads wherever you are standing, which is what a key labelled
+  R should do.
+
+  **Binding a reload key turns the retail double duty off**, so `E` then only interacts and never
+  reloads. That is automatic: the same key doing two different things depending on where you are
+  standing is exactly what a dedicated key replaces. `input_preset = n64` leaves reload unbound
+  and therefore keeps retail behaviour. `use_reloads = 1` forces the double duty back on,
+  `use_reloads = 0` removes it even with no reload key bound.
+
+Set `crouch_key = 0` to remove the port's dedicated crouch binding entirely and keep only the
+retail gesture.
+
+## Gamepad
 
 SDL2-recognized Xbox, PlayStation, Nintendo, MFi, and generic controllers are detected
-automatically. The default modern layout is:
+automatically.
 
-| Action | Default physical input |
-|---|---|
-| Move | Left stick |
-| Look | Right stick |
-| Fire | Right trigger (`rt`) |
-| Aim | Left trigger (`lt`) |
-| Use | Right face button (`b`) |
-| Next weapon | Bottom face button (`a`) |
-| Previous weapon | Unbound |
-| Pause / watch | Start |
+| Action | `modern` | `n64` |
+|---|---|---|
+| Move | Left stick | Left stick |
+| Look | Right stick | Right stick |
+| Fire | Right trigger (`rt`) | `rt` |
+| Aim | Left trigger (`lt`) | `lt` |
+| Use / interact | South face (`a`) | East face (`b`) |
+| Reload | West face (`x`) | Unbound |
+| Crouch | East face (`b`) — press again to stand | Unbound |
+| Next weapon | North face (`y`) | South face (`a`) |
+| Previous weapon | Unbound | Unbound |
+| Pause / watch | `start` | `start` |
 
-Button names are positional, not label-based. SDL calls the bottom face button `a` even on a
-Nintendo controller where the printed label is B. The accepted binding values are:
+On a DualSense that makes `a` Cross, `b` Circle, `x` Square and `y` Triangle; on a Switch Pro, `a`
+is the physically-bottom button, which is printed B.
+
+Button names are positional, not label-based — SDL maps the physically-bottom face button to `a`
+on every controller it knows. The accepted values are:
 
 ```text
-a b x y lb rb lt rt start back none
+a b x y lb rb lt rt start back dup ddown dleft dright lstick rstick none
 ```
 
-The `gamepad` setting (`auto`, `xbox`, `playstation`, `switch`, or `generic`) changes only the
-prompt glyphs. It does not change bindings.
+The d-pad and the stick clicks (`lstick`, `rstick`) are bindable; they were not before.
 
-## Change gamepad bindings
+`weapon_prev` is unbound on the pad on purpose. GoldenEye has no back-cycle button — the retail
+gesture is hold-inventory plus tap-fire, which the port synthesises as a single `A`+`Z` frame.
+That is faithful to the gesture but unverified on real hardware, so it stays opt-in on a face
+button. The mouse wheel binds to it by default, where one notch is unambiguous.
+
+The `gamepad` setting (`auto`, `xbox`, `playstation`, `switch`, `generic`) changes only the prompt
+glyphs. It never changes what a binding does.
+
+## Changing bindings
 
 ### In the launcher
 
-Start the game with `--launcher`, open **Controls**, choose **ALL** or a player tab, and select a
-source for each action. Applying the settings restarts the game so every input consumer sees the
-new values from startup.
+Start with `--launcher` and open **Controls**. On macOS this is the SwiftUI launcher; elsewhere it
+is the ImGui one. Both edit the same settings.
+
+- **ImGui** — click a binding and press the key or mouse button you want. `Escape` cancels. The
+  `x` button clears to the preset default, and clears again to unbound.
+- **SwiftUI** — type the key name into the field. A binding can be a list, which a
+  press-a-key capture cannot express, and the placeholder shows what the preset supplies.
+
+**Starting the game saves them.** The controls page is written to `goldeneye.cfg` when you press
+START, and there is also a SAVE CONTROLS button for saving without launching. Every *other*
+setting in the launcher still works the old way — handed to the relaunched game as an environment
+variable, gone when you quit — but a rebind that vanished on the next cold start was a trap, so
+controls are persisted.
+
+The write is a rewrite in place: comments, ordering, settings from other pages, and any key this
+build does not recognise are all left alone.
 
 ### In `goldeneye.cfg`
 
-The exact config path is printed at startup. These are the default action bindings:
+The exact config path is printed at startup.
 
 ```ini
-fire        = rt
-aim         = lt
-use         = b
-weapon_next = a
-weapon_prev = none
-pause       = start
+input_preset = modern
+aim_mode     = hold
+crouch_mode  = hold
+
+# gamepad
+fire   = rt
+reload = x
+crouch = b
+
+# keyboard and mouse
+key.reload = R
+key.crouch = C,Left Ctrl
 ```
 
-Prefix an action with `p1.` through `p4.` to override one player while leaving the global value as
-the fallback:
+Prefix a gamepad action with `p1.` through `p4.` to override one player while leaving the global
+value as the fallback:
 
 ```ini
 fire       = rt
@@ -123,19 +246,20 @@ p3.aim     = x
 p4.pause   = back
 ```
 
-Resolution order is per-player value, then global value, then built-in default. The startup log
-prints player 1's resolved bindings and prints any other player whose bindings differ.
+Resolution order is per-player value, then global value, then the preset. The startup log prints
+player 1's resolved bindings and prints any other player whose bindings differ. Keyboard bindings
+are not per-player: a second keyboard is not something this port supports.
 
 ### On the command line
 
 Every config key also works as a one-run command-line option:
 
 ```bash
-./getv/build-mac/goldeneye --fire=lt --aim=rt --p2.fire=rb
+./getv/build-mac/goldeneye --fire=lt --aim=rt --p2.fire=rb --key.reload=F
 ```
 
-Environment variables are also accepted. For example, the config key `p2.fire` maps to
-`GETV_P2_BIND_FIRE`.
+Environment variables are also accepted: `p2.fire` maps to `GETV_P2_BIND_FIRE`, and `key.reload`
+to `GETV_KEY_RELOAD`.
 
 ## Original control styles
 

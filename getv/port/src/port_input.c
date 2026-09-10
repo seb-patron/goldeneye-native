@@ -52,6 +52,9 @@
 
 #include <SDL.h>
 
+#include "ge_actions.h"
+#include "ge_bindings.h"
+#include "ge_wheel.h"
 #include "port_input.h"
 #include "ge_console_input.h"
 #include "ge_mouse_look.h"
@@ -302,24 +305,18 @@ static void geScriptApply(int port, int frame, struct GePadState *out)
  out->present   = 1;
  out->synthetic = 1;
 
- if (keys & GE_SK_A)     { out->a = 1; }
- if (keys & GE_SK_B)     { out->b = 1; }
+ /* A, B, Z and START are N64 button names and press those buttons directly, bypassing
+  * the bindings. With the modern preset `use` sits on the pad's bottom face button, so
+  * writing `out->a` made a script's `A` press N64 B -- the documented
+  * `GETV_SCRIPT="120:A:6"` backed out of file select instead of choosing it, and every
+  * tools/playtest.py script changed meaning with the local player's preset. */
+ if (keys & GE_SK_A)     { out->n64 |= GE_N64_A; }
+ if (keys & GE_SK_B)     { out->n64 |= GE_N64_B; }
  if (keys & GE_SK_X)     { out->x = 1; }
  if (keys & GE_SK_Y)     { out->y = 1; }
- if (keys & GE_SK_START) { out->start = 1; }
+ if (keys & GE_SK_START) { out->n64 |= GE_N64_START; }
  if (keys & GE_SK_BACK)  { out->back = 1; }
- /* GE_SK_Z drives the RIGHT trigger, not the left.
-  *
-  * The key names in this parser are the N64's, and on the N64 Z is the fire button --
-  * bondview2.c picks `shootButtons = Z_TRIG` for every control style except KISSY and
-  * GOODNIGHT. But this harness emits a *gamepad* state, which port_os.c then maps to N64
-  * buttons, and it binds GE_ACT_FIRE to GE_SRC_RT (port_os.c:467) while AIM takes the left
-  * trigger. Wiring "Z" to ltrigger therefore aimed instead of firing.
-  *
-  * No key in this parser reached fire at all, so a scripted run could walk, open menus and
-  * aim but never shoot. The symptom is `trigger_down` stuck at 0 with a loaded weapon in
-  * hand. */
- if (keys & GE_SK_Z)     { out->rtrigger = 1; out->rt_raw = 32767; }
+ if (keys & GE_SK_Z)     { out->n64 |= GE_N64_Z; }
  if (keys & GE_SK_RT)    { out->rtrigger = 1; out->rt_raw = 32767; }
  if (keys & GE_SK_LT)    { out->ltrigger = 1; out->lt_raw = 32767; }
  if (keys & GE_SK_L)     { out->lshoulder = 1; }
@@ -1041,10 +1038,364 @@ static int geMouseInvert(void)
  return v;
 }
 
+/* ---- keyboard and mouse BINDINGS -----------------------------------------
+ *
+ * The layer this port was missing. Everything below turns a config value like
+ * "C,Left Ctrl" into "GE_ACT_CROUCH is down", which is what makes the keyboard
+ * remappable at all.
+ *
+ * Keys and mouse buttons share ONE code space, so an action can be bound to either with
+ * the same config key and the launcher needs one capture widget rather than two. Codes
+ * 0..SDL_NUM_SCANCODES-1 are SDL scancodes; the mouse sits directly above them.
+ *
+ * The wheel is two codes rather than an axis because of what it drives: a weapon cycle
+ * is a button press, and the engine wants an edge. geWheelTick turns each notch into
+ * exactly one frame of "pressed" followed by at least one frame of "released".
+ */
+#define GE_CODE_MOUSE_BASE SDL_NUM_SCANCODES
+enum {
+    GE_CODE_MOUSE1 = GE_CODE_MOUSE_BASE,   /* left   */
+    GE_CODE_MOUSE2,                        /* right  */
+    GE_CODE_MOUSE3,                        /* middle */
+    GE_CODE_MOUSE4,                        /* back   */
+    GE_CODE_MOUSE5,                        /* fwd    */
+    GE_CODE_WHEELUP,
+    GE_CODE_WHEELDOWN,
+    GE_CODE_MAX
+};
+
+/* Spellings SDL_GetScancodeFromName does not know, plus the mouse.
+ *
+ * SDL's own names are authoritative and case-insensitive, but they are also long: the
+ * left control key is "Left Ctrl", and nobody types that. Every alias here is a name a
+ * player is likely to reach for first, and the SDL spelling keeps working alongside it.
+ * The launcher writes SDL spellings; this table is for hand-edited config files. */
+static const struct { const char *name; int code; } ge_code_alias[] = {
+    { "mouse1",     GE_CODE_MOUSE1 },   { "lmb",        GE_CODE_MOUSE1 },
+    { "mouse2",     GE_CODE_MOUSE2 },   { "rmb",        GE_CODE_MOUSE2 },
+    { "mouse3",     GE_CODE_MOUSE3 },   { "mmb",        GE_CODE_MOUSE3 },
+    { "mouse4",     GE_CODE_MOUSE4 },
+    { "mouse5",     GE_CODE_MOUSE5 },
+    { "wheelup",    GE_CODE_WHEELUP },  { "mwheelup",   GE_CODE_WHEELUP },
+    { "wheeldown",  GE_CODE_WHEELDOWN },{ "mwheeldown", GE_CODE_WHEELDOWN },
+    { "lctrl",      SDL_SCANCODE_LCTRL },  { "rctrl",   SDL_SCANCODE_RCTRL },
+    { "ctrl",       SDL_SCANCODE_LCTRL },
+    { "lshift",     SDL_SCANCODE_LSHIFT }, { "rshift",  SDL_SCANCODE_RSHIFT },
+    { "shift",      SDL_SCANCODE_LSHIFT },
+    { "lalt",       SDL_SCANCODE_LALT },   { "ralt",    SDL_SCANCODE_RALT },
+    { "alt",        SDL_SCANCODE_LALT },
+    { "enter",      SDL_SCANCODE_RETURN }, { "esc",     SDL_SCANCODE_ESCAPE },
+    { "pgup",       SDL_SCANCODE_PAGEUP }, { "pgdn",    SDL_SCANCODE_PAGEDOWN },
+    { "kpenter",    SDL_SCANCODE_KP_ENTER },
+    { "none",       -1 },
+    { NULL, 0 }
+};
+
+/* One code from a name. -1 for "unbound", which is a legitimate value, so callers must
+ * distinguish it from the parse failure that returns -2. */
+static int geParseInputCode(const char *name)
+{
+    SDL_Scancode sc;
+    int i;
+
+    if (name == NULL || *name == '\0') { return -1; }
+
+    for (i = 0; ge_code_alias[i].name != NULL; i++) {
+        if (SDL_strcasecmp(name, ge_code_alias[i].name) == 0) {
+            return ge_code_alias[i].code;
+        }
+    }
+
+    sc = SDL_GetScancodeFromName(name);
+    if (sc != SDL_SCANCODE_UNKNOWN) { return (int) sc; }
+    return -2;
+}
+
+/* The printable name of a code. Round-trips through geParseInputCode, so what this
+ * prints is exactly what may be written back into goldeneye.cfg -- which is what lets
+ * the launcher save a captured binding without a second table. */
+const char *gePortInputCodeName(int code)
+{
+    switch (code) {
+        case -1:               return "none";
+        case GE_CODE_MOUSE1:   return "mouse1";
+        case GE_CODE_MOUSE2:   return "mouse2";
+        case GE_CODE_MOUSE3:   return "mouse3";
+        case GE_CODE_MOUSE4:   return "mouse4";
+        case GE_CODE_MOUSE5:   return "mouse5";
+        case GE_CODE_WHEELUP:  return "wheelup";
+        case GE_CODE_WHEELDOWN:return "wheeldown";
+        default: break;
+    }
+    if (code >= 0 && code < SDL_NUM_SCANCODES) {
+        const char *n = SDL_GetScancodeName((SDL_Scancode) code);
+        if (n != NULL && *n != '\0') { return n; }
+    }
+    return "none";
+}
+
+/* Four is not a limit anyone will reach -- the widest default is three -- but the array
+ * has to be some size and an unbounded list would need an allocator in a file that has
+ * none. A fifth entry is dropped with a warning rather than silently. */
+#define GE_KEYS_PER_BINDING 4
+
+static int ge_kb_act[GE_ACT_MAX][GE_KEYS_PER_BINDING];
+static int ge_kb_act_n[GE_ACT_MAX];
+static int ge_kb_axis[GE_AXIS_MAX][GE_KEYS_PER_BINDING];
+static int ge_kb_axis_n[GE_AXIS_MAX];
+static int ge_keymap_ready = 0;
+
+/* Split "C, Left Ctrl" into codes. Whitespace around a name is trimmed, because a
+ * hand-written config will have it and a binding that silently fails to apply is the
+ * single worst outcome this file can produce. */
+static int geParseCodeList(const char *spec, int *out, int cap, const char *what)
+{
+    int n = 0;
+
+    if (spec == NULL) { return 0; }
+
+    while (*spec != '\0' && n < cap) {
+        char name[64];
+        size_t len = 0;
+        const char *start;
+        const char *end;
+        int code;
+
+        while (*spec == ' ' || *spec == '\t' || *spec == ',') { spec++; }
+        if (*spec == '\0') { break; }
+
+        start = spec;
+        while (*spec != '\0' && *spec != ',') { spec++; }
+        end = spec;
+        while (end > start && (end[-1] == ' ' || end[-1] == '\t')) { end--; }
+
+        len = (size_t) (end - start);
+        if (len == 0) { continue; }
+        if (len >= sizeof name) { len = sizeof name - 1; }
+        memcpy(name, start, len);
+        name[len] = '\0';
+
+        code = geParseInputCode(name);
+        if (code == -2) {
+            printf("[getv] input: key \"%s\" for %s is not a key name -- see "
+                   "docs/CONTROLS.md for the spellings; ignoring it\n", name, what);
+            fflush(stdout);
+            continue;
+        }
+        if (code < 0) { continue; }   /* "none" */
+        out[n++] = code;
+    }
+
+    if (*spec != '\0') {
+        printf("[getv] input: %s has more than %d keys bound; the rest are ignored\n",
+               what, cap);
+        fflush(stdout);
+    }
+    return n;
+}
+
+/* Resolve every keyboard binding once: GETV_KEY_<ACT> if set, else the preset's
+ * default. Same three-step shape as the pad, minus the per-player tier -- a second
+ * keyboard is not a thing this port supports, and pretending otherwise would put four
+ * dead rows in the launcher. */
+static void geKeymapEnsure(void)
+{
+    const int preset = geInputPreset();
+    int a;
+
+    if (ge_keymap_ready) { return; }
+    ge_keymap_ready = 1;
+
+    for (a = 0; a < GE_ACT_MAX; a++) {
+        char key[64];
+        const char *v;
+
+        snprintf(key, sizeof key, "GETV_KEY_%s", geActionEnvSuffix(a));
+        v = getenv(key);
+        if (v == NULL) { v = gePresetKeys(preset, a); }
+        ge_kb_act_n[a] = geParseCodeList(v, ge_kb_act[a], GE_KEYS_PER_BINDING,
+                                         geActionName(a));
+    }
+
+    for (a = 0; a < GE_AXIS_MAX; a++) {
+        char key[64];
+        const char *v;
+
+        snprintf(key, sizeof key, "GETV_KEY_%s", geAxisEnvSuffix(a));
+        v = getenv(key);
+        if (v == NULL) { v = gePresetAxisKeys(preset, a); }
+        ge_kb_axis_n[a] = geParseCodeList(v, ge_kb_axis[a], GE_KEYS_PER_BINDING,
+                                          geAxisName(a));
+    }
+
+    /* Print what resolved, for the same reason the pad table does: a config key that
+     * never arrived must not look identical to one that worked. This also replaces the
+     * old fixed startup banner, which listed a hard-coded layout and became a lie the
+     * moment anything was rebound. */
+    {
+        int i;
+        printf("[getv] input: keyboard/mouse bindings --\n");
+        for (a = 0; a < GE_ACT_MAX; a++) {
+            printf("[getv]   %-12s", geActionName(a));
+            if (ge_kb_act_n[a] == 0) { printf(" (unbound)"); }
+            for (i = 0; i < ge_kb_act_n[a]; i++) {
+                printf(" %s", gePortInputCodeName(ge_kb_act[a][i]));
+            }
+            printf("\n");
+        }
+        for (a = 0; a < GE_AXIS_MAX; a++) {
+            printf("[getv]   %-12s", geAxisName(a));
+            if (ge_kb_axis_n[a] == 0) { printf(" (unbound)"); }
+            for (i = 0; i < ge_kb_axis_n[a]; i++) {
+                printf(" %s", gePortInputCodeName(ge_kb_axis[a][i]));
+            }
+            printf("\n");
+        }
+        fflush(stdout);
+    }
+}
+
+/* ---- the mouse wheel as a weapon cycle -----------------------------------
+ *
+ * Wheel motion arrives as SDL_MOUSEWHEEL events, not as a pollable state, so an SDL
+ * event watch (geWheelEventWatch below) counts each one and the count waits until the
+ * next poll.
+ *
+ * Draining is one notch per frame with a gap frame after it, and the gap is the whole
+ * point. The engine cycles weapons on a RISING edge of the inventory button
+ * (`(buttons & ~oldbuttons) & invButtons`, bondview2.c), so three notches flicked in one
+ * frame would raise one edge and advance one weapon. Spacing them gives three edges and
+ * three weapons, which is what the flick asked for.
+ */
+static struct GeWheel ge_wheel;
+
+/* Wheel motion, taken with an SDL event WATCH rather than a hook in the event loop.
+ *
+ * The first version of this called gePortInputMouseWheel() from a new `case
+ * SDL_MOUSEWHEEL` in gfx_sdl2.c, next to the existing mouse-click hook. That worked on
+ * a fresh clone and silently did nothing on every existing one. gfx_sdl2.c is a FETCHED
+ * third-party file (getv/patches/thirdparty/MANIFEST): it is gitignored, it is
+ * reconstructed by tools/fetch-thirdparty.sh, and `tools/setup.sh` skips the fetch
+ * entirely when the file is already on disk -- so an established checkout keeps its old
+ * copy, without the new case, and nothing in `git status` says so. Putting a new entry
+ * point in a file most people will never re-fetch was the mistake.
+ *
+ * A watch needs no third-party change at all. SDL calls it as each event is ADDED to the
+ * queue and ignores the return value, so nothing is consumed and the console, the
+ * launcher and gfx_sdl2.c all still see every event exactly as before. It also runs on
+ * whichever pump adds the event, so wheel motion is caught on frames this port never
+ * reaches its own poll.
+ *
+ * Registered lazily rather than in an init function because there is no single input
+ * init that every platform reaches before the first poll, and the guard makes a second
+ * call free. */
+static int SDLCALL geWheelEventWatch(void *userdata, SDL_Event *event)
+{
+    (void) userdata;
+    if (event != NULL && event->type == SDL_MOUSEWHEEL) {
+        int wy = event->wheel.y;
+        /* SDL_MOUSEWHEEL_FLIPPED means the platform already inverted the sign for
+         * "natural" scrolling. Undoing it here keeps the whole notion of a flipped
+         * wheel next to SDL, so the binding layer only ever sees up and down. */
+        if (event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED) { wy = -wy; }
+        geWheelAdd(&ge_wheel, wy);
+    }
+    return 0;
+}
+
+static void geWheelWatchEnsure(void)
+{
+    static int added = 0;
+    if (added) { return; }
+    added = 1;
+    SDL_AddEventWatch(geWheelEventWatch, NULL);
+}
+
+/* Kept as an entry point so a host that would rather push wheel motion in than have it
+ * watched -- and the mouse-capture harness, which has no SDL event queue at all -- can
+ * still reach the same counter. */
+void gePortInputMouseWheel(int y)
+{
+    geWheelAdd(&ge_wheel, y);
+}
+
+static void geWheelDiscard(void)
+{
+    geWheelClear(&ge_wheel);
+}
+
+/* Once per frame, before the pads are read. */
+static void geWheelTick(int allowed)
+{
+    geWheelWatchEnsure();
+    geWheelTickState(&ge_wheel, allowed);
+}
+
+/* ---- codes to actions ----------------------------------------------------
+ *
+ * Called twice per frame with different devices -- once with the keyboard state and
+ * once with the mouse -- because each device has its own gate to pass first (focus and
+ * the console for the keyboard, relative-mode capture for the mouse). ORing into
+ * out->act[] rather than assigning is what lets one action have a key AND a mouse
+ * button, and is also why the second call cannot undo the first.
+ */
+static int geCodeHeld(int code, const Uint8 *k, Uint32 mb)
+{
+    if (code >= 0 && code < SDL_NUM_SCANCODES) {
+        return (k != NULL && k[code]) ? 1 : 0;
+    }
+    switch (code) {
+        case GE_CODE_MOUSE1:    return (mb & SDL_BUTTON(SDL_BUTTON_LEFT))   ? 1 : 0;
+        case GE_CODE_MOUSE2:    return (mb & SDL_BUTTON(SDL_BUTTON_RIGHT))  ? 1 : 0;
+        case GE_CODE_MOUSE3:    return (mb & SDL_BUTTON(SDL_BUTTON_MIDDLE)) ? 1 : 0;
+        case GE_CODE_MOUSE4:    return (mb & SDL_BUTTON(SDL_BUTTON_X1))     ? 1 : 0;
+        case GE_CODE_MOUSE5:    return (mb & SDL_BUTTON(SDL_BUTTON_X2))     ? 1 : 0;
+        /* The wheel is frame state, not device state, so it ignores `mb` and is only
+         * ever true on a frame geWheelTick released a notch on. */
+        case GE_CODE_WHEELUP:   return ge_wheel.up_now;
+        case GE_CODE_WHEELDOWN: return ge_wheel.dn_now;
+        default:                return 0;
+    }
+}
+
+static void geActionsApply(struct GePadState *out, const Uint8 *k, Uint32 mb)
+{
+    int a, i;
+
+    geKeymapEnsure();
+
+    for (a = 0; a < GE_ACT_MAX; a++) {
+        for (i = 0; i < ge_kb_act_n[a]; i++) {
+            if (geCodeHeld(ge_kb_act[a][i], k, mb)) {
+                out->act[a]       = 1;
+                out->present      = 1;
+                out->real_gamepad = 1;
+                break;
+            }
+        }
+    }
+}
+
 /* GE_MOUSE_COUNTS_FULL, the deadzone and the backlog cap all live in ge_mouse_accum.h now,
  * alongside the arithmetic that reads them. 21 counts per full-scale deflection was picked off
  * the measured sweep in docs/MOUSE.md rather than by feel; the old 220 was set against nothing
  * and needed roughly a metre of desk for a 180 degree turn. */
+
+/* Is a front.c menu up? Mirrors geInFrontEnd() in port_os.c, which cannot be called
+ * from here -- that file sees <PR/os.h> and this one sees <SDL.h>.
+ *
+ * Modern mouse look sends motion to camera angles, which only exist in a level; in a
+ * menu that motion was simply thrown away, so the mouse could not move the menu cursor
+ * at all (#64). While a menu is up the classic path below runs instead and the motion
+ * becomes right-stick deflection, which the menu decoder in port_os.c feeds to the
+ * cursor. -1 is "in game", and RUN_STAGE / SPECTRUM_EMU are gameplay states rather than
+ * menus. */
+static int geMouseInMenu(void)
+{
+    extern int current_menu;
+    if (current_menu < 0) { return 0; }
+    return current_menu != 11 /* MENU_RUN_STAGE */ && current_menu != 25 /* MENU_SPECTRUM_EMU */;
+}
 
 static void geMousePoll(int port, struct GePadState *out)
 {
@@ -1089,11 +1440,14 @@ static void geMousePoll(int port, struct GePadState *out)
 
  if (!selftest && !geConsoleInputPollAllowed(SDL_GetKeyboardState(NULL))) {
         /* Consume relative deltas and carry while the UI owns the devices. Otherwise motion
-         * accumulated during typing becomes a camera jump on the first gameplay frame. */
+         * accumulated during typing becomes a camera jump on the first gameplay frame.
+         * The wheel backlog goes with it, for the same reason: scrolling the console
+         * must not cycle the player's weapon when the console closes. */
  (void)SDL_GetRelativeMouseState(&dx, &dy);
  ge_mouse_pend_x = 0;
  ge_mouse_pend_y = 0;
  geMouseLookClear(&ge_mouse_look);
+ geWheelDiscard();
  return;
     }
 
@@ -1128,6 +1482,7 @@ static void geMousePoll(int port, struct GePadState *out)
  prev_esc = esc;
  if (!SDL_GetRelativeMouseMode() || !SDL_GetKeyboardFocus()) {
  geMouseDiscardMotion();
+ geWheelDiscard();
  return;
  }
     }
@@ -1159,7 +1514,7 @@ static void geMousePoll(int port, struct GePadState *out)
          * it replaced over 16,800 swept calls in tests/test_mouse.c. That care is warranted:
          * of the first three attempts at this input path, two made the mouse worse and one
          * stopped it moving at all. The reasoning for each step lives in that header. */
- if (geMouseModern() && ge_mouse_look.context != 2) {
+ if (geMouseModern() && ge_mouse_look.context != 2 && !geMouseInMenu()) {
      geMouseLookAdd(&ge_mouse_look, dx, dy, sens);
      /* Buttons still use the controller path; physical stick axes stay intact. */
      goto mouse_buttons;
@@ -1193,10 +1548,30 @@ static void geMousePoll(int port, struct GePadState *out)
     }
 
 mouse_buttons:
- if (mb & SDL_BUTTON(SDL_BUTTON_LEFT))  { out->rtrigger = 1; out->rt_raw = 32767;
- out->present = 1; out->real_gamepad = 1; }
- if (mb & SDL_BUTTON(SDL_BUTTON_RIGHT)) { out->ltrigger = 1; out->lt_raw = 32767;
- out->present = 1; out->real_gamepad = 1; }
+    /* Mouse buttons and the wheel go through the same binding table as the keyboard.
+     *
+     * They used to be hard-wired -- left button to `rtrigger`, right to `ltrigger` --
+     * which meant they were not bound to fire and aim so much as bound to whatever fire
+     * and aim happened to sit on. Rebinding aim to a face button took it off the right
+     * mouse button too, and nothing else could ever be put on a mouse button at all.
+     * Now `mouse1`/`mouse2`/`wheelup`/`wheeldown` are ordinary binding values.
+     *
+     * `mb` is already zero on every path that should not accept a click: the console
+     * owning input, the pointer released, and the frame after a recapture click (see
+     * ge_mouse_resume_buttons above). The wheel is gated by the same conditions in
+     * geWheelTick. */
+    geActionsApply(out, NULL, mb);
+
+    /* In menus the left button selects and the right goes back, whatever fire and aim
+     * are bound to. The wheel is deliberately NOT a menu input: as weapon_next it used
+     * to press N64 A, so scrolling picked the highlighted item. */
+    if (mb & SDL_BUTTON(SDL_BUTTON_LEFT))  { out->menu_confirm = 1; out->present = 1; out->real_gamepad = 1; }
+    if (mb & SDL_BUTTON(SDL_BUTTON_RIGHT)) { out->menu_back = 1;    out->present = 1; out->real_gamepad = 1; }
+
+    if (ge_wheel.up_now || ge_wheel.dn_now) {
+        out->present = 1;
+        out->real_gamepad = 1;
+    }
 }
 
 static int geKeyboardEnabled(void)
@@ -1206,8 +1581,11 @@ static int geKeyboardEnabled(void)
  const char *s = getenv("GETV_KEYBOARD");
  on = (s != NULL && *s != '\0') ? (atoi(s) != 0) : 1;   /* default ON */
  if (on) {
- printf("[getv] input: keyboard bound to N64 port 0 ""(WASD move, arrows look, SPACE/LCTRL fire, E or F use, Q aim, "
- "R weapon, TAB start; ""GETV_KEYBOARD=0 to disable)\n");
+            /* No key list here any more. It named a fixed layout that is now only one
+             * preset among others, and it was printed before the bindings resolved, so
+             * a rebound key made it actively wrong. geKeymapEnsure() prints what
+             * actually resolved instead. */
+ printf("[getv] input: keyboard bound to N64 port 0 (GETV_KEYBOARD=0 to disable)\n");
  fflush(stdout);
         }
     }
@@ -1351,7 +1729,11 @@ static void geKeyboardApply(int port, struct GePadState *out)
              * are locked for most of it -- so by the time the player has control the button is
              * already pressed, no edge ever arrives, and the toggle never fires. Starting the
              * hold once gameplay is running gives a clean edge and satisfies both readings. */
- if (aimst > 0 && (long)fr >= aimst) { out->ltrigger = 1; out->lt_raw = 32767; }
+ /* Asserts the ACTION, not the left trigger. It used to set ltrigger because that
+             * was where aim happened to be bound; with aim bindable anywhere, driving the
+             * device field would stop working the moment someone rebound it, and the
+             * self-test would silently measure nothing. */
+ if (aimst > 0 && (long)fr >= aimst) { out->act[GE_ACT_AIM] = 1; }
         }
 
         /* Both gates mark the port present before bailing. An early `return` here
@@ -1391,61 +1773,77 @@ static void geKeyboardApply(int port, struct GePadState *out)
         }
     }
 
- if (k[SDL_SCANCODE_W]) { ly -= GE_KB_FULL; }
- if (k[SDL_SCANCODE_S]) { ly += GE_KB_FULL; }   /* SDL +Y is DOWN */
- if (k[SDL_SCANCODE_A]) { lx -= GE_KB_FULL; }
- if (k[SDL_SCANCODE_D]) { lx += GE_KB_FULL; }
-
- if (k[SDL_SCANCODE_UP])    { ry -= GE_KB_FULL; }
- if (k[SDL_SCANCODE_DOWN])  { ry += GE_KB_FULL; }
- if (k[SDL_SCANCODE_LEFT])  { rx -= GE_KB_FULL; }
- if (k[SDL_SCANCODE_RIGHT]) { rx += GE_KB_FULL; }
+    /* Movement and look, from the bound axis keys.
+     *
+     * These stay axes rather than becoming actions: they deflect a virtual stick, and
+     * the stick is what the game steers from. LOOK_* drive the right stick, which
+     * gePortDecodePad thresholds into C-buttons -- that is how a keyboard player moves
+     * the front-end menu cursor, so they matter even with the mouse on. */
+    geKeymapEnsure();
+    {
+        int i;
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_FORWARD]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_FORWARD][i], k, 0))      { ly -= GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_BACKWARD]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_BACKWARD][i], k, 0))     { ly += GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_STRAFE_LEFT]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_STRAFE_LEFT][i], k, 0))  { lx -= GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_STRAFE_RIGHT]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_STRAFE_RIGHT][i], k, 0)) { lx += GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_LOOK_UP]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_LOOK_UP][i], k, 0))      { ry -= GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_LOOK_DOWN]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_LOOK_DOWN][i], k, 0))    { ry += GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_LOOK_LEFT]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_LOOK_LEFT][i], k, 0))    { rx -= GE_KB_FULL; break; }
+        }
+        for (i = 0; i < ge_kb_axis_n[GE_AXIS_LOOK_RIGHT]; i++) {
+            if (geCodeHeld(ge_kb_axis[GE_AXIS_LOOK_RIGHT][i], k, 0))   { rx += GE_KB_FULL; break; }
+        }
+    }
 
     /* or against whatever a real pad reported: a held stick must not be zeroed by an
      * unpressed key. Only overwrite an axis the keyboard is actually driving. */
- if (lx != 0) { out->lx = lx; }
- if (ly != 0) { out->ly = ly; }
- if (rx != 0) { out->rx = rx; }
- if (ry != 0) { out->ry = ry; }
+    if (lx != 0) { out->lx = lx; }
+    if (ly != 0) { out->ly = ly; }
+    if (rx != 0) { out->rx = rx; }
+    if (ry != 0) { out->ry = ry; }
 
-    /* Space and lctrl are fire, which means the right trigger.
+    /* Everything else is an ACTION now, not a fabricated button.
      *
-     * This read `ltrigger` and the banner above has always said "SPACE fire", so intent and
-     * wiring disagreed: port_os.c:467 binds GE_ACT_FIRE to GE_SRC_RT and gives AIM the left
-     * trigger, so pressing space aimed. Keyboard players could walk, use, and aim, and could
-     * not shoot. The scripted-input harness had the identical bug for the identical reason --
-     * the port's "Z" concept was wired to the left trigger in both places, because on the N64
-     * Z *is* fire and the name reads correct at a glance. */
- if (k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_LCTRL]) {
- out->rtrigger = 1;
- out->rt_raw   = 32767;
-    }
-    /* Q is AIM, as the banner says. */
- if (k[SDL_SCANCODE_Q]) {
- out->ltrigger = 1;
- out->lt_raw   = 32767;
-    }
-    /* E and F are USE, which is the N64's B button.
+     * This block used to be twenty lines of `if (k[SDL_SCANCODE_Q]) out->ltrigger = 1;`
+     * -- the keyboard pretending to be a gamepad so that the pad's binding table would
+     * pick it up. It worked, and it made the two devices share one remap: moving `aim`
+     * off the left trigger silently moved it off Q as well, and no key could be bound
+     * to an action that had no trigger to borrow. Naming the action directly is what
+     * separates them.
      *
-     * Nothing on the keyboard set `b` at all, and GE_ACT_USE binds to GE_SRC_B by default
-     * (port_os.c:469), so a keyboard player could not open a door, plant a bomb or trip a
-     * switch -- every objective in the game runs through that button. E had the pad's A,
-     * which is the inventory/weapon-next button, so the key a PC player reaches for to use
-     * something cycled the weapon instead. */
-    if (k[SDL_SCANCODE_E] || k[SDL_SCANCODE_F])       { out->b = 1; }
+     * The shoulder buttons are the one thing that stays a raw device field. The N64 L
+     * and R are not actions in this port -- gePortDecodePad wires them straight through
+     * -- and nothing in the game reads them on their own. */
+    geActionsApply(out, k, 0);
 
-    /* RETURN stays on A because every front.c menu branch accepts it to confirm, and R
-     * gives weapon-next a key of its own now that E no longer serves it. */
-    if (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_R])  { out->a = 1; }
- if (k[SDL_SCANCODE_Z])                            { out->lshoulder = 1; }
- if (k[SDL_SCANCODE_X])                            { out->rshoulder = 1; }
- if (k[SDL_SCANCODE_TAB] || k[SDL_SCANCODE_KP_ENTER]) { out->start = 1; }
- if (k[SDL_SCANCODE_BACKSPACE])                    { out->back = 1; }
+    /* Fixed menu keys, independent of every binding. Read only while a front.c menu is
+     * up (geMenuButtons). Without these, a launcher rebind that took Return off
+     * weapon_next left the keyboard no way past the mission report but Tab -- and
+     * nothing on screen says Tab is START. */
+    if (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_SPACE])  { out->menu_confirm = 1; }
+    if (k[SDL_SCANCODE_BACKSPACE])                        { out->menu_back = 1; }
+    if (k[SDL_SCANCODE_TAB] || k[SDL_SCANCODE_KP_ENTER])  { out->menu_start = 1; }
 
- if (k[SDL_SCANCODE_I]) { out->dup = 1; }
- if (k[SDL_SCANCODE_K]) { out->ddown = 1; }
- if (k[SDL_SCANCODE_J]) { out->dleft = 1; }
- if (k[SDL_SCANCODE_L]) { out->dright = 1; }
+    if (k[SDL_SCANCODE_Z]) { out->lshoulder = 1; out->present = 1; out->real_gamepad = 1; }
+    if (k[SDL_SCANCODE_X]) { out->rshoulder = 1; out->present = 1; out->real_gamepad = 1; }
+
+    if (k[SDL_SCANCODE_I]) { out->dup = 1; }
+    if (k[SDL_SCANCODE_K]) { out->ddown = 1; }
+    if (k[SDL_SCANCODE_J]) { out->dleft = 1; }
+    if (k[SDL_SCANCODE_L]) { out->dright = 1; }
 
     /* Anything held makes port 0 PRESENT. Without this the game's
      * g_ConnectedControllers bit stays clear and joy.c drops every sample -- the pad
@@ -1464,67 +1862,99 @@ int gePortInputTakeMouseLook(int player, int context, float *yaw, float *pitch)
 }
 #endif
 
-/* ---- a real crouch button -------------------------------------------------------
+/* ---- crouch, stand and reload -------------------------------------------
  *
- * Retail crouch is gated behind aim mode: `bondview2.c:5484` requires `insightaimmode` and
- * stick-down before it will lower Bond, so crouching means holding aim, pushing down, and
- * then releasing aim while staying low. That is faithful and it is genuinely awkward, and
- * it is the sort of thing a native port is for.
+ * The three actions the game cannot ask for through an OSContPad, so they are read
+ * back out of the port instead. bondview2.c calls gePortCrouchHeld/gePortStandHeld
+ * directly (patch 0001) and lv.c calls gePortReloadPressed (patch 0031).
  *
- * These report a held key straight to the game, which ORs them alongside the retail
- * condition rather than replacing it -- the original gesture keeps working exactly as it
- * did, and the keys are simply another way in. Off unless GETV_CROUCH_KEY is 1, which it is
- * by default; set it to 0 for faithful-only behaviour.
+ * Retail crouch is gated behind aim mode: bondview2.c requires `insightaimmode` and
+ * stick-down before it will lower Bond, so crouching means holding aim, pushing down,
+ * and then releasing aim while staying low. That is faithful and genuinely awkward,
+ * and it is the sort of thing a native port is for. These OR alongside the retail
+ * condition rather than replacing it, so the original gesture keeps working.
  *
- * not routed through port_os.c's action table. That table is mid-rework for the
- * per-player bindings, and adding rows to it while that is in progress is how the last
- * merge conflict happened. When the binding work lands these should move onto it as
- * GE_ACT_CROUCH / GE_ACT_STAND.
+ * Retail reload is the same button as use: bond_interact_object() returns TRUE only
+ * when there is no prop in range, so pressing B near nothing reloads. That also still
+ * works. RELOAD is a second, unconditional way in, which is what a player expects from
+ * a key labelled R -- reloading should not depend on where you are standing.
+ *
+ * All three now come from the binding table like everything else. They used to read
+ * raw scancodes here (C/LShift, V) because the action table lived in port_os.c, behind
+ * <PR/os.h>, and this file could not reach it. ge_bindings.c is that table moved
+ * somewhere both halves can see, which is what let them become bindable.
+ *
+ * Off unless GETV_CROUCH_KEY is 1, which it is by default; set it to 0 for
+ * faithful-only behaviour.
+ *
+ * The values are computed once per frame by geBindingsFrame() during the poll, not
+ * recomputed here. That is required, not an optimisation: hold-vs-toggle and the
+ * reload edge are edge-triggered, and bondviewProcessInput asks for crouch from two
+ * different branches, so a function that sampled the key itself would consume the same
+ * press twice and drop every other toggle.
  */
 static int geCrouchKeysEnabled(void)
 {
- static int on = -1;
- if (on < 0) {
- const char *e = getenv("GETV_CROUCH_KEY");
- on = (e && *e) ? (*e != '0') : 1;
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("GETV_CROUCH_KEY");
+        on = (e && *e) ? (*e != '0') : 1;
     }
- return on;
+    return on;
 }
 
 int gePortCrouchHeld(void)
 {
 #ifdef GE_PLATFORM_DESKTOP
- const Uint8 *k;
-    /* GETV_CROUCH_SELFTEST=1 holds the key down, so the effect can be measured under
-     * GETV_EXIT_FRAME without a hand on the keyboard. Same reason as GETV_MOUSE_SELFTEST,
-     * and it has to be ahead of the idle gate for the same reason too. */
+    /* GETV_CROUCH_SELFTEST=1 holds crouch down, so the effect can be measured under
+     * GETV_EXIT_FRAME without a hand on the keyboard. Same reason as
+     * GETV_MOUSE_SELFTEST, and ahead of the enable gate for the same reason too. */
     {
- static int st = -1;
- if (st < 0) { const char *e = getenv("GETV_CROUCH_SELFTEST"); st = (e && *e && *e != '0'); }
- if (st) return 1;
+        static int st = -1;
+        if (st < 0) { const char *e = getenv("GETV_CROUCH_SELFTEST"); st = (e && *e && *e != '0'); }
+        if (st) { return 1; }
     }
- if (!geCrouchKeysEnabled() || geKeyboardIdle() || !geKeyboardEnabled()) return 0;
- k = SDL_GetKeyboardState(NULL);
- if (k == NULL) return 0;
- if (!geConsoleInputPollAllowed(k)) return 0;
- return (k[SDL_SCANCODE_C] || k[SDL_SCANCODE_LSHIFT]) ? 1 : 0;
+    if (!geCrouchKeysEnabled()) { return 0; }
+    return geCrouchActive(0);
 #else
- return 0;
+    return 0;
 #endif
 }
 
+/* Stand is not a binding. It is the short pulse geBindingsFrame emits when a crouch
+ * ends -- the second press of a toggle, or the release in hold mode. There is no key to
+ * press: a "stand" button does nothing except while already crouched, and the first
+ * version of this shipped one that players reasonably never found. */
 int gePortStandHeld(void)
 {
 #ifdef GE_PLATFORM_DESKTOP
- const Uint8 *k;
- if (!geCrouchKeysEnabled() || geKeyboardIdle() || !geKeyboardEnabled()) return 0;
- k = SDL_GetKeyboardState(NULL);
- if (k == NULL) return 0;
- if (!geConsoleInputPollAllowed(k)) return 0;
- return k[SDL_SCANCODE_V] ? 1 : 0;
+    if (!geCrouchKeysEnabled()) { return 0; }
+    return geStandActive(0);
 #else
- return 0;
+    return 0;
 #endif
+}
+
+/* One frame per press. lv.c calls this once a frame; returning a level would reload on
+ * every frame the key was down, which spends the whole magazine's worth of animation
+ * restarting itself. */
+int gePortReloadPressed(void)
+{
+#ifdef GE_PLATFORM_DESKTOP
+    return geReloadEdge(0);
+#else
+    return 0;
+#endif
+}
+
+/* Does the USE button still reload when nothing is in reach?
+ *
+ * lv.c asks once per frame. The answer is resolved and cached in ge_bindings.c, which
+ * is where the binding table lives; this is the port-side name the game patch uses, the
+ * same arrangement as gePortReloadPressed above. */
+int gePortUseAlsoReloads(void)
+{
+    return geUseAlsoReloads();
 }
 
 /* GETV_MOVE_SELFTEST=<frame>: hold the left stick forward on every port from that frame.
@@ -1580,6 +2010,20 @@ static void gePortInputPollPortInner(int port, struct GePadState *out)
     /* Android's on-screen pad is an SDL virtual joystick, so it must exist before the
      * enumeration below looks for devices. Idempotent, compiled out everywhere else. */
  gePortAndroidTouchInit();
+
+#ifdef GE_PLATFORM_DESKTOP
+        /* The wheel is drained once per FRAME, not once per port. osContGetReadData
+         * polls port 0 exactly once per frame and before any other port, so this block
+         * is the frame boundary -- draining per port would fire the same notch up to
+         * four times.
+         *
+         * The gate is deliberately generous. The wheel only has to survive the same
+         * conditions the rest of the keyboard does; geMousePoll discards the backlog
+         * itself on the stricter mouse-specific paths (pointer released, console
+         * capture), and duplicating that logic here would be a second place to get it
+         * wrong. */
+ geWheelTick(geKeyboardEnabled() && !geKeyboardIdle());
+#endif
 
         (void)gePortInputPadCount();
  geSynthFrame++;
@@ -1655,6 +2099,11 @@ static void gePortInputPollPortInner(int port, struct GePadState *out)
  out->lshoulder = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
  out->rshoulder = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
 
+ /* Stick clicks. Read now that they are bindable -- the modern pad layouts players
+     * arrive with put crouch on one of them. */
+ out->lstickbtn = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_LEFTSTICK);
+ out->rstickbtn = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+
  out->dup       = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_UP);
  out->ddown     = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
  out->dleft     = SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
@@ -1688,4 +2137,10 @@ void gePortInputPollPort(int port, struct GePadState *out)
 {
     gePortInputPollPortInner(port, out);
     geMoveSelftestApply(port, out);
+
+    /* Exactly once per port per frame, after everything that can assert an action
+     * (keyboard, mouse, script, self-tests) and before anything reads crouch or
+     * reload. geBindingsFrame is the only place the hold/toggle latch and the reload
+     * edge advance, and calling it twice in a frame would eat a press. */
+    geBindingsFrame(port, out);
 }

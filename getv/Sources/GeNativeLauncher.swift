@@ -169,6 +169,70 @@ private final class GeLauncherModel: ObservableObject {
     @Published var bindTab: Int { didSet { geBridgeSetBindTab(Int32(bindTab)) } }
     let actions: [(label: String, dflt: String)]
     let sources: [String]
+    let axes: [String]
+
+    /* Which set of defaults everything falls back to: 0 modern, 1 n64.
+     *
+     * Setting it clears every explicit binding on the C side, so the Swift copies of
+     * those bindings have to be re-read afterwards rather than left showing values the
+     * model no longer holds. That is what reloadBindings() is for. */
+    @Published var inputPreset: Int {
+        didSet {
+            geBridgeSetInputPreset(Int32(inputPreset))
+            reloadBindings()
+        }
+    }
+
+    /* 0 hold, 1 toggle. */
+    @Published var aimMode: Int { didSet { geBridgeSetAimMode(Int32(aimMode)) } }
+    @Published var crouchMode: Int { didSet { geBridgeSetCrouchMode(Int32(crouchMode)) } }
+    @Published var crouchKey: Bool { didSet { geBridgeSetCrouchKey(crouchKey ? 1 : 0) } }
+
+    /* Keyboard and mouse bindings, as the strings the config file uses. Empty means
+     * "inherit the preset"; keyBindDefault says what that resolves to right now. */
+    @Published var keyBinds: [String] {
+        didSet {
+            for i in keyBinds.indices { geBridgeSetKeyBind(Int32(i), keyBinds[i]) }
+        }
+    }
+    @Published var axisBinds: [String] {
+        didSet {
+            for i in axisBinds.indices { geBridgeSetAxisBind(Int32(i), axisBinds[i]) }
+        }
+    }
+
+    func keyBindDefault(_ action: Int) -> String {
+        String(cString: geBridgeGetKeyBindDefault(Int32(action)))
+    }
+    func axisBindDefault(_ axis: Int) -> String {
+        String(cString: geBridgeGetAxisBindDefault(Int32(axis)))
+    }
+
+    /* Pull every binding back out of the C model. Needed after anything that changes
+     * them from the C side rather than through a published setter -- today that is only
+     * a preset change, which clears them all. */
+    func reloadBindings() {
+        objectWillChange.send()
+        var kb: [String] = []
+        for i in 0..<Int(geBridgeActionCount()) {
+            kb.append(String(cString: geBridgeGetKeyBind(Int32(i))))
+        }
+        var ab: [String] = []
+        for i in 0..<Int(geBridgeAxisCount()) {
+            ab.append(String(cString: geBridgeGetAxisBind(Int32(i))))
+        }
+        /* Assigning to the @Published arrays re-enters their didSet and writes the same
+         * values straight back to C. That is a no-op rather than a loop -- the setters
+         * do not call back into anything that changes them -- and it keeps one path for
+         * "the arrays and C agree" instead of two. */
+        keyBinds = kb
+        axisBinds = ab
+    }
+
+    /* Writes the controls page to goldeneye.cfg. Distinct from save(), which only sets
+     * environment variables for the relaunch and is forgotten when the process ends. */
+    func saveControls() { geBridgeSaveControls() }
+    var configPath: String { String(cString: geBridgeConfigPath()) }
 
     func bindSlot(action: Int) -> Int {
         bindTab == 0 ? Int(geBridgeGetBindAll(Int32(action)))
@@ -180,7 +244,13 @@ private final class GeLauncherModel: ObservableObject {
      * and "default" coincide. */
     func effectiveBindLabel(action: Int) -> String {
         let all = Int(geBridgeGetBindAll(Int32(action)))
-        return all >= 0 ? sources[all] : actions[action].dflt
+        /* The default is read live rather than from the cached `actions` array, because
+         * it now depends on the selected preset -- a cached copy would keep showing the
+         * modern default after the player switched to n64. */
+        return all >= 0 ? sources[all] : String(cString: geBridgeActionDefault(Int32(action)))
+    }
+    func padBindDefault(_ action: Int) -> String {
+        String(cString: geBridgeActionDefault(Int32(action)))
     }
     func setBindSlot(action: Int, src: Int) {
         objectWillChange.send()
@@ -249,6 +319,9 @@ private final class GeLauncherModel: ObservableObject {
         var sc: [String] = []
         for i in 0..<Int(geBridgeSourceCount()) { sc.append(String(cString: geBridgeSourceName(Int32(i)))) }
         sources = sc
+        var ax: [String] = []
+        for i in 0..<Int(geBridgeAxisCount()) { ax.append(String(cString: geBridgeAxisLabel(Int32(i)))) }
+        axes = ax
 
         pickStage = geBridgeGetPickStage() != 0
         stageIdx = Int(geBridgeGetStageIdx())
@@ -304,6 +377,17 @@ private final class GeLauncherModel: ObservableObject {
 
         modDir = String(cString: geBridgeGetModDir())
         bindTab = Int(geBridgeGetBindTab())
+
+        inputPreset = Int(geBridgeGetInputPreset())
+        aimMode = Int(geBridgeGetAimMode())
+        crouchMode = Int(geBridgeGetCrouchMode())
+        crouchKey = geBridgeGetCrouchKey() != 0
+        keyBinds = (0..<Int(geBridgeActionCount())).map {
+            String(cString: geBridgeGetKeyBind(Int32($0)))
+        }
+        axisBinds = (0..<Int(geBridgeAxisCount())).map {
+            String(cString: geBridgeGetAxisBind(Int32($0)))
+        }
 
         modOn = (0..<md.count).map { geBridgeGetModOn(Int32($0)) != 0 }
         cheatOn = (0..<ch.count).map { geBridgeGetCheatOn(Int32($0)) != 0 }
@@ -573,29 +657,60 @@ private struct ControlBindRow: View {
     }
 }
 
+/* One editable keyboard/mouse binding.
+ *
+ * A text field rather than a click-and-press capture, which is what the ImGui launcher
+ * uses. The two are the same model and deliberately not the same widget: the ImGui page
+ * runs inside an SDL window where reading a raw scancode is a keyboard-state array
+ * away, and this one is AppKit, where capturing an arbitrary key means installing a
+ * local event monitor that fights SwiftUI's own focus handling for every key the player
+ * might press -- including the ones that would otherwise close the window.
+ *
+ * The field is not a downgrade in what can be expressed. A binding is a LIST
+ * ("C,Left Ctrl"), which a capture cannot enter at all without extra UI, and the names
+ * are the ones the config file uses, so what is typed here is what appears in the file.
+ * The placeholder shows what the preset supplies when the field is left empty.
+ */
+private struct KeyBindField: View {
+    let label: String
+    let placeholder: String
+    @Binding var value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .foregroundColor(geText)
+                .font(.system(size: 13))
+                .frame(width: 130, alignment: .leading)
+            TextField(placeholder.isEmpty ? "unbound" : placeholder, text: $value)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 12))
+                .frame(width: 200)
+            /* Clearing back to the preset is a button rather than "delete the text",
+             * because an empty field and a field the player has not touched look
+             * identical and only one of them is a deliberate choice. */
+            Button(action: { value = "" }) {
+                Text("default").font(.system(size: 11)).foregroundColor(geDim)
+            }
+            .buttonStyle(GeButtonStyle())
+            .opacity(value.isEmpty ? 0.35 : 1.0)
+            .disabled(value.isEmpty)
+        }
+    }
+}
+
 private struct ControlsPage: View {
     @ObservedObject var m: GeLauncherModel
 
-    /* Fixed, not rebindable (port_input.c's keyboard map has no remap layer) -- shown as a
-     * reference rather than a control, mirroring ge_launcher.cpp's own ImGui page: the
-     * campaign was unfinishable from the keyboard until USE existed and nothing on screen
-     * said which key that was. */
-    static let keyboardReference: [(String, String)] = [
-        ("W A S D", "move"),
-        ("Arrow keys", "look"),
-        ("Space / L-Ctrl", "fire"),
-        ("Q", "aim"),
-        ("E or F", "use"),
-        ("R or Return", "inventory"),
-        ("Z / X", "crouch (L / R)"),
-        ("I J K L", "d-pad"),
-        ("Tab", "start"),
-    ]
+    /* Shown after a save so the click has a visible result. Cleared on the next edit. */
+    @State private var savedPath: String? = nil
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                presetSection
                 mouseKeyboardSection
+                keyBindingsSection
                 bindingsHeaderSection
                 actionsSection
                 footerSection
@@ -603,14 +718,39 @@ private struct ControlsPage: View {
         }
     }
 
-    /* body is split into these four sections -- and each of THOSE stays a handful of
-     * children -- rather than one flat 12-child VStack: SwiftUI's @ViewBuilder resolves a
-     * block above its built-in child-count ceiling into `EmptyView` in some toolchain
+    /* body is split into these sections -- and each of THOSE stays a handful of
+     * children -- rather than one flat VStack: SwiftUI's @ViewBuilder resolves a block
+     * above its built-in child-count ceiling into `EmptyView` in some toolchain
      * configurations, with NO compile error and NO runtime crash, just silently missing
-     * content. Measured directly on this machine: the six action rows below simply did not
-     * appear -- confirmed via a temporary child-count debug label, then confirmed again by
-     * swapping the real Menu-based row for a plain Text (ruling out Menu as the cause) --
-     * until the body was split like this. */
+     * content. Measured directly on this machine: the action rows below simply did not
+     * appear -- confirmed via a temporary child-count debug label, then confirmed again
+     * by swapping the real Menu-based row for a plain Text (ruling out Menu as the
+     * cause) -- until the body was split like this. Adding a section is fine; growing
+     * one past roughly ten children is not. */
+    private var presetSection: some View {
+        Group {
+            GeSectionTitle(text: "Preset")
+            HStack(spacing: 6) {
+                ForEach(Array(["MODERN", "N64"].enumerated()), id: \.offset) { i, label in
+                    Button(action: { m.inputPreset = i }) {
+                        Text(label)
+                            .font(.system(size: 13, weight: m.inputPreset == i ? .bold : .regular))
+                            .foregroundColor(m.inputPreset == i ? geGoldHi : geDim)
+                            .padding(.horizontal, 20).padding(.vertical, 8)
+                            .background(m.inputPreset == i ? geGold.opacity(0.15) : gePanel)
+                    }
+                    .buttonStyle(GeButtonStyle())
+                }
+            }
+            Text(m.inputPreset == 1
+                 ? "What this port defaulted to before remapping existed: Q aims, R cycles weapon, no reload key, use on the east face button. Pick this to revert rather than rebinding by hand."
+                 : "WASD and the mouse. Right button aims, E interacts, R reloads, C crouches, the wheel changes weapon. On a pad: south interacts, west reloads, east crouches, north cycles weapon.")
+                .foregroundColor(geDim).font(.system(size: 12))
+            Text("Changing the preset clears every binding you have set, because a preset is only useful if it describes the whole layout.")
+                .foregroundColor(geDim).font(.system(size: 11))
+        }
+    }
+
     private var mouseKeyboardSection: some View {
         Group {
             GeSectionTitle(text: "Mouse and Keyboard")
@@ -620,33 +760,80 @@ private struct ControlsPage: View {
                     if m.mouse {
                         GeStepper(label: "Sensitivity", value: $m.mouseSens, range: 10...400, suffix: "%")
                         Toggle(isOn: $m.mouseInvert) { Text("Invert Y").foregroundColor(geText) }
+                        Text("In a level the left button fires and the right aims. In menus, move the mouse to move the cursor, left-click to select and right-click to go back. ESC releases the cursor.")
+                            .foregroundColor(geDim).font(.system(size: 11))
                     }
+                    Toggle(isOn: $m.keyboard) { Text("Keyboard").foregroundColor(geText) }
                 }
             }
             GePanel {
                 VStack(alignment: .leading, spacing: 10) {
-                    Toggle(isOn: $m.keyboard) { Text("Keyboard").foregroundColor(geText) }
-                    if m.keyboard {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(Array(ControlsPage.keyboardReference.enumerated()), id: \.offset) { _, row in
-                                HStack {
-                                    Text(row.0).foregroundColor(geGold).font(.system(size: 13, weight: .semibold))
-                                        .frame(width: 140, alignment: .leading)
-                                    Text(row.1).foregroundColor(geDim).font(.system(size: 13))
-                                }
-                            }
-                        }
-                        Text("Fixed, not rebindable -- a key is indistinguishable from a thumb on a stick by the time the game sees it.")
-                            .foregroundColor(geDim).font(.system(size: 11))
-                    }
+                    holdToggleRow(label: "Aim", value: $m.aimMode)
+                    holdToggleRow(label: "Crouch", value: $m.crouchMode)
+                    Text("Aim toggle is GoldenEye's own per-player aim-control option, which the engine reads as a press rather than a hold. Crouch is the port's, because the engine has no crouch button.")
+                        .foregroundColor(geDim).font(.system(size: 11))
+                    Text("There is no stand key. Crouch toggles: press it again to stand up. In hold mode, releasing it stands you up instead.")
+                        .foregroundColor(geDim).font(.system(size: 11))
                 }
             }
         }
     }
 
+    private func holdToggleRow(label: String, value: Binding<Int>) -> some View {
+        HStack(spacing: 6) {
+            Text(label).foregroundColor(geText).font(.system(size: 13))
+                .frame(width: 80, alignment: .leading)
+            ForEach(Array(["HOLD", "TOGGLE"].enumerated()), id: \.offset) { i, opt in
+                Button(action: { value.wrappedValue = i }) {
+                    Text(opt)
+                        .font(.system(size: 12, weight: value.wrappedValue == i ? .bold : .regular))
+                        .foregroundColor(value.wrappedValue == i ? geGoldHi : geDim)
+                        .padding(.horizontal, 14).padding(.vertical, 6)
+                        .background(value.wrappedValue == i ? geGold.opacity(0.15) : gePanel)
+                }
+                .buttonStyle(GeButtonStyle())
+            }
+        }
+    }
+
+    private var keyBindingsSection: some View {
+        Group {
+            GeSectionTitle(text: "Keys")
+            Text("SDL key names -- \"C\", \"Left Ctrl\", \"Keypad Enter\", \"F1\" -- plus mouse1..mouse5, wheelup and wheeldown. Separate alternatives with a comma. Leave a field empty to use the preset, or type \"none\" to unbind.")
+                .foregroundColor(geDim).font(.system(size: 12))
+            GePanel {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(m.keyBinds.indices, id: \.self) { a in
+                        KeyBindField(label: m.actions[a].label,
+                                     placeholder: m.keyBindDefault(a),
+                                     value: Binding(
+                                        get: { m.keyBinds[a] },
+                                        set: { m.keyBinds[a] = $0; savedPath = nil }))
+                    }
+                }
+            }
+            GePanel {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(m.axisBinds.indices, id: \.self) { x in
+                        KeyBindField(label: m.axes[x],
+                                     placeholder: m.axisBindDefault(x),
+                                     value: Binding(
+                                        get: { m.axisBinds[x] },
+                                        set: { m.axisBinds[x] = $0; savedPath = nil }))
+                    }
+                }
+            }
+            Toggle(isOn: $m.crouchKey) {
+                Text("Dedicated crouch key").foregroundColor(geText)
+            }
+            Text("Off leaves only the retail gesture: hold aim and push down.")
+                .foregroundColor(geDim).font(.system(size: 11))
+        }
+    }
+
     private var bindingsHeaderSection: some View {
         Group {
-            GeSectionTitle(text: "Bindings For")
+            GeSectionTitle(text: "Gamepad Bindings For")
             HStack(spacing: 6) {
                 ForEach(Array(["ALL", "P1", "P2", "P3", "P4"].enumerated()), id: \.offset) { i, label in
                     Button(action: { m.bindTab = i }) {
@@ -693,8 +880,39 @@ private struct ControlsPage: View {
 
             Text("Button names are positional, not printed labels. \"a\" is always the bottom face button, including on Nintendo pads where it is marked B.")
                 .foregroundColor(geDim).font(.system(size: 12))
-            Text("Crouch is deliberately absent -- in the two-controller styles it is controller 2's stick Y crossing +/-30 while aiming, not a button.")
+            Text("Crouch and reload are bindable now. Neither reaches the game through the N64 controller -- the engine has no button for either -- so the port reads them out of the binding table directly. The retail crouch gesture still works: hold aim and push down. Retail reload was the use button with nothing in reach; binding a reload key turns that double duty off, so interacting no longer reloads.")
                 .foregroundColor(geDim).font(.system(size: 12))
+
+            /* Everything else in this launcher lasts until you quit: settings are handed
+             * to the relaunched game as environment variables and nothing writes them
+             * down. For a rebound key that is not good enough, so this page can write
+             * itself to goldeneye.cfg.
+             *
+             * A deliberate button rather than saving on every keystroke -- the config
+             * file is a document the player edits by hand too, and a UI that rewrites it
+             * whenever a text field changes is one nobody can trust to leave their file
+             * alone. */
+            Button(action: {
+                m.saveControls()
+                savedPath = m.configPath
+            }) {
+                Text("SAVE CONTROLS")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(geGoldHi)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(geGold.opacity(0.15))
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(geGold, lineWidth: 1))
+            }
+            .buttonStyle(GeButtonStyle())
+
+            if let p = savedPath {
+                Text(p.isEmpty ? "Nowhere to save to -- no config file could be created."
+                               : "Saved to \(p)")
+                    .foregroundColor(geGold).font(.system(size: 12))
+            } else {
+                Text("Writes this page to your config file. Comments and settings from other pages are left alone. Without this, control changes last only until you quit.")
+                    .foregroundColor(geDim).font(.system(size: 12))
+            }
             Spacer()
         }
     }
@@ -1158,6 +1376,16 @@ private struct GeLauncherView: View {
                     Spacer()
                     Button(action: {
                         m.save()
+                        // Persist the controls page on START, not only when SAVE
+                        // CONTROLS is pressed. Every other setting takes effect by
+                        // being handed to the relaunched game as an environment
+                        // variable, so a rebind looks like it worked and is then gone
+                        // the next cold start, with nothing having said so. Requiring a
+                        // second click to make a rebind permanent is a trap; a player
+                        // who hits it concludes saving is broken. Deliberately NOT done
+                        // on the GETV_LAUNCHER_AUTOPLAY path below, which is a headless
+                        // probe and has no business writing the user's config.
+                        m.saveControls()
                         onStart()
                     }) {
                         Text(m.pickStage ? "START MISSION" : "START GAME")

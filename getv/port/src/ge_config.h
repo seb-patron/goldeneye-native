@@ -34,6 +34,28 @@ extern int ge_config_loaded;
  * ask for one. Nothing consumes this yet; see the "controls" key in ge_config.c. */
 extern int ge_config_controls;
 
+/* ---- saving --------------------------------------------------------------
+ *
+ * Where settings are read from and, now, written back to. Never NULL; an empty string
+ * means no config file could be located or created, and saving is unavailable -- the
+ * caller must say so rather than silently writing into the working directory. */
+const char *geConfigPath(void);
+
+/* Merge `count` key/value pairs into that file and return 0 on success.
+ *
+ * A rewrite in place: comments, ordering and every key this port does not recognise
+ * survive, and a key already present is updated where it sits -- including one that is
+ * commented out, which is uncommented rather than duplicated at the end. A NULL or
+ * empty value comments the key out, so the documentation around it stays meaningful.
+ *
+ * Written to a temporary file and renamed, so an interrupted save leaves the previous
+ * config intact rather than a truncated one.
+ *
+ * This is what makes the launcher's control remapping persist. Before it, settings
+ * existed only as environment variables handed to the re-exec'd game and were gone at
+ * the end of the session. */
+int geConfigSave(const char *const *keys, const char *const *values, int count);
+
 #ifdef __cplusplus
 }
 #endif

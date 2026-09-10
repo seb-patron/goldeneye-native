@@ -1,0 +1,59 @@
+name: Controls binding regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: controls-binding-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      # run_tests.sh takes a substring FILTER, and a filter that matches nothing exits 0.
+      # So the presence of each file is asserted separately: without this, deleting or
+      # renaming a test would turn this job green rather than red, which is the one
+      # failure mode a regression job must not have.
+      - name: Run ROM-free action binding checks
+        run: |
+          test -f getv/port/tests/test_bindings.c || {
+            echo "required action binding regression is missing" >&2
+            exit 1
+          }
+          bash getv/port/tests/run_tests.sh bindings
+
+      - name: Run ROM-free mouse wheel weapon-cycle checks
+        run: |
+          test -f getv/port/tests/test_wheel.c || {
+            echo "required mouse wheel regression is missing" >&2
+            exit 1
+          }
+          bash getv/port/tests/run_tests.sh wheel
+
+      - name: Run ROM-free config save checks
+        run: |
+          test -f getv/port/tests/test_config_save.c || {
+            echo "required config save regression is missing" >&2
+            exit 1
+          }
+          bash getv/port/tests/run_tests.sh config_save
+
+      # A test that builds and exits 0 having asserted nothing is not a passing test, and
+      # every case above lives behind a process-per-configuration harness that would keep
+      # exiting 0 if its phases stopped running. Hold the runner to the reported count.
+      - name: Assert the regressions actually executed
+        run: |
+          set -o pipefail
+          out="$(bash getv/port/tests/run_tests.sh bindings 2>&1 | tee /dev/stderr)"
+          echo "$out" | grep -qE 'test_bindings +pass +[0-9]+' \
+            || { echo "test_bindings did not report a passing check count" >&2; exit 1; }
+          n="$(echo "$out" | sed -nE 's/.*test_bindings +pass +([0-9]+).*/\1/p')"
+          [ "${n:-0}" -ge 100 ] \
+            || { echo "test_bindings executed only ${n:-0} checks; expected at least 100" >&2; exit 1; }

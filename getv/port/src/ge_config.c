@@ -54,6 +54,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "ge_actions.h"
 #include "ge_config.h"
 /* The user-data directory and mkdir -p, factored out of the
  * two places below that open-coded "$HOME/Library/Application Support". The macOS
@@ -563,17 +564,21 @@ static void key_gamepad(const char *v, int over)
  * actually does. */
 static int is_bind_value(const char *v)
 {
- return strcmp(v, "a") == 0 || strcmp(v, "b") == 0 || strcmp(v, "x") == 0 ||
- strcmp(v, "y") == 0 || strcmp(v, "lb") == 0 || strcmp(v, "rb") == 0 ||
- strcmp(v, "lt") == 0 || strcmp(v, "rt") == 0 ||
- strcmp(v, "start") == 0 || strcmp(v, "back") == 0 ||
- strcmp(v, "none") == 0;
+    /* Generated from GE_SOURCE_LIST rather than spelled out, so adding a pad source
+     * cannot leave the validator rejecting a value the binding layer accepts. That was
+     * a real hazard while the list was hand-maintained here AND in port_os.c AND in
+     * the launcher: the d-pad and the stick clicks had to be added to three places. */
+#define M(id, lo) if (strcmp(v, lo) == 0) { return 1; }
+    GE_SOURCE_LIST(M)
+#undef M
+    return 0;
 }
 
 static void key_bind(const char *gate, const char *key, const char *v, int over)
 {
  if (is_bind_value(v)) { put(gate, v, over); return; }
- ge_err("%s=\"%s\" - expected a/b/x/y/lb/rb/lt/rt/start/back/none", key, v);
+ ge_err("%s=\"%s\" - expected a/b/x/y/lb/rb/lt/rt/start/back/"
+        "dup/ddown/dleft/dright/lstick/rstick/none", key, v);
 }
 
 static void key_deadzone(const char *v, int over)
@@ -993,41 +998,128 @@ static int apply(const char *key_in, const char *val, int over)
 
     /* ---- gamepad / bindings / deadzone / invert-look -------------------------- */
  if (strcmp(key, "gamepad") == 0) { key_gamepad(val, over); return 1; }
- if (strcmp(key, "fire") == 0) { key_bind("GETV_BIND_FIRE", key, val, over); return 1; }
- if (strcmp(key, "aim") == 0) { key_bind("GETV_BIND_AIM", key, val, over); return 1; }
- if (strcmp(key, "use") == 0) { key_bind("GETV_BIND_USE", key, val, over); return 1; }
- if (strcmp(key, "weapon_next") == 0) {
- key_bind("GETV_BIND_WEAPON_NEXT", key, val, over); return 1;
-    }
- if (strcmp(key, "weapon_prev") == 0) {
- key_bind("GETV_BIND_WEAPON_PREV", key, val, over); return 1;
-    }
- if (strcmp(key, "pause") == 0) { key_bind("GETV_BIND_PAUSE", key, val, over); return 1; }
 
-    /* Per-player bindings: `p2.fire = rb`. The bare `fire` above stays the setting for all
-     * four, and a p<n>. key overrides it for that player only -- the same two-level fallback
-     * port_os.c applies, expressed the way a config file wants to read.
+    /* The whole binding surface, generated from the lists in ge_actions.h.
      *
-     * Written as a prefix test rather than 24 more lines: the six action names are already
-     * enumerated above and duplicating them per player is four times the surface for the
-     * same behaviour, with four times the chance of one going stale. */
-    if (key[0] == 'p' && key[1] >= '1' && key[1] <= '4' && key[2] == '.') {
-        static const struct { const char *name; const char *suffix; } acts[] = {
-            { "fire", "FIRE" }, { "aim", "AIM" }, { "use", "USE" },
-            { "weapon_next", "WEAPON_NEXT" }, { "weapon_prev", "WEAPON_PREV" },
-            { "pause", "PAUSE" }
-        };
-        const char *act = key + 3;
-        size_t i;
-        for (i = 0; i < sizeof acts / sizeof acts[0]; i++) {
-            if (strcmp(act, acts[i].name) == 0) {
-                char gate[64];
-                snprintf(gate, sizeof gate, "GETV_P%c_BIND_%s", key[1], acts[i].suffix);
-                key_bind(gate, key, val, over);
-                return 1;
-            }
+     * Six actions used to be written out by hand here, and the per-player forms as a
+     * seventh table just below. Adding crouch, stand and reload would have meant three
+     * more lines in each, plus the matching rows in port_os.c and the launcher, with
+     * nothing to catch a spelling that only got added to two of the four. Driving all
+     * of it from GE_ACTION_LIST removes the possibility.
+     *
+     *   fire        = rt          pad binding, all players
+     *   p2.fire     = rb          pad binding, player 2 only
+     *   key.reload  = R           keyboard/mouse binding
+     *   key.forward = W           keyboard movement axis
+     */
+    {
+#define M(id, lo, up)                                                             \
+        if (strcmp(key, lo) == 0) {                                               \
+            key_bind("GETV_BIND_" up, key, val, over); return 1;                  \
         }
+        GE_ACTION_LIST(M)
+#undef M
     }
+
+    /* Per-player: `p2.fire = rb`. The bare `fire` above stays the setting for all four
+     * and a p<n>. key overrides it for that player only -- the same two-level fallback
+     * geBindSrc() applies, expressed the way a config file wants to read. */
+    if (key[0] == 'p' && key[1] >= '1' && key[1] <= '4' && key[2] == '.') {
+        const char *act = key + 3;
+#define M(id, lo, up)                                                             \
+        if (strcmp(act, lo) == 0) {                                               \
+            char gate[64];                                                        \
+            snprintf(gate, sizeof gate, "GETV_P%c_BIND_%s", key[1], up);           \
+            key_bind(gate, key, val, over);                                       \
+            return 1;                                                             \
+        }
+        GE_ACTION_LIST(M)
+#undef M
+    }
+
+    /* Keyboard and mouse bindings, `key.<action>` and `key.<axis>`.
+     *
+     * Namespaced under `key.` because the bare names are already taken by the pad, and
+     * the two are genuinely independent now -- `aim = lt` and `key.aim = mouse2` are
+     * both in force at once, which is the point of splitting them.
+     *
+     * The VALUE is passed through verbatim, deliberately. It is a comma-separated list
+     * of SDL scancode names ("C,Left Ctrl") plus this port's mouse names, and SDL only
+     * resolves a name once the window exists and the platform key table is populated.
+     * Validating here would mean shipping a second copy of SDL's table that could
+     * disagree with it. port_input.c warns per unrecognised name at resolution time
+     * instead, which is where the authoritative answer lives. Same reasoning as
+     * console_key below, which has always worked this way. */
+    if (strncmp(key, "key.", 4) == 0) {
+        const char *what = key + 4;
+        char gate[64];
+#define M(id, lo, up)                                                             \
+        if (strcmp(what, lo) == 0) {                                              \
+            snprintf(gate, sizeof gate, "GETV_KEY_%s", up);                        \
+            put(gate, val, over); return 1;                                        \
+        }
+        GE_ACTION_LIST(M)
+        GE_AXIS_LIST(M)
+#undef M
+        ge_err("key.%s - not an action or a movement axis", what, "");
+        return 1;
+    }
+
+    /* Which set of defaults everything above falls back to. */
+    if (strcmp(key, "input_preset") == 0 || strcmp(key, "preset_input") == 0) {
+        if (strcmp(val, "modern") == 0 || strcmp(val, "n64") == 0 ||
+            strcmp(val, "classic") == 0) {
+            put("GETV_INPUT_PRESET", val, over);
+        } else {
+            ge_err("input_preset=\"%s\" - expected modern|n64%s", val, "");
+        }
+        return 1;
+    }
+
+    /* Hold vs toggle.
+     *
+     * crouch_mode is enforced in the port (ge_bindings.c) because the engine has no
+     * crouch button to latch. aim_mode is enforced in the ENGINE: the retail options
+     * menu already carries a per-player aim-control setting that bondview2.c reads as
+     * a rising edge rather than a level, so this sets that option (via the older
+     * GETV_AIM_TOGGLE gate and the 0015 patch) rather than adding a second latch that
+     * would fight it. */
+    if (strcmp(key, "crouch_mode") == 0) {
+        if (strcmp(val, "hold") == 0 || strcmp(val, "toggle") == 0) {
+            put("GETV_CROUCH_MODE", val, over);
+        } else {
+            ge_err("crouch_mode=\"%s\" - expected hold|toggle%s", val, "");
+        }
+        return 1;
+    }
+    if (strcmp(key, "aim_mode") == 0) {
+        if (strcmp(val, "hold") == 0) {
+            put("GETV_AIM_MODE", "hold", over);
+            put("GETV_AIM_TOGGLE", "0", over);
+        } else if (strcmp(val, "toggle") == 0) {
+            put("GETV_AIM_MODE", "toggle", over);
+            put("GETV_AIM_TOGGLE", "1", over);
+        } else {
+            ge_err("aim_mode=\"%s\" - expected hold|toggle%s", val, "");
+        }
+        return 1;
+    }
+
+    /* The dedicated crouch key as a feature switch, for faithful-only play. */
+    if (strcmp(key, "crouch_key") == 0) {
+        key_bool_gate("GETV_CROUCH_KEY", key, val, over); return 1;
+    }
+
+    /* Does the USE button still reload when nothing is in reach?
+     *
+     * Left UNSET by default on purpose, because the sensible answer depends on whether
+     * a reload key exists: ge_bindings.c infers it (off once reload is bound, on under
+     * input_preset = n64). Writing a value here overrides that inference in both
+     * directions -- use_reloads = 1 keeps the retail double duty even with R bound. */
+    if (strcmp(key, "use_reloads") == 0) {
+        key_bool_gate("GETV_USE_RELOADS", key, val, over); return 1;
+    }
+
     /* ---- mods ---------------------------------------------------------------- */
     /* Both are passed through verbatim: a directory path and a list of names have no
      * enumerable value set to validate against, and rejecting an unrecognised mod name here
@@ -1330,10 +1422,19 @@ static void read_file(void)
         {
  char lv[512];
  snprintf(lv, sizeof lv, "%s", v);
-            /* Values are lowercased for matching except for paths and raw GETV_*
-             * passthrough, where case is meaningful. */
+            /* Values are lowercased for matching except where case is meaningful:
+             * paths, raw GETV_* passthrough, and key NAMES.
+             *
+             * Key names are the addition. SDL's own spellings are capitalised ("Left
+             * Ctrl", "Keypad Enter", "F1") and SDL_GetScancodeFromName is
+             * case-insensitive, so lowercasing them still RESOLVED correctly -- but
+             * geConfigSave() writes back what it reads, so a launcher save turned every
+             * "Left Ctrl" in the file into "left ctrl". Working but progressively
+             * uglier is not a good trade against one line here. */
  if (strncmp(k, "GETV_", 5) != 0 &&
- strcmp(k, "save_dir") != 0 && strcmp(k, "savedir") != 0) {
+ strcmp(k, "save_dir") != 0 && strcmp(k, "savedir") != 0 &&
+ strcmp(k, "console_key") != 0 &&
+ strncmp(k, "key.", 4) != 0) {
  lower(lv);
             }
  if (!apply(k, lv, /*overwrite=*/0)) {
@@ -1379,12 +1480,21 @@ static void usage(void)
 "N64 ports 0+1.\n"
 "filtering=point|bilinear|three-point                               [three-point]\n"
 "gamepad=auto|xbox|playstation|switch|generic changes PROMPT GLYPHS only  [auto]\n"
-"fire=aim=use=weapon_next=weapon_prev=pause=a|b|x|y|lb|rb|lt|rt|start|back|none\n"
-"p1.<action> .. p4.<action>  the same six, for one player only; falls back to the\n"
-"                            bare key above, then to the default\n"
+"input_preset=modern|n64  the defaults every binding falls back to       [modern]\n"
+"aim_mode=hold|toggle [hold]   crouch_mode=hold|toggle [toggle]\n"
+"use_reloads=0|1 use also reloads with nothing in reach [auto: off once reload is bound]\n"
+"fire=aim=use=reload=crouch=weapon_next=weapon_prev=pause=\n"
+"    a|b|x|y|lb|rb|lt|rt|start|back|dup|ddown|dleft|dright|lstick|rstick|none\n"
+"p1.<action> .. p4.<action>  the same eight, for one player only; falls back to\n"
+"                            the bare key above, then to the preset\n"
+"key.<action>  keyboard/mouse binding, comma-separated SDL scancode names plus\n"
+"              mouse1..mouse5, wheelup, wheeldown -- e.g. key.crouch=C,Left Ctrl\n"
+"key.forward|backward|strafe_left|strafe_right|look_up|look_down|look_left|\n"
+"              look_right   movement, same value syntax\n"
+"crouch_key=0|1 the port's dedicated crouch key; 0 = retail gesture only     [1]\n"
 "moddir=<dir>  mods_off=<name,name>  Lua mods: where to scan, and which to skip\n"
-"names are POSITIONAL (a = bottom face button), not label\n"
-"[fire=rt aim=lt use=b weapon_next=a weapon_prev=none pause=start]\n"
+"pad names are POSITIONAL (a = bottom face button), not label\n"
+"[modern: fire=rt aim=lt use=a reload=x crouch=b weapon_next=y pause=start]\n"
 "deadzone=0..40 stick deadzone, percent, clamped to range          [20]\n"
 "invert_look=0|1 forces look inversion; UNSET = save file decides   [unset]\n"
 "mouse_mode=modern|classic selects direct mouse angles or N64 stick response [modern]\n"
@@ -1449,6 +1559,28 @@ static const char *DEFAULT_CFG =
 "# Rare's shipped single-controller scheme.\n"
 "controls    = 2.2\n"
 "\n"
+"# --- input preset ----------------------------------------------------------\n"
+"# The set of defaults every binding below falls back to.\n"
+"#   modern  WASD + mouse, RMB aims, E interacts, R reloads, C crouches, wheel\n"
+"#           changes weapon. On a pad: south interacts, west reloads, east\n"
+"#           crouches, north cycles weapon.\n"
+"#   n64     exactly what this port defaulted to before remapping existed --\n"
+"#           Q aims, R cycles weapon, no reload key, pad use on the east face\n"
+"#           button. Pick this to revert rather than rebinding nine keys.\n"
+"# An explicit binding always beats the preset, so you can start from either one\n"
+"# and change only what you care about.\n"
+"input_preset = modern\n"
+"\n"
+"# --- hold or toggle --------------------------------------------------------\n"
+"# aim_mode toggle sets the retail per-player aim-control option, which the\n"
+"# engine itself reads as a press rather than a hold -- it is GoldenEye's own\n"
+"# setting, not something bolted on. crouch_mode is enforced by the port,\n"
+"# because the engine has no crouch button to latch.\n"
+"# There is NO stand key. Crouch toggles: press it again to stand up. In hold\n"
+"# mode, releasing it stands you up instead.\n"
+"aim_mode    = hold        # hold | toggle\n"
+"crouch_mode = toggle      # hold | toggle\n"
+"\n"
 "# --- gamepad / bindings ------------------------------------------------------\n"
 "# gamepad picks which glyphs get PRINTED for prompts (auto|xbox|playstation|\n"
 "# switch|generic) -- it never changes what a binding below does.\n"
@@ -1457,18 +1589,67 @@ static const char *DEFAULT_CFG =
 "# Binding values are POSITIONAL, not label-based: \"a\" always means the\n"
 "# BOTTOM face button on the pad, whatever it is labelled -- SDL maps the\n"
 "# physically-bottom button to _BUTTON_A on every controller it knows, including\n"
-"# Nintendo's (where that same button is printed \"B\"). Valid values: a b x y\n"
-"# lb rb lt rt start back none.\n"
-"fire        = rt\n"
-"aim         = lt\n"
-"use         = b\n"
-"weapon_next = a\n"
-"# weapon_prev defaults to NONE on purpose -- GoldenEye has no back-cycle button.\n"
-"# The retail gesture is hold-inventory + tap-fire (bondview2.c:5091-5111); the\n"
-"# synthesised single-button version (port_os.c) is faithful to that gesture but\n"
-"# unverified on real hardware, so it stays opt-in rather than on by default.\n"
-"weapon_prev = none\n"
-"pause       = start\n"
+"# Nintendo's (where that same button is printed \"B\"). On a DualSense that makes\n"
+"# a=Cross, b=Circle, x=Square, y=Triangle. Valid values: a b x y lb rb lt rt\n"
+"# start back dup ddown dleft dright lstick rstick none.\n"
+"#\n"
+"# Commented out because the preset above already supplies them. Uncomment a\n"
+"# line to override just that one.\n"
+"# fire        = rt\n"
+"# aim         = lt\n"
+"# use         = a\n"
+"# reload      = x\n"
+"# crouch      = b\n"
+"# weapon_next = y\n"
+"# weapon_prev defaults to NONE on the pad -- GoldenEye has no back-cycle button.\n"
+"# The retail gesture is hold-inventory + tap-fire (bondview2.c); the synthesised\n"
+"# single-button version (port_os.c) is faithful to that gesture but unverified\n"
+"# on real hardware, so it stays opt-in on a face button. The mouse wheel binds\n"
+"# to it by default, where one notch is unambiguous.\n"
+"# weapon_prev = none\n"
+"# pause       = start\n"
+"#\n"
+"# Per player, for split-screen with mixed controllers. p<n>. beats the bare key.\n"
+"# p2.fire = rb\n"
+"\n"
+"# --- keyboard and mouse ------------------------------------------------------\n"
+"# key.<action> takes a comma-separated list; any one of them fires the action.\n"
+"# Names are SDL's own (\"Left Ctrl\", \"Space\", \"Keypad Enter\", \"F1\"), and this\n"
+"# port adds mouse1..mouse5, wheelup and wheeldown. Short forms lctrl, lshift,\n"
+"# lalt, esc, enter, pgup, pgdn are accepted too. Use \"none\" to unbind.\n"
+"#\n"
+"# Commented out because the preset supplies them. These are the modern values.\n"
+"# key.fire        = Space,mouse1\n"
+"# key.aim         = mouse2\n"
+"# key.use         = E,F\n"
+"# key.reload      = R\n"
+"# key.crouch      = C,Left Ctrl\n"
+"# key.weapon_next = Q,wheelup,Return\n"
+"# key.weapon_prev = wheeldown\n"
+"# key.pause       = Tab,Keypad Enter\n"
+"#\n"
+"# Movement and look. LOOK_* drive the right stick, which is also how a keyboard\n"
+"# player moves the menu cursor -- worth keeping bound even with the mouse on.\n"
+"# key.forward      = W\n"
+"# key.backward     = S\n"
+"# key.strafe_left  = A\n"
+"# key.strafe_right = D\n"
+"# key.look_up      = Up\n"
+"# key.look_down    = Down\n"
+"# key.look_left    = Left\n"
+"# key.look_right   = Right\n"
+"#\n"
+"# crouch_key = 0 removes the port's dedicated crouch key entirely and leaves\n"
+"# only the retail gesture (hold aim, push down).\n"
+"# crouch_key = 1\n"
+"#\n"
+"# Retail reload is the USE button with nothing in reach, so E near a door opens\n"
+"# the door and E near nothing reloads. Once a reload key is bound that double\n"
+"# duty is turned off automatically, because the same key doing two things\n"
+"# depending on where you stand is what a dedicated key replaces. Set\n"
+"# use_reloads = 1 to keep it anyway, or 0 to drop it even without a reload key.\n"
+"# use_reloads = 1\n"
+"\n"
 "deadzone    = 20          # percent, 0-40, clamped -- worn-pad drift trimmer\n"
 "invert_look = 1           # stick UP looks UP. MEASURED, not a preference toggle:\n"
 "#                         # GE's DEFAULT_OPTIONS omits OPTION_INVERTLOOK, which makes\n"
@@ -1596,6 +1777,233 @@ static int write_default(const char *path)
  fclose(f);
  printf("[getv][config] wrote %s\n", path);
  return 0;
+}
+
+/* ---- writing settings back ----------------------------------------------
+ *
+ * The gap that made remapping unusable. The launcher has always applied settings by
+ * setenv() and then re-exec'ing the game, so a rebound key lasted exactly as long as
+ * the process: quit, and it was gone. Nothing in the port had ever written
+ * goldeneye.cfg except --write-config, which emits the static template and would
+ * discard whatever the file already held.
+ *
+ * This is a rewrite-in-place, not a regeneration. Comments, ordering, spacing and
+ * every key this port does not recognise are preserved, because a config file is a
+ * document the player edits too -- silently reformatting it, or dropping a key added
+ * by a newer build, would make the launcher unsafe to use on a file anyone had touched
+ * by hand. A key that is present but commented out is uncommented in place, so the
+ * template's own "# key.reload = R" lines become live at the position they document
+ * rather than being appended somewhere else.
+ */
+
+/* Is `line` the key `key`, live or commented out? Returns the offset of the value, or
+ * -1. Accepts leading space, an optional '#' with optional space after it, the key,
+ * optional space, '=', optional space. */
+static int cfg_line_matches(const char *line, const char *key, int *out_commented)
+{
+    size_t klen = strlen(key);
+    const char *p = line;
+    int commented = 0;
+
+    while (*p == ' ' || *p == '\t') { p++; }
+    if (*p == '#') {
+        commented = 1;
+        p++;
+        while (*p == ' ' || *p == '\t') { p++; }
+    }
+    /* Case-insensitively, because apply() lowercases keys and a hand-written file may
+     * not have. */
+    {
+        size_t i;
+        for (i = 0; i < klen; i++) {
+            char a = p[i];
+            char b = key[i];
+            if (a >= 'A' && a <= 'Z') { a = (char) (a - 'A' + 'a'); }
+            if (b >= 'A' && b <= 'Z') { b = (char) (b - 'A' + 'a'); }
+            if (a != b) { return -1; }
+        }
+        p += klen;
+    }
+    while (*p == ' ' || *p == '\t') { p++; }
+    if (*p != '=') { return -1; }
+    p++;
+    while (*p == ' ' || *p == '\t') { p++; }
+
+    if (out_commented != NULL) { *out_commented = commented; }
+    return (int) (p - line);
+}
+
+/* Where geConfigSave() writes. Never NULL; empty when no file was located AND none
+ * could be placed, which the caller must treat as "saving is unavailable" rather than
+ * writing to the working directory. */
+const char *geConfigPath(void)
+{
+    static char fallback[1024];
+
+    if (g_cfgpath[0] != '\0') { return g_cfgpath; }
+
+    /* No file was read this run -- a first launch, or one started with the config
+     * deleted. Saving must still work, and it must land where the next launch will
+     * look, which is the same user-data directory locate() falls through to. */
+    if (gePortUserDataDir("Goldeneye-Native", "Goldeneye-Native",
+                          fallback, sizeof fallback) != 0) {
+        return "";
+    }
+    if (gePortMakeDirTree(fallback, 0777) != 0) {
+        printf("[getv][config] mkdir failed: %s\n", fallback);
+        return "";
+    }
+    if (strlen(fallback) + 1 + strlen(GE_CFG_BASENAME) + 1 > sizeof fallback) {
+        return "";
+    }
+    strcat(fallback, "/" GE_CFG_BASENAME);
+    return fallback;
+}
+
+/* Merge `count` key/value pairs into the config file.
+ *
+ * A NULL or empty value DELETES the key -- the line is commented out rather than
+ * removed, so the comment that documents it survives and the player can see what was
+ * turned off. Returns 0 on success.
+ *
+ * Written through a temporary file and renamed. A crash or a full disk midway through
+ * a direct rewrite would leave a truncated config, and the next launch would come up
+ * with half its settings missing and no indication why; rename() is atomic on every
+ * platform this ships to, so the file is either the old one or the new one.
+ */
+int geConfigSave(const char *const *keys, const char *const *values, int count)
+{
+    const char *path = geConfigPath();
+    char tmp[1088];
+    FILE *in;
+    FILE *out;
+    char line[2048];
+    int *written;
+    int i;
+    int rc = 0;
+
+    if (path == NULL || *path == '\0') {
+        printf("[getv][config] nowhere to save to\n");
+        return 1;
+    }
+    if (count < 0) { count = 0; }
+
+    written = (int *) calloc((size_t) (count > 0 ? count : 1), sizeof(int));
+    if (written == NULL) { return 1; }
+
+    if (snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int) sizeof tmp) {
+        free(written);
+        return 1;
+    }
+    out = fopen(tmp, "w");
+    if (out == NULL) {
+        printf("[getv][config] cannot write %s\n", tmp);
+        free(written);
+        return 1;
+    }
+
+    in = fopen(path, "r");
+    if (in != NULL) {
+        while (fgets(line, sizeof line, in) != NULL) {
+            int handled = 0;
+
+            for (i = 0; i < count; i++) {
+                int commented = 0;
+                int off;
+
+                if (written[i]) { continue; }
+                if (keys[i] == NULL) { continue; }
+                off = cfg_line_matches(line, keys[i], &commented);
+                if (off < 0) { continue; }
+
+                /* Unchanged value: keep the line byte for byte.
+                 *
+                 * Without this every save rewrote each key it was handed, so a live
+                 * `fire        = rt` came back as `fire = rt` -- the column alignment and
+                 * any trailing `# note` gone -- on a line whose setting had not changed
+                 * at all. Only a line whose value actually differs is worth rewriting. */
+                if (!commented && values[i] != NULL && values[i][0] != '\0') {
+                    const char *v = line + off;
+                    size_t n = 0;
+                    while (v[n] != '\0' && v[n] != '#' && v[n] != ';' &&
+                           v[n] != '\n' && v[n] != '\r') { n++; }
+                    while (n > 0 && (v[n - 1] == ' ' || v[n - 1] == '\t')) { n--; }
+                    if (strlen(values[i]) == n && strncmp(v, values[i], n) == 0) {
+                        fputs(line, out);
+                        written[i] = 1;
+                        handled = 1;
+                        break;
+                    }
+                }
+
+                /* Keep the leading whitespace so an indented block stays indented. */
+                {
+                    const char *lead = line;
+                    size_t nlead = 0;
+                    while (lead[nlead] == ' ' || lead[nlead] == '\t') { nlead++; }
+                    fwrite(line, 1, nlead, out);
+                }
+
+                if (values[i] == NULL || values[i][0] == '\0') {
+                    /* Commented out rather than deleted: the surrounding comment that
+                     * explains the key stays meaningful, and the player can see what
+                     * was turned off instead of finding a hole. */
+                    fprintf(out, "# %s =\n", keys[i]);
+                } else {
+                    fprintf(out, "%s = %s\n", keys[i], values[i]);
+                }
+                written[i] = 1;
+                handled = 1;
+                break;
+            }
+
+            if (!handled) { fputs(line, out); }
+        }
+        fclose(in);
+    }
+
+    /* Anything the file did not already mention, live or commented, goes in a block at
+     * the end. Labelled, because a player who opens the file after using the launcher
+     * should be able to tell at a glance which lines they wrote and which the launcher
+     * did. */
+    {
+        int any = 0;
+        for (i = 0; i < count; i++) {
+            if (written[i] || keys[i] == NULL) { continue; }
+            if (values[i] == NULL || values[i][0] == '\0') { continue; }
+            if (!any) {
+                fputs("\n# --- written by the launcher ---------------------------------"
+                      "--------------\n", out);
+                any = 1;
+            }
+            fprintf(out, "%s = %s\n", keys[i], values[i]);
+        }
+    }
+
+    if (fclose(out) != 0) {
+        printf("[getv][config] write failed: %s\n", tmp);
+        remove(tmp);
+        free(written);
+        return 1;
+    }
+
+    /* Windows' rename() fails if the destination exists, unlike POSIX. Removing first
+     * opens a window where neither file is at `path`, which is why the temporary is
+     * kept until the rename succeeds -- a failed rename leaves the data recoverable at
+     * <path>.tmp and says so, rather than losing it. */
+#if defined(_WIN32)
+    remove(path);
+#endif
+    if (rename(tmp, path) != 0) {
+        printf("[getv][config] cannot replace %s -- your settings are in %s\n", path, tmp);
+        rc = 1;
+    } else {
+        printf("[getv][config] saved %s\n", path);
+    }
+
+    free(written);
+    fflush(stdout);
+    return rc;
 }
 
 /* ---------------------------------------------------------------------- init */

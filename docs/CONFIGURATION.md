@@ -309,20 +309,35 @@ everyone back to `1.1`.
 **This only changes which glyphs are printed for on-screen prompts.** It never changes what any
 binding does. Set it when SDL misidentifies a third-party pad.
 
+### `input_preset`
+
+`modern` or `n64`. Default `modern`. `classic` is accepted as a synonym for `n64`.
+
+A preset supplies the defaults for every binding on both devices; an explicit binding always beats
+it. `n64` reproduces exactly what this port defaulted to before remapping existed, so it is a true
+revert rather than an approximation - use it if you preferred the old keys rather than
+reconstructing seventeen of them by hand.
+
+Changing the preset from either launcher clears every explicit binding, because the value of a
+preset is that picking it describes the whole layout.
+
 ### Button bindings
 
-`fire`, `aim`, `use`, `weapon_next`, `weapon_prev`, `pause`.
+`fire`, `aim`, `use`, `reload`, `crouch`, `weapon_next`, `weapon_prev`, `pause`.
 
-Each accepts one of: `a`, `b`, `x`, `y`, `lb`, `rb`, `lt`, `rt`, `start`, `back`, `none`.
+Each accepts one of: `a`, `b`, `x`, `y`, `lb`, `rb`, `lt`, `rt`, `start`, `back`, `dup`, `ddown`,
+`dleft`, `dright`, `lstick`, `rstick`, `none`.
 
-| Key | Default |
-|---|---|
-| `fire` | `rt` |
-| `aim` | `lt` |
-| `use` | `b` |
-| `weapon_next` | `a` |
-| `weapon_prev` | `none` |
-| `pause` | `start` |
+| Key | `modern` | `n64` |
+|---|---|---|
+| `fire` | `rt` | `rt` |
+| `aim` | `lt` | `lt` |
+| `use` | `a` | `b` |
+| `reload` | `x` | `none` |
+| `crouch` | `b` | `none` |
+| `weapon_next` | `y` | `a` |
+| `weapon_prev` | `none` | `none` |
+| `pause` | `start` | `start` |
 
 **Button names are positional, not label-based.** `a` always means the physically bottom face
 button on the pad, whatever that button is printed with - SDL maps the bottom face button to its
@@ -333,13 +348,130 @@ physical button.
 `fire = rt` / `aim = lt` is the modern-shooter convention rather than a settled fact; GoldenEye's
 retail scheme has neither. Swapping them is one line: `fire = lt`, `aim = rt`.
 
-`weapon_prev` defaults to `none` deliberately. GoldenEye has no back-cycle button - the retail
-gesture is hold-inventory plus tap-fire. The synthesised single-button version is faithful to that
-gesture but has not been verified against real hardware, so it stays opt-in.
+`reload` and `crouch` do not reach the game through the N64 controller at all - the engine has no
+button for either - so the port reads them back out of the binding table directly, in
+`port_input.c`. The retail crouch gesture still works alongside; see
+[`CONTROLS.md`](CONTROLS.md).
+
+**There is no `stand` action.** Crouch toggles, so pressing it again stands you up, and in hold
+mode releasing it does. An earlier revision of this work shipped a bindable `stand`; it did
+nothing except while already crouched, which meant nobody found it and the crouch itself read as
+broken. Removing it is the fix.
+
+`weapon_prev` defaults to `none` on the pad deliberately. GoldenEye has no back-cycle button - the
+retail gesture is hold-inventory plus tap-fire, which `gePortDecodePad()` synthesises as a single
+`CONT_A | CONT_G` frame. That satisfies the engine's own test exactly and cannot double-fire or
+discharge the gun, but it has not been verified against real hardware, so it stays opt-in on a
+face button. The mouse wheel binds to it by default, where one notch is unambiguous.
+
+### Keyboard and mouse bindings
+
+`key.<action>` for any action above, and `key.<axis>` for `forward`, `backward`, `strafe_left`,
+`strafe_right`, `look_up`, `look_down`, `look_left`, `look_right`.
+
+The value is a comma-separated list; any one entry fires the action. Names are SDL's own scancode
+names (case-insensitive) plus `mouse1` through `mouse5`, `wheelup` and `wheeldown`, and the short
+forms `lctrl`, `rctrl`, `lshift`, `rshift`, `lalt`, `ralt`, `esc`, `enter`, `pgup`, `pgdn`,
+`kpenter`. `none` unbinds.
+
+```
+key.reload      = R
+key.crouch      = C,Left Ctrl
+key.aim         = mouse2
+key.weapon_next = Q,wheelup,Return
+```
+
+Unlike every other value in this file, these are **not** lowercased on the way in. SDL's lookup is
+case-insensitive so it made no difference to what a binding did, but the launcher writes the file
+back, and lowercasing turned every `Left Ctrl` into `left ctrl` a little more each time it was
+saved.
+
+The value is otherwise passed through unvalidated. SDL only resolves a scancode name once the
+window exists and the platform key table is populated, so checking here would mean shipping a
+second copy of SDL's table that could disagree with it. `port_input.c` warns per unrecognised name
+at resolution time, which is where the authoritative answer lives. Same arrangement as
+`console_key`.
+
+Keyboard bindings are not per-player. A second keyboard is not something this port supports, and
+pretending otherwise would put four dead rows in the launcher.
+
+The whole resolved map is printed at startup, so a key that failed to apply is visible rather than
+silent:
+
+```
+[getv] input: keyboard/mouse bindings --
+[getv]   fire         Space mouse1
+[getv]   reload       R
+[getv]   crouch       C Left Ctrl
+```
+
+### `aim_mode` and `crouch_mode`
+
+`hold` or `toggle`. `aim_mode` defaults to `hold`, matching retail. **`crouch_mode` defaults to
+`toggle`**, because that is the only mode in which pressing crouch again stands you up, and there
+is deliberately no second key that does.
+
+`aim_mode = toggle` sets the same engine option `aim_toggle` does - see its entry below for why
+that is answered at the read rather than latched in the port. `aim_toggle` is still accepted and
+still means what it meant.
+
+`crouch_mode` is enforced by the port, in `ge_bindings.c`, because the engine has no crouch button
+to latch. In hold mode, **releasing** crouch stands you up. Standing is emitted as a two-frame
+pulse rather than a level, because `bondview2.c` reads `if (crouchDown) ... else if (crouchUp)`
+and a permanently-true `crouchUp` would cancel the retail aim-stick crouch the instant the stick
+recentred.
+
+### `crouch_key`
+
+`0` or `1`. Default `1`. Set `0` to remove the port's dedicated crouch binding entirely and keep
+only the retail gesture (hold aim, push down).
+
+### `use_reloads`
+
+`0` or `1`. **Unset by default, and that is not the same as `0`.**
+
+Retail reload is the use button with nothing in reach: `bond_interact_object()` returns true only
+when `propFindForInteract()` found nothing, so `E` near a door opens the door and `E` near nothing
+reloads. With no reload key that is the only way to reload and must stay.
+
+Once `reload` is bound to anything, the double duty is turned off automatically -- the same input
+reloading or opening a door depending on where you happen to be standing is precisely what a
+dedicated key replaces. `input_preset = n64` leaves reload unbound and therefore keeps retail
+behaviour.
+
+Setting the key overrides that inference in both directions: `1` keeps the double duty even with a
+reload key bound, `0` removes it even without one. The resolved answer is printed at startup.
+
+### Saving from the launcher
+
+The launcher has always applied settings by setting environment variables and re-exec'ing the
+game, which is enough for them to take effect and not enough for them to survive quitting. The
+Controls page is now written to `goldeneye.cfg` **when you start the game**, and there is a
+**SAVE CONTROLS** button for saving without launching.
+
+Persisting on start rather than only on an explicit button is deliberate. Every other page takes
+effect through the relaunch, so a rebind looked like it had worked and was then gone at the next
+cold start with nothing having said so; requiring a second click to make it permanent is a trap
+rather than a safeguard.
+
+It is a rewrite in place, not a regeneration: comments, ordering, blank lines, settings from every
+other page, and any key this build does not recognise are all preserved. A key that is present but
+commented out is uncommented where it sits rather than duplicated at the end, so the template's
+own `# key.reload = R` example becomes live at the position that documents it. Clearing a binding
+comments the key out rather than deleting the line, so the surrounding explanation stays
+meaningful.
+
+The file is written to a temporary path and renamed, so an interrupted save leaves the previous
+config intact rather than a truncated one.
+
+Only the Controls page is written. Per-player pad bindings are excluded: they are a split-screen
+setting the page presents as a tab, and saving all four scopes would add dozens of mostly empty
+lines every time anyone pressed Save. They keep working through the environment and can be set by
+hand.
 
 ### Per-player bindings
 
-Prefix any of the six with `p1.` to `p4.` to set it for one player only:
+Prefix any pad action with `p1.` to `p4.` to set it for one player only:
 
 ```
 fire     = lt        # all four players
@@ -348,8 +480,8 @@ p3.aim   = x
 ```
 
 Resolution is three steps, in order: `p<n>.<action>` if set, else the bare `<action>`, else the
-default in the table above. So the plain keys still mean "all four players" and nothing that was
-configured before this existed changes.
+preset. So the plain keys still mean "all four players" and nothing that was configured before
+this existed changes.
 
 Split-screen is the reason. With one global table, moving fire off the right trigger for a player
 on a Nintendo pad moved it for everyone, so a mixed set of controllers could not be accommodated
@@ -362,8 +494,8 @@ appear only when they differ from it, so an override is impossible to miss and t
 stays one line:
 
 ```
-[getv] input: bindings resolved, player 1 -- fire=lt aim=lt use=b weapon_next=a weapon_prev=none pause=start
-[getv] input: bindings resolved, player 2 -- fire=rb aim=lt use=b weapon_next=a weapon_prev=none pause=start
+[getv] input: pad bindings, player 1 -- fire=lt aim=lt use=a reload=x crouch=b weapon_next=y weapon_prev=none pause=start
+[getv] input: pad bindings, player 2 -- fire=rb aim=lt use=a reload=x crouch=b weapon_next=y weapon_prev=none pause=start
 ```
 
 ### `deadzone`
@@ -761,7 +893,8 @@ boundaries, and evidence limits.
 
 `0` or `1`. Default `0`, which is the retail hold. `aim_toggle = 1` makes aim a toggle: press
 once to raise the sight and again to lower it, so you are not holding a key down with the same
-hand you move with. Alias `toggle_aim`.
+hand you move with. Aliases `toggle_aim` and, preferred now, `aim_mode = toggle` -- which sets
+this same gate and sits next to `crouch_mode` where a player will look for it.
 
 This is GoldenEye's own option rather than something the port invented. `bondview2.c:5441`
 already branches on it: with hold, `insightaimmode` is set from the button every frame; with

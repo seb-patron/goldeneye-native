@@ -171,7 +171,8 @@ for p in 0001-source 0006-fov-live-setter 0007-load-trace \
          0016-freecam 0017-coop-friendly-fire \
          0018-coop-one-death-is-not-the-team 0019-coop-respawn 0020-kill-selftest 0021-stan-pointer-return-decls \
          0022-lockstep-stop-shuffling-every-frame 0023-enemy-gibs 0024-multi-ammo-endianness \
-         0025-cuff-native-pointer-stride 0026-bloodier-gibs 0027-external-rom-path 0028-prop-allocator-telemetry 0029-modern-mouse-look 0030-autocrouch-render-ticks; do
+         0025-cuff-native-pointer-stride 0026-bloodier-gibs 0027-external-rom-path 0028-prop-allocator-telemetry 0029-modern-mouse-look 0030-autocrouch-render-ticks \
+         0031-manual-reload; do
   if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/$p.patch" ) 2>/dev/null; then
     echo "$p.patch: already applied"
   else
