@@ -22,6 +22,8 @@ class EvidenceGateTests(unittest.TestCase):
         self.write(self.skill, "old\n")
         self.write("tools/skill_eval.py", "# evaluator\n")
         self.write("tools/skill_eval_cases.json", "{}\n")
+        for dependency in gate.skill_eval.DEPENDENCIES:
+            self.write(dependency, "# sanitizer\n")
         self.command("init", "-q")
         self.commit()
         self.base = self.command("rev-parse", "HEAD").decode().strip()
@@ -127,6 +129,12 @@ class EvidenceGateTests(unittest.TestCase):
         self.commit()
         self.write("docs/evals/run.json", "{}\n")
         self.assertIn("differs from commit", " ".join(self.check()))
+
+    def test_modified_sanitizer_working_copy_is_rejected(self):
+        self.proof()
+        self.commit()
+        self.write(gate.skill_eval.DEPENDENCIES[0], "# changed sanitizer\n")
+        self.assertIn("evaluator working copy differs", " ".join(self.check()))
 
     def test_historical_report_cannot_be_rewritten_for_new_change(self):
         self.proof()

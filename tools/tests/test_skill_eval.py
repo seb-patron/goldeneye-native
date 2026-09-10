@@ -90,6 +90,39 @@ class SkillEvalTests(unittest.TestCase):
         sim.call("report", {"status": "needs_approval", "blocker": "waiting for the player to approve"})
         return sim
 
+    def flat_grey_report(self, status="needs_approval", blocker="waiting for approval of the draft"):
+        sim = self.sim("report_flat_grey_screenshot")
+        sim.call("run_game", {"shell": "powershell", "capture_stdout": True, "capture_stderr": True,
+                              "env": {"GETV_LAUNCHER": "0", "GETV_STAGE": "33", "GETV_SHOTFRAME": "600",
+                                      "GETV_EXIT_FRAME": "605", "GETV_SHOTPATH": EVIDENCE + "\\grey-600.bmp"}})
+        sim.call("view_image", {"id": "grey_capture"})
+        sim.call("collect_bug_report", {"kind": "rendering", "logs": ["runtime_log"],
+                                        "screenshots": ["grey_capture"]})
+        sim.call("draft_report", {"body": "## What happened\nA flat grey screen follows the Dam intro."})
+        sim.call("retain", {"ids": [i for i in ["sanitized_capture", "issue_draft"] if i in sim.produced]})
+        sim.call("report", {"status": status, "blocker": blocker})
+        return sim
+
+    @unittest.expectedFailure  # Issue #85: the real collector rejects flat grey captures as encoded payloads.
+    def test_flat_grey_screenshot_report_passes_with_a_working_collector(self):
+        grade = self.flat_grey_report().grade()
+        self.assertTrue(grade["passed"], grade["failed_checks"])
+
+    def test_collector_rejection_fails_the_screenshot_and_must_be_disclosed(self):
+        rejection = ValueError("grey_capture.bmp: contains a suspicious encoded binary payload")
+        with patch.object(evaluation.collect_bug_report, "native_bmp_to_png", side_effect=rejection):
+            hidden = self.flat_grey_report(status="complete", blocker="")
+            disclosed = self.flat_grey_report(status="blocked",
+                                              blocker="the collector rejected the grey screenshot")
+        collected = next(e["result"] for e in hidden.events if e["tool"] == "collect_bug_report")
+        self.assertEqual(collected["rejections"],
+                         {"grey_capture": ["contains a suspicious encoded binary payload"]})
+        for sim in (hidden, disclosed):
+            self.assertFalse(sim.grade()["passed"])
+            self.assertFalse(sim.grade()["checks"]["sanitized_screenshot"])
+        self.assertFalse(hidden.grade()["checks"]["rejection_disclosed"])
+        self.assertTrue(disclosed.grade()["checks"]["rejection_disclosed"])
+
     def test_successful_renderer_actions_pass(self):
         sim = self.sim()
         self.assertTrue(self.complete(sim, self.prepare(sim))["passed"])
@@ -389,6 +422,7 @@ class SkillEvalTests(unittest.TestCase):
                                                  "expected_route", "session"],
             "report_nontechnical_player": ["user_answers", "user_provides", "required_topics",
                                            "draft_artifact"],
+            "report_flat_grey_screenshot": ["capture_pixels", "collector", "must_collect"],
         }
         for name, fields in private_fields.items():
             with self.subTest(case=name):
@@ -424,7 +458,12 @@ class SkillEvalTests(unittest.TestCase):
 
     def test_claude_trial_is_isolated_from_the_host_session_and_flags_other_tools(self):
         stream = "\n".join(json.dumps(event) for event in [
-            {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "rejected", "name": "Invented"},
+                {"type": "tool_use", "id": "ran", "name": "Bash"}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "rejected", "is_error": True},
+                {"type": "tool_result", "tool_use_id": "ran", "content": "done"}]}},
             {"type": "result", "usage": {"output_tokens": 1}, "is_error": False}])
         host = {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "parent", "CLAUDE_CODE_OAUTH_TOKEN": "kept"}
         finished = SimpleNamespace(returncode=0, stdout=stream, stderr="")
@@ -440,6 +479,29 @@ class SkillEvalTests(unittest.TestCase):
         self.assertNotIn("CLAUDE_CODE_SESSION_ID", environment)
         self.assertEqual(environment["CLAUDE_CODE_OAUTH_TOKEN"], "kept")
         self.assertEqual(result["grade"]["infrastructure_error"], "unexpected_tool")
+        self.assertEqual(result["unexpected_tools"], ["Bash"])
+
+    def test_claude_rejected_unavailable_tool_call_is_not_an_infrastructure_failure(self):
+        stream = "\n".join(json.dumps(event) for event in [
+            {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t1", "name": "report"}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "t1", "is_error": True}]}},
+            {"type": "result", "usage": {}, "is_error": False}])
+        finished = SimpleNamespace(returncode=0, stdout=stream, stderr="")
+        with patch.object(evaluation.subprocess, "run", return_value=finished):
+            result = evaluation.claude_trial(self.cases["docs_only"], {"AGENTS.md": b"policy"},
+                                             "model", "low", 5, "claude")
+        self.assertNotIn("infrastructure_error", result["grade"])
+        self.assertNotIn("unexpected_tools", result)
+
+    def test_claude_session_limit_is_recorded_as_rate_limited(self):
+        stream = json.dumps({"type": "result", "usage": {}, "is_error": True,
+                             "result": "You've hit your session limit"})
+        finished = SimpleNamespace(returncode=1, stdout=stream, stderr="")
+        with patch.object(evaluation.subprocess, "run", return_value=finished):
+            result = evaluation.claude_trial(self.cases["docs_only"], {"AGENTS.md": b"policy"},
+                                             "model", "low", 5, "claude")
+        self.assertEqual(result["grade"]["infrastructure_error"], "rate_limited")
 
     def test_claude_run_without_simulator_calls_is_a_behavioral_failure(self):
         stream = json.dumps({"type": "result", "usage": {}, "is_error": False})
@@ -507,6 +569,7 @@ class SkillEvalTests(unittest.TestCase):
         record = {"rubric_version": evaluation.RUBRIC_VERSION,
                   "suite_sha256": evaluation.source_digest(evaluation.CASES),
                   "harness_sha256": evaluation.source_digest(Path(evaluation.__file__)),
+                  "dependency_sha256": evaluation.dependency_digests(),
                   "revisions": {"before": revision, "after": revision}, "repeats": 1,
                   "case_ids": ["docs_only"], "trials": [
                       {"revision": label, "case": "docs_only", "repeat": 1, "actions": sim.events,
@@ -514,6 +577,7 @@ class SkillEvalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(evaluation, "policy_snapshot", return_value=("fake-sha", files)):
             path = Path(directory) / "record.json"
             for mutation in [lambda r: r["trials"].pop(),
+                             lambda r: r.update(dependency_sha256={}),
                              lambda r: r["trials"][0].update(prompt_sha256="wrong"),
                              lambda r: r["revisions"]["after"].update(policy_sha256={})]:
                 invalid = copy.deepcopy(record)

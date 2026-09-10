@@ -272,6 +272,14 @@ class BugReportCollectorTests(unittest.TestCase):
             self.assertTrue(manifest["safety"]["manual_review_required"])
             self.assertEqual(len(manifest["artifacts"]), 2)
 
+    @unittest.expectedFailure  # Issue #85: flat colours made of base64 characters look like payloads.
+    def test_accepts_flat_colour_native_screenshots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            screenshot = Path(directory) / "grey.bmp"
+            write_bmp(screenshot, (100, 100, 100), width=320, height=240)
+            collector.native_bmp_to_png(screenshot, Path(directory) / "grey.png")
+            comparison.comparison_rows(screenshot, [("same", screenshot)])
+
     def test_rejects_output_inside_repository(self) -> None:
         args = collector.parse_args([
             "--kind", "build",

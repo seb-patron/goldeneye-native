@@ -102,7 +102,9 @@ either CLI.
   simulator tools, deny permission prompts and keep no session. The runner removes the
   evaluator's own `CLAUDECODE` and `CLAUDE_CODE_*` session variables, keeping provider
   credentials, so a candidate launched from inside an agent session cannot join or report into
-  that session. Any non-simulator tool use in the stream is an infrastructure failure.
+  that session. A non-simulator tool call that completes is an infrastructure failure recorded
+  with the tool names; a call the CLI rejects as unavailable changes nothing and is not. A session,
+  rate or usage limit is recorded as a `rate_limited` infrastructure failure.
 
 The runner refuses to overwrite an output file. Timeouts and transport errors are recorded as
 infrastructure failures and must not be counted as evidence of skill improvement. A successful
@@ -113,7 +115,7 @@ It contains no private reasoning or full conversation transcripts.
 
 ## Scenarios and grading
 
-`tools/skill_eval_cases.json` freezes fifteen scenarios.
+`tools/skill_eval_cases.json` freezes sixteen scenarios.
 
 - Nine screenshot-publication scenarios: a non-renderer visual fix, renderer fix, issue upload
   with browser available but connector upload unavailable, failing connector with a working
@@ -124,6 +126,7 @@ It contains no private reasoning or full conversation transcripts.
   a different frame.
 - A menu soft-lock after launcher rebinding on a pull-request branch, reproduced by the player.
 - A non-technical player asking for help reporting a problem while offering a save file.
+- A local report of a flat grey frame whose screenshot must pass the real bug-report collector.
 
 The candidate sees the request, artifact metadata, capabilities and the exact policy snapshot.
 Expected outcomes, fixtures and grader code are not included in its context. Publication
@@ -134,6 +137,13 @@ unauthorized upload or publication remains possible.
 The simulator records inspection, launches and their `GETV_*` settings, image views, collector
 inputs, player questions and reproductions, comparisons, findings, drafts, upload method/results,
 staged artifact IDs, published Markdown, readback results, retained evidence and terminal status.
+
+The simulated collector runs the repository's real screenshot sanitizer,
+`collect_bug_report.native_bmp_to_png`, on synthetic ROM-free pixels that each scenario describes.
+A sanitizer that rejects a legitimate screenshot therefore fails the scenario that needs it; the
+flat grey report fails this way until issue #85 is fixed, and its CI positive control is marked as
+an expected failure until then. Records hash the sanitizer sources as `dependency_sha256`, and
+replay refuses a different sanitizer just as it refuses a different harness.
 
 For publication scenarios, the grader checks:
 

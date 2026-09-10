@@ -17,10 +17,15 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+
+# The simulated collector runs the real sanitizer; embeddable Python omits the script directory.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import collect_bug_report
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "tools/skill_eval_cases.json"
@@ -33,6 +38,8 @@ POLICY_FILES = ["AGENTS.md", "CONTRIBUTING.md", "docs/AGENTIC_CONTRIBUTING.md",
                 ".agents/skills/investigate-goldeneye-bug/SKILL.md",
                 ".agents/skills/investigate-goldeneye-bug/agents/openai.yaml",
                 ".claude/skills/investigate-goldeneye-bug/SKILL.md"]
+# The simulated collector executes this sanitizer code, so it is part of every record's identity.
+DEPENDENCIES = ["tools/check_no_game_data.py", "tools/collect_bug_report.py"]
 
 # Diagnostic cases act before anything is publishable: investigation and report preparation.
 DIAGNOSTIC_KINDS = {"investigation", "report_intake"}
@@ -82,6 +89,27 @@ def words(text):
     return set(re.findall(r"\w+", text.lower()))
 
 
+def dependency_digests():
+    return {path: source_digest(ROOT / path) for path in DEPENDENCIES}
+
+
+def synthetic_capture(spec, path):
+    """Write a ROM-free, bottom-up 24-bit BMP from a scenario's pixel description."""
+    width, height = spec["width"], spec["height"]
+    padding = b"\0" * (((width * 3 + 3) // 4) * 4 - width * 3)
+    rows = bytearray()
+    for y in range(height):
+        if "fill" in spec:
+            red, green, blue = spec["fill"]
+            rows += bytes((blue, green, red)) * width + padding
+        else:  # A deterministic gradient stands in for ordinary rendered content.
+            rows += bytes(value for x in range(width) for value in (
+                (x * 3 + y * 13) & 255, (x * 5 + y * 11) & 255, (x * 7 + y * 3) & 255)) + padding
+    path.write_bytes(b"BM" + struct.pack("<IHHI", 54 + len(rows), 0, 0, 54)
+                     + struct.pack("<IiiHHIIiiII", 40, width, height, 1, 24, 0, len(rows),
+                                   2835, 2835, 0, 0) + rows)
+
+
 class Images(HTMLParser):
     def __init__(self, body):
         super().__init__()
@@ -113,6 +141,7 @@ class Simulation:
         self.produced = set(case.get("available", []))
         self.viewed = set()
         self.collected = set()
+        self.rejected = {}
         self.asked = []
         self.draft = None
         self.findings = {}
@@ -308,6 +337,20 @@ class Simulation:
         if any(self.artifacts[i]["kind"] != "native_capture" for i in screenshots):
             return {"error": "unsupported_screenshot",
                     "detail": "the collector accepts only native 24-bit BMP game captures"}
+        rejections = {}
+        with tempfile.TemporaryDirectory(prefix="ge-skill-eval-capture-") as directory:
+            for artifact_id in screenshots:
+                source = Path(directory) / (artifact_id + ".bmp")
+                synthetic_capture(self.case["capture_pixels"][artifact_id], source)
+                try:
+                    collect_bug_report.native_bmp_to_png(source, source.with_suffix(".png"))
+                except ValueError as error:
+                    # Keep the sanitizer's reasons without temporary paths, so replay stays exact.
+                    rejections[artifact_id] = [reason.split(".bmp: ", 1)[-1]
+                                               for reason in str(error).split("; ")]
+        if rejections:
+            self.rejected.update(rejections)
+            return {"error": "rejected_by_collector", "rejections": rejections}
         outputs = [self.case["collector"]["outputs"][i] for i in ids
                    if i in self.case["collector"]["outputs"]]
         self.produced.update(outputs)
@@ -437,6 +480,9 @@ class Simulation:
             "deterministic_capture": lambda: any(bounded_capture(run) for run in runs),
             "images_viewed": lambda: set(case["must_view"]) <= self.viewed,
             "sanitized_screenshot": lambda: set(case["must_collect"]) <= self.collected,
+            "rejection_disclosed": lambda: not self.rejected or (
+                status in {"blocked", "needs_approval"} and bool(re.search(
+                    r"(?i)reject|collector|sanitiz|payload", (self.report or {}).get("blocker", "")))),
             "input_trace_captured": lambda: case["human_reproduction"]["input_trace"] in self.produced,
             "route_recommended": lambda: findings.get("route") == case["expected_route"],
             "questions_asked": lambda: set(case["required_topics"]) <= set(self.asked),
@@ -700,6 +746,7 @@ def claude_trial(case, files, model, effort, timeout, cli):
         started = time.monotonic()
         error = None
         usage = {}
+        requested, executed = {}, set()
         try:
             process = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                                      encoding="utf-8", timeout=timeout, cwd=temp,
@@ -711,19 +758,32 @@ def claude_trial(case, files, model, effort, timeout, cli):
                     event = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if event.get("type") == "assistant":
-                    for block in event.get("message", {}).get("content", []):
-                        if (isinstance(block, dict) and block.get("type") == "tool_use"
-                                and not str(block.get("name", "")).startswith("mcp__skill_eval__")):
-                            error = "unexpected_tool"
+                message = event.get("message")
+                content = message.get("content") if isinstance(message, dict) else None
+                for block in content if isinstance(content, list) else []:
+                    if not isinstance(block, dict):
+                        continue
+                    # A call the CLI rejects as unavailable changes nothing; a completed one does.
+                    if (block.get("type") == "tool_use"
+                            and not str(block.get("name", "")).startswith("mcp__skill_eval__")):
+                        requested[block.get("id")] = str(block.get("name"))
+                    if (block.get("type") == "tool_result" and block.get("tool_use_id") in requested
+                            and not block.get("is_error")):
+                        executed.add(requested[block["tool_use_id"]])
                 if event.get("type") == "result":
                     usage = event.get("usage", {})
                     if event.get("is_error"):
-                        error = error or "candidate_error"
+                        limited = re.search(r"(?i)\b(?:session|rate|usage) limit", str(event.get("result", "")))
+                        error = "rate_limited" if limited else error or "candidate_error"
+            if executed:
+                error = "unexpected_tool"
         except subprocess.TimeoutExpired:
             error = "candidate_timeout"
         # A completed run without simulator calls is graded as a behavioral failure.
-        return grade_actions(case, files, prompt, log_path, started, error, usage)
+        trial = grade_actions(case, files, prompt, log_path, started, error, usage)
+        if executed:
+            trial["unexpected_tools"] = sorted(executed)
+        return trial
 
 
 def run(args):
@@ -750,6 +810,7 @@ def run(args):
               "cli_version": subprocess.check_output([cli, "--version"], text=True).strip(),
               "suite_sha256": source_digest(CASES),
               "harness_sha256": source_digest(Path(__file__)),
+              "dependency_sha256": dependency_digests(),
               "case_ids": [c["id"] for c in cases],
               "revisions": {label: {"sha": sha, "policy_sha256": {
                   p: digest(b) if b is not None else None for p, b in files.items()}}
@@ -788,6 +849,8 @@ def verify_record(record):
         raise ValueError("suite changed; replay with the recorded suite revision")
     if record["harness_sha256"] != source_digest(Path(__file__)):
         raise ValueError("harness changed; replay with the recorded harness revision")
+    if record.get("dependency_sha256") != dependency_digests():
+        raise ValueError("sanitizer dependencies changed; replay with the recorded evaluator revision")
     snapshots = {}
     for label, revision in record["revisions"].items():
         sha, files = policy_snapshot(revision["sha"])
@@ -866,6 +929,7 @@ def regrade(args):
     record["rubric_version"] = RUBRIC_VERSION
     record["harness_sha256"] = source_digest(Path(__file__))
     record["suite_sha256"] = source_digest(CASES)
+    record["dependency_sha256"] = dependency_digests()
     cases = {c["id"]: c for c in load_cases()}
     for trial_record in record["trials"]:
         sim = Simulation(cases[trial_record["case"]])
