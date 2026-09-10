@@ -141,6 +141,12 @@ class EvidenceGateTests(unittest.TestCase):
         self.commit()
         self.assertIn("must be new", " ".join(self.check()))
 
+    def test_gate_imports_evaluator_without_script_directory_on_sys_path(self):
+        # -I omits the script directory exactly as the Windows setup's embeddable Python does.
+        process = subprocess.run([sys.executable, "-I", gate.__file__, "--help"],
+                                 capture_output=True, text=True)
+        self.assertEqual(process.returncode, 0, process.stderr)
+
     def test_path_traversal_rejected(self):
         with self.assertRaises(ValueError):
             gate.evidence_path("docs/evals/../../secret.json", ".json")

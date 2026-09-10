@@ -10,6 +10,8 @@ import re
 import subprocess
 import sys
 
+# The Windows setup's embeddable Python never adds the script directory to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import skill_eval
 
 ROOT = Path(__file__).resolve().parents[1]

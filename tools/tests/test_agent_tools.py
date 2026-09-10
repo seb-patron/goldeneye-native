@@ -281,6 +281,16 @@ class BugReportCollectorTests(unittest.TestCase):
             collector.build_bundle(args)
 
 
+class IsolatedInterpreterTests(unittest.TestCase):
+    def test_tools_import_siblings_without_script_directory_on_sys_path(self) -> None:
+        # -I omits the script directory exactly as the Windows setup's embeddable Python does.
+        for name in ("collect_bug_report.py", "compare_render_fingerprints.py"):
+            with self.subTest(tool=name):
+                process = subprocess.run([sys.executable, "-I", str(TOOLS / name), "--help"],
+                                         capture_output=True, text=True)
+                self.assertEqual(process.returncode, 0, process.stderr)
+
+
 class FingerprintComparisonTests(unittest.TestCase):
     def test_markdown_and_json_data(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
