@@ -1017,9 +1017,10 @@ The pad stays *present* rather than being removed, because dropping the controll
 sends the front end to a terminal `MENU_NO_CONTROLLERS` state with no way out. A plain
 `./build_mac.sh run` is unaffected. `GETV_KEYBOARD_IDLE=0` forces live input; `=1` forces idle.
 
-The complete physical map, mouse controls, live shortcuts, and supported rebinding behavior are in
-[`CONTROLS.md`](CONTROLS.md). In particular, gamepad actions are configurable but arbitrary
-physical keyboard keys are not currently rebindable.
+The complete physical map, mouse controls, live shortcuts, and rebinding are in
+[`CONTROLS.md`](CONTROLS.md). Everything is rebindable: keys, mouse buttons, the wheel, and
+gamepad buttons, each independently of the others, and the launcher can save them to
+`goldeneye.cfg` so they survive quitting.
 
 ---
 
@@ -1060,14 +1061,18 @@ recentre it. Comment the line out if you want retail behaviour; note that unset 
 
 **Button names are positional, not label-based.** `a` means the physically bottom face button on
 whatever pad you have - SDL maps the bottom face button to its `A` slot on every controller it
-knows, including Nintendo's, where that same button is printed `B`. Defaults: `fire = rt`,
-`aim = lt`, `use = b`, `weapon_next = a`, `weapon_prev = none`, `pause = start`.
-`fire = rt` / `aim = lt` is the modern-shooter convention rather than a settled fact; GoldenEye's
-retail scheme has neither, and swapping them is one line.
+knows, including Nintendo's, where that same button is printed `B`. Under the default `modern`
+preset: `fire = rt`, `aim = lt`, `use = a`, `reload = x`, `crouch = b`, `weapon_next = y`,
+`pause = start`. `fire = rt` / `aim = lt` is the modern-shooter convention rather than a settled
+fact; GoldenEye's retail scheme has neither, and swapping them is one line.
 
-`weapon_prev` defaults to `none` on purpose: GoldenEye has no back-cycle button. The retail gesture
-is hold-inventory plus tap-fire. A synthesised single-button version exists and is faithful to that
-gesture, but it has not been verified against real hardware, so it stays opt-in.
+`input_preset = n64` reverts every default, on both the pad and the keyboard, to exactly what this
+port shipped with before remapping existed.
+
+`weapon_prev` defaults to `none` on the pad on purpose: GoldenEye has no back-cycle button. The
+retail gesture is hold-inventory plus tap-fire. The synthesised single-button version is faithful
+to that gesture but has not been verified against real hardware, so it stays opt-in on a face
+button. The mouse wheel binds to it by default, where one notch is unambiguous.
 
 The `gamepad` setting (`auto`, `xbox`, `playstation`, `switch`, `generic`) changes **which glyphs
 are printed for on-screen prompts and nothing else.** It cannot make `a` refer to a different

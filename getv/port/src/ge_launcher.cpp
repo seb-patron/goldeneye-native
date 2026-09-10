@@ -55,6 +55,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include "ge_actions.h"
+#include "ge_bindings.h"
 #include "ge_config.h"
 
 /* The real errno. getv/port/include/ge_win_compat.h undefines errno on Windows so that
@@ -258,28 +260,70 @@ const int   kRulesetCount = 5;
  * offer mods that silently never load. */
 #define GE_MAX_MODS 32
 
-/* The six bindable actions and the eleven sources, mirroring port_os.c's GE_ACT_* and
- * GE_SRC_* enums. Kept as strings rather than as a shared header because the launcher is a
- * separate process that never links the input layer -- it only composes environment keys.
+/* The bindable actions and the pad sources, taken from ge_actions.h.
  *
- * `key` is the suffix used to build GETV_BIND_<KEY> and GETV_P<n>_BIND_<KEY>. `dflt` is
- * what port_os.c falls back to, repeated here so the UI can show what "default" actually
- * means instead of a blank. */
-struct BindAction { const char *label; const char *key; const char *dflt; };
+ * These used to be two hand-written string tables here, with a comment explaining that
+ * the launcher "never links the input layer". That was not true -- ge_launcher.cpp is
+ * compiled into the same binary as ge_bindings.c -- and the duplication was already
+ * stale in practice: the six actions and eleven sources listed here had to be edited in
+ * lockstep with port_os.c, ge_config.c and two launcher UIs, with nothing to catch a
+ * list that had only been updated in three of the four.
+ *
+ * Generating them from GE_ACTION_LIST / GE_SOURCE_LIST removes the possibility. The
+ * DEFAULT is likewise no longer a repeated string: it comes from gePresetSource(), so
+ * the UI shows what the selected preset will actually do rather than what somebody
+ * wrote down once.
+ */
+struct BindAction { const char *label; const char *key; };
 const BindAction kActions[] = {
-    { "Fire",         "FIRE",        "rt"    },
-    { "Aim",          "AIM",         "lt"    },
-    { "Use",          "USE",         "b"     },
-    { "Next weapon",  "WEAPON_NEXT", "a"     },
-    { "Prev weapon",  "WEAPON_PREV", "none"  },
-    { "Pause",        "PAUSE",       "start" },
+#define M(id, lo, up) { NULL, up },
+    GE_ACTION_LIST(M)
+#undef M
 };
 const int kActionCount = (int)(sizeof kActions / sizeof kActions[0]);
 
-/* Positional, matching geParseSrc() in port_os.c. Names are what the player types in
- * goldeneye.cfg, so they are shown verbatim rather than prettified -- "lt" here and "lt" in
- * the file is the whole point. */
-const char *kSources[] = { "a", "b", "x", "y", "lb", "rb", "lt", "rt", "start", "back", "none" };
+/* Display names. A switch rather than a table so a missing case is a compile-time
+ * -Wswitch rather than a blank row, and so the ordinal coupling that made the old
+ * parallel arrays fragile does not come back through the side door. */
+static const char *ActionLabel(int a)
+{
+    switch (a) {
+        case GE_ACT_FIRE:        return "Fire";
+        case GE_ACT_AIM:         return "Aim";
+        case GE_ACT_USE:         return "Use / interact";
+        case GE_ACT_RELOAD:      return "Reload";
+        case GE_ACT_CROUCH:      return "Crouch";
+        case GE_ACT_STAND:       return "Stand";
+        case GE_ACT_WEAPON_NEXT: return "Next weapon";
+        case GE_ACT_WEAPON_PREV: return "Prev weapon";
+        case GE_ACT_PAUSE:       return "Pause";
+        default:                 return "?";
+    }
+}
+
+static const char *AxisLabel(int x)
+{
+    switch (x) {
+        case GE_AXIS_FORWARD:      return "Forward";
+        case GE_AXIS_BACKWARD:     return "Back";
+        case GE_AXIS_STRAFE_LEFT:  return "Strafe left";
+        case GE_AXIS_STRAFE_RIGHT: return "Strafe right";
+        case GE_AXIS_LOOK_UP:      return "Look up";
+        case GE_AXIS_LOOK_DOWN:    return "Look down";
+        case GE_AXIS_LOOK_LEFT:    return "Look left";
+        case GE_AXIS_LOOK_RIGHT:   return "Look right";
+        default:                   return "?";
+    }
+}
+
+/* Positional, matching GE_SOURCE_LIST. Names are what the player types in
+ * goldeneye.cfg, so they are shown verbatim rather than prettified -- "lt" here and
+ * "lt" in the file is the whole point. */
+const char *kSources[] = {
+#define M(id, lo) lo,
+    GE_SOURCE_LIST(M)
+#undef M
+};
 const int   kSourceCount = (int)(sizeof kSources / sizeof kSources[0]);
 
 struct Model {
@@ -350,9 +394,32 @@ struct Model {
      * resolving it on load is what lets the UI show three distinct things -- an explicit
      * choice, an inherited one, and the built-in default -- and what stops the launcher
      * pinning all 24 keys the first time anyone opens the page. */
-    int  bind_all[6];
-    int  bind_p[4][6];
+    int  bind_all[GE_ACT_MAX];
+    int  bind_p[4][GE_ACT_MAX];
     int  bind_tab;                /* 0 = all players, 1..4 = that player */
+
+    /* Which set of defaults everything falls back to. 0 = modern, 1 = n64; see
+     * GE_PRESET_* in ge_actions.h, which this deliberately matches so the two can be
+     * used interchangeably. */
+    int  preset;
+
+    /* Keyboard and mouse bindings, as comma-separated SDL scancode names plus this
+     * port's mouse1..mouse5/wheelup/wheeldown. Empty means "whatever the preset says",
+     * which is the same tri-state the pad bindings use and for the same reason: the
+     * launcher must not pin seventeen keys the first time anyone opens the page.
+     *
+     * Strings rather than a code, because a binding can be a LIST -- "C,Left Ctrl" --
+     * and because a name round-trips into goldeneye.cfg without a second table. */
+    char keybind[GE_ACT_MAX][96];
+    char keyaxis[GE_AXIS_MAX][96];
+
+    /* Hold or toggle, 0 and 1, matching GE_HOLD / GE_TOGGLE. */
+    int  aim_mode;
+    int  crouch_mode;
+
+    /* The port's dedicated crouch/stand keys at all. Off leaves only the retail gesture
+     * (hold aim, push down). */
+    bool crouch_key;
 
     /* Mouse and keyboard. Both default ON in port_input.c, which is the right default -- a
      * gamepad is the minority case and the majority should not have to find a setting before
@@ -656,6 +723,49 @@ void model_load(Model &m)
                 m.bind_p[p][a] = bind_index(getenv(key));
             }
         }
+
+        /* Preset first: every default shown on the page is read out of it. */
+        {
+            const char *pv = getenv("GETV_INPUT_PRESET");
+            m.preset = (pv && (strcmp(pv, "n64") == 0 || strcmp(pv, "classic") == 0))
+                       ? GE_PRESET_N64 : GE_PRESET_MODERN;
+        }
+
+        /* Keyboard bindings. Copied verbatim, including a spelling this build does not
+         * recognise: port_input.c is the authority on what SDL accepts, and a launcher
+         * that quietly dropped an unknown name would silently unbind a key that worked
+         * a moment ago. Empty stays empty, meaning "inherit the preset". */
+        for (int a = 0; a < kActionCount; a++) {
+            char key[64];
+            const char *v;
+            snprintf(key, sizeof key, "GETV_KEY_%s", kActions[a].key);
+            v = getenv(key);
+            snprintf(m.keybind[a], sizeof m.keybind[a], "%s", v ? v : "");
+        }
+        for (int x = 0; x < GE_AXIS_MAX; x++) {
+            char key[64];
+            const char *v;
+            snprintf(key, sizeof key, "GETV_KEY_%s", geAxisEnvSuffix(x));
+            v = getenv(key);
+            snprintf(m.keyaxis[x], sizeof m.keyaxis[x], "%s", v ? v : "");
+        }
+
+        /* GETV_AIM_MODE is the new spelling; GETV_AIM_TOGGLE is what shipped and still
+         * decides when the new one is absent, so an existing config opens showing what
+         * it actually does. */
+        {
+            const char *am = getenv("GETV_AIM_MODE");
+            if (am && *am) {
+                m.aim_mode = (strcmp(am, "toggle") == 0) ? GE_TOGGLE : GE_HOLD;
+            } else {
+                m.aim_mode = env_bool("GETV_AIM_TOGGLE", false) ? GE_TOGGLE : GE_HOLD;
+            }
+        }
+        {
+            const char *cm = getenv("GETV_CROUCH_MODE");
+            m.crouch_mode = (cm && strcmp(cm, "toggle") == 0) ? GE_TOGGLE : GE_HOLD;
+        }
+        m.crouch_key = env_bool("GETV_CROUCH_KEY", true);
     }
 
     /* Defaults mirror port_input.c: mouse and keyboard both ON, sensitivity 100%. */
@@ -831,7 +941,29 @@ void model_store(const Model &chosen)
             if (m.bind_p[p][a] >= 0) setenv(key, kSources[m.bind_p[p][a]], 1);
             else                     unsetenv(key);
         }
+
+        /* Keyboard, same rule: an empty box means "inherit the preset" and must leave
+         * the gate unset, not write today's default string into it. */
+        snprintf(key, sizeof key, "GETV_KEY_%s", kActions[a].key);
+        if (m.keybind[a][0]) setenv(key, m.keybind[a], 1);
+        else                 unsetenv(key);
     }
+    for (int x = 0; x < GE_AXIS_MAX; x++) {
+        char key[64];
+        snprintf(key, sizeof key, "GETV_KEY_%s", geAxisEnvSuffix(x));
+        if (m.keyaxis[x][0]) setenv(key, m.keyaxis[x], 1);
+        else                 unsetenv(key);
+    }
+
+    setenv("GETV_INPUT_PRESET", (m.preset == GE_PRESET_N64) ? "n64" : "modern", 1);
+    setenv("GETV_CROUCH_MODE",  (m.crouch_mode == GE_TOGGLE) ? "toggle" : "hold", 1);
+    /* Aim toggle is the ENGINE's own per-player aim-control option, reached through the
+     * gate the 0015 patch reads. Both spellings are written: the new one because that is
+     * what the config file and ge_bindings.c use, and the old one because the patch
+     * itself still tests it. */
+    setenv("GETV_AIM_MODE",   (m.aim_mode == GE_TOGGLE) ? "toggle" : "hold", 1);
+    setenv("GETV_AIM_TOGGLE", (m.aim_mode == GE_TOGGLE) ? "1" : "0", 1);
+    setenv("GETV_CROUCH_KEY", m.crouch_key ? "1" : "0", 1);
 
     setenv("GETV_MOUSE",        m.mouse        ? "1" : "0", 1);
     setenv("GETV_MOUSE_MODE", m.mouse_mode ? "classic" : "modern", 1);
@@ -1080,6 +1212,75 @@ static bool developer_open_reports(bool latest)
  * (Swift exporting a C symbol, needing no header on the C side), this is the other
  * direction: C++ exporting symbols for SWIFT TO CALL, which Xcode only picks up through
  * an explicit bridging header. */
+/* ---- persisting the control settings --------------------------------------
+ *
+ * The launcher applies settings by setenv() and then re-exec'ing the game, which is
+ * enough for them to take effect and not enough for them to survive quitting. That was
+ * tolerable while every setting was a graphics preference somebody would set once from
+ * a shell; it is not tolerable for a rebound key, which is the sort of thing a player
+ * does once and expects to still be there next week.
+ *
+ * Only the CONTROLS page is written. The rest of the launcher deliberately keeps its
+ * env-var-and-relaunch model -- writing every page would mean deciding what a config
+ * file should say about, say, a one-off mission selection, and that is a larger design
+ * question than this change. What goes in is exactly what the controls page can change.
+ *
+ * Empty values are passed through as empty on purpose: geConfigSave() comments the key
+ * out, which is how "back to the preset default" is represented in the file. Writing
+ * the current default instead would freeze it, so a later change to the preset would
+ * never reach anyone who had opened this page once -- the same rule model_store()
+ * already follows for the environment.
+ */
+static void controls_save_to_config(const Model &m)
+{
+    /* Sized for every action and axis twice over plus the scalars, so no bound is ever
+     * reached at runtime. The arrays are parallel; `n` indexes both. */
+    static char keybuf[(GE_ACT_MAX * 2 + GE_AXIS_MAX + 8)][64];
+    static char valbuf[(GE_ACT_MAX * 2 + GE_AXIS_MAX + 8)][96];
+    const char *keys[(GE_ACT_MAX * 2 + GE_AXIS_MAX + 8)];
+    const char *vals[(GE_ACT_MAX * 2 + GE_AXIS_MAX + 8)];
+    int n = 0;
+
+    #define PUSH(k, v)                                                     \
+        do {                                                               \
+            snprintf(keybuf[n], sizeof keybuf[n], "%s", (k));              \
+            snprintf(valbuf[n], sizeof valbuf[n], "%s", (v));              \
+            keys[n] = keybuf[n];                                           \
+            vals[n] = valbuf[n];                                           \
+            n++;                                                           \
+        } while (0)
+
+    PUSH("input_preset", (m.preset == GE_PRESET_N64) ? "n64" : "modern");
+    PUSH("aim_mode",     (m.aim_mode == GE_TOGGLE) ? "toggle" : "hold");
+    PUSH("crouch_mode",  (m.crouch_mode == GE_TOGGLE) ? "toggle" : "hold");
+    PUSH("crouch_key",   m.crouch_key ? "1" : "0");
+    PUSH("mouse_mode",   m.mouse_mode ? "classic" : "modern");
+
+    for (int a = 0; a < kActionCount; a++) {
+        char k[64];
+        /* The config spelling of the action, which is the env suffix lowercased --
+         * geActionName() gives it directly rather than requiring a second table. */
+        snprintf(k, sizeof k, "%s", geActionName(a));
+        PUSH(k, (m.bind_all[a] >= 0) ? kSources[m.bind_all[a]] : "");
+
+        snprintf(k, sizeof k, "key.%s", geActionName(a));
+        PUSH(k, m.keybind[a]);
+    }
+    for (int x = 0; x < GE_AXIS_MAX; x++) {
+        char k[64];
+        snprintf(k, sizeof k, "key.%s", geAxisName(x));
+        PUSH(k, m.keyaxis[x]);
+    }
+    #undef PUSH
+
+    /* Per-player pad bindings are NOT written. They are a split-screen setting that the
+     * page presents as a tab, and saving all four scopes would put twenty-seven mostly
+     * empty lines in the file every time anyone pressed Save. They keep working through
+     * the environment and can be set by hand as p2.fire = rb. */
+
+    (void) geConfigSave(keys, vals, n);
+}
+
 #include "GeLauncherBridge.h"
 
 static Model g_bridgeModel;
@@ -1088,6 +1289,11 @@ extern "C" {
 
 void geBridgeLoad(void) { model_load(g_bridgeModel); }
 void geBridgeSave(void) { model_store(g_bridgeModel); }
+/* Writes the CONTROLS page to goldeneye.cfg. Separate from geBridgeSave() because
+ * applying settings and persisting them are different acts with different blast radii:
+ * one lasts until you quit, the other edits a file the player also edits by hand. */
+void geBridgeSaveControls(void) { controls_save_to_config(g_bridgeModel); }
+const char *geBridgeConfigPath(void) { return geConfigPath(); }
 
 int geBridgeStageCount(void) { return kStageCount; }
 const char *geBridgeStageName(int i)  { return (i >= 0 && i < kStageCount) ? kStages[i].name  : ""; }
@@ -1223,8 +1429,76 @@ void geBridgeSetModDir(const char *dir) {
 void geBridgeRescanMods(void) { mod_scan(g_bridgeModel); }
 
 int geBridgeActionCount(void) { return kActionCount; }
-const char *geBridgeActionLabel(int i)   { return (i >= 0 && i < kActionCount) ? kActions[i].label : ""; }
-const char *geBridgeActionDefault(int i) { return (i >= 0 && i < kActionCount) ? kActions[i].dflt  : ""; }
+const char *geBridgeActionLabel(int i)   { return (i >= 0 && i < kActionCount) ? ActionLabel(i) : ""; }
+/* The default now depends on the selected preset rather than being a fixed string, so
+ * the SwiftUI page shows what picking N64 will actually do instead of what modern does. */
+const char *geBridgeActionDefault(int i)
+{
+    if (i < 0 || i >= kActionCount) return "";
+    return kSources[gePresetSource(g_bridgeModel.preset, i)];
+}
+
+/* ---- keyboard bindings, preset and modes, for the SwiftUI launcher ---------
+ *
+ * Same shared model as the ImGui page (g_bridgeModel), so the two UIs cannot drift
+ * apart in what they mean by a setting -- only in how they draw it. */
+int  geBridgeAxisCount(void)          { return GE_AXIS_MAX; }
+const char *geBridgeAxisLabel(int i)  { return (i >= 0 && i < GE_AXIS_MAX) ? AxisLabel(i) : ""; }
+
+const char *geBridgeGetKeyBind(int action)
+{
+    return (action >= 0 && action < kActionCount) ? g_bridgeModel.keybind[action] : "";
+}
+void geBridgeSetKeyBind(int action, const char *v)
+{
+    if (action < 0 || action >= kActionCount) return;
+    snprintf(g_bridgeModel.keybind[action], sizeof g_bridgeModel.keybind[action],
+             "%s", (v != NULL) ? v : "");
+}
+const char *geBridgeGetKeyBindDefault(int action)
+{
+    return (action >= 0 && action < kActionCount)
+        ? gePresetKeys(g_bridgeModel.preset, action) : "";
+}
+
+const char *geBridgeGetAxisBind(int axis)
+{
+    return (axis >= 0 && axis < GE_AXIS_MAX) ? g_bridgeModel.keyaxis[axis] : "";
+}
+void geBridgeSetAxisBind(int axis, const char *v)
+{
+    if (axis < 0 || axis >= GE_AXIS_MAX) return;
+    snprintf(g_bridgeModel.keyaxis[axis], sizeof g_bridgeModel.keyaxis[axis],
+             "%s", (v != NULL) ? v : "");
+}
+const char *geBridgeGetAxisBindDefault(int axis)
+{
+    return (axis >= 0 && axis < GE_AXIS_MAX)
+        ? gePresetAxisKeys(g_bridgeModel.preset, axis) : "";
+}
+
+int  geBridgeGetInputPreset(void) { return g_bridgeModel.preset; }
+void geBridgeSetInputPreset(int v)
+{
+    if (v < 0 || v >= GE_PRESET_MAX || v == g_bridgeModel.preset) return;
+    g_bridgeModel.preset = v;
+    /* Clearing every explicit choice is the same rule the ImGui page applies, and for
+     * the same reason: the value of a preset is that picking it describes the layout
+     * completely, which a leftover binding from the other one would break. */
+    for (int a = 0; a < kActionCount; a++) {
+        g_bridgeModel.keybind[a][0] = '\0';
+        g_bridgeModel.bind_all[a] = -1;
+        for (int p = 0; p < 4; p++) g_bridgeModel.bind_p[p][a] = -1;
+    }
+    for (int x = 0; x < GE_AXIS_MAX; x++) g_bridgeModel.keyaxis[x][0] = '\0';
+}
+
+int  geBridgeGetAimMode(void)     { return g_bridgeModel.aim_mode; }
+void geBridgeSetAimMode(int v)    { g_bridgeModel.aim_mode = (v == GE_TOGGLE) ? GE_TOGGLE : GE_HOLD; }
+int  geBridgeGetCrouchMode(void)  { return g_bridgeModel.crouch_mode; }
+void geBridgeSetCrouchMode(int v) { g_bridgeModel.crouch_mode = (v == GE_TOGGLE) ? GE_TOGGLE : GE_HOLD; }
+int  geBridgeGetCrouchKey(void)   { return g_bridgeModel.crouch_key ? 1 : 0; }
+void geBridgeSetCrouchKey(int v)  { g_bridgeModel.crouch_key = (v != 0); }
 int geBridgeSourceCount(void) { return kSourceCount; }
 const char *geBridgeSourceName(int i) { return (i >= 0 && i < kSourceCount) ? kSources[i] : ""; }
 
@@ -1735,6 +2009,145 @@ bool SliderRow(const char *label, int *v, int lo, int hi, const char *suffix,
     ImGui::Dummy(ImVec2(0, 0));
     return active;
 }
+
+/* ---- binding capture ------------------------------------------------------
+ *
+ * "Click the row, press the key." The alternative -- a dropdown of every SDL scancode
+ * -- is roughly 240 entries and asks the player to know what their key is CALLED before
+ * they can bind it, which is the wrong way round.
+ *
+ * One capture is live at a time, identified by a stable id string. Capture is armed by
+ * a click and disarmed by the first input it sees, so it cannot be left on by
+ * navigating away.
+ */
+static char g_captureId[64] = "";
+
+static bool CaptureActive(const char *id)
+{
+    return g_captureId[0] != '\0' && strcmp(g_captureId, id) == 0;
+}
+
+static void CaptureBegin(const char *id)
+{
+    snprintf(g_captureId, sizeof g_captureId, "%s", id);
+}
+
+static void CaptureCancel(void)
+{
+    g_captureId[0] = '\0';
+}
+
+/* The name of whatever the player just pressed, or NULL if nothing yet.
+ *
+ * Reads the keyboard state array rather than events because the ImGui backend has
+ * already consumed this frame's events, and a second SDL_PollEvent loop here would race
+ * it. Mouse buttons come from ImGui for the same reason.
+ *
+ * ESCAPE is reserved as "cancel", so it cannot be bound. That is a real cost -- someone
+ * may want it for pause -- but the alternative is a capture with no way out, and ESC is
+ * already the mouse-release key in game, so binding it would collide anyway.
+ */
+static const char *CapturePoll(void)
+{
+    static char name[96];
+    const Uint8 *k = SDL_GetKeyboardState(NULL);
+    ImGuiIO &io = ImGui::GetIO();
+
+    if (k != NULL) {
+        if (k[SDL_SCANCODE_ESCAPE]) { CaptureCancel(); return NULL; }
+        for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+            if (!k[i]) continue;
+            /* A bare modifier is almost always the player reaching for a chord this
+             * port does not support, but Left Ctrl and Left Shift ARE the conventional
+             * crouch keys, so they have to be bindable. Only the ones nothing sensible
+             * binds are skipped. */
+            if (i == SDL_SCANCODE_LGUI || i == SDL_SCANCODE_RGUI ||
+                i == SDL_SCANCODE_CAPSLOCK || i == SDL_SCANCODE_NUMLOCKCLEAR) {
+                continue;
+            }
+            {
+                const char *n = SDL_GetScancodeName((SDL_Scancode) i);
+                if (n == NULL || *n == '\0') continue;
+                snprintf(name, sizeof name, "%s", n);
+                return name;
+            }
+        }
+    }
+
+    /* Mouse. Button 0 is left, 1 right, 2 middle, matching SDL_BUTTON_* order, and the
+     * names are the ones geParseInputCode() in port_input.c accepts. */
+    for (int b = 0; b < 5 && b < IM_ARRAYSIZE(io.MouseDown); b++) {
+        if (!io.MouseDown[b]) continue;
+        static const char *const mb[] = { "mouse1", "mouse2", "mouse3", "mouse4", "mouse5" };
+        snprintf(name, sizeof name, "%s", mb[b]);
+        return name;
+    }
+    if (io.MouseWheel > 0.0f) { snprintf(name, sizeof name, "wheelup");   return name; }
+    if (io.MouseWheel < 0.0f) { snprintf(name, sizeof name, "wheeldown"); return name; }
+
+    return NULL;
+}
+
+/* One editable binding row: a label, the current value, and a button that captures.
+ *
+ * `value` is the model's string, empty meaning "inherit". `dflt` is what that inherits
+ * to, shown in the button so an untouched row still says something concrete rather than
+ * leaving the player to guess. Returns true if it changed.
+ */
+static bool KeyBindRow(const char *id, const char *label, char *value, size_t cap,
+                       const char *dflt, float labelw)
+{
+    bool changed = false;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    char btn[160];
+
+    ImGui::GetWindowDrawList()->AddText(g_fBody, 18.0f, ImVec2(p.x, p.y + 6.0f), kText, label);
+    ImGui::SetCursorScreenPos(ImVec2(p.x + labelw, p.y));
+    ImGui::PushID(id);
+
+    if (CaptureActive(id)) {
+        const char *got = CapturePoll();
+        if (got != NULL) {
+            snprintf(value, cap, "%s", got);
+            CaptureCancel();
+            changed = true;
+        }
+    }
+
+    if (CaptureActive(id)) {
+        snprintf(btn, sizeof btn, "press a key...  (ESC cancels)");
+    } else if (value[0] != '\0') {
+        snprintf(btn, sizeof btn, "%s", value);
+    } else {
+        snprintf(btn, sizeof btn, "%s  (default)", (dflt && *dflt) ? dflt : "unbound");
+    }
+
+    if (Btn(btn, ImVec2(230, 30), CaptureActive(id))) {
+        if (CaptureActive(id)) CaptureCancel();
+        else                   CaptureBegin(id);
+    }
+
+    /* Clearing is a separate, smaller control rather than a value in the capture, because
+     * there is no key that means "none" and a player who wants an action off should not
+     * have to find that out. */
+    ImGui::SetCursorScreenPos(ImVec2(p.x + labelw + 240.0f, p.y));
+    if (Btn("x", ImVec2(30, 30), false)) {
+        /* Two states to clear through, and they are different: a row showing an explicit
+         * binding goes back to the preset default; a row already on the default is
+         * explicitly UNBOUND. Collapsing them would make "no binding at all"
+         * unreachable. */
+        if (value[0] != '\0') { value[0] = '\0'; }
+        else                  { snprintf(value, cap, "none"); }
+        CaptureCancel();
+        changed = true;
+    }
+
+    ImGui::PopID();
+    ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + 36.0f));
+    ImGui::Dummy(ImVec2(0, 0));
+    return changed;
+}
+
 
 /* A text field with its label above it rather than to the right. ImGui puts the label after
  * the box, which reads as a stray word floating beside a field. */
@@ -2357,41 +2770,97 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
 
                 ImGui::Dummy(ImVec2(0, 10));
                 ImGui::Checkbox("Keyboard", &m.keyboard);
-                if (m.keyboard) {
-                    ImGui::Dummy(ImVec2(0, 8));
-                    /* The keyboard map is fixed in port_input.c and is not rebindable, so this
-                     * is a reference rather than a control. Showing it beats making someone
-                     * find it: the campaign was unfinishable from the keyboard until USE
-                     * existed, and nothing on screen said which key that was. */
-                    static const struct { const char *k; const char *a; } kb[] = {
-                        { "W A S D",        "move"            },
-                        { "Arrow keys",     "look"            },
-                        { "Space / L-Ctrl", "fire"            },
-                        { "Q",              "aim"             },
-                        { "E or F",         "use"             },
-                        { "R or Return",    "inventory / next" },
-                        { "Z / X",          "L / R shoulder"  },
-                        { "I J K L",        "d-pad"           },
-                        { "C or L-Shift",   "crouch"          },
-                        { "V",              "stand"           },
-                        { "Tab / KP Enter", "start"           },
-                    };
-                    float col = cw * 0.5f;
-                    ImVec2 kp = ImGui::GetCursorScreenPos();
-                    for (int i = 0; i < (int)(sizeof kb / sizeof kb[0]); i++) {
-                        float rx = kp.x + (i % 2) * col;
-                        float ry = kp.y + (i / 2) * 26.0f;
-                        ImDrawList *kl = ImGui::GetWindowDrawList();
-                        TextLS(g_fSmall, 13.0f, ImVec2(rx, ry + 3.0f), kGold, kb[i].k, 1.2f);
-                        kl->AddText(g_fSmall, 14.0f, ImVec2(rx + 130.0f, ry), kDim, kb[i].a);
-                    }
-                    ImGui::SetCursorScreenPos(
-                        ImVec2(kp.x, kp.y + ((sizeof kb / sizeof kb[0]) + 1) / 2 * 26.0f + 8.0f));
-                    ImGui::Dummy(ImVec2(0, 0));
-                    Hint("Fixed, not rebindable. A key is indistinguishable from a thumb on a "
-                         "stick by the time the game sees it, so nothing here exercises a "
-                         "different path from a gamepad.");
+                if (!m.keyboard) {
+                    Hint("Off. A connected gamepad still works; the two are ORed rather "
+                         "than exclusive.");
                 }
+
+                Section("PRESET");
+                {
+                    static const char *const kPresets[] = { "MODERN", "N64" };
+                    int before = m.preset;
+                    Segmented("inputpreset", &m.preset, kPresets, 2, 120.0f);
+                    /* Changing the preset must not silently keep a binding the player set
+                     * under the other one -- the whole value of a preset is that picking it
+                     * describes the layout completely. Explicit choices are cleared, which
+                     * is what "unset" already means everywhere else on this page. */
+                    if (m.preset != before) {
+                        for (int a = 0; a < kActionCount; a++) {
+                            m.keybind[a][0] = '\0';
+                            m.bind_all[a] = -1;
+                            for (int p2 = 0; p2 < 4; p2++) m.bind_p[p2][a] = -1;
+                        }
+                        for (int x = 0; x < GE_AXIS_MAX; x++) m.keyaxis[x][0] = '\0';
+                        CaptureCancel();
+                    }
+                }
+                Hint(m.preset == GE_PRESET_N64
+                     ? "What this port defaulted to before remapping existed: Q aims, R "
+                       "cycles weapon, no reload key, use on the east face button. Pick this "
+                       "to revert rather than rebinding by hand."
+                     : "WASD and the mouse. Right button aims, E interacts, R reloads, C "
+                       "crouches, the wheel changes weapon. On a pad: south interacts, west "
+                       "reloads, east crouches, north cycles weapon.");
+
+                Section("HOLD OR TOGGLE");
+                {
+                    static const char *const kHT[] = { "HOLD", "TOGGLE" };
+                    ImVec2 hp = ImGui::GetCursorScreenPos();
+                    ImGui::GetWindowDrawList()->AddText(
+                        g_fBody, 18.0f, ImVec2(hp.x, hp.y + 6.0f), kText, "Aim");
+                    ImGui::SetCursorScreenPos(ImVec2(hp.x + 170.0f, hp.y));
+                    Segmented("aimmode", &m.aim_mode, kHT, 2, 110.0f);
+                    ImGui::SetCursorScreenPos(ImVec2(hp.x, hp.y + 40.0f));
+
+                    hp = ImGui::GetCursorScreenPos();
+                    ImGui::GetWindowDrawList()->AddText(
+                        g_fBody, 18.0f, ImVec2(hp.x, hp.y + 6.0f), kText, "Crouch");
+                    ImGui::SetCursorScreenPos(ImVec2(hp.x + 170.0f, hp.y));
+                    Segmented("crouchmode", &m.crouch_mode, kHT, 2, 110.0f);
+                    ImGui::SetCursorScreenPos(ImVec2(hp.x, hp.y + 44.0f));
+                    ImGui::Dummy(ImVec2(0, 0));
+                }
+                Hint("Aim toggle is GoldenEye's own per-player aim-control option, which the "
+                     "engine reads as a press rather than a hold -- not something bolted on "
+                     "top. Crouch is the port's, because the engine has no crouch button.");
+                ImGui::Dummy(ImVec2(0, 4));
+                Hint("In HOLD mode, releasing crouch now stands you up. It used to leave you "
+                     "squatting until you pressed the separate stand key.");
+
+                Section("KEYBOARD AND MOUSE");
+                Hint("Click a binding and press the key or mouse button you want. ESC "
+                     "cancels. The x button clears back to the preset default, and clears "
+                     "again to unbound.");
+                ImGui::Dummy(ImVec2(0, 8));
+                {
+                    const float labelw = 170.0f;
+                    for (int a = 0; a < kActionCount; a++) {
+                        char id[64];
+                        snprintf(id, sizeof id, "key%d", a);
+                        KeyBindRow(id, ActionLabel(a), m.keybind[a], sizeof m.keybind[a],
+                                   gePresetKeys(m.preset, a), labelw);
+                    }
+                    ImGui::Dummy(ImVec2(0, 10));
+                    ImGui::GetWindowDrawList()->AddText(
+                        g_fBody, 17.0f, ImGui::GetCursorScreenPos(), kDim, "Movement");
+                    ImGui::Dummy(ImVec2(0, 24));
+                    for (int x = 0; x < GE_AXIS_MAX; x++) {
+                        char id[64];
+                        snprintf(id, sizeof id, "axis%d", x);
+                        KeyBindRow(id, AxisLabel(x), m.keyaxis[x], sizeof m.keyaxis[x],
+                                   gePresetAxisKeys(m.preset, x), labelw);
+                    }
+                }
+                ImGui::Dummy(ImVec2(0, 6));
+                if (Btn("RESET KEYBOARD", ImVec2(200, 32), false)) {
+                    for (int a = 0; a < kActionCount; a++) m.keybind[a][0] = '\0';
+                    for (int x = 0; x < GE_AXIS_MAX; x++)   m.keyaxis[x][0] = '\0';
+                    CaptureCancel();
+                }
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Checkbox("Dedicated crouch and stand keys", &m.crouch_key);
+                Hint("Off leaves only the retail gesture: hold aim and push down. The crouch "
+                     "and stand bindings above stop working.");
 
                 Section("BINDINGS FOR");
                 /* ALL first, then the four players. The tab IS the scope, so the thing being
@@ -2416,12 +2885,13 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                          * ALL tab's value if there is one, otherwise port_os.c's default.
                          * Shown so an inherited row still says something concrete rather than
                          * leaving the player to work it out. */
+                        const char *dflt = kSources[gePresetSource(m.preset, a)];
                         const char *eff = (m.bind_all[a] >= 0) ? kSources[m.bind_all[a]]
-                                                               : kActions[a].dflt;
+                                                               : dflt;
 
                         ImVec2 p = ImGui::GetCursorScreenPos();
                         ImGui::GetWindowDrawList()->AddText(
-                            g_fBody, 18.0f, ImVec2(p.x, p.y + 6.0f), kText, kActions[a].label);
+                            g_fBody, 18.0f, ImVec2(p.x, p.y + 6.0f), kText, ActionLabel(a));
 
                         ImGui::SetCursorScreenPos(ImVec2(p.x + labelw, p.y));
                         ImGui::PushID(a);
@@ -2431,7 +2901,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                         if (*slot >= 0) {
                             snprintf(preview, sizeof preview, "%s", kSources[*slot]);
                         } else if (m.bind_tab == 0) {
-                            snprintf(preview, sizeof preview, "default (%s)", kActions[a].dflt);
+                            snprintf(preview, sizeof preview, "default (%s)", dflt);
                         } else {
                             snprintf(preview, sizeof preview, "same as all (%s)", eff);
                         }
@@ -2441,7 +2911,7 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                             char none_label[64];
                             if (m.bind_tab == 0) {
                                 snprintf(none_label, sizeof none_label,
-                                         "default (%s)", kActions[a].dflt);
+                                         "default (%s)", dflt);
                             } else {
                                 snprintf(none_label, sizeof none_label,
                                          "same as all (%s)", eff);
@@ -2477,10 +2947,51 @@ extern "C" int gePortLauncherRun(int argc, char **argv)
                      "The gamepad profile changes prompts only, so it cannot make \"a\" mean "
                      "a different physical button.");
                 ImGui::Dummy(ImVec2(0, 6));
-                Hint("Crouch is deliberately absent. In the two-controller styles it is not a "
-                     "button at all -- it is controller 2's stick Y crossing +/-30 while "
-                     "aiming, the same axis that walks you otherwise. Binding a button to it "
-                     "would mean synthesising a stick deflection that fights the move stick.");
+                Hint("Crouch, stand and reload are bindable now. They do not reach the game "
+                     "through the N64 controller at all -- the engine has no button for any "
+                     "of them -- so the port reads them back out of the binding table "
+                     "directly. The retail gestures still work alongside: hold aim and push "
+                     "down to crouch, and use with nothing in reach to reload.");
+                ImGui::Dummy(ImVec2(0, 6));
+                Hint("Prev weapon is unbound on the pad on purpose. GoldenEye has no "
+                     "back-cycle button; the port synthesises the retail hold-inventory + "
+                     "tap-fire gesture, which is faithful but unverified on hardware. The "
+                     "mouse wheel binds to it by default, where one notch is unambiguous.");
+
+                Section("SAVE");
+                /* Everything else in this launcher lasts until you quit -- settings are
+                 * handed to the re-exec'd game as environment variables and nothing writes
+                 * them down. For a rebound key that is not good enough, so this page can
+                 * write itself to goldeneye.cfg.
+                 *
+                 * A deliberate button rather than an automatic save on every change: the
+                 * config file is a document the player edits by hand too, and a UI that
+                 * rewrites it whenever a combo box moves is one nobody can trust to leave
+                 * their file alone. */
+                {
+                    static double saved_at = -1.0;
+                    if (Btn("SAVE CONTROLS", ImVec2(210, 34), true)) {
+                        controls_save_to_config(m);
+                        saved_at = ImGui::GetTime();
+                    }
+                    ImGui::Dummy(ImVec2(0, 6));
+                    if (saved_at > 0.0 && ImGui::GetTime() - saved_at < 4.0) {
+                        char msg[640];
+                        const char *path = geConfigPath();
+                        snprintf(msg, sizeof msg, "Saved to %s",
+                                 (path && *path) ? path : "(nowhere -- no config file)");
+                        Hint(msg);
+                    } else {
+                        char msg[640];
+                        const char *path = geConfigPath();
+                        snprintf(msg, sizeof msg,
+                                 "Writes this page to %s. Comments and settings from other "
+                                 "pages are left alone. Without this, control changes last "
+                                 "only until you quit.",
+                                 (path && *path) ? path : "your config file");
+                        Hint(msg);
+                    }
+                }
             }
 
             else if (page == 4) {
