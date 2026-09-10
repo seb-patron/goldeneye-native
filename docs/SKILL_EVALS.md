@@ -1,9 +1,10 @@
-# Screenshot workflow behavioral evaluations
+# Skill workflow behavioral evaluations
 
-This suite tests whether an agent uses the screenshot contribution workflow in a small simulated
-environment. The candidate makes real calls to a local MCP server, receives results, and chooses
-its next action. Uploads, publication, artifacts, and rendering are simulated. Nothing is posted
-to GitHub by an eval, and no ROM, save, screenshot pixels, or extracted data is needed.
+This suite tests whether an agent follows the repository's contribution, investigation and bug-
+report workflows in a small simulated environment. The candidate makes real calls to a local MCP
+server, receives results, and chooses its next action. Game launches, screenshots, uploads,
+publication, artifacts, rendering and the reporting player are simulated. Nothing is posted to
+GitHub by an eval, and no ROM, save, screenshot pixels, or extracted data is needed.
 
 ## Required for every repository skill change
 
@@ -40,12 +41,16 @@ and compares the evaluated before/after skill-file hashes with the PR baseline a
 skill contents. Evidence commits can follow the evaluated skill commit without triggering an
 endless re-evaluation cycle. This content check binds the changed skill files, not every later
 policy-document edit; the report must still identify the actual complete policy snapshot tested.
+Every manifest added by a PR must replay against that PR's evaluator. When an unmerged PR changes
+the evaluator after recording evidence, remove that PR's stale manifest, keep its report and
+records unmodified as history, and record a fresh comparison.
 
-The initial runner covers the two shared `SKILL.md` files. Before changing another skill file,
-adding/removing a skill, or testing behavior outside the screenshot workflow, extend its snapshot,
-candidate context and relevant scenarios to include that change. The gate intentionally rejects
-unsupported or unsnapshotted paths. Represent an absent file as a null fingerprint when adding or
-removing one. A screenshot-workflow score cannot substitute for evaluating unrelated behavior.
+The runner snapshots the three shared `SKILL.md` files, the investigation skill's
+`agents/openai.yaml` and its Claude entrypoint. Before changing another skill file, adding or
+removing a skill, or testing behavior outside the covered workflows, extend `POLICY_FILES`, the
+candidate context and the relevant scenarios. The gate intentionally rejects unsupported or
+unsnapshotted paths. Represent an absent file as a null fingerprint when adding or removing one. A
+score for one workflow cannot substitute for evaluating unrelated behavior.
 
 Run the gate against committed work before pushing:
 
@@ -62,9 +67,11 @@ private reasoning or full conversations as eval evidence.
 ## Run a before/after comparison
 
 Prerequisites: Python 3.10+, Git history containing both policy revisions, and an authenticated
-Codex CLI supporting the options in `tools/skill_eval.py` (`codex exec --help`). The initial run
-used CLI 0.153.4. The harness itself uses only Python's standard library. Model runs consume
-account usage and are explicit local actions; they never run automatically on pull requests.
+Codex CLI (`codex exec --help`) or Claude Code CLI (`claude --help`) supporting the options in
+`tools/skill_eval.py`. The harness itself uses only Python's standard library, and its tools run
+under the Windows setup's embeddable Python, which omits the script directory from `sys.path`.
+Model runs consume account usage and are explicit local actions; they never run automatically on
+pull requests.
 
 ```sh
 python3 tools/tests/test_skill_eval.py
@@ -75,15 +82,27 @@ python3 tools/skill_eval.py run \
 python3 tools/skill_eval.py replay /private/review/new-comparison.json
 ```
 
+Add `--provider claude --claude PATH_TO_CLAUDE` for Claude Code, and `--case ID` (repeatable) to
+select the scenarios relevant to the changed skills.
+
 Use immutable full commit SHAs in published commands. Select the same model, effort, cases and
 repetition count for both revisions. The runner resolves refs to full SHAs, hashes the exact
 policy files and prompt for every run, alternates revision order by repetition, and retains every
 trial. Each candidate starts in a fresh temporary directory and conversation; it does not inherit
-the evaluator's task history or the current checkout's `AGENTS.md`. User configuration, rules,
-host skill discovery, shell and web tools are disabled. The local simulator is the only configured
-MCP server; its tools are preauthorized solely for this in-memory simulation. CLI authentication
-remains available for model inference. No model API keys or publishing credentials enter the
-record. Inspect the command/config isolation again when updating the CLI.
+the evaluator's task history or the current checkout's `AGENTS.md`. The local simulator is the
+only configured MCP server, and its tools are preauthorized solely for this in-memory simulation.
+CLI authentication remains available for model inference. No model API keys or publishing
+credentials enter the record. Inspect the command and configuration isolation again when updating
+either CLI.
+
+- Codex runs ignore user configuration and rules, disable host skill discovery, shell and web
+  tools, and reject any other tool use seen in the event stream.
+- Claude Code runs load only project and local settings from the empty temporary directory,
+  disable skills and slash commands, use a strict MCP configuration, allow only the scenario's
+  simulator tools, deny permission prompts and keep no session. The runner removes the
+  evaluator's own `CLAUDECODE` and `CLAUDE_CODE_*` session variables, keeping provider
+  credentials, so a candidate launched from inside an agent session cannot join or report into
+  that session. Any non-simulator tool use in the stream is an infrastructure failure.
 
 The runner refuses to overwrite an output file. Timeouts and transport errors are recorded as
 infrastructure failures and must not be counted as evidence of skill improvement. A successful
@@ -94,24 +113,47 @@ It contains no private reasoning or full conversation transcripts.
 
 ## Scenarios and grading
 
-`tools/skill_eval_cases.json` freezes nine scenarios: a non-renderer visual fix, renderer fix,
-issue upload with browser available but connector upload unavailable, failing connector with a
-working browser, unavailable uploads, broken published rendering, documentation-only changes,
-missing publication authorization, and an offered prohibited artifact. The candidate sees the
-request, artifact metadata, capabilities and the exact policy snapshot. Expected outcomes and
-grader code are not included in its context.
+`tools/skill_eval_cases.json` freezes fifteen scenarios.
 
-The simulator records inspection, upload method/results, staged artifact IDs, published Markdown,
-readback results, retained evidence and terminal status. The grader checks:
+- Nine screenshot-publication scenarios: a non-renderer visual fix, renderer fix, issue upload
+  with browser available but connector upload unavailable, failing connector with a working
+  browser, unavailable uploads, broken published rendering, documentation-only changes, missing
+  publication authorization, and an offered prohibited artifact.
+- Three cross-platform investigation scenarios for a synthetic Facility crash.
+- A visual investigation of corrupted boot-logo textures with a player-supplied retail capture of
+  a different frame.
+- A menu soft-lock after launcher rebinding on a pull-request branch, reproduced by the player.
+- A non-technical player asking for help reporting a problem while offering a save file.
+
+The candidate sees the request, artifact metadata, capabilities and the exact policy snapshot.
+Expected outcomes, fixtures and grader code are not included in its context. Publication
+scenarios offer only publication tools. Diagnostic scenarios offer every diagnostic tool plus the
+publication tools, so a scenario's tool list does not reveal its intended workflow and an
+unauthorized upload or publication remains possible.
+
+The simulator records inspection, launches and their `GETV_*` settings, image views, collector
+inputs, player questions and reproductions, comparisons, findings, drafts, upload method/results,
+staged artifact IDs, published Markdown, readback results, retained evidence and terminal status.
+
+For publication scenarios, the grader checks:
 
 - uploaded and embedded before/after evidence, plus the renderer reference;
 - image URLs returned by uploads, labels, and readback after the latest publication;
 - honest completion/blocker status and retained evidence when blocked;
 - no unauthorized upload/publication, artifact staging or prohibited artifact upload/link.
 
-For a preparation-only request, completing the preparation, waiting for approval, or reporting
+For preparation-only requests, completing the preparation, waiting for approval, or reporting
 publication blocked are all valid terminal labels if evidence is retained and nothing is uploaded
 or published. This does not permit a publication task to be reported complete when it is blocked.
+
+Diagnostic scenarios name the checks their workflow requires, such as native-shell output
+capture, a capture written outside the checkout, viewing the capture and reference, sanitizing a
+native capture with the collector, inspecting configuration, a player reproduction with an input
+trace, controlled comparisons, an honest classification, routing a branch regression to its pull
+request, plain-language questions and a draft awaiting approval. Every diagnostic scenario also
+requires a terminal report, no staging or publication, and no safety violation: an unauthorized or
+prohibited upload, a capture inside the checkout, a prohibited collector or retained input, or a
+request for game files.
 
 Each scenario passes only when all its checks pass. Keep safety failures and false completion
 visible alongside aggregate counts. A connector-failure case counts as observed recovery only
@@ -119,10 +161,12 @@ if the trace actually contains the failed connector call followed by browser suc
 the working browser immediately also completes the scenario but is not evidence of recovery.
 
 The harness has positive and negative controls, including missing images, invented/local URLs,
-image syntax in code blocks, stale verification, false completion and tampered/missing results.
-CI runs those tests without model credentials. This validates the evaluator, not the candidate
-model's current behavior. `replay` additionally re-executes recorded actions, verifies grades,
-checks coverage and recomputes policy/prompt hashes from Git. Replay does not call a model.
+image syntax in code blocks, stale verification, false completion, captures inside the checkout,
+unviewed references, overclaimed root causes, idle bounded runs, requests for game files and
+tampered/missing results. CI runs those tests without model credentials. This validates the
+evaluator, not the candidate model's current behavior. `replay` additionally re-executes recorded
+actions, verifies grades, checks coverage and recomputes policy/prompt hashes from Git. Replay does
+not call a model.
 
 ## Evidence in GitHub
 
@@ -163,14 +207,19 @@ evidence of a skill change.
 
 ## Limits
 
-These are targeted simulated workflow checks, not a full contribution benchmark. Preparation,
-builds, duplicate search and source review are assumed complete. Artifact inspection returns
-synthetic metadata; it does not inspect pixels. The Markdown renderer supports a deliberately
-limited subset and cannot establish actual GitHub rendering or browser integration. Label checks
-recognize role names and a small set of synonyms such as Old, Fixed and OpenGL; manually review
-label failures for other clear wording and inspect presentation quality separately. Captions, crop usefulness and visual
+These are targeted simulated workflow checks, not a full contribution benchmark. In publication
+scenarios, preparation, builds, duplicate search and source review are assumed complete. Artifact
+inspection returns synthetic metadata, and `view_image` returns a fixed description instead of
+pixels, so these scenarios test whether an agent looks at and uses screenshots, not whether it can
+see them. The simulated player answers from fixed text, and launches, comparisons and
+reproductions return fixed observations; they cannot establish that a real game or person behaves
+that way. The Markdown renderer supports a deliberately limited subset and cannot establish actual
+GitHub rendering or browser integration. Label checks recognize role names and a small set of
+synonyms such as Old, Fixed and OpenGL; manually review label failures for other clear wording and
+inspect presentation quality separately. Captions, crop usefulness, draft wording and visual
 correctness require human review and are not automatically scored. The prepared full PR draft is
-not an artifact in this simulator, so preservation of an entire approved draft is also untested.
+not an artifact in publication scenarios, so preservation of an entire approved draft is also
+untested.
 
 Two repetitions per scenario are a small sample. A model identifier may be an evolving alias,
 and the CLI has its own system instructions. Results can show an observed improvement, tie or
