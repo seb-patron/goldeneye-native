@@ -1916,6 +1916,26 @@ int geConfigSave(const char *const *keys, const char *const *values, int count)
                 off = cfg_line_matches(line, keys[i], &commented);
                 if (off < 0) { continue; }
 
+                /* Unchanged value: keep the line byte for byte.
+                 *
+                 * Without this every save rewrote each key it was handed, so a live
+                 * `fire        = rt` came back as `fire = rt` -- the column alignment and
+                 * any trailing `# note` gone -- on a line whose setting had not changed
+                 * at all. Only a line whose value actually differs is worth rewriting. */
+                if (!commented && values[i] != NULL && values[i][0] != '\0') {
+                    const char *v = line + off;
+                    size_t n = 0;
+                    while (v[n] != '\0' && v[n] != '#' && v[n] != ';' &&
+                           v[n] != '\n' && v[n] != '\r') { n++; }
+                    while (n > 0 && (v[n - 1] == ' ' || v[n - 1] == '\t')) { n--; }
+                    if (strlen(values[i]) == n && strncmp(v, values[i], n) == 0) {
+                        fputs(line, out);
+                        written[i] = 1;
+                        handled = 1;
+                        break;
+                    }
+                }
+
                 /* Keep the leading whitespace so an indented block stays indented. */
                 {
                     const char *lead = line;

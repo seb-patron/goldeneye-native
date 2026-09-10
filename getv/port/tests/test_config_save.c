@@ -325,6 +325,29 @@ static void test_template_round_trips(void)
     remove(path);
 }
 
+static void test_unchanged_lines_verbatim(void)
+{
+    const char *keys[] = { "fire", "deadzone" };
+    const char *vals[] = { "rt",   "12" };
+    const char *got;
+
+    printf("# a key whose value did not change is left byte for byte\n");
+    /* Found on the first real launch: saving rewrote `fire        = rt` as `fire = rt`,
+     * dropping the file's column alignment on a setting that had not changed. */
+    write_file(g_cfg,
+        "fire        = rt          # right trigger\n"
+        "deadzone    = 20          # percent\n");
+    point_at(g_cfg);
+
+    ok(geConfigSave(keys, vals, 2) == 0, "save succeeded");
+    got = slurp(g_cfg);
+
+    ok(contains(got, "fire        = rt          # right trigger\n"),
+       "unchanged line kept exactly, alignment and trailing comment included");
+    ok(contains(got, "deadzone = 12"), "a changed line is still rewritten");
+    ok(!contains(got, "deadzone    = 20"), "and its old value is gone");
+}
+
 int main(void)
 {
     const char *tmp = getenv("TMPDIR");
@@ -341,6 +364,7 @@ int main(void)
     test_no_file_yet();
     test_round_trip();
     test_template_round_trips();
+    test_unchanged_lines_verbatim();
 
     remove(g_cfg);
     printf("\n%d checks, %d failures\n", checks, failures);

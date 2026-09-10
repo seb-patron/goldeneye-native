@@ -753,16 +753,18 @@ void model_load(Model &m)
          * decides when the new one is absent, so an existing config opens showing what
          * it actually does. */
         {
+            /* Resolved by the SAME parser and default the game uses (ge_bindings.c), not a
+             * local copy of either. The launcher used to hard-code HOLD as the fallback
+             * for both. Crouch then defaulted to HOLD here and TOGGLE in the game, and
+             * because starting the game saves the controls page, the first launch wrote
+             * `crouch_mode = hold` into the player's config and pinned the wrong default
+             * permanently. Sharing the call makes the two unable to disagree. */
             const char *am = getenv("GETV_AIM_MODE");
-            if (am && *am) {
-                m.aim_mode = (strcmp(am, "toggle") == 0) ? GE_TOGGLE : GE_HOLD;
-            } else {
-                m.aim_mode = env_bool("GETV_AIM_TOGGLE", false) ? GE_TOGGLE : GE_HOLD;
-            }
+            if (am == NULL || *am == '\0') { am = getenv("GETV_AIM_TOGGLE"); }
+            m.aim_mode = geParseHoldToggle(am, GE_AIM_MODE_DEFAULT);
         }
         {
-            const char *cm = getenv("GETV_CROUCH_MODE");
-            m.crouch_mode = (cm && strcmp(cm, "toggle") == 0) ? GE_TOGGLE : GE_HOLD;
+            m.crouch_mode = geParseHoldToggle(getenv("GETV_CROUCH_MODE"), GE_CROUCH_MODE_DEFAULT);
         }
         m.crouch_key = env_bool("GETV_CROUCH_KEY", true);
     }
