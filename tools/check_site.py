@@ -40,6 +40,9 @@ SCRIPT_SRC_RE = re.compile(r'<script\b[^>]*\bsrc="([^"]+)"', re.IGNORECASE)
 LINK_HREF_RE = re.compile(r'<link\b[^>]*\bhref="([^"]+)"', re.IGNORECASE)
 CSS_URL_RE = re.compile(r'(?:@import\s+|url\()\s*["\']?(https?://[^"\')\s]+)', re.IGNORECASE)
 TIME_RE = re.compile(r'<time datetime="(\d{4}-\d{2}-\d{2})"')
+# Lookbehind for whitespace so that a data-* attribute ending in "id" is not mistaken
+# for the id attribute itself.
+ID_RE = re.compile(r'(?<=\s)id="([^"]+)"')
 SEMVER_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 EXTERNAL_RE = re.compile(r"^(?:https?:)?//|^mailto:|^data:", re.IGNORECASE)
 
@@ -190,6 +193,21 @@ def check_balance(path: Path, text: str, problems: list[str]) -> None:
             problems.append(
                 "%s: <%s> opened %d times, closed %d times" % (rel(path), tag, opened, closed)
             )
+
+
+def check_ids(path: Path, text: str, problems: list[str]) -> None:
+    """Element ids must be unique within a page.
+
+    A duplicate id is invalid HTML and silently breaks the fragment link that points at it:
+    the browser jumps to whichever one comes first, which is rarely the one that was meant.
+    Checking that an id merely *exists* does not catch this, so it is checked separately.
+    """
+    seen: dict[str, int] = {}
+    for value in ID_RE.findall(text):
+        seen[value] = seen.get(value, 0) + 1
+    for value, count in sorted(seen.items()):
+        if count > 1:
+            problems.append('%s: id="%s" appears %d times; ids must be unique' % (rel(path), value, count))
 
 
 def check_links(path: Path, text: str, pages: dict[Path, str], problems: list[str]) -> None:
@@ -361,6 +379,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in files:
         text = pages[path.resolve()]
         check_balance(path, text, problems)
+        check_ids(path, text, problems)
         check_links(path, text, pages, problems)
         check_no_external_requests(path, text, problems)
         check_metadata(path, text, owning_version(path, data), data, problems)
