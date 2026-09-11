@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "report": "docs/evals/agent-workflows-2026-09-10.md",
+  "record": "docs/evals/agent-workflows-2026-09-10-claude-opus-5-medium-regraded.json",
+  "source_record": "docs/evals/agent-workflows-2026-09-10-claude-opus-5-medium.json"
+}
