@@ -161,7 +161,8 @@ that matter most for output correctness are:
 - `GETV_ZCMP` - depth comparison was being read from RSP geometry mode rather than from the RDP
   other-modes word, which is where the hardware actually keeps it.
 - `GETV_RECTFLIP` - flipped texture rectangles had their coordinate negation applied twice.
-- `GETV_RGBA16BE` - RGBA16 texture byte order. Mode 1 is the default; 0 restores the old order.
+- `GETV_RGBA16BE` - RGBA16 texture byte order. Mode 0, a big-endian read, is the default, paired
+  with the game decoder's `GETV_TEX16BE` swap; mode 1 restores the previous order.
 - `GETV_FILTCLAMP` - texture filter clamping at tile edges.
 - `GETV_PROBE_AFTER` and the surrounding probe family - the instrumentation used to measure all
   of the above.

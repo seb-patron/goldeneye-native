@@ -6,7 +6,10 @@ captures at a fixed frame, so any two runs are comparable.
 
 ## 1. Explosions render magenta instead of orange
 
-**Cause: RGBA16 texel byte order.** `GETV_RGBA16BE=1` fixes it.
+**Cause: 16-bit texel byte order.** The game's texture decoder writes 16-bit texels in native
+order, while the renderer reads RGBA16 big-endian. The decoder swap (`GETV_TEX16BE=1`) with a
+big-endian read (`GETV_RGBA16BE=0`) fixes it, and both are now the defaults. See the last
+subsection of this section.
 
 Reproduce with a rocket launcher, which is what makes an explosion available headlessly:
 
@@ -15,7 +18,8 @@ GETV_GIVE=25 GETV_STAGE=9 GETV_EXIT_FRAME=681 GETV_SHOTFRAME=680 \
 GETV_SHOTPATH=/tmp/x.bmp GETV_SCRIPT="620:Z:20" ./getv/build-mac/goldeneye
 ```
 
-Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680:
+Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680, from the original
+census with the decoder swap off:
 
 | `GETV_RGBA16BE` | frame md5 | chromatic px | mean RGB | reads as |
 |---|---|---|---|---|
@@ -37,7 +41,7 @@ Mean colour of strongly chromatic pixels in the explosion, Bunker 1, frame 680:
   byte-identical frame. `GETV_LIGHTTRACE` then showed why: **there are no RGBA32 uploads at
   all** in the scene. The probe was inert, which is the useful result.
 
-### `GETV_RGBA16BE=1` is the default now
+### Mode 1: explosions fixed, big-endian textures broken
 
 The old census could not support promoting it, and said so: five levels compared at mode 0 and
 mode 1 gave byte-identical frames, but `GETV_LIGHTTRACE` reported **zero RGBA16 uploads** in
@@ -69,9 +73,44 @@ Where it does apply it is the fix and not merely a change, on two independent st
 | 9 Bunker 1 | (140, 82, 167) magenta | (186, 154, 74) orange |
 | 25 Train | (143, 84, 159) magenta | (179, 148, 71) orange |
 
-A default build with no environment variable set now produces a byte-identical frame to an
-explicit `GETV_RGBA16BE=1`. `GETV_RGBA16BE=0` restores the old behaviour, and mode 2 is still
-there as the u16-store control.
+Mode 1 was made the default on that evidence. It reverses each 4-byte group before the
+big-endian read. For two little-endian 16-bit texels `[lo0 hi0 lo1 hi1]` that yields
+`[hi1 lo1 hi0 lo0]`. Each texel's bytes are restored, which is why explosions turned orange, but
+the two texels trade places. Textures that were already big-endian were scrambled outright. The
+census above missed them: on the boot sequence, the legal screen's rating seal, the Rareware logo
+and the GOLDENEYE logo drew as colour noise.
+
+### Big-endian end to end is the default now
+
+The decoder swap (`GETV_TEX16BE=1`) makes decoder output big-endian, so the renderer reads every
+RGBA16 texel as stored (`GETV_RGBA16BE=0`). The measurements below were taken on Windows x86_64,
+OpenGL, 1280x960, from `GETV_SHOTFRAME` captures compared pixel by pixel. Mean RGB counts pixels
+whose channel spread is at least 64.
+
+| Capture | Pixels changed, previous vs new defaults | New defaults |
+|---|---:|---|
+| Boot, frame 200 | 17,684, all inside the rating seal | red "4" on a white disc, as on the N64 |
+| Boot, frame 800 | 76,438, all inside the Rareware logo | navy face, gold R and lettering |
+| Boot, frame 1900 | 22,950, all inside the GOLDENEYE logo | gold letters with the red ring |
+| Boot, frame 450 (Nintendo logo) | 0 | unchanged |
+| Boot, frame 1600 (gun barrel) | 0 | unchanged; that frame's noise band is #86 |
+| Bunker 1 rocket, frame 680 | 542,327 | orange, (184,152,74) -> (186,155,75) |
+| Train rocket, frame 680 | 587,502 | orange, (181,149,71) -> (182,150,71) |
+
+The explosion images change because their texels are no longer swapped in pairs. Their colour
+stays orange.
+
+Idle frames on all 21 solo stages (`GETV_INTROCAM=0`, frame 280) compare the previous pairing,
+`GETV_RGBA16BE=1 GETV_TEX16BE=0`, with the new defaults:
+- 19 stages are byte-identical.
+- Surface changes by 31,930 pixels and Surface 2 by 168,838, in distant snow and tree textures.
+  Each switch alone changes those surfaces too, so they come through the decoder like explosions,
+  and the difference is the same texel-pair order. There is no retail reference at those frames.
+
+A build with the new defaults and no environment variable matches the previous build run with
+`GETV_RGBA16BE=0 GETV_TEX16BE=1` byte for byte, at all seven boot and explosion frames above.
+`GETV_RGBA16BE=1 GETV_TEX16BE=0` restores the previous pairing, and mode 2 remains the u16-store
+control. `tools/test_rgba16_byte_order.py` pins the two defaults together without game data.
 
 The remaining subject, unchanged: the wall-hole impact rows 8..15 in `s_impactimages` are
 RGBA/16b, and no scenario here has been shown to upload them specifically. Firing a rocket

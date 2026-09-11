@@ -794,15 +794,20 @@ rather than a setting.
 - **`run_tests.ps1` defaults to `-Mingw C:\msys64\mingw64`** while the project installs to
   `C:\mingw64`. Run it without the flag and it silently uses a different compiler.
 
-### `GETV_RGBA16BE` -- explosion colour
+### `GETV_RGBA16BE` and `GETV_TEX16BE` -- 16-bit texture byte order
 
-Default 1, and you should not need to touch it. RGBA16 textures were being decoded in the wrong
-byte order, which turned explosions magenta and read on screen as confetti. Mode 1 corrects it,
-mode 0 is the old behaviour, mode 2 is a control kept for comparison.
+Leave both unset. The game's texture decoder swaps its native 16-bit texels to big-endian before
+upload (`GETV_TEX16BE`, default 1), and the renderer reads every RGBA16 texel big-endian
+(`GETV_RGBA16BE`, default 0). Together they draw explosions orange and the boot sequence's rating
+seal, Rareware logo and GOLDENEYE logo correctly.
 
-It is listed here because the symptom was reported often enough to be worth naming: coloured
-confetti on crate and barrel explosions is this, and it is not the paintball cheat. See
-[`COLOUR_BUGS.md`](COLOUR_BUGS.md) for the measurements.
+- `GETV_TEX16BE=0` with `GETV_RGBA16BE=1` is the previous pairing: orange explosions, but the boot
+  logos draw as colour noise.
+- `GETV_TEX16BE=0` with `GETV_RGBA16BE=0` turns explosions magenta, which was reported as
+  confetti. It is not the paintball cheat.
+- `GETV_RGBA16BE=2` swaps the two bytes of each texel and is kept as a control.
+
+See [`COLOUR_BUGS.md`](COLOUR_BUGS.md) for the measurements.
 
 ### `GETV_REAL_FONTS` -- the real-font text overlay
 
