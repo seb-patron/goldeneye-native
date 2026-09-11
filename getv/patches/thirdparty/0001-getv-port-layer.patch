@@ -2711,51 +2711,51 @@ diff -ruN -u0 a/getv/port/fast3d/gfx_pc.c b/getv/port/fast3d/gfx_pc.c
 +    return size_bytes;
 +}
 +
-+/* GETV_RGBA16BE -- the 16-bit half of PLAYBOOK §1.22.
++/* GETV_RGBA16BE -- the renderer's RGBA16 read order, the 16-bit half of PLAYBOOK §1.22.
 + *
-+ * §1.22 fixed RGBA32/RGB24 texel byte order and left the 16-bit stores alone, on the
-+ * grounds that nothing proved their consumer's byte order and they appeared unreached.
-+ * They are reached: 241 RGBA16 imports on the Nintendo-logo frame and 818 on the
-+ * Rareware-logo frame of stage 90.
++ * The decode below reads each texel as a big-endian byte pair. That is what every RGBA16
++ * producer supplies once the game's texture decoder swaps its native u16 stores, which
++ * GETV_TEX16BE in image.c now does by default:
++ *   - assets declared as byte streams, such as the locally converted Rareware logo arrays;
++ *   - images loaded at runtime, such as the boot sequence's rating seal and GOLDENEYE logo;
++ *   - the decoder's own output, such as explosion images.
 + *
-+ * The decode below is correct for a byte stream. The hazard is upstream: assets that
-+ * declare their pixels as native `u32` arrays. Those stores have target-dependent
-+ * memory byte order, while the decoder consumes an explicit big-endian byte stream. The
-+ * locally extracted logo source is converted to that byte representation before build.
-+ * Other native-word producers still require this compatibility mode.
-+ *
-+ *   unset / 1        reverse each 4-byte group (undo a native u32 store)  <- the default
++ *   unset / 0        read each texel big-endian                           <- the default
++ *   GETV_RGBA16BE=1  reverse each 4-byte group (undo a native u32 store)  <- control
 + *   GETV_RGBA16BE=2  swap only the two bytes of each texel (u16 store)    <- control
-+ *   GETV_RGBA16BE=0  the old behaviour                                    <- control
 + *
-+ * IT IS THE DEFAULT NOW, and the census the comment above used to ask for is what changed.
-+ * The earlier one compared five levels at mode 0 and mode 1, got byte-identical frames, and
-+ * could not conclude anything: GETV_LIGHTTRACE reported zero RGBA16 uploads in those idle
-+ * frames, so the comparison was of frames the setting cannot reach. Identical output from a
-+ * setting nothing exercises is not evidence that it is safe.
++ * Mode 1 was the default from a5859fd. On little-endian hosts it turned the decoder's magenta
++ * explosions orange, but only because reversing a group of two native u16 texels restores
++ * each byte pair while also swapping the two texels. It scrambled every source that was
++ * already big-endian, so the boot logos drew as colour noise.
 + *
-+ * Redone against frames that do reach it, three stages, idle and firing a rocket, both modes:
++ * Where RGBA16 is uploaded, measured with three stages, idle and firing a rocket:
 + *
-+ *   stage  firing  RGBA16 uploads  mode 0 vs mode 1
-+ *   9      no      0               byte-identical
-+ *   9      yes     166             differ
-+ *   20     no      0               byte-identical
-+ *   20     yes     0               byte-identical
-+ *   25     no      0               byte-identical
-+ *   25     yes     150             differ
++ *   stage  firing  RGBA16 uploads
++ *   9      no      0
++ *   9      yes     166
++ *   20     no      0
++ *   20     yes     0
++ *   25     no      0
++ *   25     yes     150
 + *
-+ * The rule is exact in all six pairs: where no RGBA16 is uploaded the two modes are
-+ * byte-identical, and they differ only where it is. So this cannot disturb anything that does
-+ * not use the format, and the only consumer found anywhere is the explosion and impact path --
-+ * a 681-frame Bunker 1 run uploads no RGBA16 at all until the rocket is fired.
++ * plus 241 imports on the Nintendo-logo frame and 818 on the Rareware-logo frame of stage 90.
++ * Frames that upload no RGBA16 were byte-identical between modes 0 and 1; that census found
++ * explosions, impacts and the boot sequence as the consumers.
 + *
-+ * Where it does apply, it is the fix rather than merely a change. Mean of strongly chromatic
-+ * pixels at the capture frame: stage 9 goes (140,82,167) to (186,154,74), stage 25 goes
-+ * (143,84,159) to (179,148,71). Magenta to orange, on two independent stages. That is the
-+ * defect users reported as confetti explosions. */
++ * Mode 0 together with the decoder swap keeps explosions orange and draws the boot logos
++ * correctly. docs/COLOUR_BUGS.md has the measurements, and tools/test_rgba16_byte_order.py
++ * pins the two defaults together.
++ *
++ * Stage 9 rocket explosion at frame 680, strongly chromatic pixels:
++ *   decoder swap off, mode 0   magenta
++ *   decoder swap off, mode 1   orange   (previous default)
++ *   decoder swap on,  mode 0   orange   (this default)
++ * Measure again before changing either default: a frame that uploads no RGBA16 cannot tell
++ * the modes apart. */
 +static int ge_rgba16be_mode(void) {
 +    static int m = -1;
-+    if (m < 0) { const char *e = getenv("GETV_RGBA16BE"); m = (e && *e) ? atoi(e) : 1; }
++    if (m < 0) { const char *e = getenv("GETV_RGBA16BE"); m = (e && *e) ? atoi(e) : 0; }
 +    return m;
 +}
 +

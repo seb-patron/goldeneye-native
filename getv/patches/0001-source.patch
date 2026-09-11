@@ -16543,28 +16543,28 @@ index a29470f..4bcf14c 100644
 + * LOD-independent, like its 32-bit sibling. It must run after texShrinkNonPaletted, which
 + * does channel arithmetic on the native value.
 + *
-+ * Default off; turn on with GETV_TEX16BE=1.
++ * Default on; GETV_TEX16BE=0 turns it off for comparison.
 + *
-+ * This is not dead code. It is reached -- 15 images / 3,360 texels on one FRIGATE frame
-+ * -- and the writer/reader mismatch above is real. It looks inert only because the two
-+ * most visible 16-bit surfaces do not go through this decoder at all:
-+ *   - The Rareware logo was static `u32` arrays in `assets/rarewarelogo.c` handed
-+ *     straight to the RDP by `gsDPSetTextureImage`; that is fixed at the declaration
-+ *     instead (six arrays -> `u8`, big-endian). A decode-time pass could never have
-+ *     covered it.
++ * It is on because import_texture_rgba16 reads every RGBA16 texel big-endian (GETV_RGBA16BE
++ * defaults to 0). Before that the renderer reversed 4-byte groups by default, which made
++ * this decoder's explosion images look right but scrambled sources that were already
++ * big-endian: the rating seal, Rareware logo and GOLDENEYE logo of the boot sequence.
++ * With both defaults, decoder output and big-endian sources agree:
++ *   - The Rareware logo is static `u8` arrays in `assets/rarewarelogo.c`, big-endian at
++ *     the declaration and handed straight to the RDP by `gsDPSetTextureImage`. This pass
++ *     never sees it.
++ *   - Explosion images do pass through this decoder, and are swapped here.
 + *   - FRIGATE's sea is never uploaded at all: across 400 gated tile commands on that
 + *     frame there is no `SETTIMG fmt=0`; its RGBA16 tile is bound to a CI8 block.
-+ * So this remains the correct treatment for 16-bit texels that do pass through
-+ * `texInflateLookup` / `texInflateLookupFromBuffer` / `texReadUncompressed`, and the
-+ * right time to default it on is when a visible surface is shown to take that path.
-+ * A/B it with GETV_TEX16BE=1 before assuming it does nothing. */
++ * tools/test_rgba16_byte_order.py pins the two defaults together. GETV_TEX16BE=0 with
++ * GETV_RGBA16BE=1 restores the previous pairing for comparison. */
 +int geTex16beFlag = -1;
 +
 +int geTex16beOn(void)
 +{
 +	if (geTex16beFlag < 0) {
 +		const char *e = getenv("GETV_TEX16BE");
-+		geTex16beFlag = (e && e[0] == '1') ? 1 : 0;
++		geTex16beFlag = (e && e[0] == '0') ? 0 : 1;
 +	}
 +	return geTex16beFlag;
 +}

@@ -1,0 +1,20 @@
+name: RGBA16 byte-order regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: rgba16-byte-order-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Decode invented RGBA16 texels with the committed production defaults
+        run: python3 tools/test_rgba16_byte_order.py --cc gcc
