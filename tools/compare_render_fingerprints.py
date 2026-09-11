@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+# The Windows setup's embeddable Python never adds the script directory to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_no_game_data import inspect_path
 from render_refs import TOLERANCE, fingerprint
 

@@ -22,6 +22,8 @@ class EvidenceGateTests(unittest.TestCase):
         self.write(self.skill, "old\n")
         self.write("tools/skill_eval.py", "# evaluator\n")
         self.write("tools/skill_eval_cases.json", "{}\n")
+        for dependency in gate.skill_eval.DEPENDENCIES:
+            self.write(dependency, "# sanitizer\n")
         self.command("init", "-q")
         self.commit()
         self.base = self.command("rev-parse", "HEAD").decode().strip()
@@ -128,6 +130,12 @@ class EvidenceGateTests(unittest.TestCase):
         self.write("docs/evals/run.json", "{}\n")
         self.assertIn("differs from commit", " ".join(self.check()))
 
+    def test_modified_sanitizer_working_copy_is_rejected(self):
+        self.proof()
+        self.commit()
+        self.write(gate.skill_eval.DEPENDENCIES[0], "# changed sanitizer\n")
+        self.assertIn("evaluator working copy differs", " ".join(self.check()))
+
     def test_historical_report_cannot_be_rewritten_for_new_change(self):
         self.proof()
         self.commit()
@@ -140,6 +148,12 @@ class EvidenceGateTests(unittest.TestCase):
                    "report": "docs/evals/run.md", "record": "docs/evals/run.json"}))
         self.commit()
         self.assertIn("must be new", " ".join(self.check()))
+
+    def test_gate_imports_evaluator_without_script_directory_on_sys_path(self):
+        # -I omits the script directory exactly as the Windows setup's embeddable Python does.
+        process = subprocess.run([sys.executable, "-I", gate.__file__, "--help"],
+                                 capture_output=True, text=True)
+        self.assertEqual(process.returncode, 0, process.stderr)
 
     def test_path_traversal_rejected(self):
         with self.assertRaises(ValueError):

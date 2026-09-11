@@ -1,0 +1,4 @@
+interface:
+  display_name: "Investigate a GoldenEye Bug"
+  short_description: "Diagnose GoldenEye failures with bounded evidence"
+  default_prompt: "Use $investigate-goldeneye-bug to reproduce and narrow this GoldenEye-Native problem without fixing or publishing it."

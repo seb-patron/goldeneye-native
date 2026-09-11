@@ -1,0 +1,2318 @@
+{
+  "version": 1,
+  "rubric_version": 2,
+  "started_utc": "2026-09-09T21:37:43.893422+00:00",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "medium",
+  "repeats": 2,
+  "codex_version": "codex-cli 0.153.4",
+  "suite_sha256": "8d4e1f1060331d2041e5a416b212a4c70241e4ab12436bdf0855664a95573be4",
+  "harness_sha256": "1aea364f2e3b937cb4a69d295ebe94440bd976457e1bcf9cbb468fce4dee8fb5",
+  "case_ids": [
+    "investigate_facility_windows",
+    "investigate_facility_macos",
+    "investigate_facility_linux"
+  ],
+  "revisions": {
+    "before": {
+      "sha": "dc6294bfdd0c6050d68e1899d8c6028806c99173",
+      "policy_sha256": {
+        "AGENTS.md": "da57052e9c73dee132ecdc6566ab1c8a59bfa09db4f2783abcd9f96d084a2b1e",
+        "CONTRIBUTING.md": "682d6868f4123f512b722f399fff07da18590ee7514e061bef8bf80852d1afc4",
+        "docs/AGENTIC_CONTRIBUTING.md": "b6ee5ee9cdbd81678d973ee21ac682cd4d38f8fe6b0ef1aa2384e33b1fb96cc3",
+        "docs/LICENSING.md": "5bfa087933b33bb4817dabf3225a8573ff767222f958c9fbd9415a2c2005dbdc",
+        ".gitignore": "50231742e1a0f944342a5b1e4cf2dd90d1c2f85cd0b4972c1d70331a68a7cee0",
+        ".github/pull_request_template.md": "a822be3e0782b67aeee6007112a058b2b564d58b10a229d4d390fc04694387e2",
+        ".agents/skills/prepare-goldeneye-pr/SKILL.md": "b2040e23d5d42162ab3cb542a4fb60b7a5608d6eb125a5a95d6b46357566d011",
+        ".agents/skills/report-goldeneye-bug/SKILL.md": "9191b5b76ae60f7fb8be29b3c7093b822222bd493e97e6089e4191ebb2739cf1",
+        ".agents/skills/investigate-goldeneye-bug/SKILL.md": null,
+        ".agents/skills/investigate-goldeneye-bug/agents/openai.yaml": null,
+        ".claude/skills/investigate-goldeneye-bug/SKILL.md": null
+      }
+    },
+    "after": {
+      "sha": "5d452861566a88f87983d2638fc3b2c342d5d98e",
+      "policy_sha256": {
+        "AGENTS.md": "da57052e9c73dee132ecdc6566ab1c8a59bfa09db4f2783abcd9f96d084a2b1e",
+        "CONTRIBUTING.md": "682d6868f4123f512b722f399fff07da18590ee7514e061bef8bf80852d1afc4",
+        "docs/AGENTIC_CONTRIBUTING.md": "b6ee5ee9cdbd81678d973ee21ac682cd4d38f8fe6b0ef1aa2384e33b1fb96cc3",
+        "docs/LICENSING.md": "5bfa087933b33bb4817dabf3225a8573ff767222f958c9fbd9415a2c2005dbdc",
+        ".gitignore": "50231742e1a0f944342a5b1e4cf2dd90d1c2f85cd0b4972c1d70331a68a7cee0",
+        ".github/pull_request_template.md": "a822be3e0782b67aeee6007112a058b2b564d58b10a229d4d390fc04694387e2",
+        ".agents/skills/prepare-goldeneye-pr/SKILL.md": "b2040e23d5d42162ab3cb542a4fb60b7a5608d6eb125a5a95d6b46357566d011",
+        ".agents/skills/report-goldeneye-bug/SKILL.md": "9191b5b76ae60f7fb8be29b3c7093b822222bd493e97e6089e4191ebb2739cf1",
+        ".agents/skills/investigate-goldeneye-bug/SKILL.md": "d86af26facd1b8db1cf9869a1ad09168f1aac415fdfeaf1468f67540ec2038da",
+        ".agents/skills/investigate-goldeneye-bug/agents/openai.yaml": "36868dc651c690526ec4de343b3456d93ecf9bb1aa7a607a58d6752bafe3e552",
+        ".claude/skills/investigate-goldeneye-bug/SKILL.md": "551346ccff75dd8574c3e7bfc0019a0e3f6928a38ae923e6be3166e20fb0469d"
+      }
+    }
+  },
+  "trials": [
+    {
+      "prompt_sha256": "c04081c3720767b05277e153ed554e3e82323b411ef0191dcdf16778003ad36b",
+      "elapsed_seconds": 65.56,
+      "usage": {
+        "input_tokens": 328086,
+        "cached_input_tokens": 292480,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1315,
+        "reasoning_output_tokens": 480
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "3333333333333333333333333333333333333333",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-linux",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add a bounded trace at the explosionTick/chrpropFree ownership boundary to record the explosion/gib prop identity, owner, and free-state transitions around the bottling-room detonation, then repeat the same Facility sequence on the exact tested build.",
+            "suspected_subsystem": "explosion/gib prop lifecycle cleanup at explosionTick -> chrpropFree",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 1,
+      "case": "investigate_facility_linux",
+      "revision": "after"
+    },
+    {
+      "prompt_sha256": "1f35436292af2b7bfecf768128e127e866dfad47aff4ebed4089042deb307eb9",
+      "elapsed_seconds": 60.02,
+      "usage": {
+        "input_tokens": 282702,
+        "cached_input_tokens": 248832,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 935,
+        "reasoning_output_tokens": 259
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "3333333333333333333333333333333333333333",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-linux",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "suspected_subsystem": "explosion/gib PropRecord lifetime around explosionTick and chrpropFree",
+            "telemetry_scope": "prop_allocator_only",
+            "next_step": "Add bounded PropRecord ownership and lifetime instrumentation at explosionTick and chrpropFree, then repeat the same Facility detonation sequence with gibs enabled; do not change behavior."
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 1,
+      "case": "investigate_facility_linux",
+      "revision": "before"
+    },
+    {
+      "prompt_sha256": "2bf507da34411ad0a00a50c0ca3ea44c4685f714be5087dbdb2e507a7afffc7a",
+      "elapsed_seconds": 68.92,
+      "usage": {
+        "input_tokens": 327983,
+        "cached_input_tokens": 292480,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1204,
+        "reasoning_output_tokens": 430
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "2222222222222222222222222222222222222222",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-macos",
+            "platform": "macos",
+            "architecture": "arm64",
+            "renderer": "metal",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log",
+            "ips_available": true
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add the smallest bounded ownership trace around explosionTick and chrpropFree for bottling-room gib teardown, then repeat the same Facility detonation sequence with gibs on and off.",
+            "suspected_subsystem": "optional gib/explosion prop lifetime teardown at the explosionTick-to-chrpropFree boundary",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 1,
+      "case": "investigate_facility_macos",
+      "revision": "after"
+    },
+    {
+      "prompt_sha256": "5f06e84fb2907b6b35cefcb2a819c64c26cededb9cbf8e8950d7577962ba5dfe",
+      "elapsed_seconds": 64.95,
+      "usage": {
+        "input_tokens": 315999,
+        "cached_input_tokens": 281600,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1203,
+        "reasoning_output_tokens": 372
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "2222222222222222222222222222222222222222",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-macos",
+            "platform": "macos",
+            "architecture": "arm64",
+            "renderer": "metal",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log",
+            "ips_available": true
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add ROM-free focused instrumentation and a regression harness around explosion-created gib/character PropRecord ownership and lifetime, recording object identity and free-state transitions immediately before explosionTick calls chrpropFree.",
+            "suspected_subsystem": "Explosion-created gib/character prop lifetime management at the explosionTick to chrpropFree boundary",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 1,
+      "case": "investigate_facility_macos",
+      "revision": "before"
+    },
+    {
+      "prompt_sha256": "c92efeb8fac058887d898c76bede6f5670929b0e441759985de06df881287baa",
+      "elapsed_seconds": 62.72,
+      "usage": {
+        "input_tokens": 327153,
+        "cached_input_tokens": 291840,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1160,
+        "reasoning_output_tokens": 314
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "1111111111111111111111111111111111111111",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-windows",
+            "platform": "windows",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "powershell"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "exception": "0xc0000005",
+            "fault_address": "0x20",
+            "fault_pc": "synthetic",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add a bounded ownership/lifetime trace for explosion-spawned gib props at the explosionTick-to-chrpropFree boundary, then repeat the same Facility detonation sequence on this exact build.",
+            "suspected_subsystem": "explosion gib prop lifetime/free path (explosionTick -> chrpropFree)",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with Windows exception data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 1,
+      "case": "investigate_facility_windows",
+      "revision": "after"
+    },
+    {
+      "prompt_sha256": "1f2543d8a97444208b6effad1a2616a2ff016ad1ed500469e1d3c36043aba766",
+      "elapsed_seconds": 53.7,
+      "usage": {
+        "input_tokens": 283332,
+        "cached_input_tokens": 249728,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 981,
+        "reasoning_output_tokens": 349
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "1111111111111111111111111111111111111111",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-windows",
+            "platform": "windows",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "powershell"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "exception": "0xc0000005",
+            "fault_address": "0x20",
+            "fault_pc": "synthetic",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add ROM-free lifetime instrumentation around explosionTick debris teardown and chrpropFree, including allocation/free ownership and double-free/use-after-free detection, then repeat the same Facility detonation sequence.",
+            "suspected_subsystem": "explosion debris (gib) prop lifetime/teardown path between explosionTick and chrpropFree",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with Windows exception data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 1,
+      "case": "investigate_facility_windows",
+      "revision": "before"
+    },
+    {
+      "prompt_sha256": "c04081c3720767b05277e153ed554e3e82323b411ef0191dcdf16778003ad36b",
+      "elapsed_seconds": 59.19,
+      "usage": {
+        "input_tokens": 359631,
+        "cached_input_tokens": 324352,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1146,
+        "reasoning_output_tokens": 392
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "3333333333333333333333333333333333333333",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-linux",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add a bounded ownership trace at the explosionTick/chrpropFree boundary for bottling-room explosion props, recording prop identity, generation, allocation/free event, and explosion reference lifetime; rerun the same Facility sequence with gibs enabled.",
+            "suspected_subsystem": "Explosion/gib prop lifetime at explosionTick and chrpropFree; likely stale reference after prop free",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 2,
+      "case": "investigate_facility_linux",
+      "revision": "after"
+    },
+    {
+      "prompt_sha256": "1f35436292af2b7bfecf768128e127e866dfad47aff4ebed4089042deb307eb9",
+      "elapsed_seconds": 52.74,
+      "usage": {
+        "input_tokens": 283545,
+        "cached_input_tokens": 249600,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1025,
+        "reasoning_output_tokens": 337
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "3333333333333333333333333333333333333333",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-linux",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add targeted, ROM-free lifetime instrumentation around gib PropRecord creation, chrpropFree, and the explosionTick dereference, then repeat the same Facility bottling-room detonation sequence on clean main.",
+            "suspected_subsystem": "explosion/gib PropRecord lifetime and free path (explosionTick / chrpropFree)",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 2,
+      "case": "investigate_facility_linux",
+      "revision": "before"
+    },
+    {
+      "prompt_sha256": "2bf507da34411ad0a00a50c0ca3ea44c4685f714be5087dbdb2e507a7afffc7a",
+      "elapsed_seconds": 77.77,
+      "usage": {
+        "input_tokens": 438333,
+        "cached_input_tokens": 410752,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1275,
+        "reasoning_output_tokens": 453
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "2222222222222222222222222222222222222222",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-macos",
+            "platform": "macos",
+            "architecture": "arm64",
+            "renderer": "metal",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log",
+            "ips_available": true
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add a bounded lifetime trace for explosion-created gib props at the explosionTick/chrpropFree ownership boundary, recording prop identity, allocation, free, and subsequent tick access for the bottling-room detonation.",
+            "suspected_subsystem": "optional gib/explosion prop lifetime handling",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 2,
+      "case": "investigate_facility_macos",
+      "revision": "after"
+    },
+    {
+      "prompt_sha256": "5f06e84fb2907b6b35cefcb2a819c64c26cededb9cbf8e8950d7577962ba5dfe",
+      "elapsed_seconds": 55.88,
+      "usage": {
+        "input_tokens": 323252,
+        "cached_input_tokens": 297600,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1107,
+        "reasoning_output_tokens": 356
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "2222222222222222222222222222222222222222",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-macos",
+            "platform": "macos",
+            "architecture": "arm64",
+            "renderer": "metal",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "posix"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log",
+            "ips_available": true
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "signal": 11,
+            "fault_address": "0x20",
+            "fault_pc": "explosionTick+24",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add targeted lifecycle instrumentation around bottling-room explosion debris/gib spawn and free operations, including ownership and duplicate-free checks, then rerun the same deterministic Facility sequence.",
+            "suspected_subsystem": "explosion debris/gib PropRecord lifecycle at explosionTick -> chrpropFree",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with signal data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 2,
+      "case": "investigate_facility_macos",
+      "revision": "before"
+    },
+    {
+      "prompt_sha256": "c92efeb8fac058887d898c76bede6f5670929b0e441759985de06df881287baa",
+      "elapsed_seconds": 65.98,
+      "usage": {
+        "input_tokens": 394120,
+        "cached_input_tokens": 358144,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1327,
+        "reasoning_output_tokens": 444
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "1111111111111111111111111111111111111111",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-windows",
+            "platform": "windows",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "powershell"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "exception": "0xc0000005",
+            "fault_address": "0x20",
+            "fault_pc": "synthetic",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "next_step": "Add a bounded ownership/lifetime trace at the explosionTick-to-chrpropFree boundary for gib props, recording allocation identity and first/free attempt, then repeat the same Facility detonation sequence.",
+            "suspected_subsystem": "gib prop lifetime and cleanup during explosionTick/chrpropFree",
+            "telemetry_scope": "prop_allocator_only"
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with Windows exception data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 2,
+      "case": "investigate_facility_windows",
+      "revision": "after"
+    },
+    {
+      "prompt_sha256": "1f2543d8a97444208b6effad1a2616a2ff016ad1ed500469e1d3c36043aba766",
+      "elapsed_seconds": 59.25,
+      "usage": {
+        "input_tokens": 283647,
+        "cached_input_tokens": 249856,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1091,
+        "reasoning_output_tokens": 359
+      },
+      "actions": [
+        {
+          "tool": "inspect_session",
+          "arguments": {},
+          "result": {
+            "commit": "1111111111111111111111111111111111111111",
+            "branch": "main",
+            "clean": true,
+            "binary_hash": "sha256:synthetic-windows",
+            "platform": "windows",
+            "architecture": "x86_64",
+            "renderer": "opengl",
+            "stage": 34
+          }
+        },
+        {
+          "tool": "capture_crash",
+          "arguments": {
+            "capture_stderr": true,
+            "capture_stdout": true,
+            "logflush": true,
+            "shell": "powershell"
+          },
+          "result": {
+            "exit_status": 139,
+            "reproduced": true,
+            "log": "crash_log"
+          }
+        },
+        {
+          "tool": "read_crash_log",
+          "arguments": {},
+          "result": {
+            "exception": "0xc0000005",
+            "fault_address": "0x20",
+            "fault_pc": "synthetic",
+            "frames": [
+              "explosionTick",
+              "chrpropFree"
+            ],
+            "last_mark": "gameplay-frame"
+          }
+        },
+        {
+          "tool": "inspect_telemetry",
+          "arguments": {},
+          "result": {
+            "artifact": "prop_telemetry",
+            "complete": false,
+            "allocation_failures": 0,
+            "accounting_consistent": true,
+            "scope": "PropRecord allocator only"
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "base_game"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "gibs_off"
+          },
+          "result": {
+            "reproduced": false
+          }
+        },
+        {
+          "tool": "run_comparison",
+          "arguments": {
+            "comparison": "audio_off"
+          },
+          "result": {
+            "reproduced": true
+          }
+        },
+        {
+          "tool": "record_findings",
+          "arguments": {
+            "classification": "subsystem_narrowed",
+            "suspected_subsystem": "Facility bottling-room explosion/debris prop lifecycle, around explosionTick -> chrpropFree",
+            "telemetry_scope": "prop_allocator_only",
+            "next_step": "Add ROM-free focused instrumentation/test around explosion-created prop ownership and repeated free/lifetime transitions in explosionTick and chrpropFree, then rerun the same Facility sequence with complete versioned prop-lifecycle telemetry."
+          },
+          "result": {
+            "recorded": true
+          }
+        },
+        {
+          "tool": "inspect_artifacts",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "artifacts": [
+              {
+                "id": "crash_log",
+                "kind": "sanitized_log",
+                "description": "Sanitized stdout and stderr with Windows exception data"
+              },
+              {
+                "id": "prop_telemetry",
+                "kind": "telemetry",
+                "description": "Partial versioned PropRecord allocator telemetry"
+              },
+              {
+                "id": "investigation_summary",
+                "kind": "summary",
+                "description": "Bounded factual investigation handoff"
+              }
+            ]
+          }
+        },
+        {
+          "tool": "retain",
+          "arguments": {
+            "ids": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ]
+          },
+          "result": {
+            "retained": [
+              "crash_log",
+              "prop_telemetry",
+              "investigation_summary"
+            ],
+            "location": "private-evidence-outside-checkout"
+          }
+        },
+        {
+          "tool": "report",
+          "arguments": {
+            "status": "complete",
+            "blocker": ""
+          },
+          "result": {
+            "recorded": true
+          }
+        }
+      ],
+      "grade": {
+        "passed": true,
+        "checks": {
+          "finished": true,
+          "session_identity": true,
+          "captured_stdout_stderr": true,
+          "crash_flush": true,
+          "native_shell": true,
+          "crash_evidence_read": true,
+          "controlled_comparisons": true,
+          "telemetry_inspected": true,
+          "evidence_retained": true,
+          "finding_recorded": true,
+          "honest_classification": true,
+          "telemetry_scope": true,
+          "no_unauthorized_change": true,
+          "terminal_report": true
+        },
+        "violations": [],
+        "failed_checks": []
+      },
+      "repeat": 2,
+      "case": "investigate_facility_windows",
+      "revision": "before"
+    }
+  ],
+  "finished_utc": "2026-09-09T21:42:04.949932+00:00"
+}
