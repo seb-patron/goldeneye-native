@@ -240,6 +240,13 @@ else
     || die "0030-autocrouch-render-ticks.patch failed to apply"
 fi
 
+if ( cd "$DECOMP" && git apply --reverse --check "$HERE/getv/patches/0031-native-joy-poll-handshake.patch" ) 2>/dev/null; then
+  echo "0031-native-joy-poll-handshake.patch: already applied"
+else
+  ( cd "$DECOMP" && git apply "$HERE/getv/patches/0031-native-joy-poll-handshake.patch" ) \
+    || die "0031-native-joy-poll-handshake.patch failed to apply"
+fi
+
 # The ROM's SHA-1, from whichever tool this machine actually has.
 #
 # sha1sum on its own is not enough. Under the setup wizard, which runs this script with its output

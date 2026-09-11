@@ -132,6 +132,9 @@ git apply ../../getv/patches/0025-cuff-native-pointer-stride.patch
 git apply ../../getv/patches/0026-bloodier-gibs.patch
 git apply ../../getv/patches/0027-external-rom-path.patch
 git apply ../../getv/patches/0028-prop-allocator-telemetry.patch
+git apply ../../getv/patches/0029-modern-mouse-look.patch
+git apply ../../getv/patches/0030-autocrouch-render-ticks.patch
+git apply ../../getv/patches/0031-native-joy-poll-handshake.patch
 # ... run the asset pipeline (docs/SETUP.md 3.5) and the namespacing pass (3.6) ...
 python3 ../../tools/transform_rarewarelogo.py
 git apply ../../getv/patches/0002-assets.patch
@@ -214,3 +217,7 @@ the per-model `Model.c` files. They are large, derived from the ROM, and reprodu
 
 `0030-autocrouch-render-ticks.patch` preserves auto-crouch intent across zero-time
 render frames, so uncapped rendering can lower Bond into low passages.
+
+`0031-native-joy-poll-handshake.patch` bypasses the legacy one-slot poll disable/enable
+handshake on native builds, preventing a dropped enable request from permanently suppressing
+controller reads after mission-save/status transitions. Non-native behavior is unchanged.

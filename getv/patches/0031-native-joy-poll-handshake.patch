@@ -1,0 +1,51 @@
+diff --git a/src/joy.c b/src/joy.c
+index 6f3df06..437c09e 100644
+--- a/src/joy.c
++++ b/src/joy.c
+@@ -156,6 +156,12 @@ void joyInit(void)
+ 
+ void joyCheckStatusThreadSafe(void)
+ {
++#ifdef GE_PORT_NATIVE
++    /* The native port runs status, save and polling work on one thread. Its message
++     * queues cannot block, so an overlapping one-slot handshake can drop one half
++     * and leave polling permanently disabled. There is no concurrent poll to guard. */
++    joyCheckStatus();
++#else
+     OSMesg  msg;
+ 
+     if (g_ContQueuesCreated)
+@@ -168,6 +174,7 @@ void joyCheckStatusThreadSafe(void)
+         osSendMesg(&g_ContEnablePollSendMessageQueue, &msg, OS_MESG_NOBLOCK);
+         osRecvMesg(&g_ContEnablePollReceiveMessageQueue, &msg, OS_MESG_BLOCK);
+     }
++#endif
+ }
+ 
+ s32 osPfsChecker(OSPfs *pfs)
+@@ -744,10 +751,12 @@ f32 joyGetStickYInRangef(s8 contpadnum, f32 rangemin, f32 rangemax)
+  */
+ void joyDisablePoll(void)
+ {
++#ifndef GE_PORT_NATIVE
+     OSMesg msg;
+ 
+     osSendMesg(&g_ContDisablePollSendMessageQueue, &msg, OS_MESG_NOBLOCK);
+     osRecvMesg(&g_ContDisablePollReceiveMessageQueue, &msg, OS_MESG_BLOCK);
++#endif
+ }
+ 
+ /**
+@@ -755,10 +764,12 @@ void joyDisablePoll(void)
+  */
+ void joyEnablePoll(void)
+ {
++#ifndef GE_PORT_NATIVE
+     OSMesg msg;
+ 
+     osSendMesg(&g_ContEnablePollSendMessageQueue, &msg, OS_MESG_NOBLOCK);
+     osRecvMesg(&g_ContEnablePollReceiveMessageQueue, &msg, OS_MESG_BLOCK);
++#endif
+ }
+ 
+ s32 joyGamePakProbe(void)

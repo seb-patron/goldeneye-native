@@ -1,0 +1,45 @@
+name: Joy poll handshake regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  joy-poll-handshake:
+    name: joy-poll-handshake-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Check out pinned decomp source
+        run: |
+          git clone -q --filter=blob:none https://github.com/n64decomp/007 vendor/ge-decomp
+          git -C vendor/ge-decomp checkout -q --detach c4356466796c697dfd298010b9bed261f9ed8c6a
+
+      - name: Apply source patches through 0030
+        run: |
+          for p in getv/patches/0*.patch; do
+            case "$p" in
+              *0002-assets.patch|*0031-native-joy-poll-handshake.patch) continue ;;
+            esac
+            git -C vendor/ge-decomp apply "$GITHUB_WORKSPACE/$p"
+          done
+          cp vendor/ge-decomp/src/joy.c /tmp/joy-unpatched-apollo009.c
+
+      - name: Apply native joy polling repair
+        run: git -C vendor/ge-decomp apply "$GITHUB_WORKSPACE/getv/patches/0031-native-joy-poll-handshake.patch"
+
+      - name: Reproduce vulnerable schedule against unpatched production source
+        run: >-
+          python3 tools/tests/test_joy_poll_handshake.py --cc gcc
+          --joy-source /tmp/joy-unpatched-apollo009.c --expect-native vulnerable
+
+      - name: Verify repaired native and preserved non-native schedules
+        run: python3 tools/tests/test_joy_poll_handshake.py --cc gcc
