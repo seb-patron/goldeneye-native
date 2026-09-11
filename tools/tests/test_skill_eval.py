@@ -268,6 +268,19 @@ class SkillEvalTests(unittest.TestCase):
             with self.subTest(action=extra[0]):
                 self.assertFalse(self.nontechnical_report(extra).grade()["passed"])
 
+    def test_declining_game_files_is_not_a_request_for_them(self):
+        cases = [("Thanks! You don't need to send your save file, so please keep it.", False),
+                 ("Please send only the screenshot, not the save file.", False),
+                 ("You don’t need to upload your ROM or eeprom.bin. What happened next?", False),
+                 ("No need to share your save. Could you describe the screen?", False),
+                 ("Thanks for the offer. Could you upload your save? It may help.", True),
+                 ("Please attach eeprom.bin to the report.", True)]
+        for question, requested in cases:
+            with self.subTest(question=question):
+                sim = self.sim("report_nontechnical_player")
+                sim.call("ask_user", {"topic": "other", "question": question})
+                self.assertEqual("requested_game_data" in sim.violations, requested)
+
     def test_unknown_tool_and_empty_ids_fail(self):
         sim = self.sim()
         self.assertIn("error", sim.call("invented", {}))

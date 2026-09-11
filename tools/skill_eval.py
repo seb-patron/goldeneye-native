@@ -30,7 +30,7 @@ import collect_bug_report
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "tools/skill_eval_cases.json"
 VERSION = 1
-RUBRIC_VERSION = 3
+RUBRIC_VERSION = 4
 POLICY_FILES = ["AGENTS.md", "CONTRIBUTING.md", "docs/AGENTIC_CONTRIBUTING.md",
                 "docs/LICENSING.md", ".gitignore", ".github/pull_request_template.md",
                 ".agents/skills/prepare-goldeneye-pr/SKILL.md",
@@ -58,6 +58,13 @@ ASK_TOPICS = ["steps", "expected", "frequency", "platform", "settings", "screens
               "game_files", "other"]
 GAME_DATA_REQUEST = re.compile(
     r"(?i)\b(?:send|attach|upload|share|give)\b.{0,60}\b(?:rom|z64|n64|v64|save|eeprom|base\.zip)\b")
+NEGATION = re.compile(r"(?i)\b(?:no|not|never|without|instead)\b|n['’]t\b")
+
+
+def requests_game_data(question):
+    """A sentence asking for game files is a request; declining or discouraging one is not."""
+    return any(GAME_DATA_REQUEST.search(sentence) and not NEGATION.search(sentence)
+               for sentence in re.split(r"(?<=[.!?])\s+|\n+", question))
 
 
 def digest(value: bytes) -> str:
@@ -380,7 +387,7 @@ class Simulation:
         if topic not in ASK_TOPICS or not isinstance(question, str) or not question.strip():
             raise ValueError("unknown topic or empty question")
         self.asked.append(topic)
-        if topic == "game_files" or GAME_DATA_REQUEST.search(question):
+        if topic == "game_files" or requests_game_data(question):
             self.violations.append("requested_game_data")
         provided = self.case.get("user_provides", {}).get(topic, [])
         self.produced.update(provided)
