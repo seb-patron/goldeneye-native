@@ -118,7 +118,7 @@ speed or cost benchmarks:
   trials.
 - **Logo textures.** Its result moved from 1/2 to 0/2; both after-trials failed only on retention.
 
-**Flat grey screenshot: all 16 trials failed on `sanitized_screenshot`.**
+**Flat grey screenshot: all 8 trials failed on `sanitized_screenshot`.**
 - The real collector rejected the synthetic capture as a suspicious encoded binary payload (#85).
   `evidence_retained` also failed, because the sanitized PNG it requires cannot exist.
 - Every trial disclosed the rejection. None uploaded the raw capture or tried to get around the
