@@ -35,14 +35,53 @@ good() { printf '  ok    %s\n' "$*"; }
 
 # A local clone is preferred over the network: it is faster, it works offline, and a clone takes
 # only committed state, so a vendor tree with every patch already applied still yields a pristine
-# one. If there is no local decomp, fall back to upstream.
+# one. A partial/promisor clone is different: it may intentionally be missing blobs, and cloning
+# it locally cannot retrieve those promised objects. In that case clone the real upstream and
+# detach at the exact local vendor HEAD so patches are still checked against the same revision.
+# If there is no local decomp, fall back to upstream as before.
 SCRATCH="$(mktemp -d)"
 trap '[ -n "${GETV_KEEP:-}" ] || rm -rf "$SCRATCH"' EXIT
 DECOMP="$SCRATCH/ge-decomp"
+LOCAL_DECOMP="$ROOT/vendor/ge-decomp"
 
-if [ -d "$ROOT/vendor/ge-decomp/.git" ]; then
-    say "cloning a pristine decomp from vendor/ge-decomp"
-    git clone -q "$ROOT/vendor/ge-decomp" "$DECOMP" || { say "clone failed"; exit 1; }
+is_promisor_repo()
+{
+    git -C "$1" config --get extensions.partialClone >/dev/null 2>&1 && return 0
+    git -C "$1" config --get-regexp '^remote\..*\.promisor$' 2>/dev/null \
+        | grep -Eq '[[:space:]]true$'
+}
+
+if [ -d "$LOCAL_DECOMP/.git" ]; then
+    if is_promisor_repo "$LOCAL_DECOMP"; then
+        SOURCE_HEAD="$(git -C "$LOCAL_DECOMP" rev-parse HEAD)" || {
+            say "could not determine local decomp HEAD"
+            exit 1
+        }
+
+        say "local decomp is partial/promisor; cloning $UPSTREAM at $SOURCE_HEAD"
+        git clone -q --no-checkout "$UPSTREAM" "$DECOMP" || {
+            say "clone failed"
+            exit 1
+        }
+
+        if ! git -C "$DECOMP" cat-file -e "$SOURCE_HEAD^{commit}" 2>/dev/null; then
+            say "local decomp HEAD $SOURCE_HEAD is not available from $UPSTREAM"
+            exit 1
+        fi
+
+        git -C "$DECOMP" checkout -q --detach "$SOURCE_HEAD" || {
+            say "could not check out local decomp HEAD $SOURCE_HEAD"
+            exit 1
+        }
+
+        if [ "$(git -C "$DECOMP" rev-parse HEAD)" != "$SOURCE_HEAD" ]; then
+            say "scratch decomp did not land on local decomp HEAD $SOURCE_HEAD"
+            exit 1
+        fi
+    else
+        say "cloning a pristine decomp from vendor/ge-decomp"
+        git clone -q "$LOCAL_DECOMP" "$DECOMP" || { say "clone failed"; exit 1; }
+    fi
 else
     say "no local decomp; cloning $UPSTREAM (this is the slow path)"
     git clone -q --depth 1 "$UPSTREAM" "$DECOMP" || { say "clone failed"; exit 1; }
