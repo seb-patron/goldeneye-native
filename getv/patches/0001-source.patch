@@ -18865,7 +18865,7 @@ index da4e1f5..e673d26 100644
  /**
   * Address: 7F005450
 diff --git a/src/game/initunk_005520.c b/src/game/initunk_005520.c
-index 4cdf103..f36d5dd 100644
+index 4cdf103..b704a13 100644
 --- a/src/game/initunk_005520.c
 +++ b/src/game/initunk_005520.c
 @@ -8,8 +8,26 @@
@@ -18897,7 +18897,7 @@ index 4cdf103..f36d5dd 100644
  
  
  void modelmgrResetSlotCounts(void)
-@@ -40,6 +58,9 @@ void modelmgrAllocateModelSlots(s32 numobjs)
+@@ -40,14 +58,17 @@ void modelmgrAllocateModelSlots(s32 numobjs)
      for (i = 0; i < g_MaxModelSlots; i++)
      {
          g_ModelSlots[i].unk08 = 0;
@@ -18907,7 +18907,17 @@ index 4cdf103..f36d5dd 100644
  
          if (i < numobjs)
          {
-@@ -71,6 +92,9 @@ void modelmgrAllocateAnimModelSlots(s32 numanimated)
+-            g_ModelSlots[i].unk10 = NULL;
++            GE_SLOT_RWDATA(g_ModelSlots[i]) = NULL;
+         }
+         else
+         {
+-            g_ModelSlots[i].unk10 = mempAllocBytesInBank(MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
++            GE_SLOT_RWDATA(g_ModelSlots[i]) = mempAllocBytesInBank(MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
+             g_ModelSlots[i].unk02 = MODEL_SPARE_RWDATALEN;
+         }
+     }
+@@ -71,14 +92,17 @@ void modelmgrAllocateAnimModelSlots(s32 numanimated)
      for (i = 0; i < g_MaxAnimModelSlots; i++)
      {
          g_AnimModelSlots[i].unk08 = 0;
@@ -18917,6 +18927,16 @@ index 4cdf103..f36d5dd 100644
  
          if (i < numanimated)
          {
+-            g_AnimModelSlots[i].unk10 = NULL;
++            GE_SLOT_RWDATA(g_AnimModelSlots[i]) = NULL;
+         }
+         else
+         {
+-            g_AnimModelSlots[i].unk10 = mempAllocBytesInBank(ANIM_MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
++            GE_SLOT_RWDATA(g_AnimModelSlots[i]) = mempAllocBytesInBank(ANIM_MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
+             g_AnimModelSlots[i].unk02 = ANIM_MODEL_SPARE_RWDATALEN;
+         }
+     }
 diff --git a/src/game/initweaponanigroups.c b/src/game/initweaponanigroups.c
 index 72e3e1b..f07643f 100644
 --- a/src/game/initweaponanigroups.c
@@ -20832,7 +20852,7 @@ index 48ef126..4141b41 100644
  }
  
 diff --git a/src/game/model.c b/src/game/model.c
-index 955b6a1..dd89af0 100644
+index 955b6a1..e2a2937 100644
 --- a/src/game/model.c
 +++ b/src/game/model.c
 @@ -1,4 +1,8 @@
@@ -20872,23 +20892,15 @@ index 955b6a1..dd89af0 100644
  // forward declarations
  void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb, f32 frame2a, f32 frame2b);
  
-@@ -31,8 +56,23 @@ void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb,
+@@ -31,8 +56,15 @@ void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb,
  //newfile per EU
  bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
  {
 +#ifdef GE_PORT_NATIVE
-+    /* tvOS port: fourth aliasing collision in ModelSlot/Model.
-+     *
-+     * The slot's rwdata pool pointer is `ModelSlot.unk10` (offset 16) and its length is
-+     * `unk02` (offset 2). On the N64 those aliased `Model.datas` (0x10) and
-+     * `Model.rwdatalen` (0x02) exactly, which is why this reads them through a Model*.
-+     * At 64-bit `Model.datas` moved to offset 32 -- into the padding -- so it always read
-+     * NULL and every model with numRecords > 0 was refused a slot.
-+     * `rwdatalen` still aliases correctly; only `datas` had to move to unk10. */
++    /* unk10 aliases mutable Model.obj on native. */
 +    struct ModelSlot *slot = (struct ModelSlot *)modelslot;
 +
-+    return modeldef->numRecords <= 0
-+        || (slot->unk10 != NULL && slot->unk02 >= modeldef->numRecords);
++    return GE_SLOT_CAN_FIT(*slot, modeldef->numRecords);
 +#else
      return modeldef->numRecords <= 0
          || (modelslot->datas != NULL && modelslot->rwdatalen >= modeldef->numRecords);
@@ -20896,7 +20908,7 @@ index 955b6a1..dd89af0 100644
  }
  
  
-@@ -42,6 +82,19 @@ bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
+@@ -42,6 +74,26 @@ bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
   * Allocates 0x20 bytes for a new model without animations.
   * Models that need animations use modelmgrInstantiateModelWithAnim.
   */
@@ -20906,17 +20918,24 @@ index 955b6a1..dd89af0 100644
 + * slot read as free and every model was handed the same slot (the second then found
 + * datas == NULL and crashed in modelInitRwData). Test the real field instead. */
 +#ifdef GE_PORT_NATIVE
-+#define GE_SLOT_FREE(slot) ((slot).ge_inuse == 0)
-+#define GE_ANIMSLOT_FREE(slot) ((slot).ge_inuse == 0)
-+#else
-+#define GE_SLOT_FREE(slot) ((slot).unk08 == 0)
-+#define GE_ANIMSLOT_FREE(slot) ((slot).unk08 == 0)
++/* Exact element equality also rejects fallback allocations and interior pointers. */
++static s32 ge_model_pool_index(Model *model)
++{
++    return geModelSlotPoolIndex(model, g_ModelSlots,
++        sizeof(struct ModelSlot), g_MaxModelSlots);
++}
++
++static s32 ge_anim_pool_index(Model *model)
++{
++    return geModelSlotPoolIndex(model, g_AnimModelSlots,
++        sizeof(struct AnimModelSlot), g_MaxAnimModelSlots);
++}
 +#endif
 +
  Model *modelmgrInstantiateModel(ModelFileHeader *header)
  {
      Model *model;
-@@ -58,7 +111,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
+@@ -58,7 +110,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
  
          for (i = 0; i < (g_MaxModelSlots - 30); i++) 
          {
@@ -20925,7 +20944,7 @@ index 955b6a1..dd89af0 100644
              {
                  model = (Model *)&g_ModelSlots[i];
                  break;
-@@ -67,7 +120,10 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
+@@ -67,7 +119,10 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
  
          if (model == NULL) 
          {
@@ -20937,36 +20956,54 @@ index 955b6a1..dd89af0 100644
          }
  
          if (header->numRecords > 0) 
-@@ -82,7 +138,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
+@@ -82,9 +137,9 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
  
          for (i = 0; i < g_MaxModelSlots; i++) 
          {
 -            if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header)) 
 +            if (GE_SLOT_FREE(g_ModelSlots[i]) && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header)) 
              {
-                 rwdata = g_ModelSlots[i].unk10;
+-                rwdata = g_ModelSlots[i].unk10;
++                rwdata = GE_SLOT_RWDATA(g_ModelSlots[i]);
                  rwdatalen = g_ModelSlots[i].unk02;
-@@ -96,6 +152,10 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
+                 model = (Model *)&g_ModelSlots[i];
+                 break;
+@@ -96,6 +151,12 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
      {
          modelInit(model, header, rwdata);
          ((struct ModelSlot *)model)->unk02 = rwdatalen;
 +#ifdef GE_PORT_NATIVE
-+        /* Claim the slot explicitly -- see ge_inuse in objecthandler.h. */
-+        ((struct ModelSlot *)model)->ge_inuse = 1;
++        s32 ge_slot = ge_model_pool_index(model);
++        if (ge_slot >= 0) {
++            GE_SLOT_CLAIM(g_ModelSlots[ge_slot], rwdata);
++        }
 +#endif
      }
  
      return model;
-@@ -128,7 +188,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
+@@ -104,6 +165,12 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
+ 
+ void clear_model_obj(Model* model)
+ {
++#ifdef GE_PORT_NATIVE
++    s32 ge_slot = ge_model_pool_index(model);
++    if (ge_slot >= 0) {
++        GE_SLOT_RELEASE(g_ModelSlots[ge_slot]);
++    }
++#endif
+     model->obj = NULL;
+ }
+ 
+@@ -128,7 +195,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
      {
          for (i = 0; i < (g_MaxAnimModelSlots - 10); i++) 
          {
 -            if (g_AnimModelSlots[i].unk08 == 0)
-+            if (GE_ANIMSLOT_FREE(g_AnimModelSlots[i]))
++            if (GE_SLOT_FREE(g_AnimModelSlots[i]))
              {
                  newModel = (Model *)&g_AnimModelSlots[i];
                  break;
-@@ -137,7 +197,9 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
+@@ -137,7 +204,9 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
  
          if (newModel == NULL) 
          {
@@ -20977,26 +21014,52 @@ index 955b6a1..dd89af0 100644
          }
  
          requiredRwdatalen = modelFileHeader->numRecords;
-@@ -159,7 +221,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
+@@ -159,10 +228,10 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
  
          for (i2 = 0; i2 < g_MaxAnimModelSlots; i2++) 
          {
 -            if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen)))) 
-+            if (GE_ANIMSLOT_FREE(g_AnimModelSlots[i2]) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen)))) 
++            if (GE_SLOT_FREE(g_AnimModelSlots[i2]) && GE_SLOT_CAN_FIT(g_AnimModelSlots[i2], requiredRwdatalen)) 
              {
                  newModel = (Model *)&g_AnimModelSlots[i2];
-                 rwdatas = g_AnimModelSlots[i2].unk10;
-@@ -171,6 +233,9 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
+-                rwdatas = g_AnimModelSlots[i2].unk10;
++                rwdatas = GE_SLOT_RWDATA(g_AnimModelSlots[i2]);
+                 rwdatalen = g_AnimModelSlots[i2].unk02;
+                 break;
+             }
+@@ -171,6 +240,12 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
  
      if (newModel != NULL) 
      {
 +#ifdef GE_PORT_NATIVE
-+        ((struct AnimModelSlot *)newModel)->ge_inuse = 1;   /* see objecthandler.h */
++        s32 ge_slot = ge_anim_pool_index(newModel);
++        if (ge_slot >= 0) {
++            GE_SLOT_CLAIM(g_AnimModelSlots[ge_slot], rwdatas);
++        }
 +#endif
          animInit(newModel, modelFileHeader, rwdatas);
          newModel->rwdatalen = rwdatalen;
      }
-@@ -218,7 +283,8 @@ void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst) {
+@@ -192,7 +267,18 @@ void modelAttachHead(Model *model, ModelNode *node,  ModelFileHeader *head)
+ 
+ void clear_aircraft_model_obj(Model *objinstance)
+ {
++#ifdef GE_PORT_NATIVE
++    s32 ge_slot = ge_anim_pool_index(objinstance);
++#endif
++
+     objinstance->obj = NULL;
++
++#ifdef GE_PORT_NATIVE
++    if (ge_slot >= 0) {
++        GE_SLOT_RELEASE(g_AnimModelSlots[ge_slot]);
++    }
++#endif
++
+     return;
+ }
+ 
+@@ -218,7 +304,8 @@ void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst) {
  }
  
  
@@ -21006,7 +21069,7 @@ index 955b6a1..dd89af0 100644
    vtxallocator = param_1;
  }
  
-@@ -445,7 +511,17 @@ union ModelRwData* modelGetNodeRwData(Model *Objinst, ModelNode *root)
+@@ -445,7 +532,17 @@ union ModelRwData* modelGetNodeRwData(Model *Objinst, ModelNode *root)
          }
      }
  
@@ -21024,7 +21087,7 @@ index 955b6a1..dd89af0 100644
  }
  
  
-@@ -896,6 +972,36 @@ void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult)
+@@ -896,6 +993,36 @@ void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult)
  /**
   * Address: 7F06D1CC
   */
@@ -21061,7 +21124,7 @@ index 955b6a1..dd89af0 100644
  u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extraBitOffset)
  {
      u32 result;
-@@ -911,14 +1017,55 @@ u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extra
+@@ -911,14 +1038,55 @@ u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extra
  
      result = 0;
      desc = anim->bitDescriptors + fieldIndex;
@@ -21117,7 +21180,7 @@ index 955b6a1..dd89af0 100644
          bitsThisRead = 8 - totalBitOffset;
  
          if (bitsRemaining >= bitsThisRead)
-@@ -955,7 +1102,11 @@ u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extra
+@@ -955,7 +1123,11 @@ u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extra
          }
      }
  
@@ -21129,7 +21192,7 @@ index 955b6a1..dd89af0 100644
      return result;
  }
  
-@@ -1049,7 +1200,8 @@ void sub_GAME_7F06D490(Model *model, ModelNode *modelNode)
+@@ -1049,7 +1221,8 @@ void sub_GAME_7F06D490(Model *model, ModelNode *modelNode)
              {
                  rw->Header.unk14 = sub_GAME_7F06D0CC(rw->Header.unk30, rw->Header.unk20, model->unk2c);
              }
@@ -21139,7 +21202,7 @@ index 955b6a1..dd89af0 100644
          }
      }
  
-@@ -1149,6 +1301,22 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
+@@ -1149,6 +1322,22 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
      modeltype = rodata->Header.MatrixIndex;
      renderpos = &model->render_pos[modeltype];
  
@@ -21162,7 +21225,7 @@ index 955b6a1..dd89af0 100644
      if (node->Parent != NULL)
      {
          var_a3 = modelFindNodeMtx(model, node->Parent, 0);
-@@ -1185,9 +1353,52 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
+@@ -1185,9 +1374,52 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
  }
  
  
@@ -21215,7 +21278,7 @@ index 955b6a1..dd89af0 100644
  void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildArg *mgm, coord3d *rot)
  {
      u32 flags;
-@@ -1208,6 +1419,18 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
+@@ -1208,6 +1440,18 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
      f32 angle;
      Mtxf **parentMtxPtr;
      
@@ -21234,7 +21297,7 @@ index 955b6a1..dd89af0 100644
      flags = mgm->flags;
      group = mgm->group;
      matrix0 = group->MatrixID0;
-@@ -1237,6 +1460,37 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
+@@ -1237,6 +1481,37 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
          matrix0_mtx = &render_pos[matrix0].pos;
          matrix_4x4_multiply_homogeneous(parent, &tmp, matrix0_mtx);
  
@@ -21272,7 +21335,7 @@ index 955b6a1..dd89af0 100644
          if (g_ModelJointPositionedFunc != NULL)
          {
              g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
-@@ -1251,6 +1505,25 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
+@@ -1251,6 +1526,25 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
      {
          quaternion_set_rotation_around_xyzf(rot->f, q);
          quaternion_7F05BC68(q, 0.5f, q2);
@@ -21298,7 +21361,7 @@ index 955b6a1..dd89af0 100644
          
          if (parent != NULL)
          {
-@@ -1263,6 +1536,18 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
+@@ -1263,6 +1557,18 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
          }
      }
  
@@ -21317,7 +21380,7 @@ index 955b6a1..dd89af0 100644
      if (has_matrix2)
      {
          if (parent != NULL)
-@@ -1308,6 +1593,49 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
+@@ -1308,6 +1614,49 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
              matrix_4x4_multiply_homogeneous(parent, dst, &render_pos[matrix2].pos);
          }
      }
@@ -21367,7 +21430,7 @@ index 955b6a1..dd89af0 100644
  }
  
  
-@@ -1323,13 +1651,16 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
+@@ -1323,13 +1672,16 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
      s32 sp4C;
      RenderPosView *sp48;
      s32 sp44;
@@ -21386,7 +21449,7 @@ index 955b6a1..dd89af0 100644
  
      spA4 = arg2->Opcode;
      spA0 = (ModelRoData_GroupRecord *)arg2->Data;
-@@ -1338,7 +1669,7 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
+@@ -1338,7 +1690,7 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
      sp4C = spA0->MatrixID2;
      new_var = &sp1C;
      sp48 = arg1->render_pos;
@@ -21395,7 +21458,7 @@ index 955b6a1..dd89af0 100644
  
      if (*new_var != 0) {
          sp9C = arg0->basemtx;
-@@ -1349,10 +1680,12 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
+@@ -1349,10 +1701,12 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
  
      if (sp9C != 0) {
          quaternion_to_transform_matrix(&spA0->Origin, arg3, &sp58);
@@ -21410,7 +21473,7 @@ index 955b6a1..dd89af0 100644
          }
      } else {
          quaternion_to_transform_matrix(&spA0->Origin, arg3, (Mtxf *)&sp48[sp54]);
-@@ -1520,27 +1853,76 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
+@@ -1520,27 +1874,76 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
      coord3d rot4;
      ModelRoData_GroupRecord *group;
  
@@ -21490,7 +21553,7 @@ index 955b6a1..dd89af0 100644
          {
              rot4 = D_800360B8;
              sub_GAME_7F06DEC0(jointnum.v, model->unk25, skeleton, model->anim2, model->unk68, &rot4);
-@@ -1551,10 +1933,12 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
+@@ -1551,10 +1954,12 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
          quaternion_set_rotation_around_xyzf(&rot3, q2);
          quaternion_ensure_shortest_path(q1, q2);
          quaternion_slerp(q1, q2, model->unk84, result);
@@ -21503,7 +21566,7 @@ index 955b6a1..dd89af0 100644
          modelBuildGroupMatrices(arg0, model, node, &rot1);
      }
  }
-@@ -2156,6 +2540,83 @@ void modelUpdateNodeRelations(Model *model)
+@@ -2156,6 +2561,83 @@ void modelUpdateNodeRelations(Model *model)
  }
  
  
@@ -21587,7 +21650,7 @@ index 955b6a1..dd89af0 100644
  void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
  {
      ModelNode *node = model->obj->RootNode;
-@@ -2163,6 +2624,19 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
+@@ -2163,6 +2645,19 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
      while (node)
      {
          u32 type = node->Opcode & 0xff;
@@ -21607,7 +21670,7 @@ index 955b6a1..dd89af0 100644
  
          switch (type)
          {
-@@ -2206,6 +2680,33 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
+@@ -2206,6 +2701,33 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
              default:
                  break;
          }
@@ -21641,7 +21704,7 @@ index 955b6a1..dd89af0 100644
  
          if (node->Child)
          {
-@@ -2519,6 +3020,47 @@ void modelCopyAnimForMerge(Model *model, f32 timemerge)
+@@ -2519,6 +3041,47 @@ void modelCopyAnimForMerge(Model *model, f32 timemerge)
  void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame, f32 speed, f32 arg5)
  {
      s32 hadNoAnim = !model->anim;
@@ -21689,7 +21752,7 @@ index 955b6a1..dd89af0 100644
      s32 padding;
      s32 type;
  
-@@ -2777,7 +3319,7 @@ void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe) {
+@@ -2777,7 +3340,7 @@ void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe) {
  }
  
  
@@ -21698,7 +21761,7 @@ index 955b6a1..dd89af0 100644
      model->unka0 = arg1;
  }
  
-@@ -4246,9 +4788,152 @@ Model Type 4: Normal Fog/Lighting object
+@@ -4246,9 +4809,152 @@ Model Type 4: Normal Fog/Lighting object
  These are applied to each part of an object at runtime and can be overridden. loading the next part will use these values once more.
  GeometryMode is not in setup and is persistent accross parts.
  */
@@ -21851,7 +21914,7 @@ index 955b6a1..dd89af0 100644
  
      if (!renderdata->unk18)
      {
-@@ -4258,6 +4943,16 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
+@@ -4258,6 +4964,16 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
  
              if (rwdata->DisplayListCollisions.gdl)
              {
@@ -21868,7 +21931,7 @@ index 955b6a1..dd89af0 100644
                  gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
  
                  if (renderdata->cullmode)
-@@ -4420,7 +5115,7 @@ void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tco
+@@ -4420,7 +5136,7 @@ void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tco
  }
  
  
@@ -21877,7 +21940,7 @@ index 955b6a1..dd89af0 100644
  {
      return;
  }
-@@ -4686,13 +5381,13 @@ void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node)
+@@ -4686,13 +5402,13 @@ void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node)
  }
  
  
@@ -21893,7 +21956,7 @@ index 955b6a1..dd89af0 100644
  {
      return;
  }
-@@ -4890,6 +5585,26 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
+@@ -4890,6 +5606,26 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
      }
  
      shadow = &node->Data->Shadow;
@@ -21920,7 +21983,7 @@ index 955b6a1..dd89af0 100644
      vtxtemplate = D_800363F8;
      rwdata = (ModelRwData_HeaderRecord *) modelGetNodeRwData(model, shadow->HeaderNode);
      height = rwdata->pos.y - rwdata->ground;
-@@ -4948,6 +5663,11 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
+@@ -4948,6 +5684,11 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
  #endif
  
      vtx = (Vtx *) vtxallocator(4);
@@ -21932,7 +21995,7 @@ index 955b6a1..dd89af0 100644
  
      vtx[0] = vtxtemplate;
      vtx[1] = vtxtemplate;
-@@ -5004,7 +5724,7 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
+@@ -5004,7 +5745,7 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
  }
  
  
@@ -21941,7 +22004,7 @@ index 955b6a1..dd89af0 100644
  {
      return;
  }
-@@ -5079,6 +5799,180 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
+@@ -5079,6 +5820,180 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
  }
  
  
@@ -22122,7 +22185,7 @@ index 955b6a1..dd89af0 100644
  void subdraw(ModelRenderData *mrData, Model *mdl)
  {
      ModelNode *root = mdl->obj->RootNode;
-@@ -5099,7 +5993,128 @@ void subdraw(ModelRenderData *mrData, Model *mdl)
+@@ -5099,7 +6014,128 @@ void subdraw(ModelRenderData *mrData, Model *mdl)
          return_null();
      }
      #endif
@@ -22251,7 +22314,7 @@ index 955b6a1..dd89af0 100644
  
      while (root != NULL)
      {
-@@ -5122,6 +6137,121 @@ void subdraw(ModelRenderData *mrData, Model *mdl)
+@@ -5122,6 +6158,121 @@ void subdraw(ModelRenderData *mrData, Model *mdl)
              }
          }
      }
@@ -22373,7 +22436,7 @@ index 955b6a1..dd89af0 100644
  }
  
  
-@@ -5130,7 +6260,7 @@ void sub_GAME_7F074790(ModelRenderData* arg0, Model* arg1)
+@@ -5130,7 +6281,7 @@ void sub_GAME_7F074790(ModelRenderData* arg0, Model* arg1)
  {
      subcalcpos(arg1);
      subcalcmatrices(arg0, arg1);
@@ -22382,7 +22445,7 @@ index 955b6a1..dd89af0 100644
  }
  
  
-@@ -5601,7 +6731,8 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
+@@ -5601,7 +6752,8 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
  /**
   * Unreferenced
   */
@@ -22392,7 +22455,7 @@ index 955b6a1..dd89af0 100644
  {
      *nodeptr = NULL;
      return modelFindNextProjectileHitCandidate(arg0, arg1, arg2, nodeptr);
-@@ -5612,30 +6743,44 @@ u32 *sub_GAME_7F07549C(void *arg0, f32 *arg1, f32 *arg2, ModelNode **nodeptr)
+@@ -5612,30 +6764,44 @@ u32 *sub_GAME_7F07549C(void *arg0, f32 *arg1, f32 *arg2, ModelNode **nodeptr)
   * Address 7F0754BC.
   * Copy animation from ROM to RAM
  */
@@ -22444,7 +22507,7 @@ index 955b6a1..dd89af0 100644
          if (source & 1)
          {
              source--;
-@@ -5654,7 +6799,7 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
+@@ -5654,7 +6820,7 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
  
          // Set this to point to the end of the copied frame
          // This allows to copy another frame after this one
@@ -22453,7 +22516,7 @@ index 955b6a1..dd89af0 100644
      }
      return ret;
  }
-@@ -5674,13 +6819,1322 @@ void modelResetAnimationsScratchBuffer(void)
+@@ -5674,13 +6840,1322 @@ void modelResetAnimationsScratchBuffer(void)
  }
  
  
@@ -23779,7 +23842,7 @@ index 955b6a1..dd89af0 100644
      s32 i;
  
      while (node)
-@@ -5732,7 +8186,20 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
+@@ -5732,7 +8207,20 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
                      PROMOTE(rodata->PointUsage);
                      for (i = 0; i < rodata->numCollisionVertices; i++)
                      {
@@ -23801,7 +23864,7 @@ index 955b6a1..dd89af0 100644
                      }
                      rodata->BaseAddr = (void *)fileramaddr;
                      break;
-@@ -5878,7 +8345,44 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
+@@ -5878,7 +8366,44 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
  /**
   * Address 7F075A90.
  */
@@ -23847,7 +23910,7 @@ index 955b6a1..dd89af0 100644
      s32 diff = addr - vma;
      s32 i;
  
-@@ -5887,6 +8391,7 @@ void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr) {
+@@ -5887,6 +8412,7 @@ void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr) {
          PROMOTE(header->Switches[i]);
      }
      modelPromoteNodeOffsetsToPointers(header->RootNode, vma, addr);
@@ -23855,7 +23918,7 @@ index 955b6a1..dd89af0 100644
  }
  
  /**
-@@ -5904,9 +8409,33 @@ s32 modelCalculateRwDataIndexes(ModelNode *basenode)
+@@ -5904,9 +8430,33 @@ s32 modelCalculateRwDataIndexes(ModelNode *basenode)
      u16 len = 0;
      ModelNode *node = basenode;
      union ModelRoData *rodata;
@@ -23889,7 +23952,7 @@ index 955b6a1..dd89af0 100644
          u32 type = node->Opcode & 0xff;
  
          switch (type)
-@@ -6032,6 +8561,20 @@ void modelCalculateRwDataLen(struct ModelFileHeader *objheader)
+@@ -6032,6 +8582,20 @@ void modelCalculateRwDataLen(struct ModelFileHeader *objheader)
  void modelInitRwData(Model *model, ModelNode *startnode)
  {
      ModelNode *node = startnode;
@@ -23910,7 +23973,7 @@ index 955b6a1..dd89af0 100644
  
      while (node)
      {
-@@ -6223,7 +8766,15 @@ void modelAttachPart(Model *pmodel, ModelFileHeader *pmodeldef, ModelNode *pnode
+@@ -6223,7 +8787,15 @@ void modelAttachPart(Model *pmodel, ModelFileHeader *pmodeldef, ModelNode *pnode
      ModelNode *node;
  
      rwdata->ModelFileHeader = cmodeldef;
@@ -24620,10 +24683,10 @@ index ef7a5bd..3c3444a 100644
      }
  }
 diff --git a/src/game/objecthandler.h b/src/game/objecthandler.h
-index 04e5a5a..0754ea5 100644
+index 04e5a5a..b69ddb6 100644
 --- a/src/game/objecthandler.h
 +++ b/src/game/objecthandler.h
-@@ -68,6 +68,15 @@ struct AnimModelSlot {
+@@ -68,6 +68,17 @@ struct AnimModelSlot {
  
      // is this struct size 0xbc or 0xc0 ?
      //s32 unkbc;
@@ -24635,11 +24698,13 @@ index 04e5a5a..0754ea5 100644
 +     * where nothing can alias it. */
 +    u8 ge_anim_pad[256];
 +    u8 ge_inuse;
++    /* Native rwdata backing must not alias any field written through Model. */
++    void *ge_rwdata;
 +#endif
  };
  
  struct ModelSlot {
-@@ -80,6 +89,40 @@ struct ModelSlot {
+@@ -80,8 +91,87 @@ struct ModelSlot {
      s32 unk14;
      s32 unk18;
      s32 unk1c;
@@ -24676,11 +24741,58 @@ index 04e5a5a..0754ea5 100644
 +     * pointer at allocation time, which would make every slot look permanently taken.
 +     * Past the padding nothing overlaps, so this byte is safe. */
 +    u8 ge_inuse;
++    /* Native rwdata backing must not alias any field written through Model. */
++    void *ge_rwdata;
 +#endif
  };
  
++/* Legacy storage remains unchanged on N64. */
++#ifdef GE_PORT_NATIVE
++#define GE_NATIVE_SLOT_METADATA 1
++#define GE_SLOT_RWDATA(slot) ((slot).ge_rwdata)
++#define GE_SLOT_FREE(slot) ((slot).ge_inuse == 0)
++#define GE_SLOT_CLAIM(slot, rwdata) \
++    do { \
++        (slot).ge_inuse = 1; \
++        (slot).ge_rwdata = (rwdata); \
++    } while (0)
++#define GE_SLOT_RELEASE(slot) ((slot).ge_inuse = 0)
++
++static inline s32 geModelSlotPoolIndex(const void *model, const void *slots,
++        u32 slotsize, s32 count)
++{
++    s32 i;
++
++    for (i = 0; i < count; i++) {
++        if (model == (const void *)((const u8 *)slots + i * slotsize)) {
++            return i;
++        }
++    }
++
++    return -1;
++}
++
++_Static_assert(__builtin_offsetof(struct ModelSlot, ge_inuse) >= sizeof(Model),
++               "ModelSlot ownership overlaps Model");
++_Static_assert(__builtin_offsetof(struct AnimModelSlot, ge_inuse) >= sizeof(Model),
++               "AnimModelSlot ownership overlaps Model");
++_Static_assert(__builtin_offsetof(struct ModelSlot, ge_rwdata) >= sizeof(Model),
++               "ModelSlot backing overlaps Model");
++_Static_assert(__builtin_offsetof(struct AnimModelSlot, ge_rwdata) >= sizeof(Model),
++               "AnimModelSlot backing overlaps Model");
++#else
++#define GE_SLOT_RWDATA(slot) ((slot).unk10)
++#define GE_SLOT_FREE(slot) ((slot).unk08 == 0)
++#endif
++
++#define GE_SLOT_CAN_FIT(slot, required) \
++    ((required) <= 0 || (GE_SLOT_RWDATA(slot) != NULL \
++        && (slot).unk02 >= (required)))
++
  extern struct AnimModelSlot *g_AnimModelSlots;
-@@ -91,8 +134,10 @@ extern f32 g_ModelDistanceScale;
+ extern struct ModelSlot *g_ModelSlots;
+ 
+@@ -91,8 +181,10 @@ extern f32 g_ModelDistanceScale;
  extern u32 g_ModelAnimMergingEnabled;
  extern s32 D_80036410;
  extern struct bondstruct_unk_animation_related* D_80036414;

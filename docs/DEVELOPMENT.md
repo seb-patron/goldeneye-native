@@ -222,6 +222,18 @@ not establish crate pickup or full-game behavior. The whole-game forced declarat
 intentionally omitted because it requires generated assets; native/endian declaration flags
 and the Windows MinGW bitfield ABI flag are retained.
 
+The model-slot lifecycle regression replays the source patches onto the same pinned decomp source
+and compiles the production native slot metadata contract against synthetic storage:
+
+```bash
+python3 tools/test_model_slots.py --cc cc
+```
+
+It checks that ownership and rwdata backing remain outside the `Model` overlay, release preserves
+rwdata eligibility, a released slot can be selected again, and pool lookup accepts only exact
+elements. The dedicated Linux/Windows workflow requires all checks to execute without a ROM,
+generated assets, a renderer or a live game process.
+
 When the behavior requires the running game, use a bounded deterministic scenario. The common
 shape is:
 

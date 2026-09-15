@@ -1,0 +1,46 @@
+name: Model slot lifecycle regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: model-slot-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Test native slot ownership and rwdata lifecycle
+        run: python3 tools/test_model_slots.py --cc gcc
+
+  windows:
+    name: model-slot-windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Fetch supported standalone MinGW toolchain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/16.2.0posix-14.0.0-ucrt-r1/winlibs-x86_64-posix-seh-gcc-16.2.0-mingw-w64ucrt-14.0.0-r1.zip'
+          $archive = Join-Path $env:RUNNER_TEMP 'winlibs.zip'
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $expected = 'c1f52294597c0b73786b2a78eb5d176d89226d2f21875eab75e783a8b1cefcc4'
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+            throw 'WinLibs checksum mismatch'
+          }
+          Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
+      - name: Test native slot ownership and rwdata lifecycle
+        shell: pwsh
+        run: |
+          $gcc = Join-Path $env:RUNNER_TEMP 'mingw64/bin/gcc.exe'
+          python tools/test_model_slots.py --cc $gcc
+          exit $LASTEXITCODE
