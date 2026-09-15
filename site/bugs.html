@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Known bugs &amp; limitations &mdash; Goldeneye-Native</title>
+<meta name="description" content="Open defects and documented limitations in Goldeneye-Native, each linked to its canonical issue or source document.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="bugs.html" class="current" aria-current="page">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Known bugs &amp; limitations</h1>
+    <p>What is actually wrong, and what merely does not exist yet &mdash; kept apart on purpose,
+    because they are different things and get confused constantly.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <div class="notice">
+      <strong>This list is not exhaustive, and it is not generated.</strong>
+      It was assembled by hand on <time datetime="2026-09-09">2026-09-09</time> from two sources:
+      the repository's open issues, and limitations stated in the project's own documentation. New
+      problems get filed faster than a hand-written page gets updated, so treat
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">the issue list</a> as the
+      authoritative answer and this page as an orientation.
+      <br><br>
+      <strong>Selection rule:</strong> every open issue was reviewed; those that describe a defect
+      appear under <em>Open defects</em>, and the rest are feature work and appear on the
+      <a href="roadmap.html">roadmap</a> instead. Limitations came from the documents each row cites.
+    </div>
+  </div>
+</section>
+
+<section class="content" id="open-defects">
+  <div class="wrap">
+    <h2>Open defects</h2>
+    <p class="section-sub">Issues that describe something broken, as opposed to something missing.</p>
+    <div class="notice">
+      <strong>There are currently none.</strong> As of 2026-09-09, no open issue in this repository
+      is labelled <code>bug</code>, and reviewing all 26 open issues by hand found none that describe
+      a defect: they are feature work, CI hardening and documentation. Every bug that has been filed
+      so far has been fixed &mdash; see <a href="#fixed">Fixed, awaiting a release</a> below.
+      <br><br>
+      That is a statement about what has been <em>reported</em>, not a claim that the software has no
+      bugs. If you have hit one, <a href="agent-help.html">please report it</a>; it is the most useful
+      thing you can do for this project.
+    </div>
+    <p class="section-sub" style="margin-bottom:0">Check for yourself:
+    <a href="https://github.com/seb-patron/goldeneye-native/issues?q=is%3Aissue+is%3Aopen+label%3Abug">open issues labelled bug</a>
+    &middot;
+    <a href="https://github.com/seb-patron/goldeneye-native/issues?q=is%3Aissue+is%3Aopen">all open issues</a>.</p>
+  </div>
+</section>
+
+<section class="content" id="limitations">
+  <div class="wrap">
+    <h2>Documented limitations</h2>
+    <p class="section-sub">Real, known, and written down by the project itself. These are not filed as
+    bugs because they are understood constraints rather than defects &mdash; but they are the things
+    most likely to surprise you.</p>
+
+    <div class="entry">
+      <h3>A wider window does not widen your view <span class="tag tag-partial">LIMITATION</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> cosmetic</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/FAQ.md, docs/CONFIGURATION.md</span>
+      </p>
+      <p>Resolution and aspect are fully configurable, but the renderer fits the 4:3 view into
+      whatever shape the window is rather than widening the field of view. The
+      <a href="settings.html#display"><code>widescreen</code></a> key fills the real window at its own
+      aspect for single player; <strong>split-screen's per-viewport aspect is untouched either way</strong>,
+      because it has not been audited against an arbitrary host window. Use
+      <a href="settings.html#display"><code>fov</code></a> if you want to genuinely see more. True
+      aspect-aware widescreen is a roadmap item and is not done.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Above 60&nbsp;fps, the game runs faster too <span class="tag tag-partial">LIMITATION</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> significant</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/FRAME_TIMING.md, docs/VISION.md item 4</span>
+      </p>
+      <p>GoldenEye advances its clock in whole video fields, and on the default synthetic counter one
+      rendered frame <em>is</em> one field by construction &mdash; so rendering faster runs the world
+      faster. Measured: uncapped on the synthetic clock gives 812 fields/second where 60 is correct.
+      A cap above 60 is refused rather than allowed to mislead you, and
+      <code>framerate = off</code> switches to the real timebase instead. A fixed simulation tick with
+      interpolated rendering is the correct fix; until it lands, <strong>60 is the honest ceiling for
+      unchanged gameplay</strong>. The project's own documentation calls this "the most consequential
+      open problem in the project".</p>
+    </div>
+
+    <div class="entry">
+      <h3>Co-op campaign is bring-up, not a mode <span class="tag tag-partial">ALPHA</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> significant</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/COOP.md, docs/CONFIGURATION.md</span>
+      </p>
+      <p>Two to four players load into a solo mission with its own geometry, props and objectives, and
+      every viewport renders. What is not adapted is everything the campaign authors around a single
+      Bond: objectives, AI and cutscenes. Movement through the player API was verified over 6,001
+      frames on Train against a no-input control; what remains untested is two <em>humans</em> at two
+      pads, which needs a person and a second controller.</p>
+      <p><strong>The project's own documents disagree here, and that is worth knowing.</strong>
+      <code>docs/ROADMAP.md</code> &sect;M4 records co-op movement as verified and explains that the
+      earlier "players do not move" conclusion was a measurement bug in the accessor, not a game bug.
+      <code>docs/VISION.md</code> item 38 and <code>docs/FAQ.md</code> still carry the older
+      conclusion. ROADMAP is the later and better-evidenced of the two; the older statements are
+      stale and are recorded here rather than quietly resolved.</p>
+    </div>
+
+    <div class="entry">
+      <h3>LAN play is alpha, and the approach itself is disputed <span class="tag tag-disputed">DISPUTED</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> significant</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/NETPLAY.md vs docs/PLAYER_API.md</span>
+      </p>
+      <p>A lockstep session exists in the tree. Whether the approach can work at all is disputed
+      inside the project's own documentation: <code>NETPLAY.md</code> argues for lockstep and
+      <code>PLAYER_API.md</code> argues against it from measurements. <strong>Both documents are
+      deliberately kept</strong> rather than picking a winner prematurely, which is a decision, not an
+      oversight. Online play sits downstream of the frame-timing work above.</p>
+    </div>
+
+    <div class="entry">
+      <h3>HD texture support is unverified <span class="tag tag-partial">UNVERIFIED</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> minor</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/CONFIGURATION.md &sect; hd_textures</span>
+      </p>
+      <p>Off by default, unlike <code>filtering</code> and <code>widescreen</code>, and stated in the
+      project's own words as offered "written-and-reasoned-through rather than measured" &mdash; no
+      compiler was available to verify the path against. An empty pack directory is a no-op either
+      way, so turning it on without a pack costs one failed lookup per unique texture. "Costs little
+      if wrong" and "verified correct" are different claims and only the first holds.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Six settings parse, validate, and then do nothing <span class="tag tag-open">BY DESIGN</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> minor</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/CONFIGURATION.md &sect; "Reserved, parsed but inert"</span>
+      </p>
+      <p><code>fog_per_pixel</code>, <code>muzzle_lights</code>, <code>audio_3d</code>,
+      <code>ssao</code>, <code>shadows</code> and <code>per_pixel_lighting</code> exist so the option
+      surface is stable before the features land. Turning one on prints a not-implemented notice
+      rather than failing silently. The project is explicit that a config key is not a feature and
+      scores all of these OPEN. <a href="settings.html#reserved">Full list</a>.</p>
+    </div>
+
+    <div class="entry">
+      <h3><code>debug_menu</code> cannot work as a runtime setting <span class="tag tag-open">BY DESIGN</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> minor</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/CONFIGURATION.md &sect; debug_menu</span>
+      </p>
+      <p>The leftover debug menu is compiled into every binary, but its trigger is gated on a macro
+      that changes code generation in two places &mdash; one of which repurposes the Start button.
+      Setting the key prints the rebuild command instead of pretending. Its level select does not work
+      either: those entries are gutted no-ops.</p>
+    </div>
+
+    <div class="entry">
+      <h3><code>depth_bits</code> may be ignored by your driver <span class="tag tag-partial">PLATFORM</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> minor</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/CONFIGURATION.md &sect; depth_bits</span>
+      </p>
+      <p>On Apple silicon the context comes back 32-bit whatever is asked for, including 16, so the
+      setting cannot currently be used to reproduce N64 z-fighting. The obtained width is printed at
+      startup, so you can tell what you actually got.</p>
+    </div>
+
+    <div class="entry">
+      <h3>Four traps that look like broken features <span class="tag tag-partial">GOTCHA</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> minor, developer-facing</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/CONFIGURATION.md &sect; "Things that will cost you an afternoon"</span>
+      </p>
+      <p>Collected because each one presents as a bug: scripted input is silently ignored whenever
+      <code>GETV_EXIT_FRAME</code> is set; screenshots are always 24-bit BMP whatever extension you
+      give them; <code>GETV_AIM_SELFTEST</code> takes a frame number rather than a boolean and needs a
+      frame after the intro; and <code>run_tests.ps1</code> defaults to a MinGW path the project does
+      not install to, so it silently uses a different compiler.
+      <a href="settings.html#raw">Details</a>.</p>
+    </div>
+
+    <div class="entry">
+      <h3>No Windows download, and no release of any kind <span class="tag tag-open">NOT SHIPPED</span></h3>
+      <p class="entry-meta">
+        <span><strong>severity</strong> significant for newcomers</span>
+        <span><strong>reviewed</strong> 2026-09-09</span>
+        <span><strong>source</strong> docs/WINDOWS_INSTALL.md, docs/RELEASING.md</span>
+      </p>
+      <p>The no-code Windows setup app is an unsigned release candidate. There is no official download
+      and no release automation: the workflow validates the candidate inside the runner and
+      deliberately does not upload it. <strong>Do not download a setup executable from an Actions run
+      or a third-party repost.</strong> Eight readiness gates are listed in
+      <code>docs/RELEASING.md</code> and none of them is met yet. Use the
+      <a href="install.html#windows">developer path</a> in the meantime.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="fixed">
+  <div class="wrap">
+    <h2>Fixed, awaiting a release</h2>
+    <p class="section-sub">These are fixed on <code>main</code>. Because <strong>no release exists at
+    all</strong>, "fixed pending release" is technically the state of every fix this project has ever
+    made &mdash; the only way to get any of them is to build from current <code>main</code>.</p>
+    <div class="status-panel">
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Issue</th><th scope="col">Problem</th><th scope="col">Fixed by</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/issues/49">#49</a></td><td>Clicking the game did not restore mouse capture after Escape</td><td><a href="https://github.com/seb-patron/goldeneye-native/pull/50">#50</a></td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/issues/43">#43</a></td><td>Cuff selection used a four-byte stride for native pointer tables</td><td><a href="https://github.com/seb-patron/goldeneye-native/pull/44">#44</a></td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/issues/32">#32</a></td><td>Linux level startup crashed in collision-box projection with coincident extrema</td><td><a href="https://github.com/seb-patron/goldeneye-native/pull/33">#33</a></td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/issues/30">#30</a></td><td>Runway multi-ammo crate could award invalid ammo or items on little-endian hosts</td><td><a href="https://github.com/seb-patron/goldeneye-native/pull/31">#31</a></td></tr>
+        <tr><td class="k"><a href="https://github.com/seb-patron/goldeneye-native/issues/18">#18</a></td><td>The public-artifact guard missed generated asset arrays in patch files</td><td><a href="https://github.com/seb-patron/goldeneye-native/pull/60">#60</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+    </div>
+    <p class="section-sub" style="margin-top:20px;margin-bottom:0">Two more fixes have no issue of
+    their own: fast mouse camera movement with modern mouse look
+    (<a href="https://github.com/seb-patron/goldeneye-native/pull/64">#64</a>) and auto-crouch across
+    render-only frames
+    (<a href="https://github.com/seb-patron/goldeneye-native/commit/a972003">a972003</a>). All of it
+    is in the <a href="changelog.html#unreleased">changelog</a>.</p>
+  </div>
+</section>
+
+<section class="content">
+  <div class="wrap">
+    <h2>Found something not listed here?</h2>
+    <p class="section-sub" style="margin-bottom:0">
+      <a href="agent-help.html">Help from an agent</a> explains how to report it with the evidence
+      that gets it fixed, and what an agent may and may not collect on your behalf. If you would
+      rather do it by hand, the
+      <a href="https://github.com/seb-patron/goldeneye-native/issues/new/choose">guided issue forms</a>
+      ask for the same things. Either way: <strong>never attach a ROM, a save, extracted game data or
+      your built executable</strong> to an issue.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

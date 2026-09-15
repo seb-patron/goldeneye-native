@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help from an agent &mdash; Goldeneye-Native</title>
+<meta name="description" content="How to ask a coding agent for help with Goldeneye-Native: reporting a bug, investigating one, and preparing a fix, plus the one rule that never bends.">
+<link rel="icon" href="assets/images/mark.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="page">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img src="assets/images/mark.png" alt=""> Goldeneye-Native</div>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html" class="current" aria-current="page">FAQ</a>
+      <a href="bugs.html">Bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/seb-patron/goldeneye-native" class="nav-icon" aria-label="Project source on GitHub">&#9733;</a>
+    </nav>
+  </div>
+</header>
+
+<div class="docbar">
+  <div class="wrap">
+    <details class="version-picker">
+      <summary>Docs version: <strong>development</strong></summary>
+      <div class="version-menu">
+        <p>These pages describe the current <code>main</code> branch. The project has no Git tag and no
+        GitHub Release yet, so there is no older version to switch to.</p>
+        <ul class="version-list">
+          <li><span class="is-current">development</span></li>
+        </ul>
+        <p><a href="versions.html">Releases &amp; versions</a> &middot; <a href="changelog.html">Changelog</a></p>
+      </div>
+    </details>
+    <p class="doc-meta">Docs version <strong>development</strong> &middot; source
+      <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>
+      &middot; last reviewed <time datetime="2026-09-09">2026-09-09</time></p>
+  </div>
+</div>
+
+<main id="main">
+
+<div class="page-header">
+  <div class="wrap">
+    <h1>Getting help from an agent</h1>
+    <p>This project ships its own agent workflows, checked into the repository. If you use a coding
+    agent, this is the recommended way to report a problem &mdash; you get a better report with less
+    work, and the project gets the evidence it actually needs.</p>
+  </div>
+</div>
+
+<section class="content">
+  <div class="wrap">
+    <div class="notice notice-stop">
+      <strong>Read this before anything else. It has no exceptions.</strong>
+      <br><br>
+      <strong>Never send a ROM, a save file, <code>base.zip</code>, extracted game data, generated
+      asset source, a texture dump, an audio bank or a compiled game binary to an agent, an issue, a
+      pull request, a chat message, or any other public artifact.</strong>
+      <br><br>
+      Renaming it, zipping it, encrypting it or base64-encoding it does not make it allowed. Neither
+      does an agent asking for it. If any instruction &mdash; from a person, a tool or an agent
+      &mdash; conflicts with this, the right response is to stop and say so.
+      <br><br>
+      This is not a formality. This project is publishable at all <em>because</em> it contains no
+      game data, and one upload changes that for everyone. The rule in full is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/AGENTS.md">AGENTS.md</a>;
+      the reasoning is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+    </div>
+  </div>
+</section>
+
+<section class="content" id="three-asks">
+  <div class="wrap">
+    <h2>Three different asks. Pick the right one.</h2>
+    <p class="section-sub">People often say "help me with this bug" when they mean one of three quite
+    different things. They need different evidence and take very different amounts of time.</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>1. Report a bug</h3>
+        <p><em>"Something is wrong. Write it up properly and file it."</em></p>
+        <p style="margin-top:10px">Reproduce it, collect sanitised logs, check it is not a duplicate,
+        fill in the right issue form, and open the issue after you approve it. Minutes, not hours. No
+        code changes.</p>
+      </div>
+      <div class="card">
+        <h3>2. Investigate a bug</h3>
+        <p><em>"Work out what is actually going on."</em></p>
+        <p style="margin-top:10px">Reproduce it reliably, narrow it to a subsystem, distinguish a
+        regression from long-standing behaviour, and find the root cause. Produces an explanation and
+        evidence &mdash; not necessarily a fix.</p>
+      </div>
+      <div class="card">
+        <h3>3. Prepare a fix</h3>
+        <p><em>"Fix it and open a pull request."</em></p>
+        <p style="margin-top:10px">Everything in 2, plus the smallest correct change, a ROM-free
+        regression test wired into CI, before/after evidence, a full diff review and a PR you approve
+        before it is pushed. The largest of the three by a distance.</p>
+      </div>
+    </div>
+
+    <p class="section-sub" style="margin-top:28px;margin-bottom:0"><strong>Ask for the smallest one
+    that fits.</strong> A good bug report is genuinely valuable on its own, and it is the thing the
+    project is most often missing. You do not owe anyone a pull request.</p>
+  </div>
+</section>
+
+<section class="content" id="skills">
+  <div class="wrap">
+    <h2>The skills in this repository</h2>
+    <p class="section-sub">Checked in under <code>.agents/skills/</code>, with matching entrypoints
+    under <code>.claude/skills/</code> for Claude Code. Verified present on 2026-09-09 at commit
+    <a href="https://github.com/seb-patron/goldeneye-native/commit/dc6294bfdd0c6050d68e1899d8c6028806c99173"><code>dc6294b</code></a>.</p>
+
+    <div class="entry">
+      <h3><code>report-goldeneye-bug</code> &mdash; available</h3>
+      <p class="entry-meta">
+        <span><strong>use for</strong> asks of type 1</span>
+        <span><strong>path</strong> .agents/skills/report-goldeneye-bug/SKILL.md</span>
+      </p>
+      <p>Reproduces a gameplay, configuration, rendering, build, installation or crash problem;
+      collects sanitised logs and deterministic screenshots; searches for duplicates; and prepares or
+      files a GitHub issue <strong>after you approve it</strong>.</p>
+      <p>What it does, in order: reads the project's own contribution rules; searches existing issues
+      and known limitations so it does not file a duplicate; records the exact commit, branch and
+      worktree state and confirms the problem against current <code>main</code>; classifies it and
+      records platform, architecture, renderer, stage and settings; reproduces it with bounded steps
+      using a clean temporary save directory rather than copying your save; separates an
+      unchanged-<code>main</code> failure from something your local changes caused; captures stdout
+      and stderr to a file <em>outside</em> the repository; runs
+      <code>tools/collect_bug_report.py</code> to produce a sanitised bundle with a metadata-free
+      PNG; then shows you the complete title, body and attachment list before creating anything.</p>
+      <p><strong>It stops rather than filing</strong> if the evidence might contain a ROM or other
+      prohibited data, if the report is materially incomplete, or if you have not authorised
+      publication.</p>
+    </div>
+
+    <div class="entry">
+      <h3><code>prepare-goldeneye-pr</code> &mdash; available</h3>
+      <p class="entry-meta">
+        <span><strong>use for</strong> asks of type 3</span>
+        <span><strong>path</strong> .agents/skills/prepare-goldeneye-pr/SKILL.md</span>
+      </p>
+      <p>Takes one problem from reproduction through implementation, ROM-free regression coverage,
+      validation, renderer screenshots and fingerprint tables, a complete diff review, and optional
+      publication <strong>after you approve it</strong>.</p>
+      <p>The parts worth knowing before you ask for it: it deliberately fixes <em>one</em> thing and
+      will not fold in cleanup or a second fix; it reproduces the problem on the unchanged base
+      first and records the base SHA; it adds a regression test that fails before the fix and passes
+      after, and <strong>wires it into a CI job</strong> &mdash; adding a test file alone is
+      explicitly not counted as coverage; for a visual fix it captures before/after images with
+      identical stage, input, frame, resolution and quality settings, and writes them outside the
+      checkout; it runs the game-data guard before staging and again before pushing; and it will not
+      call something CI-tested when it only ran locally, or call a green workflow a pass when the
+      regression was skipped.</p>
+      <p><strong>It stops rather than publishing</strong> if the branch might contain a prohibited
+      artifact, the diff is not focused, provenance is uncertain, evidence is materially incomplete,
+      or you have not approved it.</p>
+    </div>
+
+    <div class="entry">
+      <h3><code>investigate-goldeneye-bug</code> <span class="tag tag-planned">PLANNED</span></h3>
+      <p class="entry-meta"><span><strong>status</strong> not in the repository</span></p>
+      <p>There is <strong>no</strong> dedicated investigation skill in the tree today &mdash; only the
+      two above. Type-2 asks currently sit between them: use
+      <code>report-goldeneye-bug</code> for the reproduction and evidence collection, and drive the
+      root-cause analysis yourself with the subsystem documentation.</p>
+      <p>This entry exists so that the gap is stated rather than implied. If you find a page
+      elsewhere describing an investigation skill for this project, check
+      <code>.agents/skills/</code> before believing it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="what-to-provide">
+  <div class="wrap">
+    <h2>What to give the agent</h2>
+    <p class="section-sub">The same things the issue forms ask for. Having them ready turns a
+    twenty-minute conversation into a two-minute one.</p>
+    <div class="table-scroll">
+    <table class="ref">
+      <thead><tr><th scope="col">Give it</th><th scope="col">How to get it</th></tr></thead>
+      <tbody>
+        <tr><td class="k">The exact commit</td><td><code>git rev-parse --short HEAD</code> in the repository.</td></tr>
+        <tr><td class="k">Platform and hardware</td><td>OS version, architecture, and GPU or device model when the problem is visual.</td></tr>
+        <tr><td class="k">Renderer</td><td>OpenGL or Metal. The game prints it at startup.</td></tr>
+        <tr><td class="k">Level or screen</td><td>The name, and the <code>GETV_STAGE</code> value if one is involved.</td></tr>
+        <tr><td class="k">Relevant settings</td><td>Profile, player count, your config file, command-line options and any <code>GETV_*</code> values. The startup log lists the resolved config path, save path, controllers and bindings.</td></tr>
+        <tr><td class="k">What happened, and what you expected</td><td>Both. "It looks wrong" is not actionable; "the explosion is magenta, and on the console it is orange" is.</td></tr>
+        <tr><td class="k">Exact reproduction steps</td><td>Starting from launching the binary, including every input needed to reach it.</td></tr>
+        <tr><td class="k">Frequency</td><td>Every time, sometimes, or once.</td></tr>
+        <tr><td class="k">Whether it happens on clean <code>main</code></td><td>The single most useful line in any report. It separates a regression from long-standing behaviour.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section class="content" id="safe">
+  <div class="wrap">
+    <h2>What an agent may safely collect &mdash; and what it may not</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Allowed</h3>
+        <p>Sanitised error text and build logs. Runtime stdout and stderr captured to a file outside
+        the repository. Coarse render fingerprints. Screenshots of the running game, reviewed by you
+        before they go anywhere. The sanitised bundle and metadata-free PNG that
+        <code>tools/collect_bug_report.py</code> produces. Crash reports from your OS.</p>
+      </div>
+      <div class="card">
+        <h3>Never</h3>
+        <p>A ROM. A save file such as <code>eeprom.bin</code>. <code>base.zip</code>. Extracted game
+        data, generated asset source, texture dumps, audio banks. Your built
+        <code>goldeneye</code> / <code>goldeneye.exe</code>. The source log or source BMP that the
+        collector rejected or replaced. Any file the collector refused.</p>
+      </div>
+    </div>
+    <p class="section-sub" style="margin-top:24px">Two smaller points that matter in practice:</p>
+    <ul>
+      <li>An agent may use your legally obtained local ROM <em>where it already sits</em> in order to
+      build or reproduce. It must not copy it, and it should avoid printing its path unnecessarily.</li>
+      <li>Screenshots may be attached to an issue or PR after review, but captures are not committed
+      to Git. Use <code>GETV_SHOTFRAME</code> with a path outside the repository.</li>
+    </ul>
+    <p class="section-sub" style="margin-bottom:0">Before publishing anything, the project's own guard
+    is run and every flagged file is inspected by hand:</p>
+    <pre><code>python3 tools/check_no_game_data.py --changed origin/main</code></pre>
+  </div>
+</section>
+
+<section class="content" id="responsibility">
+  <div class="wrap">
+    <h2>You are still the contributor</h2>
+    <p class="section-sub">Agent assistance is welcome and recommended. It does not transfer
+    responsibility.</p>
+    <ul>
+      <li><strong>You remain responsible</strong> for provenance, for the complete diff, for every
+      published artifact and for every claimed test result. An agent producing a green summary is not
+      the same as a passing test, and the project's rules say so explicitly.</li>
+      <li><strong>Every external action needs your approval</strong> immediately before it happens
+      &mdash; creating or editing an issue, pushing a branch, opening or updating a pull request.
+      Both skills are built to stop and show you the exact thing they are about to publish.</li>
+      <li><strong>Disclose agent assistance briefly</strong> in the issue or PR. Both issue forms have
+      a field for it. A short factual line is enough.</li>
+      <li><strong>Do not publish private reasoning or a full chat transcript.</strong> Nobody needs
+      it, and it tends to carry paths and details that should not be public.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="content" id="pr-policy">
+  <div class="wrap">
+    <h2>Pull requests: recommended, not required</h2>
+    <div class="notice">
+      <strong>Using <code>prepare-goldeneye-pr</code> is strongly recommended, and it is not a
+      requirement.</strong> What the project actually requires is the <em>evidence</em>: a
+      reproduction on the unchanged base, a ROM-free regression test wired into CI that fails before
+      and passes after, before/after images for a visual fix, honest validation results including
+      baseline failures, and a reviewed complete diff.
+      <br><br>
+      The skill is recommended because it produces all of that by construction, which is why
+      agent-prepared PRs here tend to be substantially easier to review. A hand-written pull request
+      that meets the same bar is equally welcome. What is not welcome, from a human or an agent, is a
+      PR that claims a test result it did not produce.
+    </div>
+    <p class="section-sub" style="margin-bottom:0">The full contributor rules are
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>
+    and
+    <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/AGENTIC_CONTRIBUTING.md">docs/AGENTIC_CONTRIBUTING.md</a>.
+    Note one extra rule if you are changing the skills themselves: every change under
+    <code>.agents/skills/</code> or <code>.claude/skills/</code> must include before/after behavioural
+    evals with committed, sanitised results in the same PR, and CI checks that the evaluated contents
+    match the submitted change.</p>
+  </div>
+</section>
+
+<section class="content" id="no-agent">
+  <div class="wrap">
+    <h2>No agent? That is completely fine</h2>
+    <p class="section-sub">The guided issue forms ask for the same information, and a report filed by
+    hand is worth exactly as much.</p>
+    <ul>
+      <li><a href="https://github.com/seb-patron/goldeneye-native/issues/new/choose">Open an issue</a>
+      &mdash; <em>Gameplay, configuration or rendering bug</em> if the game builds and runs but
+      behaves or looks wrong; <em>Build or installation problem</em> if it will not install, build,
+      launch or pass its self-test.</li>
+      <li>Check <a href="bugs.html">Known bugs</a> first, in case it is already recorded.</li>
+      <li>For a security problem, use the
+      <a href="https://github.com/seb-patron/goldeneye-native/security/policy">security policy</a>
+      privately instead of opening a public issue.</li>
+    </ul>
+    <p class="section-sub" style="margin-bottom:0">Both forms end with a game-data check, for the same
+    reason this page opens with one.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <nav class="foot-links" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="install.html">Install</a>
+      <a href="build.html">Build from source</a>
+      <a href="launcher.html">Launcher</a>
+      <a href="settings.html">Settings</a>
+      <a href="faq.html">FAQ</a>
+      <a href="agent-help.html">Help from an agent</a>
+      <a href="bugs.html">Known bugs</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="versions.html">Releases &amp; versions</a>
+      <a href="https://github.com/seb-patron/goldeneye-native">Source</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/wiki">Wiki</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/CONTRIBUTING.md">Contributing</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">Licensing &amp; provenance</a>
+      <a href="https://github.com/seb-patron/goldeneye-native/issues">Issues</a>
+    </nav>
+    <p class="foot-note">
+      GoldenEye 007 was made by Rare. This project is not affiliated with, endorsed by, or connected
+      to Nintendo, Rare, MGM, Danjaq or EON Productions.
+      This project's own code is MIT (<a href="https://github.com/seb-patron/goldeneye-native/blob/main/LICENSE">LICENSE</a>),
+      which does not reach the inherited renderer and mixer, the decompilation, or any game data &mdash;
+      the itemised account is in
+      <a href="https://github.com/seb-patron/goldeneye-native/blob/main/docs/LICENSING.md">docs/LICENSING.md</a>.
+      No game data is distributed here, and none ever will be.
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>

@@ -1,13 +1,58 @@
 # Project site source
 
 Plain static HTML/CSS, no build step, no framework, no external requests (system fonts only,
-every image local). This is the public-facing landing site &mdash; it does not replace
-`docs/` (developer documentation) or `wiki/` (synced to the GitHub wiki), and deliberately
-does not duplicate either: it links out to both for anything beyond a landing page's depth.
+every image local, no analytics and no trackers). This is the public-facing site &mdash; it does not
+replace `docs/` (developer documentation) or `wiki/` (synced to the GitHub wiki), and deliberately
+does not duplicate either: it links out to both for anything beyond what a newcomer needs on the
+page in front of them.
 
-Scoped on purpose, per the standing decision: a real download/setup hub and FAQ, not the
-full blog/devlog/SEO push. Extend it later if the project has legs and the visibility
-tradeoff still looks worth it.
+## Pages
+
+| File | Role |
+|---|---|
+| `index.html` | Overview / landing page |
+| `install.html` | Beginner installation and first run, Windows / macOS / Linux |
+| `build.html` | Deeper build-from-source reference and the feature status table |
+| `launcher.html` | Launcher guide, first launch through starting a game |
+| `settings.html` | Complete user-facing settings reference |
+| `faq.html` | FAQ |
+| `agent-help.html` | How to ask an agent for help with this project |
+| `bugs.html` | Known bugs and documented limitations |
+| `roadmap.html` | Roadmap: shipped / partial / disputed / blocked / planned |
+| `changelog.html` | Readable copy of the canonical `CHANGELOG.md` |
+| `versions.html` | Release and documentation version index |
+| `versions.json` | Static manifest driving the version selector |
+| `v/` | Archived documentation snapshots, one directory per released major version |
+
+Eight pages are in the primary navigation: Overview, Install, Launcher, Settings, FAQ, Bugs,
+Roadmap, Changelog. `build.html`, `agent-help.html` and `versions.html` are reached from the pages
+that need them and from the footer, which lists everything. That split keeps the nav to one row on a
+desktop while leaving nothing unreachable.
+
+Do not add a navigation link to a page before the page exists.
+
+## Versioning and archives
+
+The site root is always the **current** documentation. Each released **major** version gets a
+frozen copy under `v/<version>/`, so a direct link to an old version keeps working.
+
+Every page carries a version bar showing the documentation version, the source commit or tag it
+describes, and a last-reviewed date. The version selector in that bar is a plain `<details>`
+disclosure holding real links, written into the page from `versions.json` at authoring time:
+
+- no backend, no build step;
+- no GitHub API call at runtime and no `fetch` of any kind;
+- works with JavaScript disabled, and is keyboard operable natively.
+
+`versions.json` is the machine-readable source of truth. `tools/check_site.py` verifies that every
+entry in it resolves, that every directory under `v/` appears in it, that every page carries its
+version metadata, and that the selector on each page lists every version in the manifest.
+
+**There is no release yet.** The repository has zero Git tags and zero GitHub Releases, so the
+current version is `development` and `v/` holds no snapshots. Creating a `v/v1.0.0/` before
+`v1.0.0` exists would fabricate a release. See [`v/README.md`](v/README.md) for the snapshot
+procedure and [`../docs/RELEASE_CHECKLIST.md`](../docs/RELEASE_CHECKLIST.md) for the full release
+process.
 
 ## Preview locally
 
@@ -16,31 +61,89 @@ cd site
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080`.
+Then open `http://localhost:8080`. Before publishing anything, run both checks:
 
-## Publishing (not done yet &mdash; nothing here is live)
+```
+python3 tools/check_site.py
+python3 tools/check_no_game_data.py --tracked
+```
 
-This is not deployed and GitHub Pages is not enabled for this repository. When that decision
-gets made deliberately:
+`check_site.py` covers markup balance, internal links and anchors, required assets, external-request
+and tracker hygiene, version metadata on every page, changelog entries, and the version selector. It
+also takes `--release vX.Y.Z` for a release-readiness check.
 
-1. Push this repository (including `.github/workflows/pages.yml`) to `origin`.
-2. In the repository's GitHub Settings &rarr; Pages, set **Source: GitHub Actions**.
-3. The workflow builds from this `site/` folder on every push to `main` that touches it, or
-   can be run manually from the Actions tab (`workflow_dispatch`).
+Both run in CI on every pull request: `check_site.py` via
+`.github/workflows/site-validation.yml` when the change touches `site/**`, `CHANGELOG.md` or the
+script itself, and `check_no_game_data.py --tracked` via
+`.github/workflows/public-artifact-safety.yml` on every pull request regardless.
 
-No step above happens automatically from anything in this folder. The workflow file existing
-in the tree does nothing until it's pushed and Pages is switched on by hand.
+Site validation is deliberately a separate workflow from `pages.yml`, which deploys and does nothing
+else. A failing check must never be able to publish, and a deploy must never be able to skip
+validation by sharing a job with it.
+
+## Publishing
+
+Deployment is `.github/workflows/pages.yml`, which uploads this folder and deploys it. It runs on
+pushes to `main` that touch `site/**` or the workflow itself, and on manual dispatch. It is
+restricted to `main` at both the trigger and the job level, deploys through the protected
+`github-pages` environment, keeps `contents: read` at workflow scope with `pages: write` /
+`id-token: write` only on the deploy job, and pins every action to a full commit SHA. None of that
+may be weakened to make a run go green.
+
+The repository's Pages source must be set to **GitHub Actions** in Settings &rarr; Pages for the
+workflow to do anything. **As of 2026-09-09 that has not been done** &mdash; the Pages API returns
+404 for this repository and nothing here is live. Issue
+[#70](https://github.com/seb-patron/goldeneye-native/issues/70) tracks the enablement and holds the
+verification record, including the deployed URL and the exact workflow run.
 
 ## Content accuracy
 
-Every claim on these pages is meant to match the honesty standard the rest of this project
-holds itself to (`docs/VISION.md`'s DONE / PARTIAL / OPEN labels, `docs/STANCE.md`,
-`docs/LICENSING.md`). If a feature moves, update the status table in `index.html` at the same
-time &mdash; a stale claim here is worse than no claim, exactly per the project's own rules
-for its other documentation.
+Every claim on these pages is meant to match the honesty standard the rest of this project holds
+itself to (`docs/VISION.md`'s DONE / PARTIAL / OPEN labels, `docs/STANCE.md`,
+`docs/LICENSING.md`). If a feature moves, update the status table in `build.html` and the
+`roadmap.html` sections at the same time &mdash; a stale claim here is worse than no claim.
+
+Three pages carry a stated selection rule or drift note rather than pretending to be complete, and
+those notes are load-bearing: `bugs.html` says how its list was assembled and that it is not
+exhaustive, `roadmap.html` names which upstream document rows are stale, and `settings.html` explains
+why it is hand-maintained rather than generated. Do not delete those paragraphs to tidy the page up.
+
+Two rules that are easy to get wrong:
+
+- **Do not call this project "MIT".** The root `LICENSE` is MIT and it covers this project's own
+  work only. It does not reach the inherited Fast3D renderer or audio mixer, the two verbatim
+  sm64ex headers, the decompilation, or any game data. "Source available" is the accurate summary;
+  the itemised account is `docs/LICENSING.md`. The hero label and the FAQ licence answer are
+  written to that standard and should not be shortened back.
+- **Do not invent a version.** If the repository has no tag and no release, the documentation
+  version is `development`.
+
+## Image provenance
+
+Reviewed 2026-09-09 before publication.
+
+| File | What it is | Provenance |
+|---|---|---|
+| `assets/images/screenshot-01..06.jpg` | Gameplay captures of the maintainer's own locally built game | Byte-identical to `docs/images/`, published in the repository README since `f36e8b6` (2026-08-22); copied here in `fc3092c` (2026-08-27) |
+| `assets/images/launcher-controls.png`, `launcher-crt.png`, `launcher-mods.png` | Captures of this project's own launcher UI | Same origin as above; the launcher is this project's own code |
+| `assets/images/fxaa-comparison.png` | Renderer comparison capture | Same origin as above |
+| `assets/images/mark.png` | This project's own packaging icon | Byte-identical to `assets/icon/goldeneye-plus-transparent.png` (`eb1be05`, 2026-08-26), the icon already used for the built app on all three desktop platforms |
 
 No recreated GoldenEye/007 trademark art (wordmark, gun logo) belongs anywhere in this folder,
-matching the decision already made in `docs/LICENSING.md` &sect;2.1 for the app icon. The gold
-ring mark (`assets/icon/goldeneye-plus-transparent.png`, copied here as
-`assets/images/mark.png`) is this project's own packaging icon, already used for the built
-app on all three desktop platforms &mdash; not a trademark recreation.
+matching the decision already made in `docs/LICENSING.md` &sect;2.1 for the app icon. The gold ring
+mark is this project's own, not a trademark recreation.
+
+**No ROM, save file, `base.zip`, extracted asset, generated asset source, texture dump, audio bank
+or compiled game binary may be added to this folder, linked from it, or published through it.**
+That is not a site rule; it is the repository-wide rule in `AGENTS.md`.
+
+Two provenance questions are open and are for the maintainer, not for this folder to answer:
+
+1. `AGENTS.md` says *"never commit captures to Git"*, but the curated screenshots above are
+   committed and have been since the repository was first published. Whether that line is meant to
+   cover reviewed marketing captures, or only raw `GETV_SHOTFRAME` evidence dumps, is not written
+   down anywhere.
+2. `docs/LICENSING.md` has no section on screenshots of the running game. It covers source,
+   assets and binaries, but not captures.
+
+Tracked in issue [#68](https://github.com/seb-patron/goldeneye-native/issues/68).
